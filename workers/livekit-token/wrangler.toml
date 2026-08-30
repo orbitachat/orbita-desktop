@@ -1,0 +1,11 @@
+name = "orbita"
+main = "worker.ts"
+compatibility_date = "2024-04-03"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+LIVEKIT_URL = "wss://orbita-qd7zok2r.livekit.cloud"
+PUSHER_KEY = "e8f5cf13f6759775e44e"
+PUSHER_CLUSTER = "eu"
+CLOUDINARY_CLOUD_NAME = "djyohgr19"
+CLOUDINARY_API_KEY = "357947577811974"

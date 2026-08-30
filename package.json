@@ -1,0 +1,131 @@
+{
+  "name": "orbita",
+  "version": "1.0.1",
+  "description": "Orbita",
+  "author": "Saizzi",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "vite",
+    "build": "npx -p typescript tsc --noEmit && vite build",
+    "build:native": "cd native && npx napi build --release && copy index.node ..\\index.node",
+    "electron:dev": "npm run dev",
+    "electron:build": "npm run build && npm run build:native && npx electron-builder --win",
+    "backup": "backup.bat",
+    "save": "backup.bat"
+  },
+  "build": {
+    "appId": "com.saizzi.orbita",
+    "productName": "Orbita Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "index.node",
+        "to": "./index.node"
+      },
+      {
+        "from": ".env",
+        "to": "./.env"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/index.node",
+      "**/*.ttf"
+    ],
+    "win": {
+      "icon": "public/orbita1.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Orbita Desktop",
+      "artifactName": "setup_${version}.${ext}"
+    }
+  },
+  "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@gravity-ui/icons": "^2.21.0",
+    "@mui/material": "^9.0.0",
+    "@privacyresearch/libsignal-protocol-typescript": "^0.0.16",
+    "@stablelib/hex": "^1.0.1",
+    "@stablelib/hkdf": "^1.0.1",
+    "@stablelib/random": "^1.0.2",
+    "@stablelib/sha256": "^1.0.1",
+    "@stablelib/x25519": "^1.0.1",
+    "@supabase/supabase-js": "^2.110.7",
+    "@tailwindcss/vite": "^4.2.4",
+    "ably": "^2.21.0",
+    "cors": "^2.8.6",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "framer-motion": "^12.38.0",
+    "fs-extra": "^11.0.0",
+    "i18next": "^23.16.8",
+    "i18next-browser-languagedetector": "^7.2.2",
+    "jsmediatags": "^3.9.7",
+    "jsqr": "^1.4.0",
+    "livekit-client": "^2.20.1",
+    "livekit-server-sdk": "^2.17.0",
+    "lottie-react": "^2.4.1",
+    "lottie-web": "^5.13.0",
+    "lucide-react": "^1.14.0",
+    "music-metadata": "^10.0.0",
+    "nanoid": "^5.1.11",
+    "pusher": "^5.3.4",
+    "pusher-js": "^8.5.0",
+    "qrcode": "^1.5.4",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^14.1.3",
+    "react-virtuoso": "^4.18.11",
+    "sqlite3": "^6.0.1",
+    "uiohook-napi": "^1.5.5",
+    "ws": "^8.21.1",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.7.2",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/crypto-js": "^4.2.2",
+    "@types/jsmediatags": "^3.9.6",
+    "@types/node": "^22.19.20",
+    "@types/pusher-js": "^4.2.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^9.0.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "postcss": "^8.5.13",
+    "tailwindcss": "^4.2.4",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4",
+    "vite-plugin-electron": "^0.29.0",
+    "wait-on": "^8.0.0",
+    "wrangler": "^4.112.0"
+  }
+}

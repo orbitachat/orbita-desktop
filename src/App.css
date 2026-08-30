@@ -1,0 +1,723 @@
+/* src/App.css */
+@import "tailwindcss";
+
+@theme {
+  --color-main-bg: var(--bg-primary);
+  --color-side-bg: var(--bg-secondary);
+  --color-acc: var(--accent-color);
+  --color-txt: var(--text-main);
+  --color-txt-dark: var(--text-dim);
+  --color-border-line: var(--border-color);
+}
+
+:root {
+  --scrollbar-w: 8px;
+  --main-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
+  --text-scale: 1;
+  /* Луковые кольца: фиксированная геометрия (не от --text-scale) */
+  --orbit-ring-1: 4px;
+  --orbit-ring-2: 8px;
+  --orbit-ring-3: 12px;
+  --orbit-ring-4: 16px;
+  --orbit-ring-5: 24px;
+  --orbit-ring-6: 32px;
+  --bg-primary: #17212b;
+  --bg-secondary: #1e2932;
+  --accent-color: #8774e1;
+  --accent-light: #a995ec;
+  --accent-dark: #6c5bbf;
+  --accent-glow: rgba(135, 116, 225, 0.25);
+  --text-main: #e1e1e1;
+  --text-dim: #8a96a3;
+  --border-color: rgba(255, 255, 255, 0.06);
+  --online-color: #22c55e;
+  --offline-color: #ef4444;
+
+  /* Цвета для интерфейса ввода кода */
+  --color-background-primary: var(--bg-secondary);
+  --color-background-secondary: rgba(255, 255, 255, 0.05);
+  --color-border-primary: var(--accent-color);
+  --color-border-secondary: rgba(255, 255, 255, 0.12);
+  --color-border-tertiary: rgba(255, 255, 255, 0.06);
+  --color-border-danger: #ef4444;
+  --color-border-success: #22c55e;
+  --color-text-primary: var(--text-main);
+  --color-text-secondary: var(--text-dim);
+  --color-text-tertiary: #6b7280;
+  --color-text-danger: #ef4444;
+  --color-text-success: #22c55e;
+  --border-radius-md: 8px;
+  --border-radius-lg: 16px;
+}
+
+/* ===== @font-face для Apple Color Emoji ===== */
+@font-face {
+  font-family: 'Apple Color Emoji';
+  src: url('/fonts/AppleColorEmoji.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ====================================================== */
+
+html {
+  font-size: 16px;
+}
+
+*,
+*::before,
+*::after,
+body,
+input,
+button,
+textarea,
+select,
+label,
+code,
+pre,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--main-font), 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.emoji-font,
+.emoji-picker,
+[data-emoji="true"] {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
+}
+
+.font-picker-item {
+  font-family: var(--item-font), 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
+}
+
+/* Links: no underline by default, accent color underline on hover */
+.select-text a,
+a.message-inline-link {
+  color: var(--accent-color) !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.select-text a:hover,
+a.message-inline-link:hover {
+  color: var(--accent-color) !important;
+  text-decoration: underline !important;
+  text-decoration-color: var(--accent-color) !important;
+}
+
+/* Quote bar in markdown blockquotes */
+blockquote {
+  border-left: 3px solid var(--accent-color) !important;
+  padding-left: 8px;
+  margin: 4px 0;
+}
+
+/* =============================================== */
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-w);
+  height: var(--scrollbar-w);
+}
+
+.custom-chat-scrollbar::-webkit-scrollbar {
+  width: var(--scrollbar-w);
+  height: var(--scrollbar-w);
+}
+
+::-webkit-scrollbar-button:vertical:decrement {
+  display: block;
+  height: 5px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-button:vertical:increment {
+  display: block;
+  height: 5px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-button:horizontal:decrement {
+  display: block;
+  width: 5px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-button:horizontal:increment {
+  display: block;
+  width: 5px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  border-left: 2px solid transparent;
+  border-right: 2px solid transparent;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  border-left: 2px solid transparent;
+  border-right: 2px solid transparent;
+  min-height: 24px;
+  transition: background-color 0.2s ease;
+}
+
+.is-scrolling::-webkit-scrollbar-track,
+.emoji-picker::-webkit-scrollbar-track,
+.emoji-picker *::-webkit-scrollbar-track {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.is-scrolling::-webkit-scrollbar-thumb,
+.emoji-picker::-webkit-scrollbar-thumb,
+.emoji-picker *::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
+::-webkit-scrollbar-thumb:hover,
+.is-scrolling::-webkit-scrollbar-thumb:hover,
+.emoji-picker::-webkit-scrollbar-thumb:hover,
+.emoji-picker *::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme-light="true"] .is-scrolling::-webkit-scrollbar-track,
+[data-theme-light="true"] .emoji-picker::-webkit-scrollbar-track,
+[data-theme-light="true"] .emoji-picker *::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme-light="true"] .is-scrolling::-webkit-scrollbar-thumb,
+[data-theme-light="true"] .emoji-picker::-webkit-scrollbar-thumb,
+[data-theme-light="true"] .emoji-picker *::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.32);
+}
+
+[data-theme-light="true"] ::-webkit-scrollbar-thumb:hover,
+[data-theme-light="true"] .is-scrolling::-webkit-scrollbar-thumb:hover,
+[data-theme-light="true"] .emoji-picker::-webkit-scrollbar-thumb:hover,
+[data-theme-light="true"] .emoji-picker *::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.52);
+}
+
+/* =============================================== */
+/* 🎨 ЖЁСТКИЕ ЦВЕТА ДЛЯ НАСТРОЕК (Иконки и текст) */
+/* =============================================== */
+[data-theme-light="true"] {
+  --md-on-surface: #49454f;
+  /* Светлая тема: тёмно-серый */
+}
+
+[data-theme-light="false"] {
+  --md-on-surface: #ffffff;
+  /* Тёмная тема: чисто белый */
+}
+
+/* =============================================== */
+
+.font-mono {
+  font-family: var(--main-font) !important;
+  font-weight: 400 !important;
+}
+
+/* Глобальные стили выделения текста */
+::selection {
+  background-color: var(--accent-color, #7C3AED);
+  color: var(--text-main, #ffffff);
+}
+
+::-moz-selection {
+  background-color: var(--accent-color, #7C3AED);
+  color: var(--text-main, #ffffff);
+}
+
+/* Orbit ring animation */
+@keyframes orbit {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.orbit-ring {
+  animation: orbit 10s linear infinite;
+}
+
+.planet-glow {
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+.planet-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* Анимация для точек печати */
+@keyframes typingDot {
+
+  0%,
+  60%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+/* Стили для индикатора печати */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-color, #7C3AED);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.typing-indicator .dots {
+  display: flex;
+  gap: 2px;
+}
+
+.typing-indicator .dot {
+  display: inline-block;
+  animation: typingDot 1.4s infinite;
+}
+
+.typing-indicator .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* ===== Анимации для FriendCodeInput и Checkmark ===== */
+@keyframes drawCheck {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-5px);
+  }
+
+  50% {
+    transform: translateX(5px);
+  }
+
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Стили для слотов ввода кода */
+.slot .char {
+  animation: pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.slot.error {
+  animation: shake 0.35s ease;
+}
+
+.slot .cursor {
+  width: 1.5px;
+  height: 26px;
+  background: var(--color-text-primary, #ffffff);
+  border-radius: 1px;
+  animation: blink 1s step-end infinite;
+}
+
+/* ===== MD3 Circular Spinner ===== */
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1 200;
+    stroke-dashoffset: 0;
+  }
+
+  50% {
+    stroke-dasharray: 100 200;
+    stroke-dashoffset: -30;
+  }
+
+  100% {
+    stroke-dasharray: 100 200;
+    stroke-dashoffset: -130;
+  }
+}
+
+.spinner {
+  animation: rotate 1.4s linear infinite;
+  transform-origin: center;
+}
+
+.spinner-track {
+  fill: none;
+  stroke: var(--color-border-tertiary);
+  stroke-width: 3;
+}
+
+.spinner-arc {
+  fill: none;
+  stroke: var(--color-text-primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 80 200;
+  stroke-dashoffset: 0;
+  animation: dash 1.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* ===== Placeholder для поля ввода (textarea) ===== */
+.input-textarea::placeholder {
+  color: var(--text-dim);
+}
+
+.transparent-scrollbar,
+.no-scrollbar,
+.scrollbar-none {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.transparent-scrollbar::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Links in chat / app: no underline by default, underline on hover */
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline !important;
+}
+
+.custom-chat-scrollbar {
+  overflow-y: overlay !important;
+  overflow-y: auto;
+  scrollbar-gutter: auto !important;
+  scroll-behavior: auto;
+  transform: translateZ(0);
+  will-change: scroll-position;
+}
+
+.chat-list-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.chat-list-scrollbar::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.overlay-scroll-track {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: 3px;
+  width: 4px;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.08);
+  pointer-events: auto;
+  z-index: 10;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.overlay-scroll-thumb {
+  position: absolute;
+  right: 3px;
+  width: 4px;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.45);
+  pointer-events: auto;
+  z-index: 11;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s ease;
+}
+
+[data-theme-light="true"] .overlay-scroll-track {
+  background-color: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme-light="true"] .overlay-scroll-thumb {
+  background-color: rgba(0, 0, 0, 0.32);
+}
+
+.m3-switch-root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 52px;
+  height: 32px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.m3-switch-root * {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.m3-switch-root input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.m3-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  transition: background 200ms cubic-bezier(0.2, 0, 0, 1), border-color 200ms cubic-bezier(0.2, 0, 0, 1);
+  box-sizing: border-box;
+  will-change: background, border-color;
+}
+
+.m3-switch-root input:checked~.m3-track {
+  background: var(--accent-color, #9b7dd4);
+  border-color: var(--accent-color, #9b7dd4);
+}
+
+.m3-thumb-wrap {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  transform: translateX(4px);
+  transition: transform 200ms cubic-bezier(0.2, 0, 0, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  will-change: transform;
+}
+
+.m3-switch-root input:checked~.m3-track~.m3-thumb-wrap {
+  transform: translateX(24px);
+}
+
+.m3-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--text-dim, #cac4d0);
+  transform: scale(0.6666);
+  transition: transform 200ms cubic-bezier(0.2, 0, 0, 1), background 200ms cubic-bezier(0.2, 0, 0, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  will-change: transform, background;
+}
+
+.m3-switch-root input:checked~.m3-track~.m3-thumb-wrap .m3-thumb {
+  transform: scale(1);
+  background: var(--bg-primary, #1c1b1f);
+}
+
+.m3-switch-root:active .m3-thumb {
+  transform: scale(1.1666);
+}
+
+.m3-thumb svg {
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 150ms ease, transform 150ms ease;
+  width: 14px;
+  height: 14px;
+  stroke: var(--accent-color, #9b7dd4);
+  will-change: opacity, transform;
+}
+
+.m3-switch-root input:checked~.m3-track~.m3-thumb-wrap .m3-thumb svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.m3-switch-root input:focus-visible~.m3-track {
+  outline: 2px solid var(--accent-color, #9b7dd4);
+  outline-offset: 2px;
+}
+
+.m3-switch-root input:disabled~* {
+  opacity: 0.38;
+}
+
+.m3-switch-sm {
+  width: 36px;
+  height: 20px;
+}
+
+.m3-switch-sm .m3-track {
+  border-radius: 10px;
+}
+
+.m3-switch-sm .m3-thumb-wrap {
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  transform: translateX(2px);
+}
+
+.m3-switch-sm input:checked~.m3-track~.m3-thumb-wrap {
+  transform: translateX(16px);
+}
+
+.m3-switch-sm .m3-thumb {
+  width: 16px;
+  height: 16px;
+  transform: scale(0.625);
+}
+
+.m3-switch-sm input:checked~.m3-track~.m3-thumb-wrap .m3-thumb {
+  transform: scale(1);
+}
+
+.m3-switch-sm:active .m3-thumb {
+  transform: scale(1.1);
+}
+
+.m3-switch-sm .m3-thumb svg {
+  width: 9px;
+  height: 9px;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-color, #8774e1);
+  display: inline-block;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  box-shadow: none;
+  filter: none;
+  animation: typingDotBounce 1.3s infinite ease-in-out;
+}
+
+@keyframes typingDotBounce {
+
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+img,
+video {
+  -webkit-user-drag: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
