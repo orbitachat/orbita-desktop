@@ -98,15 +98,17 @@ class LiveKitService extends EventEmitter {
 
     try {
       for (let attempt = 1; attempt <= MAX_CONNECT_RETRIES; attempt++) {
+        this.emit('connectAttempt', attempt, MAX_CONNECT_RETRIES);
         try {
           await this.attemptConnect(roomName, token, url, verificationSecret);
           console.log(`${LOG_PREFIX} Connected successfully (attempt ${attempt})`);
+          this.emit('connectSuccess', attempt, MAX_CONNECT_RETRIES);
           return;
         } catch (err) {
           lastError = err;
           console.error(`${LOG_PREFIX} Connection attempt ${attempt}/${MAX_CONNECT_RETRIES} failed:`, err);
           if (attempt < MAX_CONNECT_RETRIES) {
-            const delay = CONNECT_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+            const delay = Math.min(CONNECT_RETRY_BASE_DELAY_MS * attempt, 3000);
             console.log(`${LOG_PREFIX} Retrying in ${delay}ms...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
           }
@@ -117,6 +119,7 @@ class LiveKitService extends EventEmitter {
       this.isConnecting = false;
     }
   }
+
 
   private async attemptConnect(
     roomName: string,

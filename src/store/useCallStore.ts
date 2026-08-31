@@ -88,6 +88,8 @@ let connectingTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 let listenersAttached = false;
 let activationInProgress = false;
 
+let prefetchedToken: { roomName: string; token: string; url: string; identity: string; fetchedAt: number } | null = null;
+let lastSeenOfferRoom: string | null = null;
 
 async function fetchLivekitToken(room: string, identity: string): Promise<{ token: string; url: string }> {
   const res = await gatewayManager.fetch('/token', {
@@ -142,6 +144,7 @@ function clearAllTimers() {
   if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
   if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
   if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
+  prefetchedToken = null;
 }
 
 async function createCallMessage(chatId: string, direction: CallDirection, duration: number, endedStatus: CallEndedStatus) {
@@ -293,6 +296,21 @@ export const useCallStore = create<CallStore>((set, get) => {
     });
 
     liveKitService.on('micChanged', (enabled: boolean) => { set({ isMicEnabled: enabled }); });
+
+    liveKitService.on('connectAttempt', (attempt: number, total: number) => {
+      const state = get();
+      if (!state.activeCall) return;
+      set({ statusMessage: `\u041E\u0442\u043F\u0440\u0430\u0432\u043A\u0430 \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432: ${attempt} \u0438\u0437 ${total}...` });
+    });
+
+    liveKitService.on('connectSuccess', (attempt: number) => {
+      const state = get();
+      if (!state.activeCall) return;
+      if (attempt > 1) {
+        console.log(`${LOG_PREFIX} Connected on attempt ${attempt}`);
+      }
+      set({ statusMessage: '\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435...' });
+    });
   };
 
   ensureListeners();
@@ -317,10 +335,30 @@ export const useCallStore = create<CallStore>((set, get) => {
 
     setIncomingCall: (call) => {
       if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
+      if (call) {
+        if (lastSeenOfferRoom === call.roomName && (get().incomingCall || get().activeCall)) {
+          return;
+        }
+        lastSeenOfferRoom = call.roomName;
+      }
       set({ incomingCall: call, callState: call ? 'ringing' : 'idle', isMinimized: false });
       if (call) {
         try { useAudioStore.getState().pause(); } catch {}
         callSoundService.play('incoming');
+        const myNick = get().myNickname || useAuthStore.getState().nickname;
+        if (myNick) {
+          fetchLivekitToken(call.roomName, myNick)
+            .then((res) => {
+              prefetchedToken = {
+                roomName: call.roomName,
+                token: res.token,
+                url: res.url,
+                identity: myNick,
+                fetchedAt: Date.now(),
+              };
+            })
+            .catch(() => {});
+        }
         incomingAutoRejectTimer = setTimeout(() => {
           const s = get();
           if (s.incomingCall && s.incomingCall.roomName === call.roomName) get().rejectCall(true);
@@ -412,7 +450,22 @@ export const useCallStore = create<CallStore>((set, get) => {
 
       try {
         const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
-        const { token, url } = await fetchLivekitToken(roomName, myNickname);
+        let token: string;
+        let url: string;
+        if (
+          prefetchedToken &&
+          prefetchedToken.roomName === roomName &&
+          prefetchedToken.identity === myNickname &&
+          Date.now() - prefetchedToken.fetchedAt < 45000
+        ) {
+          token = prefetchedToken.token;
+          url = prefetchedToken.url;
+          prefetchedToken = null;
+        } else {
+          const res = await fetchLivekitToken(roomName, myNickname);
+          token = res.token;
+          url = res.url;
+        }
         console.log(`${LOG_PREFIX} Answering, connecting to LiveKit:`, url);
         await liveKitService.connect(roomName, token, url, sessionKey);
         console.log(`${LOG_PREFIX} LiveKit connected (incoming)`);

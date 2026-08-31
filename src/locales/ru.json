@@ -779,6 +779,23 @@
       "start_call": "Позвонить",
       "direct_call": "Голосовой звонок",
       "no_calls": "История звонков пуста"
+    },
+    "call": {
+      "reject": "Отклонить",
+      "answer": "Принять",
+      "close": "Свернуть",
+      "calling_you": "Вам звонят...",
+      "video_call_hint": "Видеозвонки временно недоступны",
+      "enable_video": "Видео",
+      "end_call": "Завершить",
+      "connecting": "Подключение...",
+      "connecting_attempt": "Попытка подключения {{attempt}} из {{total}}",
+      "request_attempt": "Отправка запросов: {{attempt}} из {{total}}",
+      "outgoing": "Звонок...",
+      "encrypting": "Шифрование...",
+      "busy": "Собеседник занят",
+      "rejected": "Отклонённый звонок",
+      "failed": "Не удалось соединиться"
     }
   }
 }

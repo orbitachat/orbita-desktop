@@ -746,6 +746,23 @@
       "start_call": "Call",
       "direct_call": "Voice call",
       "no_calls": "Call history is empty"
+    },
+    "call": {
+      "reject": "Decline",
+      "answer": "Accept",
+      "close": "Minimize",
+      "calling_you": "Incoming call...",
+      "video_call_hint": "Video calls are temporarily unavailable",
+      "enable_video": "Video",
+      "end_call": "End",
+      "connecting": "Connecting...",
+      "connecting_attempt": "Connecting attempt {{attempt}} of {{total}}",
+      "request_attempt": "Sending requests: {{attempt}} of {{total}}",
+      "outgoing": "Ringing...",
+      "encrypting": "Encrypting...",
+      "busy": "User is busy",
+      "rejected": "Call declined",
+      "failed": "Connection failed"
     }
   }
 }

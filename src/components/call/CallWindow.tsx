@@ -229,6 +229,20 @@ export const CallWindow = () => {
       )}
 
       <div className="flex flex-col items-center justify-center flex-1 relative z-10 p-6">
+        {!isConnected && statusMessage && (
+          <div
+            className="mb-3 px-3.5 py-1 rounded-full text-xs font-medium tracking-wide select-none animate-pulse flex items-center gap-1.5"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 14%, rgba(255, 255, 255, 0.08))',
+              color: 'var(--accent-light, #c4b5fd)',
+              border: '1px solid color-mix(in srgb, var(--accent-color, #7C3AED) 24%, rgba(255, 255, 255, 0.12))',
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-color,#7C3AED)] animate-ping" />
+            <span>{statusMessage}</span>
+          </div>
+        )}
+
         <div className="w-[120px] h-[120px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-lg pointer-events-none">
           <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '48px' }} />
         </div>
@@ -240,10 +254,6 @@ export const CallWindow = () => {
         {isPreparing ? (
           <p className="mt-1 text-sm text-center max-w-sm px-4" style={{ color: 'var(--text-dim)' }}>
             {t('call.video_call_hint')}
-          </p>
-        ) : statusMessage ? (
-          <p className="mt-1 text-sm text-center" style={{ color: 'var(--text-dim)' }}>
-            {statusMessage}
           </p>
         ) : isConnected ? (
           <p className="mt-1 text-sm tabular-nums text-center" style={{ color: 'var(--accent-light)', fontWeight: 600 }}>
