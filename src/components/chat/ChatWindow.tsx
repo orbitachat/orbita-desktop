@@ -5212,8 +5212,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                       }}
                     >
                       {otherUserTyping && activeChatId !== 'notes' ? (
-                        <span className="text-[11px] font-semibold animate-pulse" style={{ color: 'var(--accent-color)' }}>
-                          {t('chatWindow.typing') || 'печатает...'}
+                        <span className="text-[11px] font-semibold" style={{ color: 'var(--accent-color)' }}>
+                          {t('chatWindow.typing')}
                         </span>
                       ) : (
                         isOnline ? t('chatWindow.online') : (activeChat?.lastSeen ? formatLastSeen(activeChat.lastSeen, t) : t('chatWindow.offline'))
