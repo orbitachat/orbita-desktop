@@ -108,10 +108,8 @@ async function fetchLivekitToken(room: string, identity: string): Promise<{ toke
 
 function sendCallSignal(chatId: string, payload: Record<string, unknown>) {
   try {
-    const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
-    const channelName = chat?.type === 'group' ? `presence-group-${chatId}` : `private-chat-${chatId}`;
     const pusher = getPusher();
-    const channel = pusher.subscribe(channelName);
+    const channel = pusher.subscribe(`private-chat-${chatId}`);
     const send = () => {
       try {
         channel.trigger('client-message', payload);
@@ -394,10 +392,9 @@ export const useCallStore = create<CallStore>((set, get) => {
         useAudioStore.getState().pause();
       } catch {}
 
+      const roomName = `call-${chatId}-${Date.now()}`;
       const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
-      const isGroup = chat?.type === 'group';
-      const roomName = isGroup ? `group-call-${chatId}` : `call-${chatId}-${Date.now()}`;
-      const verificationSecret = (chat?.type === 'private' || isGroup) ? chat?.sharedSecret : undefined;
+      const verificationSecret = chat?.type === 'private' ? chat.sharedSecret : undefined;
       const verificationSalt = crypto.randomUUID().replace(/-/g, '');
 
       set({
@@ -439,59 +436,45 @@ export const useCallStore = create<CallStore>((set, get) => {
         useAudioStore.getState().pause();
       } catch {}
 
-      const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
-      const isGroup = chat?.type === 'group';
+      set({ callState: 'ringing', statusMessage: 'Звонок...' });
 
-      if (isGroup) {
-        set({ callState: 'connecting', statusMessage: 'Подключение...' });
-        sendCallSignal(chatId, {
-          type: 'group-call-active',
-          chatId,
-          roomName,
-          callType: 'audio',
-          from: myNickname,
-          sender: myNickname,
-        });
-      } else {
-        set({ callState: 'ringing', statusMessage: 'Звонок...' });
-        callSoundService.play('outgoing');
-        sendCallSignal(chatId, {
-          type: 'call-offer',
-          sender: myNickname,
-          callType: 'audio',
-          roomName,
-          verificationSalt,
-          text: '',
-        });
+      callSoundService.play('outgoing');
 
-        noAnswerTimer = setTimeout(() => {
-          if (get().callState === 'ringing') {
-            const act = get().activeCall;
-            if (act) set({ activeCall: { ...act, endedStatus: 'missed' } });
-            set({ callState: 'ended', statusMessage: 'Нет ответа' });
-            callSoundService.stop();
-            callSoundService.play('end');
-            sendCallSignal(chatId, { type: 'call-cancel', sender: myNickname, text: '' });
-            get().endCall();
-          }
-        }, NO_ANSWER_TIMEOUT_MS);
-      }
+      sendCallSignal(chatId, {
+        type: 'call-offer',
+        sender: myNickname,
+        callType: 'audio',
+        roomName,
+        verificationSalt,
+        text: '',
+      });
+
+      noAnswerTimer = setTimeout(() => {
+        if (get().callState === 'ringing') {
+          console.log(`${LOG_PREFIX} No answer timeout reached`);
+          const act = get().activeCall;
+          if (act) set({ activeCall: { ...act, endedStatus: 'missed' } });
+          set({ callState: 'ended', statusMessage: 'Нет ответа' });
+          callSoundService.stop();
+          callSoundService.play('end');
+          sendCallSignal(chatId, { type: 'call-cancel', sender: myNickname, text: '' });
+          get().endCall();
+        }
+      }, NO_ANSWER_TIMEOUT_MS);
 
       try {
         const sessionKey = verificationSecret
           ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret)
           : undefined;
         const { token, url } = await fetchLivekitToken(roomName, myNickname);
+        console.log(`${LOG_PREFIX} Connecting to LiveKit (outgoing):`, url);
         await liveKitService.connect(roomName, token, url, sessionKey);
+        console.log(`${LOG_PREFIX} LiveKit connected (outgoing)`);
         liveKitService.enableMicrophone().catch(() => {});
 
-        if (isGroup) {
+        const remote = liveKitService.remoteParticipants;
+        if (remote.length > 0) {
           processPeerEncryptionAndActivation();
-        } else {
-          const remote = liveKitService.remoteParticipants;
-          if (remote.length > 0) {
-            processPeerEncryptionAndActivation();
-          }
         }
       } catch (err) {
         console.error(`${LOG_PREFIX} Failed to connect to LiveKit (outgoing):`, err);
@@ -739,8 +722,20 @@ export const useCallStore = create<CallStore>((set, get) => {
     handleCancel: () => {
       console.log(`${LOG_PREFIX} Remote cancelled the call`);
       const state = get();
+      if (!state.activeCall && !state.incomingCall) return;
+      if (state.incomingCall && !state.activeCall) {
+        if (incomingAutoRejectTimer) {
+          clearTimeout(incomingAutoRejectTimer);
+          incomingAutoRejectTimer = null;
+        }
+        callSoundService.stop();
+        callSoundService.play('end');
+        set({ incomingCall: null, callState: 'idle', statusMessage: '' });
+        try { (window as any).orbita?.closeCallWindow?.(); } catch {}
+        return;
+      }
       if (state.activeCall) {
-        set({ activeCall: { ...state.activeCall, endedStatus: 'missed' } });
+        set({ activeCall: { ...state.activeCall, endedStatus: 'missed' }, callState: 'ended' });
       }
       callSoundService.stop();
       callSoundService.play('end');
@@ -750,8 +745,14 @@ export const useCallStore = create<CallStore>((set, get) => {
     handleHangup: () => {
       console.log(`${LOG_PREFIX} Remote hung up`);
       const state = get();
-      if (state.activeCall && state.callState === 'connected') {
-        set({ activeCall: { ...state.activeCall, endedStatus: 'completed' } });
+      if (!state.activeCall && !state.incomingCall) return;
+      if (state.activeCall) {
+        const newStatus = state.callState === 'connected' ? 'completed' : 'failed';
+        set({
+          activeCall: { ...state.activeCall, endedStatus: newStatus },
+          callState: 'ended',
+          statusMessage: '',
+        });
       }
       callSoundService.stop();
       callSoundService.play('end');

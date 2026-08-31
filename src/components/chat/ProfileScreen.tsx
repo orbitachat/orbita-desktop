@@ -2,8 +2,7 @@ import { useState, useRef, useCallback, memo, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { channelService } from '../../services/channelService';
-import { groupService } from '../../services/groupService';
-import { Search, MoreVertical, Copy, Check, Key, LogOut } from 'lucide-react';
+import { Search, MoreVertical, Copy, Check, Key } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
 import {
@@ -1036,24 +1035,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const isChannel = chat?.type === 'channel';
   const isChannelOwner = isChannel && (chat.isOwner || chat.creatorNickname === myNickname);
 
-  const isGroup = chat?.type === 'group';
-  const [copiedGroupCode, setCopiedGroupCode] = useState(false);
-  const deleteChat = useChatStore((s) => s.deleteChat);
-
-  const handleCopyGroupCode = useCallback(() => {
-    if (!chat?.inviteCode) return;
-    navigator.clipboard.writeText(chat.inviteCode);
-    setCopiedGroupCode(true);
-    setTimeout(() => setCopiedGroupCode(false), 2000);
-  }, [chat?.inviteCode]);
-
-  const handleLeaveGroup = useCallback(() => {
-    if (!chat) return;
-    groupService.leaveGroup(chat.id, myNickname);
-    deleteChat(chat.id);
-    onClose();
-  }, [chat, myNickname, deleteChat, onClose]);
-
   const handleCopyChannelKey = useCallback(() => {
     if (!chat) return;
     navigator.clipboard.writeText(chat.id);
@@ -1982,143 +1963,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {isGroup && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', padding: '0 20px', marginBottom: '16px', boxSizing: 'border-box' }}>
-          {chat.description && (
-            <div style={{
-              background: 'var(--surface-container, rgba(255,255,255,0.04))',
-              borderRadius: '14px',
-              padding: '12px 14px',
-              marginBottom: '10px',
-              border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                Описание
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4', wordBreak: 'break-word', userSelect: 'text' }}>
-                {chat.description}
-              </div>
-            </div>
-          )}
-
-          {chat.inviteCode && (
-            <div style={{
-              background: 'var(--surface-container, rgba(255,255,255,0.04))',
-              borderRadius: '14px',
-              padding: '12px 14px',
-              marginBottom: '10px',
-              border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                  {t('groupSettings.group_code')}
-                </div>
-                <div style={{
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                  color: 'var(--accent-color)',
-                  wordBreak: 'break-all',
-                  userSelect: 'all',
-                  background: 'rgba(0,0,0,0.2)',
-                  padding: '6px 8px',
-                  borderRadius: '8px',
-                }}>
-                  {chat.inviteCode}
-                </div>
-              </div>
-              <button
-                onClick={handleCopyGroupCode}
-                aria-label={t('groupSettings.copy_code')}
-                style={{
-                  background: copiedGroupCode ? 'var(--accent-color)' : 'var(--surface-container-strong, rgba(255,255,255,0.1))',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '8px',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {copiedGroupCode ? <Check size={18} /> : <Copy size={18} />}
-              </button>
-            </div>
-          )}
-
-          <div style={{
-            background: 'var(--surface-container, rgba(255,255,255,0.04))',
-            borderRadius: '14px',
-            padding: '12px 14px',
-            marginBottom: '10px',
-            border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {t('groupSettings.participants')} ({chat.members?.length || 1} / 10)
-              </div>
-              <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>E2EE</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
-              {(chat.members && chat.members.length > 0 ? chat.members : [{ nickname: myNickname, role: chat.role || 'owner' }]).map((m: any, idx: number) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Avatar src={m.avatarUrl} alt={m.nickname} className="w-6 h-6 rounded-full" />
-                    <span style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 500 }}>
-                      {m.nickname} {m.nickname === myNickname ? '(Вы)' : ''}
-                    </span>
-                  </div>
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '2px 6px',
-                    borderRadius: '6px',
-                    background: m.role === 'owner' ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.06)',
-                    color: m.role === 'owner' ? 'var(--accent-color)' : 'var(--text-dim)',
-                  }}>
-                    {m.role === 'owner' ? t('groupSettings.owner') : m.role === 'admin' ? t('groupSettings.admin') : t('groupSettings.member')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={handleLeaveGroup}
-            aria-label={t('groupSettings.leave_group')}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              borderRadius: '14px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: '#f87171',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              transition: 'background 0.2s',
-            }}
-          >
-            <LogOut size={16} />
-            <span>{t('groupSettings.leave_group')}</span>
-          </button>
         </div>
       )}
 

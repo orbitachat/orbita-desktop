@@ -779,37 +779,6 @@
       "start_call": "Позвонить",
       "direct_call": "Голосовой звонок",
       "no_calls": "История звонков пуста"
-    },
-    "connectModal": {
-      "create_group": "Создать группу",
-      "group_tab_create": "Создать группу",
-      "group_tab_join": "Присоединиться по коду",
-      "group_name_label": "Название группы",
-      "group_name_placeholder": "Введите название группы...",
-      "group_desc_label": "Описание (необязательно)",
-      "group_desc_placeholder": "О чём эта группа...",
-      "group_limit_info": "Группа защищена сквозным шифрованием (E2EE). Максимальный лимит — до 10 участников.",
-      "group_code_label": "54-значный код группы",
-      "group_code_placeholder": "Вставьте 54-значный код или ссылку...",
-      "group_code_info": "Для входа в закрытую группу введите статичный 54-значный ключ.",
-      "group_limit_reached": "В группе достигнут лимит (максимум 10 участников)",
-      "group_code_invalid": "Код группы должен содержать ровно 54 символа",
-      "group_create_failed": "Не удалось создать группу",
-      "group_join_failed": "Не удалось вступить в группу",
-      "connect": "Присоединиться",
-      "in_development": "В разработке",
-      "invite_description": "Отправьте этот код собеседнику, чтобы он смог начать диалог с вами.",
-      "join_community": "Сообщество"
-    },
-    "groupSettings": {
-      "members_count_limit": "{{count}} / 10 участников",
-      "group_code": "Код группы (54 знака)",
-      "copy_code": "Скопировать код",
-      "leave_group": "Выйти из группы",
-      "participants": "Участники",
-      "owner": "Владелец",
-      "admin": "Админ",
-      "member": "Участник"
     }
   }
 }

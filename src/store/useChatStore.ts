@@ -457,18 +457,6 @@ interface ChatState {
     isOfficial?: boolean;
     subscribersCount?: number;
   }) => void;
-  addGroupChat: (group: {
-    id: string;
-    name: string;
-    sharedSecret: string;
-    inviteCode: string;
-    description?: string;
-    avatarUrl?: string | null;
-    creatorNickname?: string;
-    role?: 'owner' | 'admin' | 'member';
-    members?: Array<{ nickname: string; userCode?: string; role: 'owner' | 'admin' | 'member'; lastSeen: number }>;
-  }) => void;
-  updateGroupMembers: (chatId: string, members: Array<{ nickname: string; userCode?: string; role: 'owner' | 'admin' | 'member'; lastSeen: number }>) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -1261,67 +1249,8 @@ export const useChatStore = create<ChatState>()(
       setCacheSizeLimit: (limit) => set({ cacheSizeLimit: limit }),
       setMediaCacheLimit: (limit) => set({ mediaCacheLimit: limit }),
       setCacheCleanupAge: (age) => set({ cacheCleanupAge: age }),
+
       setAutoLoadMedia: (enabled) => set({ autoLoadMedia: enabled }),
-
-      addGroupChat: (group) => {
-        set((state) => {
-          const exists = state.chats.find((c) => c.id === group.id);
-          if (exists) {
-            return {
-              chats: state.chats.map((c) =>
-                c.id === group.id
-                  ? {
-                      ...c,
-                      name: group.name,
-                      sharedSecret: group.sharedSecret,
-                      inviteCode: group.inviteCode,
-                      description: group.description ?? c.description,
-                      avatarUrl: group.avatarUrl ?? c.avatarUrl,
-                      creatorNickname: group.creatorNickname ?? c.creatorNickname,
-                      role: group.role ?? c.role,
-                      members: group.members ?? c.members,
-                    }
-                  : c
-              ),
-            };
-          }
-          const newChat: Chat = {
-            id: group.id,
-            type: 'group',
-            name: group.name,
-            lastMsg: '',
-            online: false,
-            sharedSecret: group.sharedSecret,
-            inviteCode: group.inviteCode,
-            role: group.role || 'member',
-            description: group.description,
-            avatarUrl: group.avatarUrl || undefined,
-            creatorNickname: group.creatorNickname,
-            members: group.members || [],
-            createdAt: Date.now(),
-            unreadCount: 0,
-            lastReadTimestamp: Date.now(),
-            muted: false,
-            notificationsEnabled: true,
-          };
-          return {
-            chats: [newChat, ...state.chats],
-          };
-        });
-      },
-
-      updateGroupMembers: (chatId, members) => {
-        set((state) => ({
-          chats: state.chats.map((c) =>
-            c.id === chatId
-              ? {
-                  ...c,
-                  members,
-                }
-              : c
-          ),
-        }));
-      },
 
       deleteChat: (chatId) => {
         const state = get();

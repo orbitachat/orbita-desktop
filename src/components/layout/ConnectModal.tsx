@@ -4,7 +4,6 @@ import { X, MessageSquare, UserPlus, Users, Globe, Copy, ArrowLeft, Plus } from 
 import { useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { channelService } from '../../services/channelService';
-import { groupService } from '../../services/groupService';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '../common/Avatar';
 import { NotesAvatar } from '../common/NotesAvatar';
@@ -74,27 +73,18 @@ export const ConnectModal = ({
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
 
-  const [groupSubTab, setGroupSubTab] = useState<'create' | 'join'>('create');
-  const [groupNameInput, setGroupNameInput] = useState('');
-  const [groupDescInput, setGroupDescInput] = useState('');
-  const [groupCodeInput, setGroupCodeInput] = useState('');
-  const [groupLoading, setGroupLoading] = useState(false);
-  const [groupError, setGroupError] = useState<string | null>(null);
-
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
 
   const {
     chats,
     setActiveChat,
     addChannelChat,
-    addGroupChat,
     myCode,
   } = useChatStore(
     useShallow((state) => ({
       chats: state.chats,
       setActiveChat: state.setActiveChat,
       addChannelChat: state.addChannelChat,
-      addGroupChat: state.addGroupChat,
       myCode: state.myCode,
     }))
   );
@@ -162,93 +152,7 @@ export const ConnectModal = ({
     setChannelKeyInput('');
     setChannelError(null);
     setIsCreatingChannel(false);
-    setGroupNameInput('');
-    setGroupDescInput('');
-    setGroupCodeInput('');
-    setGroupError(null);
-    setGroupSubTab('create');
   }, []);
-
-  const handleCreateGroup = useCallback(async () => {
-    if (!groupNameInput.trim()) return;
-    setGroupLoading(true);
-    setGroupError(null);
-    try {
-      const res = await groupService.createGroup(
-        groupNameInput.trim(),
-        groupDescInput.trim(),
-        myNickname,
-        myCode || undefined
-      );
-      if (res && res.group) {
-        addGroupChat({
-          id: res.group.id,
-          name: res.group.name,
-          sharedSecret: res.sharedSecret,
-          inviteCode: res.group.code,
-          description: res.group.description,
-          avatarUrl: res.group.avatarUrl,
-          creatorNickname: res.group.creatorNickname,
-          role: 'owner',
-          members: res.group.members.map((m) => ({
-            nickname: m.nickname,
-            userCode: m.userCode,
-            role: m.role,
-            lastSeen: Date.now(),
-          })),
-        });
-        setActiveChat(res.group.id);
-        onClose();
-      } else {
-        setGroupError(t('connectModal.group_create_failed'));
-      }
-    } catch (err: any) {
-      setGroupError(err?.message || t('connectModal.group_create_failed'));
-    } finally {
-      setGroupLoading(false);
-    }
-  }, [groupNameInput, groupDescInput, myNickname, myCode, addGroupChat, setActiveChat, onClose, t]);
-
-  const handleJoinGroup = useCallback(async () => {
-    if (!groupCodeInput.trim()) return;
-    setGroupLoading(true);
-    setGroupError(null);
-    try {
-      const res = await groupService.joinGroup(groupCodeInput.trim(), myNickname, myCode || undefined);
-      if (res && res.group) {
-        addGroupChat({
-          id: res.group.id,
-          name: res.group.name,
-          sharedSecret: res.sharedSecret,
-          inviteCode: res.group.code,
-          description: res.group.description,
-          avatarUrl: res.group.avatarUrl,
-          creatorNickname: res.group.creatorNickname,
-          role: res.group.creatorNickname === myNickname ? 'owner' : 'member',
-          members: res.group.members.map((m) => ({
-            nickname: m.nickname,
-            userCode: m.userCode,
-            role: m.role,
-            lastSeen: Date.now(),
-          })),
-        });
-        setActiveChat(res.group.id);
-        onClose();
-      } else {
-        setGroupError(t('connectModal.group_join_failed'));
-      }
-    } catch (err: any) {
-      if (err.message === 'GROUP_FULL') {
-        setGroupError(t('connectModal.group_limit_reached'));
-      } else if (err.message === 'INVALID_CODE') {
-        setGroupError(t('connectModal.group_code_invalid'));
-      } else {
-        setGroupError(t('connectModal.group_join_failed'));
-      }
-    } finally {
-      setGroupLoading(false);
-    }
-  }, [groupCodeInput, myNickname, myCode, addGroupChat, setActiveChat, onClose, t]);
 
   const handleJoinChannel = useCallback(async (keyToJoin?: string) => {
     const rawKey = keyToJoin || channelKeyInput;
@@ -492,7 +396,7 @@ export const ConnectModal = ({
                 <button
                   onClick={handleCopy}
                   className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 transition-all text-[var(--text-main)] cursor-pointer flex-shrink-0"
-                  aria-label={t('common.copy')}
+                  title={t('common.copy', 'Копировать')}
                 >
                   {copied ? (
                     <AnimatedCheckmark color="var(--accent-color, #7C3AED)" />
@@ -506,144 +410,17 @@ export const ConnectModal = ({
         );
       case 'createGroup':
         return (
-          <div className="flex flex-col gap-5 px-1 pb-4" style={{ userSelect: 'none' }}>
-            <div className="flex items-center justify-between">
-              <button
-                onClick={handleBack}
-                className="flex items-center gap-2 text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors"
-                aria-label={t('common.back')}
-              >
-                <ArrowLeft size={20} />
-                <span className="text-sm font-medium">{t('common.back')}</span>
-              </button>
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--accent-color)]">
-                {t('connectModal.create_group')}
-              </span>
-            </div>
-
-            <div className="flex p-1 rounded-xl bg-[var(--surface-container)] gap-1">
-              <button
-                type="button"
-                onClick={() => { setGroupSubTab('create'); setGroupError(null); }}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  groupSubTab === 'create'
-                    ? 'bg-[var(--accent-color)] text-white shadow-sm'
-                    : 'text-[var(--text-dim)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                {t('connectModal.group_tab_create')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setGroupSubTab('join'); setGroupError(null); }}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  groupSubTab === 'join'
-                    ? 'bg-[var(--accent-color)] text-white shadow-sm'
-                    : 'text-[var(--text-dim)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                {t('connectModal.group_tab_join')}
-              </button>
-            </div>
-
-            {groupError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-                <span>{groupError}</span>
-              </div>
-            )}
-
-            {groupSubTab === 'create' ? (
-              <div className="flex flex-col gap-4 p-4 rounded-2xl bg-[var(--surface-container)] border border-[var(--surface-border)]">
-                <div className="flex items-center gap-2 text-[var(--text-main)] font-semibold text-sm">
-                  <Users size={18} className="text-[var(--accent-color)]" />
-                  <span>{t('connectModal.create_group')}</span>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-[var(--text-dim)]">{t('connectModal.group_name_label')}</label>
-                  <input
-                    type="text"
-                    value={groupNameInput}
-                    onChange={(e) => setGroupNameInput(e.target.value)}
-                    placeholder={t('connectModal.group_name_placeholder')}
-                    maxLength={60}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--surface-border)] text-sm text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent-color)]"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-[var(--text-dim)]">{t('connectModal.group_desc_label')}</label>
-                  <textarea
-                    value={groupDescInput}
-                    onChange={(e) => setGroupDescInput(e.target.value)}
-                    placeholder={t('connectModal.group_desc_placeholder')}
-                    rows={2}
-                    maxLength={200}
-                    className="w-full px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--surface-border)] text-sm text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent-color)] resize-none"
-                  />
-                </div>
-
-                <p className="text-[11px] text-[var(--text-dim)] leading-relaxed">
-                  {t('connectModal.group_limit_info')}
-                </p>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={handleBack}
-                    className="flex-1 py-2.5 rounded-xl bg-[var(--surface-container-strong)] text-[var(--text-dim)] text-xs font-semibold hover:text-[var(--text-main)] transition-colors"
-                  >
-                    {t('common.cancel')}
-                  </button>
-                  <button
-                    onClick={handleCreateGroup}
-                    disabled={!groupNameInput.trim() || groupLoading}
-                    className="flex-1 py-2.5 rounded-xl bg-[var(--accent-color)] text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {groupLoading ? <LoadingSpinner /> : t('common.create', 'Создать')}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4 p-4 rounded-2xl bg-[var(--surface-container)] border border-[var(--surface-border)]">
-                <div className="flex items-center gap-2 text-[var(--text-main)] font-semibold text-sm">
-                  <Users size={18} className="text-[var(--accent-color)]" />
-                  <span>{t('connectModal.group_tab_join')}</span>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-[var(--text-dim)]">{t('connectModal.group_code_label')}</label>
-                  <input
-                    type="text"
-                    value={groupCodeInput}
-                    onChange={(e) => setGroupCodeInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleJoinGroup()}
-                    placeholder={t('connectModal.group_code_placeholder')}
-                    maxLength={120}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--surface-border)] text-sm font-mono text-[var(--text-main)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent-color)] break-all"
-                  />
-                </div>
-
-                <p className="text-[11px] text-[var(--text-dim)] leading-relaxed">
-                  {t('connectModal.group_code_info')}
-                </p>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={handleBack}
-                    className="flex-1 py-2.5 rounded-xl bg-[var(--surface-container-strong)] text-[var(--text-dim)] text-xs font-semibold hover:text-[var(--text-main)] transition-colors"
-                  >
-                    {t('common.cancel')}
-                  </button>
-                  <button
-                    onClick={handleJoinGroup}
-                    disabled={!groupCodeInput.trim() || groupLoading}
-                    className="flex-1 py-2.5 rounded-xl bg-[var(--accent-color)] text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {groupLoading ? <LoadingSpinner /> : t('connectModal.connect')}
-                  </button>
-                </div>
-              </div>
-            )}
+          <div className="flex flex-col gap-6 px-2" style={{ userSelect: 'none' }}>
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors"
+            >
+              <ArrowLeft size={20} />
+              <span className="text-sm font-medium">{t('common.back')}</span>
+            </button>
+            <p className="text-sm text-[var(--text-dim)]">
+              {t('connectModal.in_development')}
+            </p>
           </div>
         );
       case 'joinCommunity':

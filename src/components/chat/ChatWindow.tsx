@@ -20,7 +20,6 @@ import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
 import { useCallStore } from '../../store/useCallStore';
 import { useConnectionStore } from '../../store/useConnectionStore';
 import { supabaseService } from '../../services/supabaseService';
-import { encryptMessage } from '../../lib/crypto';
 import { AttachedFile } from './FileAttachmentModal';
 import { Avatar } from '../common/Avatar';
 import { NotesAvatar } from '../common/NotesAvatar';
@@ -3066,39 +3065,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           linkPreview: linkPreviewPayload || null,
         };
 
+        // Get fresh chat state to get latest ratchetState
         const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
-
-        if (freshChat?.type === 'group') {
-          if (!freshChat.sharedSecret) {
-            return;
-          }
-          const plaintext = JSON.stringify(messageData);
-          const ciphertext = await encryptMessage(plaintext, freshChat.sharedSecret);
-          const groupPayload = {
-            chatId: activeChatId,
-            messageId,
-            sender: myNickname,
-            senderId: myCode,
-            avatarUrl: myAvatarUrl || null,
-            text: ciphertext,
-            ciphertext,
-            time: Date.now(),
-            type: 'message',
-            mediaType: mediaPayload?.type || null,
-            mediaUrl: mediaPayload?.url || null,
-            mediaName: mediaPayload?.name || null,
-            mime: mediaPayload?.mime || null,
-          };
-          const groupChannel = pusher.subscribe(`presence-group-${activeChatId}`);
-          const sendGrp = () => {
-            try {
-              groupChannel.trigger('client-message', groupPayload);
-            } catch {}
-          };
-          if (groupChannel.subscribed) sendGrp();
-          else groupChannel.bind('pusher:subscription_succeeded', sendGrp);
-          return;
-        }
 
         if (!freshChat?.ratchetState) {
           // E2EE session not yet established — save plaintext to non_messages until peer accepts handshake
@@ -4245,117 +4213,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return;
     }
 
-    if (chat.type === 'group' && chat.sharedSecret) {
-      const shouldGroup = group && uploadedFiles.length > 1;
-      if (shouldGroup) {
-        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const messageData = {
-          id: messageId,
-          senderId: myCode,
-          text: caption || '',
-          mediaItems: uploadedFiles.map(f => ({
-            ...f,
-            type: f.type,
-            key: f.key,
-            audioMetadata: f.audioMetadata,
-          })),
-        };
-        const plaintext = JSON.stringify(messageData);
-        const ciphertext = await encryptMessage(plaintext, chat.sharedSecret);
-        const localMessage: Message = {
-          id: messageId,
-          senderId: myCode,
-          sender: myNickname,
-          isOutgoing: true,
-          text: caption || '',
-          time: Date.now(),
-          read: false,
-          status: 'sent',
-          encryptedText: ciphertext,
-          mediaItems: uploadedFiles,
-        };
-        addMessage(activeChatId, localMessage);
-        const pusher = getPusher();
-        const channel = pusher.subscribe(`presence-group-${activeChatId}`);
-        const send = () => {
-          channel.trigger('client-message', {
-            type: 'message',
-            ciphertext,
-            text: ciphertext,
-            messageId,
-            chatId: activeChatId,
-            sender: myNickname,
-            senderCode: myCode,
-            senderId: myCode,
-          });
-        };
-        if (channel.subscribed) send();
-        else channel.bind('pusher:subscription_succeeded', send);
-      } else {
-        for (const file of uploadedFiles) {
-          const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const messageData = {
-            id: messageId,
-            senderId: myCode,
-            text: caption || '',
-            mediaType: file.type,
-            mediaUrl: file.url,
-            mediaName: file.name,
-            mediaKey: file.key,
-            mime: file.mime,
-            audioMetadata: file.audioMetadata,
-            width: file.width,
-            height: file.height,
-            duration: file.duration,
-          };
-          const plaintext = JSON.stringify(messageData);
-          const ciphertext = await encryptMessage(plaintext, chat.sharedSecret);
-          const localMessage: Message = {
-            id: messageId,
-            senderId: myCode,
-            sender: myNickname,
-            isOutgoing: true,
-            text: caption || '',
-            time: Date.now(),
-            read: false,
-            status: 'sent',
-            encryptedText: ciphertext,
-            mediaType: file.type,
-            mediaUrl: file.url,
-            mediaName: file.name,
-            mediaKey: file.key,
-            mime: file.mime,
-            audioMetadata: file.audioMetadata,
-            width: file.width,
-            height: file.height,
-            duration: file.duration,
-          };
-          addMessage(activeChatId, localMessage);
-          const pusher = getPusher();
-          const channel = pusher.subscribe(`presence-group-${activeChatId}`);
-          const send = () => {
-            channel.trigger('client-message', {
-              type: 'message',
-              ciphertext,
-              text: ciphertext,
-              messageId,
-              chatId: activeChatId,
-              sender: myNickname,
-              senderCode: myCode,
-              senderId: myCode,
-            });
-          };
-          if (channel.subscribed) send();
-          else channel.bind('pusher:subscription_succeeded', send);
-        }
-      }
-      setAttachedFiles([]);
-      setIsAttachmentModalOpen(false);
-      setIsSendingFiles(false);
-      setInputText('');
-      return;
-    }
-
     const ratchet = DoubleRatchet.fromState(chat.ratchetState);
 
     const shouldGroup = group && uploadedFiles.length > 1;
@@ -5336,20 +5193,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                       {activeChat.isOfficial ? 'Официальный' : 'Канал'}
                     </span>
                   )}
-                  {activeChat?.type === 'group' && (
-                    <span className="px-1.5 py-0.5 rounded-md bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
-                      Группа
-                    </span>
-                  )}
                 </div>
                 <div>
                   {activeChatId === 'notes' ? null : activeChat?.type === 'channel' ? (
                     <span className="text-[11px] font-medium text-[var(--text-dim)]">
                       {activeChat.subscribersCount ? `${activeChat.subscribersCount} подписчиков` : 'публичный канал'}
-                    </span>
-                  ) : activeChat?.type === 'group' ? (
-                    <span className="text-[11px] font-medium text-[var(--text-dim)]">
-                      {t('groupSettings.members_count_limit', { count: activeChat.members?.length || 1 })}
                     </span>
                   ) : !isServerConnected ? (
                     <span className="text-[11px] font-semibold text-[var(--accent-color)] animate-pulse">

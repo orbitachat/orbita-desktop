@@ -746,37 +746,6 @@
       "start_call": "Call",
       "direct_call": "Voice call",
       "no_calls": "Call history is empty"
-    },
-    "connectModal": {
-      "create_group": "Create Group",
-      "group_tab_create": "Create Group",
-      "group_tab_join": "Join by Code",
-      "group_name_label": "Group Name",
-      "group_name_placeholder": "Enter group name...",
-      "group_desc_label": "Description (optional)",
-      "group_desc_placeholder": "What is this group about...",
-      "group_limit_info": "Group is end-to-end encrypted (E2EE). Maximum limit is up to 10 members.",
-      "group_code_label": "54-character Group Code",
-      "group_code_placeholder": "Paste 54-character code or invite link...",
-      "group_code_info": "Enter the static 54-character key to join the secure group.",
-      "group_limit_reached": "Group member limit reached (maximum 10 participants)",
-      "group_code_invalid": "Group code must be exactly 54 characters",
-      "group_create_failed": "Failed to create group",
-      "group_join_failed": "Failed to join group",
-      "connect": "Join",
-      "in_development": "In development",
-      "invite_description": "Send this code to someone so they can start a conversation with you.",
-      "join_community": "Community"
-    },
-    "groupSettings": {
-      "members_count_limit": "{{count}} / 10 members",
-      "group_code": "Group Code (54 characters)",
-      "copy_code": "Copy code",
-      "leave_group": "Leave group",
-      "participants": "Members",
-      "owner": "Owner",
-      "admin": "Admin",
-      "member": "Member"
     }
   }
 }

@@ -1729,26 +1729,6 @@ export const MainLayout = () => {
         }));
         return;
       }
-      if (data.type === 'member-left') {
-        const updatedMembers = (chat.members || []).filter((member: any) => member.nickname !== data.nickname && (!data.userCode || member.userCode !== data.userCode));
-        updateChat(chatId, { members: updatedMembers });
-        return;
-      }
-      if (data.type === 'group-call-started' || data.type === 'group-call-active') {
-        if (data.from && data.from !== nickname) {
-          const callStore = useCallStore.getState();
-          if (!callStore.activeCall && !callStore.incomingCall) {
-            callStore.setIncomingCall({
-              from: data.from,
-              chatId,
-              callType: data.callType || 'audio',
-              roomName: data.roomName || `group-call-${chatId}`,
-              timestamp: Date.now(),
-            });
-          }
-        }
-        return;
-      }
       if (data.type === 'pin') { updateChat(chatId, { pinnedMessage: data.pinData }); return; }
       if (data.type === 'unpin') { updateChat(chatId, { pinnedMessage: null }); return; }
       if (data.type === 'member-joined') {
@@ -1819,10 +1799,7 @@ export const MainLayout = () => {
 
       if (data.sender === nickname) return;
 
-      const rawCipher = data.text || data.ciphertext;
-      if (!rawCipher || !chat.sharedSecret) return;
-
-      decryptMessage(rawCipher, chat.sharedSecret).then((decrypted) => {
+      decryptMessage(data.text, chat.sharedSecret!).then((decrypted) => {
         let parsedData: any;
         try {
           parsedData = JSON.parse(decrypted);
@@ -1833,22 +1810,10 @@ export const MainLayout = () => {
         const isCurrentActive = useChatStore.getState().activeChatId === chatId && typeof document !== 'undefined' && document.visibilityState === 'visible';
         addMessage(chatId, {
           id: msgId,
-          senderId: parsedData?.senderId || data.senderId || data.senderCode,
-          sender: data.sender || parsedData?.sender || 'User',
+          sender: data.sender,
           text: parsedData?.text !== undefined ? parsedData.text : decrypted,
           time: data.time || Date.now(),
-          read: isCurrentActive,
-          status: isCurrentActive ? 'read' : 'delivered',
-          mediaType: parsedData?.mediaType || data.mediaType || undefined,
-          mediaUrl: parsedData?.mediaUrl || data.mediaUrl || undefined,
-          mediaName: parsedData?.mediaName || data.mediaName || undefined,
-          mediaKey: parsedData?.mediaKey || data.mediaKey || undefined,
-          mime: parsedData?.mime || data.mime || undefined,
-          mediaItems: parsedData?.mediaItems || undefined,
-          audioMetadata: parsedData?.audioMetadata || undefined,
-          duration: parsedData?.duration || undefined,
-          waveform: parsedData?.waveform || undefined,
-          linkPreview: parsedData?.linkPreview || undefined,
+          read: isCurrentActive
         });
         if (isCurrentActive) {
           const sendRead = () => channel.trigger('client-message', { type: 'read', time: data.time, messageId: msgId, sender: nickname });
