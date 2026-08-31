@@ -1,0 +1,2633 @@
+import { useState, useRef, useCallback, memo, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { channelService } from '../../services/channelService';
+import { groupService } from '../../services/groupService';
+import { Search, MoreVertical, Copy, Check, Key, LogOut } from 'lucide-react';
+import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
+import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
+import {
+  Picture as GravityPictureIcon,
+  Video as GravityVideoIcon,
+  File as GravityFileIcon,
+  Headphones as GravityHeadphonesIcon,
+  Link as GravityLinkIcon,
+  Microphone as GravityMicIcon,
+} from '@gravity-ui/icons';
+import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
+import { getAvatarGradient } from '../common/Avatar';
+
+const GravityGifBadgeIcon = ({ width = 16, height = 16, style, className, ...props }: React.SVGProps<SVGSVGElement> & { width?: number; height?: number }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={width}
+    height={height}
+    viewBox="0 0 16 16"
+    fill="none"
+    className={className}
+    style={style}
+    {...props}
+  >
+    <rect
+      x="1.25"
+      y="2.5"
+      width="13.5"
+      height="11"
+      rx="2.75"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    />
+    <text
+      x="8"
+      y="10.15"
+      fill="currentColor"
+      fontSize="6.2"
+      fontWeight="800"
+      fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      textAnchor="middle"
+      letterSpacing="0.4"
+    >
+      GIF
+    </text>
+  </svg>
+);
+import { useChatStore, type Message } from '../../store/useChatStore';
+import { useCallStore } from '../../store/useCallStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useAudioStore } from '../../store/useAudioStore';
+import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
+import { Avatar } from '../common/Avatar';
+import { NotesAvatar } from '../common/NotesAvatar';
+import { useDecryptedMedia } from '../../lib/media-utils';
+import { useShallow } from 'zustand/react/shallow';
+import { AudioCoverWithPlay } from '../audio/AudioCoverWithPlay';
+import { getDomainHost } from '../../utils/linkPreviewUtils';
+
+export interface MediaGridItem {
+  id: string;
+  messageId: string;
+  url: string;
+  name: string;
+  mime?: string;
+  time: number;
+  type: 'photos' | 'videos' | 'gif';
+  duration?: number;
+  text?: string;
+  sender?: string;
+  key?: string;
+}
+
+interface MediaGroup {
+  messages: Message[];
+  gridItems?: MediaGridItem[];
+  count: number;
+}
+
+type MediaType = 'photos' | 'videos' | 'files' | 'audio' | 'voice' | 'links' | 'gif';
+
+interface ProfileScreenProps {
+  chatId: string;
+  onClose: () => void;
+  isMobileView?: boolean;
+  onLinkClick?: (url: string) => void;
+}
+
+const formatTelegramDate = (timestamp: number, i18nLang: string) => {
+  const d = new Date(timestamp);
+  const monthsRu = ['янв', 'февр', 'мар', 'апр', 'мая', 'июня', 'июля', 'авг', 'сент', 'окт', 'нояб', 'дек'];
+  const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const isRu = i18nLang.startsWith('ru') || i18nLang.startsWith('uk') || i18nLang.startsWith('be');
+  const monthStr = isRu ? monthsRu[d.getMonth()] : monthsEn[d.getMonth()];
+  const hours = d.getHours().toString().padStart(2, '0');
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  const atStr = isRu ? 'в' : 'at';
+  return `${d.getDate()} ${monthStr} ${atStr} ${hours}:${minutes}`;
+};
+
+/**
+ * Format generalized time period header:
+ * - "Сегодня" (Today)
+ * - "Вчера" (Yesterday)
+ * - Current year: Month name (e.g. "Август", "Июль")
+ * - Other years: Month + Year (e.g. "Январь 2026", "Декабрь 2025")
+ */
+export const formatPeriodHeader = (
+  timestamp: number,
+  i18nLang: string = 'ru'
+): { key: string; title: string; orderScore: number } => {
+  const d = new Date(timestamp);
+  const now = new Date();
+
+  const isToday =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const isYesterday =
+    d.getFullYear() === yesterday.getFullYear() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getDate() === yesterday.getDate();
+
+  const isRu = i18nLang.startsWith('ru') || i18nLang.startsWith('be');
+  const isUk = i18nLang.startsWith('uk');
+  const isKk = i18nLang.startsWith('kk');
+
+  const monthsRu = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const monthsUk = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
+  const monthsKk = ['Қаңтар', 'Ақпан', 'Наурыз', 'Сәуір', 'Мамыр', 'Маусым', 'Шілде', 'Тамыз', 'Қыркүйек', 'Қазан', 'Қараша', 'Желтоқсан'];
+  const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  const getMonthName = (m: number) => {
+    if (isRu) return monthsRu[m];
+    if (isUk) return monthsUk[m];
+    if (isKk) return monthsKk[m];
+    return monthsEn[m];
+  };
+
+  const getTodayLabel = () => {
+    if (isRu) return 'Сегодня';
+    if (isUk) return 'Сьогодні';
+    if (isKk) return 'Бүгін';
+    return 'Today';
+  };
+
+  const getYesterdayLabel = () => {
+    if (isRu) return 'Вчера';
+    if (isUk) return 'Вчора';
+    if (isKk) return 'Кеше';
+    return 'Yesterday';
+  };
+
+  if (isToday) {
+    return {
+      key: 'today',
+      title: getTodayLabel(),
+      orderScore: 9999999999999,
+    };
+  }
+
+  if (isYesterday) {
+    return {
+      key: 'yesterday',
+      title: getYesterdayLabel(),
+      orderScore: 9999999999998,
+    };
+  }
+
+  const monthName = getMonthName(d.getMonth());
+  const year = d.getFullYear();
+  const currentYear = now.getFullYear();
+
+  const title = year === currentYear ? monthName : `${monthName} ${year}`;
+  const key = `${year}-${String(d.getMonth()).padStart(2, '0')}`;
+  const orderScore = year * 100 + d.getMonth();
+
+  return {
+    key,
+    title,
+    orderScore,
+  };
+};
+
+const formatAudioDuration = (seconds?: number) => {
+  if (!seconds || !isFinite(seconds) || seconds <= 0) return '00:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatVideoDuration = (seconds?: number) => {
+  if (!seconds || !isFinite(seconds) || seconds <= 0) return '00:00';
+  const totalSecs = Math.round(seconds);
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+const isVoiceMessage = (msg: Message) => {
+  if (msg.mediaType === 'voice') return true;
+  if (
+    msg.mime === 'audio/ogg' ||
+    msg.mime === 'audio/opus' ||
+    msg.mime?.startsWith('audio/ogg') ||
+    msg.mime?.startsWith('audio/opus') ||
+    msg.mime?.includes('ogg') ||
+    msg.mime?.includes('opus')
+  ) {
+    return true;
+  }
+  if (
+    msg.mediaName &&
+    (/^voice_.*\.(ogg|opus|webm|mp3|wav|m4a)$/i.test(msg.mediaName) ||
+      /\.ogg$/i.test(msg.mediaName) ||
+      /\.opus$/i.test(msg.mediaName) ||
+      /^voice_/i.test(msg.mediaName))
+  ) {
+    return true;
+  }
+  if (
+    msg.text &&
+    (/^\[Audio\]\s+voice_/i.test(msg.text) ||
+      /^voice_\d+\.ogg/i.test(msg.text.trim()) ||
+      /\.ogg(\?.*)?$/i.test(msg.text.trim()) ||
+      /^\[Audio\]\s+\S+\.ogg/i.test(msg.text))
+  ) {
+    return true;
+  }
+  if (
+    msg.mediaUrl &&
+    (/voice_\d+\.(ogg|opus|webm)/i.test(msg.mediaUrl) ||
+      /\.ogg(\?.*)?$/i.test(msg.mediaUrl) ||
+      /\.opus(\?.*)?$/i.test(msg.mediaUrl))
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const isGifMessage = (msg: Message) => {
+  if (isVoiceMessage(msg)) return false;
+  if (msg.mediaType === 'gif') return true;
+  if (msg.mime === 'image/gif') return true;
+  if (msg.mediaName && /\.gif$/i.test(msg.mediaName)) return true;
+  if (
+    msg.mediaUrl &&
+    (/\.gif(\?.*)?$/i.test(msg.mediaUrl) ||
+      msg.mediaUrl.includes('tenor.com') ||
+      msg.mediaUrl.includes('giphy.com') ||
+      msg.mediaUrl.includes('.giphy.') ||
+      msg.mediaUrl.includes('c.tenor.com'))
+  ) {
+    return true;
+  }
+  if (
+    msg.text &&
+    (/^\[GIF\]/i.test(msg.text) ||
+      /\.gif(\?.*)?$/i.test(msg.text.trim()) ||
+      msg.text.includes('tenor.com') ||
+      msg.text.includes('giphy.com'))
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const isStickerMessage = (msg: Message) => {
+  if (msg.mediaType === 'sticker') return true;
+  if (msg.text && /^\[Sticker\]/i.test(msg.text.trim())) return true;
+  if (msg.mediaUrl && (msg.mediaUrl.includes('/stickers/') || msg.mediaUrl.includes('stickers/'))) return true;
+  return false;
+};
+
+const isPhotoMessage = (msg: Message) => {
+  if (isVoiceMessage(msg) || isGifMessage(msg) || isStickerMessage(msg)) return false;
+  if (msg.mediaType === 'photo') return true;
+  if (msg.mime?.startsWith('image/') && msg.mime !== 'image/gif') return true;
+  if (msg.text && /^\[Photo\]/i.test(msg.text)) return true;
+  if (msg.mediaName && /\.(jpg|jpeg|png|webp|avif|bmp|heic|tiff)$/i.test(msg.mediaName)) return true;
+  if (msg.mediaUrl && /\.(jpg|jpeg|png|webp|avif|bmp|heic|tiff)(\?.*)?$/i.test(msg.mediaUrl)) return true;
+  return false;
+};
+
+const isVideoMessage = (msg: Message) => {
+  if (isVoiceMessage(msg) || isGifMessage(msg) || isPhotoMessage(msg)) return false;
+  if (msg.mediaType === 'video') return true;
+  if (msg.mime?.startsWith('video/')) return true;
+  if (msg.text && /^\[Video\]/i.test(msg.text)) return true;
+  if (msg.mediaName && /\.(mp4|mov|avi|mkv|m4v|3gp)$/i.test(msg.mediaName)) return true;
+  if (msg.mediaName && /\.webm$/i.test(msg.mediaName) && !msg.mediaName.startsWith('voice_')) return true;
+  if (msg.mediaUrl && /\.(mp4|mov|avi|mkv|m4v|3gp)(\?.*)?$/i.test(msg.mediaUrl)) return true;
+  return false;
+};
+
+const isAudioMessage = (msg: Message) => {
+  if (isVoiceMessage(msg) || isGifMessage(msg) || isPhotoMessage(msg) || isVideoMessage(msg)) return false;
+  if (msg.mediaType === 'audio') return true;
+  if (msg.audioMetadata?.title || msg.audioMetadata?.artist) return true;
+  if (msg.mime?.startsWith('audio/') && msg.mime !== 'audio/ogg' && msg.mime !== 'audio/opus') return true;
+  if (msg.text && /^\[Audio\]/i.test(msg.text) && !msg.text.includes('voice_') && !msg.text.includes('.ogg')) return true;
+  if (msg.mediaName && /\.(mp3|m4a|flac|wav|aac|wma|alac)$/i.test(msg.mediaName)) return true;
+  if (msg.mediaUrl && /\.(mp3|m4a|flac|wav|aac|wma|alac)(\?.*)?$/i.test(msg.mediaUrl)) return true;
+  return false;
+};
+
+// Sub-components to prevent hook violations inside map loops
+const ProfileMediaGridTile = memo(({
+  item,
+  sharedSecret,
+  type,
+  isViewerOpen = false,
+  onMediaClick,
+}: {
+  item: MediaGridItem;
+  sharedSecret: string;
+  type: 'photos' | 'videos' | 'gif';
+  isViewerOpen?: boolean;
+  onMediaClick?: (item: MediaGridItem, displaySrc: string | null) => void;
+}) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mediaUrl = item.url || (item.text?.match(/https?:\/\/[^\s]+/)?.[0] ?? '');
+  const { blobUrl } = useDecryptedMedia(mediaUrl, item.key || sharedSecret, item.name);
+  const displaySrc = blobUrl || (mediaUrl && mediaUrl.startsWith('http') ? mediaUrl : null);
+
+  const [duration, setDuration] = useState<number>(item.duration || 0);
+  const [inView, setInView] = useState(true);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+
+  const isVideoFormat = useMemo(() => {
+    const src = (displaySrc || item.url || item.name || '').toLowerCase();
+    return src.endsWith('.mp4') || src.endsWith('.webm') || src.endsWith('.mov') || src.includes('.mp4') || src.includes('.webm') || (item as any).mediaType === 'video' || (item as any).isVideo;
+  }, [displaySrc, item]);
+
+  useEffect(() => {
+    if (type !== 'gif' || isVideoFormat || !displaySrc) return;
+    let isCancelled = false;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = displaySrc;
+    img.onload = () => {
+      if (isCancelled) return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(img.naturalWidth || 300, 400);
+        canvas.height = Math.min(img.naturalHeight || 300, 400);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          if (!isCancelled) setPosterUrl(dataUrl);
+        }
+      } catch (err) {}
+    };
+    return () => {
+      isCancelled = true;
+    };
+  }, [type, displaySrc, isVideoFormat]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          setInView(entry.isIntersecting);
+        }
+      },
+      { threshold: 0.05 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (type !== 'videos' || duration > 0 || !displaySrc) return;
+    let cancelled = false;
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.src = displaySrc;
+    v.onloadedmetadata = () => {
+      if (!cancelled && v.duration && isFinite(v.duration)) {
+        setDuration(Math.round(v.duration));
+      }
+    };
+    return () => {
+      cancelled = true;
+      v.src = '';
+    };
+  }, [type, displaySrc, duration]);
+
+  const handleClick = () => {
+    if (onMediaClick) {
+      onMediaClick(item, displaySrc);
+    }
+  };
+
+  const shouldAnimateGif = type === 'gif' && inView && !isViewerOpen && !!displaySrc;
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={handleClick}
+      style={{
+        aspectRatio: '1 / 1',
+        overflow: 'hidden',
+        borderRadius: '4px',
+        position: 'relative',
+        background: 'var(--surface-muted, rgba(255, 255, 255, 0.05))',
+        contain: 'strict',
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}
+      className="group transition-opacity duration-150 hover:opacity-90"
+    >
+      {displaySrc ? (
+        type === 'photos' ? (
+          <img
+            src={displaySrc}
+            alt={item.name || ''}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : type === 'gif' ? (
+          isVideoFormat ? (
+            <video
+              src={displaySrc}
+              autoPlay={shouldAnimateGif}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              ref={(v) => {
+                if (v) {
+                  if (shouldAnimateGif) {
+                    v.play().catch(() => {});
+                  } else {
+                    v.pause();
+                  }
+                }
+              }}
+            />
+          ) : shouldAnimateGif ? (
+            <img
+              src={displaySrc}
+              alt={item.name || ''}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <img
+              src={posterUrl || displaySrc}
+              alt={item.name || ''}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          )
+        ) : (
+          <>
+            <video
+              src={displaySrc}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              muted
+              preload="metadata"
+              playsInline
+            />
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '4px',
+                left: '4px',
+                backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                backdropFilter: 'blur(3px)',
+                WebkitBackdropFilter: 'blur(3px)',
+                color: '#ffffff',
+                padding: '2px 5px 2px 4px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                lineHeight: 1,
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              <span>{formatVideoDuration(duration)}</span>
+            </div>
+          </>
+        )
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-white/5 animate-pulse" />
+      )}
+
+      {type === 'gif' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '4px',
+            left: '4px',
+            padding: '2px 5px',
+            borderRadius: '4px',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            color: '#ffffff',
+            fontSize: '10.5px',
+            fontWeight: 700,
+            lineHeight: 1.1,
+            zIndex: 2,
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          GIF
+        </div>
+      )}
+    </div>
+  );
+});
+
+const ProfileFileListItem = memo(({ msg, sharedSecret, i18nLang }: { msg: Message; sharedSecret: string; i18nLang: string }) => {
+  const mediaUrl = msg.mediaUrl || (msg.text?.match(/https?:\/\/[^\s]+/)?.[0] ?? '');
+  const { blobUrl } = useDecryptedMedia(mediaUrl, msg.mediaKey || sharedSecret, msg.mediaName);
+  const fileName = msg.mediaName || msg.text?.replace(/^\[(?:File|Document|Photo|Video|Audio)\]\s*/i, '').trim() || 'File';
+  const ext = fileName.includes('.') ? fileName.split('.').pop()! : 'file';
+  const dateStr = formatTelegramDate(msg.time, i18nLang);
+
+  const handleOpenFile = useCallback(async () => {
+    if (!blobUrl) return;
+    try {
+      const response = await fetch(blobUrl);
+      const fileBlob = await response.blob();
+      const arrayBuffer = await fileBlob.arrayBuffer();
+      const base64 = arrayBufferToBase64(arrayBuffer);
+      if (window.orbita && window.orbita.openFile) {
+        await window.orbita.openFile(base64, fileName);
+      } else {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (err) {
+      console.error('Failed to open file:', err);
+    }
+  }, [blobUrl, fileName]);
+
+  return (
+    <div
+      className="group flex items-center gap-3 w-full transition-colors hover:bg-[var(--surface-container-strong,rgba(255,255,255,0.06))]"
+      style={{
+        minHeight: '52px',
+        contain: 'layout paint',
+        padding: '6px 16px',
+        borderRadius: 0,
+        cursor: 'pointer',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+      onClick={handleOpenFile}
+    >
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-white uppercase text-[11.5px] shadow-sm select-none"
+        style={{ backgroundColor: 'var(--accent-color, #7C3AED)' }}
+      >
+        {ext.length <= 4 ? ext : ext.slice(0, 3)}
+      </div>
+
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <span className="truncate text-[13.5px] font-medium text-[var(--text-main)] leading-tight">
+          {fileName}
+        </span>
+        <div className="text-[11.5px] text-[var(--text-dim)] flex items-center gap-2 mt-0.5">
+          <span>{dateStr}</span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const ProfileAudioListItem = memo(({ msg, sharedSecret, i18nLang }: { msg: Message; sharedSecret: string; i18nLang: string }) => {
+  const effectiveSecret = msg.mediaKey || sharedSecret;
+  const mediaUrl = msg.mediaUrl || (msg.text?.match(/https?:\/\/[^\s]+/)?.[0] ?? '');
+  const { blobUrl } = useDecryptedMedia(mediaUrl, effectiveSecret, msg.mediaName);
+  const trackName = msg.audioMetadata?.title || msg.mediaName || msg.text || 'Audio Track';
+  const artistName = msg.audioMetadata?.artist || '';
+  const [cover, setCover] = useState<string | null>(msg.audioMetadata?.cover || null);
+
+  const isCurrentTrack = useAudioStore((s) => s.currentTrack?.id === (msg.id || String(msg.time)));
+  const isPlaying = useAudioStore((s) => (isCurrentTrack ? s.isPlaying : false));
+  const play = useAudioStore((s) => s.play);
+  const pause = useAudioStore((s) => s.pause);
+  const dateStr = formatTelegramDate(msg.time, i18nLang);
+
+  useEffect(() => {
+    if (!blobUrl || cover) return;
+    let cancelled = false;
+    if (typeof window.jsmediatags !== 'undefined') {
+      try {
+        fetch(blobUrl)
+          .then((res) => res.blob())
+          .then((blob) => {
+            window.jsmediatags.read(blob, {
+              onSuccess: (tag: any) => {
+                if (cancelled) return;
+                const picture = tag.tags.picture;
+                if (picture) {
+                  let binary = '';
+                  for (let i = 0; i < picture.data.length; i++) {
+                    binary += String.fromCharCode(picture.data[i]);
+                  }
+                  setCover(`data:${picture.format};base64,${window.btoa(binary)}`);
+                }
+              },
+              onError: () => {},
+            });
+          })
+          .catch(() => {});
+      } catch (err) {}
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [blobUrl, cover]);
+
+  const handlePlayClick = () => {
+    if (!blobUrl) return;
+    if (isPlaying) {
+      pause();
+    } else {
+      play({
+        id: msg.id || String(msg.time),
+        chatId: '',
+        title: trackName,
+        artist: artistName,
+        duration: msg.audioMetadata?.duration || 0,
+        cover: cover,
+        url: blobUrl,
+        sharedSecret: effectiveSecret,
+        mediaType: 'audio',
+        message: msg,
+      });
+    }
+  };
+
+  const durationStr = msg.audioMetadata?.duration ? formatAudioDuration(msg.audioMetadata.duration) : '';
+  const subText = durationStr ? `${durationStr}, ${dateStr}` : dateStr;
+
+  return (
+    <div
+      className="group flex items-center gap-3 w-full transition-colors hover:bg-[var(--surface-container-strong,rgba(255,255,255,0.06))]"
+      style={{
+        minHeight: '52px',
+        contain: 'layout paint',
+        padding: '6px 16px',
+        borderRadius: 0,
+        cursor: 'pointer',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+      onClick={handlePlayClick}
+    >
+      <AudioCoverWithPlay
+        cover={cover}
+        isPlayingTrack={isPlaying}
+        size={40}
+        onClick={handlePlayClick}
+        state={!blobUrl ? 'download' : (isPlaying ? 'pause' : 'play')}
+      />
+
+      <div className="flex flex-col min-w-0 flex-1 gap-0.5 select-none">
+        <div
+          className="text-sm font-semibold truncate"
+          style={{
+            color: isCurrentTrack ? 'var(--accent-color, #7C3AED)' : 'var(--text-main, #ffffff)',
+          }}
+        >
+          {trackName}
+        </div>
+        <div className="text-xs truncate" style={{ color: 'var(--text-dim, #9ca3af)' }}>
+          {artistName ? `${artistName} • ${subText}` : subText}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const ProfileVoiceListItem = memo(({ msg, sharedSecret, i18nLang }: { msg: Message; sharedSecret: string; i18nLang: string }) => {
+  const { t } = useTranslation();
+  const effectiveSecret = msg.mediaKey || sharedSecret;
+  const mediaUrl = msg.mediaUrl || (msg.text?.match(/https?:\/\/[^\s]+/)?.[0] ?? '');
+  const { blobUrl } = useDecryptedMedia(mediaUrl, effectiveSecret, msg.mediaName);
+
+  const isCurrentTrack = useAudioStore((s) => s.currentTrack?.id === (msg.id || String(msg.time)));
+  const isPlaying = useAudioStore((s) => (isCurrentTrack ? s.isPlaying : false));
+  const currentTime = useAudioStore((s) => (isCurrentTrack ? s.currentTime : 0));
+  const duration = useAudioStore((s) => (isCurrentTrack ? s.duration : 0));
+
+  const play = useAudioStore((s) => s.play);
+  const pause = useAudioStore((s) => s.pause);
+
+  const dateStr = formatTelegramDate(msg.time, i18nLang);
+  const senderName = msg.sender || '~/user';
+
+  const [audioDuration, setAudioDuration] = useState<number>(() => {
+    return msg.audioMetadata?.duration || msg.duration || 0;
+  });
+
+  useEffect(() => {
+    if (msg.audioMetadata?.duration) {
+      setAudioDuration(msg.audioMetadata.duration);
+    } else if (msg.duration) {
+      setAudioDuration(msg.duration);
+    }
+  }, [msg.audioMetadata?.duration, msg.duration]);
+
+  useEffect(() => {
+    if (!blobUrl || audioDuration > 0) return;
+    let cancelled = false;
+    const audio = new Audio(blobUrl);
+    audio.addEventListener('loadedmetadata', () => {
+      if (!cancelled && audio.duration && isFinite(audio.duration)) {
+        setAudioDuration(Math.round(audio.duration));
+      }
+    });
+    audio.load();
+    return () => {
+      cancelled = true;
+    };
+  }, [blobUrl, audioDuration]);
+
+  const totalDuration = duration > 0 ? duration : audioDuration;
+
+  const timeDisplay = isPlaying
+    ? `${dateStr}, ${formatAudioDuration(currentTime)} / ${formatAudioDuration(totalDuration)}`
+    : `${dateStr}, ${formatAudioDuration(totalDuration)}`;
+
+  const handlePlayClick = () => {
+    if (!blobUrl) return;
+    if (isPlaying) {
+      pause();
+    } else {
+      play({
+        id: msg.id || String(msg.time),
+        chatId: '',
+        title: t('chatWindow.voice_message', 'Голосовое сообщение'),
+        artist: senderName,
+        duration: totalDuration,
+        cover: null,
+        url: blobUrl,
+        sharedSecret: effectiveSecret,
+        mediaType: 'voice',
+        message: msg,
+      });
+    }
+  };
+
+  return (
+    <div
+      className="group flex items-center gap-3 w-full transition-colors hover:bg-[var(--surface-container-strong,rgba(255,255,255,0.06))]"
+      style={{
+        minHeight: '52px',
+        contain: 'layout paint',
+        padding: '6px 16px',
+        borderRadius: 0,
+        cursor: 'pointer',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      <AudioCoverWithPlay
+        cover={null}
+        isPlayingTrack={isPlaying}
+        size={40}
+        onClick={handlePlayClick}
+      />
+
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <span className="truncate text-[13.5px] font-medium text-[var(--text-main)] leading-tight">
+          {senderName}
+        </span>
+        <div className="text-[11.5px] text-[var(--text-dim)] flex items-center gap-2 mt-0.5">
+          <span>{timeDisplay}</span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const ProfileLinkListItem = memo(({
+  msg,
+  onLinkClick,
+}: {
+  msg: Message;
+  onLinkClick?: (url: string) => void;
+}) => {
+  const urlMatch = msg.text?.match(/\b(?:https?:\/\/|ftp:\/\/)?(?:[a-zA-Z0-9-]+\.)+(?:com|ru|org|net|io|dev|app|me|co|uk|de|fr|by|kz|info|biz|cc|tv|store|online|site|tech|xyz|top|live|pro|space|fun|cloud|link|[a-zA-Z]{2,63})(?:\/[^\s]*)?/i);
+  const rawUrl = urlMatch ? urlMatch[0].trim() : '';
+  const fullUrl = rawUrl ? (rawUrl.match(/^(https?:\/\/|ftp:\/\/)/i) ? rawUrl : `https://${rawUrl}`) : '';
+
+  const preview = msg.linkPreview;
+  const host = getDomainHost(fullUrl);
+
+  const title = preview?.title || host || 'Link';
+  const cleanHost = host.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '');
+  const domainInitial = (cleanHost.charAt(0) || title.charAt(0) || 'L').toUpperCase();
+
+  const [imgError, setImgError] = useState(false);
+  const hasImage = Boolean(preview?.image && !imgError);
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (fullUrl) {
+      if (onLinkClick) {
+        onLinkClick(fullUrl);
+      } else if ((window as any).orbita?.openExternal) {
+        (window as any).orbita.openExternal(fullUrl);
+      }
+    }
+  };
+
+  const cleanDescription = preview?.description || msg.text?.replace(/\b(?:https?:\/\/|ftp:\/\/)?(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/gi, '').replace(/\n+/g, ' ').trim() || '';
+
+  return (
+    <div
+      onClick={handleLinkClick}
+      className="group flex items-start gap-3 w-full cursor-pointer transition-colors hover:bg-[var(--surface-container-strong,rgba(255,255,255,0.06))] select-none"
+      style={{
+        contain: 'layout paint',
+        padding: '8px 16px',
+        borderRadius: 0,
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center font-bold text-base text-white shadow-sm mt-0.5"
+        style={{
+          background: hasImage ? 'transparent' : getAvatarGradient(cleanHost || title),
+        }}
+      >
+        {hasImage ? (
+          <img
+            src={preview!.image}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <span style={{ userSelect: 'none' }}>{domainInitial}</span>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <h4 className="font-bold text-[13.5px] text-[var(--text-main)] truncate leading-snug">
+          {title}
+        </h4>
+
+        {cleanDescription ? (
+          <p className="text-[12px] text-[var(--text-dim)] line-clamp-2 leading-relaxed mt-0.5 opacity-85">
+            {cleanDescription}
+          </p>
+        ) : null}
+
+        <span className="text-[12px] text-[var(--accent-color)] hover:underline truncate mt-0.5 font-medium block">
+          {fullUrl}
+        </span>
+      </div>
+    </div>
+  );
+});
+
+
+
+
+
+import { TelegramMediaViewer, type MediaViewerItem } from './TelegramMediaViewer';
+
+export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLinkClick }: ProfileScreenProps) => {
+  const { t, i18n } = useTranslation();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [subTab, setSubTab] = useState<MediaType | null>(null);
+  const [viewerState, setViewerState] = useState<{
+    isOpen: boolean;
+    items: MediaViewerItem[];
+    initialIndex: number;
+  }>({
+    isOpen: false,
+    items: [],
+    initialIndex: 0,
+  });
+
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [adminKeyInput, setAdminKeyInput] = useState('');
+  const [adminKeyError, setAdminKeyError] = useState('');
+  const [devToastOpen, setDevToastOpen] = useState(false);
+
+  const triggerDevToast = useCallback(() => {
+    setDevToastOpen(true);
+    setTimeout(() => setDevToastOpen(false), 3000);
+  }, []);
+  const [soundAnimTrigger, setSoundAnimTrigger] = useState(0);
+  const updateChat = useChatStore((state) => state.updateChat);
+  const toggleChatMuted = useChatStore((state) => state.toggleChatMuted);
+
+  const chat = useChatStore((state) => state.chats.find(c => c.id === chatId));
+
+  const profileScrollRef = useRef<HTMLDivElement>(null);
+  const [profileThumb, setProfileThumb] = useState<{ top: number; height: number } | null>(null);
+  const [isProfileActive, setIsProfileActive] = useState(false);
+  const profileActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const updateProfileThumb = useCallback(() => {
+    const el = profileScrollRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollHeight <= clientHeight + 8) {
+      setProfileThumb(null);
+      return;
+    }
+    const trackHeight = clientHeight - 12;
+    const thumbHeight = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
+    const maxTop = trackHeight - thumbHeight;
+    const scrollableDistance = scrollHeight - clientHeight;
+    const ratio = scrollableDistance > 0 ? scrollTop / scrollableDistance : 0;
+    setProfileThumb({ top: maxTop * ratio, height: thumbHeight });
+  }, []);
+
+  const triggerProfileActive = useCallback(() => {
+    updateProfileThumb();
+    const el = profileScrollRef.current;
+    if (el && el.scrollHeight > el.clientHeight + 8) {
+      setIsProfileActive(true);
+      if (profileActiveTimerRef.current) clearTimeout(profileActiveTimerRef.current);
+      profileActiveTimerRef.current = setTimeout(() => {
+        setIsProfileActive(false);
+      }, 1000);
+    } else {
+      setIsProfileActive(false);
+    }
+  }, [updateProfileThumb]);
+
+  const handleProfileMouseLeave = useCallback(() => {
+    if (profileActiveTimerRef.current) clearTimeout(profileActiveTimerRef.current);
+    setIsProfileActive(false);
+  }, []);
+
+  useEffect(() => {
+    updateProfileThumb();
+  }, [updateProfileThumb]);
+
+  useEffect(() => {
+    const el = profileScrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => updateProfileThumb());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [updateProfileThumb]);
+
+  const subTabScrollRef = useRef<HTMLDivElement>(null);
+  const [subTabThumb, setSubTabThumb] = useState<{ top: number; height: number } | null>(null);
+  const [isSubTabActive, setIsSubTabActive] = useState(false);
+  const subTabActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const updateSubTabThumb = useCallback(() => {
+    const el = subTabScrollRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollHeight <= clientHeight + 8) {
+      setSubTabThumb(null);
+      return;
+    }
+    const trackHeight = clientHeight - 12;
+    const thumbHeight = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
+    const maxTop = trackHeight - thumbHeight;
+    const scrollableDistance = scrollHeight - clientHeight;
+    const ratio = scrollableDistance > 0 ? scrollTop / scrollableDistance : 0;
+    setSubTabThumb({ top: maxTop * ratio, height: thumbHeight });
+  }, []);
+
+  const triggerSubTabActive = useCallback(() => {
+    updateSubTabThumb();
+    const el = subTabScrollRef.current;
+    if (el && el.scrollHeight > el.clientHeight + 8) {
+      setIsSubTabActive(true);
+      if (subTabActiveTimerRef.current) clearTimeout(subTabActiveTimerRef.current);
+      subTabActiveTimerRef.current = setTimeout(() => {
+        setIsSubTabActive(false);
+      }, 1000);
+    } else {
+      setIsSubTabActive(false);
+    }
+  }, [updateSubTabThumb]);
+
+  const handleSubTabMouseLeave = useCallback(() => {
+    if (subTabActiveTimerRef.current) clearTimeout(subTabActiveTimerRef.current);
+    setIsSubTabActive(false);
+  }, []);
+
+  useEffect(() => {
+    updateSubTabThumb();
+  }, [subTab, searchQuery, updateSubTabThumb]);
+
+  useEffect(() => {
+    const el = subTabScrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => updateSubTabThumb());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [updateSubTabThumb]);
+  const messages = useChatStore(useShallow((s) => s.messagesByChatId[chatId] || []));
+  const setActiveChat = useChatStore((state) => state.setActiveChat);
+  const startCall = useCallStore((state) => state.startCall);
+  const myNickname = useAuthStore((state) => state.nickname) || 'YOU';
+  const voiceCallsEnabled = useChatStore((state) => state.voiceCallsEnabled);
+
+  const isChannel = chat?.type === 'channel';
+  const isChannelOwner = isChannel && (chat.isOwner || chat.creatorNickname === myNickname);
+
+  const isGroup = chat?.type === 'group';
+  const [copiedGroupCode, setCopiedGroupCode] = useState(false);
+  const deleteChat = useChatStore((s) => s.deleteChat);
+
+  const handleCopyGroupCode = useCallback(() => {
+    if (!chat?.inviteCode) return;
+    navigator.clipboard.writeText(chat.inviteCode);
+    setCopiedGroupCode(true);
+    setTimeout(() => setCopiedGroupCode(false), 2000);
+  }, [chat?.inviteCode]);
+
+  const handleLeaveGroup = useCallback(() => {
+    if (!chat) return;
+    groupService.leaveGroup(chat.id, myNickname);
+    deleteChat(chat.id);
+    onClose();
+  }, [chat, myNickname, deleteChat, onClose]);
+
+  const handleCopyChannelKey = useCallback(() => {
+    if (!chat) return;
+    navigator.clipboard.writeText(chat.id);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+  }, [chat]);
+
+  const handleAdminAuth = useCallback(() => {
+    if (!adminKeyInput.trim() || !chat) return;
+    const cleanKey = adminKeyInput.trim();
+    if (cleanKey.length >= 6) {
+      updateChat(chat.id, { isOwner: true });
+      setIsAdminAuthModalOpen(false);
+      setAdminKeyInput('');
+      setAdminKeyError('');
+    } else {
+      setAdminKeyError('Неверный ключ администратора');
+    }
+  }, [adminKeyInput, chat, updateChat]);
+
+  useEffect(() => {
+    if (!chat || chat.type !== 'channel') return;
+    channelService.getChannel(chat.id).then((info) => {
+      if (info) {
+        updateChat(chat.id, {
+          subscribersCount: info.subscribersCount,
+          description: info.description,
+          name: info.name,
+          avatarUrl: info.avatarUrl || undefined,
+        });
+      }
+    });
+  }, [chat?.id, chat?.type, updateChat]);
+
+  const innerContentRef = useRef<HTMLDivElement>(null);
+  const [targetHeight, setTargetHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isMobileView) return;
+
+    const measure = () => {
+      if (innerContentRef.current) {
+        const measured = innerContentRef.current.offsetHeight || innerContentRef.current.scrollHeight;
+        if (measured > 0) {
+          setTargetHeight(measured);
+        }
+      }
+    };
+
+    const rafId = requestAnimationFrame(measure);
+    const timer = setTimeout(measure, 30);
+
+    let ro: ResizeObserver | null = null;
+    if (innerContentRef.current) {
+      ro = new ResizeObserver(measure);
+      ro.observe(innerContentRef.current);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+      ro?.disconnect();
+    };
+  }, [subTab, isMobileView, chat?.id]);
+
+  const mediaGroups = useMemo(() => {
+    if (!chat || !messages) return {} as Record<MediaType, MediaGroup>;
+
+    const groups: Record<MediaType, MediaGroup> = {
+      photos: { messages: [], gridItems: [], count: 0 },
+      videos: { messages: [], gridItems: [], count: 0 },
+      files: { messages: [], gridItems: [], count: 0 },
+      audio: { messages: [], gridItems: [], count: 0 },
+      voice: { messages: [], gridItems: [], count: 0 },
+      links: { messages: [], gridItems: [], count: 0 },
+      gif: { messages: [], gridItems: [], count: 0 },
+    };
+
+    for (const msg of messages) {
+      if (isStickerMessage(msg)) {
+        continue;
+      }
+      if (isVoiceMessage(msg)) {
+        groups.voice.messages.push(msg);
+        groups.voice.count++;
+      } else if (isGifMessage(msg)) {
+        groups.gif.messages.push(msg);
+        groups.gif.gridItems?.push({
+          id: msg.id || String(msg.time),
+          messageId: msg.id || String(msg.time),
+          url: msg.mediaUrl || msg.text?.match(/https?:\/\/[^\s]+/)?.[0] || '',
+          name: msg.mediaName || 'GIF',
+          mime: msg.mime || 'image/gif',
+          time: msg.time,
+          type: 'gif',
+          duration: msg.duration,
+          text: msg.text,
+          sender: msg.sender,
+          key: msg.mediaKey,
+        });
+        groups.gif.count++;
+      } else if (msg.mediaItems && msg.mediaItems.length > 0) {
+        msg.mediaItems.forEach((item, idx) => {
+          const itemIsSticker =
+            (item as any).type === 'sticker' ||
+            (item.url && (item.url.includes('/stickers/') || item.url.includes('stickers/')));
+
+          if (itemIsSticker) return;
+
+          const itemIsVoice =
+            (item as any).type === 'voice' ||
+            item.mime === 'audio/ogg' ||
+            item.mime?.includes('ogg') ||
+            item.mime?.includes('opus') ||
+            (item.name && (/^voice_/i.test(item.name) || /\.ogg$/i.test(item.name) || /\.opus$/i.test(item.name)));
+
+          const itemIsAudio =
+            !itemIsVoice &&
+            ((item as any).type === 'audio' ||
+              (item.mime && item.mime.startsWith('audio/')) ||
+              (item.name && /\.(mp3|wav|flac|aac|m4a|wma|ape|alac)$/i.test(item.name)));
+
+          const itemIsGif =
+            !itemIsVoice &&
+            !itemIsAudio &&
+            (item.mime === 'image/gif' || item.name?.endsWith('.gif') || (item as any).type === 'gif');
+
+          const itemIsVideo =
+            !itemIsVoice &&
+            !itemIsAudio &&
+            !itemIsGif &&
+            ((item as any).type === 'video' ||
+              (item.mime && item.mime.startsWith('video/')) ||
+              (item.name && /\.(mp4|mov|avi|mkv|m4v|3gp)$/i.test(item.name)) ||
+              (item.name && /\.webm$/i.test(item.name) && !item.name.startsWith('voice_')));
+
+          const itemIsPhoto =
+            !itemIsVoice &&
+            !itemIsAudio &&
+            !itemIsGif &&
+            !itemIsVideo &&
+            !itemIsSticker &&
+            ((item as any).type === 'photo' ||
+              (item as any).type === 'image' ||
+              (item.mime && item.mime.startsWith('image/')) ||
+              (item.name && /\.(png|jpg|jpeg|webp|avif|bmp|heic)$/i.test(item.name)));
+
+          if (itemIsVoice) {
+            groups.voice.messages.push({
+              ...msg,
+              id: `${msg.id || msg.time}_${idx}`,
+              mediaUrl: item.url,
+              mediaName: item.name || `voice_${formatTelegramDate(msg.time, i18n.language)}`,
+              mime: item.mime || 'audio/ogg',
+              duration: item.duration,
+              mediaKey: item.key || msg.mediaKey,
+              mediaType: 'voice',
+            });
+            groups.voice.count++;
+          } else if (itemIsAudio) {
+            groups.audio.messages.push({
+              ...msg,
+              id: `${msg.id || msg.time}_${idx}`,
+              mediaUrl: item.url,
+              mediaName: item.name || 'Audio',
+              mime: item.mime || 'audio/mpeg',
+              duration: item.duration,
+              mediaKey: item.key || msg.mediaKey,
+              mediaType: 'audio',
+              audioMetadata: (item as any).audioMetadata || {
+                title: item.name?.replace(/\.[^.]+$/, '') || 'Audio',
+                artist: '',
+                duration: item.duration,
+                cover: (item as any).cover || null,
+              },
+            });
+            groups.audio.count++;
+          } else if (itemIsGif) {
+            groups.gif.messages.push(msg);
+            groups.gif.gridItems?.push({
+              id: `${msg.id || msg.time}_${idx}`,
+              messageId: msg.id || String(msg.time),
+              url: item.url,
+              name: item.name || 'GIF',
+              mime: item.mime || 'image/gif',
+              time: msg.time,
+              type: 'gif',
+              duration: item.duration,
+              text: msg.text,
+              sender: msg.sender,
+              key: item.key || msg.mediaKey,
+            });
+            groups.gif.count++;
+          } else if (itemIsVideo) {
+            groups.videos.messages.push(msg);
+            groups.videos.gridItems?.push({
+              id: `${msg.id || msg.time}_${idx}`,
+              messageId: msg.id || String(msg.time),
+              url: item.url,
+              name: item.name || 'Video',
+              mime: item.mime || 'video/mp4',
+              time: msg.time,
+              type: 'videos',
+              duration: item.duration,
+              text: msg.text,
+              sender: msg.sender,
+              key: item.key || msg.mediaKey,
+            });
+            groups.videos.count++;
+          } else if (itemIsPhoto) {
+            groups.photos.messages.push(msg);
+            groups.photos.gridItems?.push({
+              id: `${msg.id || msg.time}_${idx}`,
+              messageId: msg.id || String(msg.time),
+              url: item.url,
+              name: item.name || 'Photo',
+              mime: item.mime || 'image/jpeg',
+              time: msg.time,
+              type: 'photos',
+              duration: item.duration,
+              text: msg.text,
+              sender: msg.sender,
+              key: item.key || msg.mediaKey,
+            });
+            groups.photos.count++;
+          } else {
+            groups.files.messages.push({
+              ...msg,
+              id: `${msg.id || msg.time}_${idx}`,
+              mediaUrl: item.url,
+              mediaName: item.name || 'File',
+              mime: item.mime || 'application/octet-stream',
+              duration: item.duration,
+              mediaKey: item.key || msg.mediaKey,
+              mediaType: 'file',
+            });
+            groups.files.count++;
+          }
+        });
+      } else if (isPhotoMessage(msg)) {
+        groups.photos.messages.push(msg);
+        groups.photos.gridItems?.push({
+          id: msg.id || String(msg.time),
+          messageId: msg.id || String(msg.time),
+          url: msg.mediaUrl || msg.text?.match(/https?:\/\/[^\s]+/)?.[0] || '',
+          name: msg.mediaName || 'Photo',
+          mime: msg.mime || 'image/jpeg',
+          time: msg.time,
+          type: 'photos',
+          duration: msg.duration,
+          text: msg.text,
+          sender: msg.sender,
+          key: msg.mediaKey,
+        });
+        groups.photos.count++;
+      } else if (isVideoMessage(msg)) {
+        groups.videos.messages.push(msg);
+        groups.videos.gridItems?.push({
+          id: msg.id || String(msg.time),
+          messageId: msg.id || String(msg.time),
+          url: msg.mediaUrl || msg.text?.match(/https?:\/\/[^\s]+/)?.[0] || '',
+          name: msg.mediaName || 'Video',
+          mime: msg.mime || 'video/mp4',
+          time: msg.time,
+          type: 'videos',
+          duration: msg.duration,
+          text: msg.text,
+          sender: msg.sender,
+          key: msg.mediaKey,
+        });
+        groups.videos.count++;
+      } else if (isAudioMessage(msg)) {
+        groups.audio.messages.push(msg);
+        groups.audio.count++;
+      } else if (msg.mediaType === 'file' || (msg.mediaType === null && msg.text?.startsWith('[File]'))) {
+        groups.files.messages.push(msg);
+        groups.files.count++;
+      } else if (msg.text && !msg.mediaType) {
+        const urlMatch = msg.text.match(/https?:\/\/[^\s]+/g);
+        if (urlMatch) {
+          groups.links.messages.push(msg);
+          groups.links.count += urlMatch.length;
+        }
+      }
+    }
+
+    return groups;
+  }, [chat, messages]);
+
+  const availableSections = useMemo(() => {
+    const sections: { id: MediaType; labelKey: string; icon: React.ElementType; count: number }[] = [];
+    const mapping: Record<MediaType, { labelKey: string; icon: React.ElementType }> = {
+      photos: { labelKey: 'photos_count', icon: GravityPictureIcon },
+      videos: { labelKey: 'videos_count', icon: GravityVideoIcon },
+      files: { labelKey: 'files_count', icon: GravityFileIcon },
+      audio: { labelKey: 'audio_files_count', icon: GravityHeadphonesIcon },
+      links: { labelKey: 'links_count', icon: GravityLinkIcon },
+      voice: { labelKey: 'voice_messages_count', icon: GravityMicIcon },
+      gif: { labelKey: 'gif_count', icon: GravityGifBadgeIcon },
+    };
+
+    for (const [key, { labelKey, icon }] of Object.entries(mapping)) {
+      const type = key as MediaType;
+      const count = mediaGroups[type]?.count ?? 0;
+      if (count > 0) {
+        sections.push({
+          id: type,
+          labelKey,
+          icon,
+          count,
+        });
+      }
+    }
+    return sections;
+  }, [mediaGroups]);
+
+  const handleChatClick = useCallback(() => {
+    setActiveChat(chatId);
+    onClose();
+    window.dispatchEvent(new CustomEvent('orbita:scroll-to-bottom', { detail: { chatId } }));
+  }, [chatId, setActiveChat, onClose]);
+
+  const handleCallClick = useCallback(() => {
+    if (chatId === 'notes') {
+      alert(t('profile.calls_not_available') || 'Звонки недоступны для заметок');
+      return;
+    }
+    if (!voiceCallsEnabled) {
+      alert(t('settings.voice_calls_disabled') || 'Голосовые звонки отключены в настройках');
+      return;
+    }
+    startCall(chatId, 'audio', myNickname);
+  }, [voiceCallsEnabled, chatId, myNickname, startCall, t]);
+
+  const handleSoundClick = useCallback(() => {
+    setSoundAnimTrigger((prev) => prev + 1);
+    toggleChatMuted(chatId);
+  }, [chatId, toggleChatMuted]);
+
+  const handleMediaClick = useCallback((clickedItem: MediaGridItem) => {
+    if (!subTab) return;
+    const allItems = mediaGroups[subTab]?.gridItems || [];
+    const itemsList = filteredGridItems(allItems);
+    const viewerItems: MediaViewerItem[] = itemsList.map((it, idx) => ({
+      id: it.id || String(idx),
+      url: it.url,
+      type: it.type,
+      name: it.name,
+      sender: it.sender,
+      time: it.time,
+      messageId: it.messageId,
+      duration: it.duration,
+      caption: it.text,
+      key: it.key,
+      sharedSecret: it.key || chat?.sharedSecret,
+    }));
+    const index = viewerItems.findIndex((it) => it.id === clickedItem.id || it.url === clickedItem.url);
+    setViewerState({
+      isOpen: true,
+      items: viewerItems,
+      initialIndex: index !== -1 ? index : 0,
+    });
+  }, [subTab, mediaGroups, searchQuery]);
+
+  if (!chat) {
+    return (
+      <div className="flex items-center justify-center h-full" style={{ minHeight: '400px' }}>
+        <MD3CircularSpinner size="large" />
+      </div>
+    );
+  }
+
+  const formatSubscribers = (count: number) => {
+    const c = Math.max(1, count);
+    const mod10 = c % 10;
+    const mod100 = c % 100;
+    if (mod10 === 1 && mod100 !== 11) return `${c} подписчик`;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${c} подписчика`;
+    return `${c} подписчиков`;
+  };
+
+  const statusText = chatId === 'notes'
+    ? ''
+    : isChannel
+      ? `${formatSubscribers(chat.subscribersCount || 1)} • публичный канал`
+      : chat.online
+        ? t('userStatus.online')
+        : formatLastSeen(chat.lastSeen, t);
+
+  const filteredMessages = (messagesList: Message[]) => {
+    if (!searchQuery.trim()) return messagesList;
+    const q = searchQuery.toLowerCase();
+    return messagesList.filter(msg =>
+      (msg.mediaName && msg.mediaName.toLowerCase().includes(q)) ||
+      (msg.text && msg.text.toLowerCase().includes(q)) ||
+      (msg.sender && msg.sender.toLowerCase().includes(q))
+    );
+  };
+
+  const filteredGridItems = (items: MediaGridItem[]) => {
+    if (!searchQuery.trim()) return items;
+    const q = searchQuery.toLowerCase();
+    return items.filter(item =>
+      (item.name && item.name.toLowerCase().includes(q)) ||
+      (item.text && item.text.toLowerCase().includes(q)) ||
+      (item.sender && item.sender.toLowerCase().includes(q))
+    );
+  };
+
+  // Group MediaGridItem by Generalized Periods (Сегодня, Вчера, Август, Январь 2026...)
+  const groupGridItemsByPeriod = (items: MediaGridItem[]) => {
+    // Sort descending by time
+    const sorted = [...items].sort((a, b) => b.time - a.time);
+    const groupsMap = new Map<string, { key: string; title: string; orderScore: number; items: MediaGridItem[] }>();
+
+    for (const item of sorted) {
+      const period = formatPeriodHeader(item.time, i18n.language);
+      if (!groupsMap.has(period.key)) {
+        groupsMap.set(period.key, {
+          key: period.key,
+          title: period.title,
+          orderScore: period.orderScore,
+          items: [],
+        });
+      }
+      groupsMap.get(period.key)!.items.push(item);
+    }
+
+    return Array.from(groupsMap.values()).sort((a, b) => b.orderScore - a.orderScore);
+  };
+
+  // Group Messages by Generalized Periods (Сегодня, Вчера, Август, Январь 2026...)
+  const groupMessagesByPeriod = (messagesList: Message[]) => {
+    const sorted = [...messagesList].sort((a, b) => b.time - a.time);
+    const groupsMap = new Map<string, { key: string; title: string; orderScore: number; messages: Message[] }>();
+
+    for (const msg of sorted) {
+      const period = formatPeriodHeader(msg.time, i18n.language);
+      if (!groupsMap.has(period.key)) {
+        groupsMap.set(period.key, {
+          key: period.key,
+          title: period.title,
+          orderScore: period.orderScore,
+          messages: [],
+        });
+      }
+      groupsMap.get(period.key)!.messages.push(msg);
+    }
+
+    return Array.from(groupsMap.values()).sort((a, b) => b.orderScore - a.orderScore);
+  };
+
+  const renderSubContent = (tab: MediaType) => {
+    const group = mediaGroups[tab];
+    if (!group || group.count === 0) {
+      return (
+        <div style={{ width: '100%', padding: '40px 16px', color: 'var(--text-dim)', fontSize: '14px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {t('profile.empty_section')}
+        </div>
+      );
+    }
+
+    const sharedSecret = chat.sharedSecret!;
+
+    // GRID RENDERING FOR PHOTOS, VIDEOS, AND GIF
+    if (tab === 'photos' || tab === 'videos' || tab === 'gif') {
+      const allGridItems = group.gridItems || [];
+      const itemsList = filteredGridItems(allGridItems);
+
+      if (itemsList.length === 0) {
+        return (
+          <div style={{ width: '100%', padding: '40px 16px', color: 'var(--text-dim)', fontSize: '14px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {t('common.no_results')}
+          </div>
+        );
+      }
+
+      const periodGroups = groupGridItemsByPeriod(itemsList);
+
+      return (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 16px 0', boxSizing: 'border-box' }}>
+          {periodGroups.map((pGroup, idx) => (
+            <div key={pGroup.key} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              {/* Period Header (Сегодня, Вчера, Август, Январь 2026...) */}
+              <div
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  color: 'var(--text-main, #ffffff)',
+                  padding: idx === 0 ? '4px 0 8px' : '14px 0 8px',
+                  letterSpacing: '0.1px',
+                  userSelect: 'none',
+                }}
+              >
+                {pGroup.title}
+              </div>
+
+              {/* 4-column Grid with Small Gap */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '3px',
+                  width: '100%',
+                }}
+              >
+                {pGroup.items.map((item) => (
+                  <ProfileMediaGridTile
+                    key={item.id}
+                    item={item}
+                    sharedSecret={sharedSecret}
+                    type={tab}
+                    isViewerOpen={viewerState.isOpen}
+                    onMediaClick={handleMediaClick}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // LIST RENDERING FOR FILES, AUDIO, VOICE, LINKS
+    const messagesList = filteredMessages(group.messages);
+
+    if (messagesList.length === 0) {
+      return (
+        <div style={{ width: '100%', padding: '40px 16px', color: 'var(--text-dim)', fontSize: '14px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {t('common.no_results')}
+        </div>
+      );
+    }
+
+    const periodGroups = groupMessagesByPeriod(messagesList);
+
+    return (
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+        {periodGroups.map((pGroup, idx) => (
+          <div key={pGroup.key} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+            {/* Period Header */}
+            <div
+              style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                color: 'var(--text-main, #ffffff)',
+                padding: idx === 0 ? '6px 16px 4px 16px' : '14px 16px 4px 16px',
+                letterSpacing: '0.1px',
+                userSelect: 'none',
+              }}
+            >
+              {pGroup.title}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              {pGroup.messages.map((msg) => {
+                if (tab === 'files') {
+                  return <ProfileFileListItem key={msg.id} msg={msg} sharedSecret={sharedSecret} i18nLang={i18n.language} />;
+                }
+                if (tab === 'audio') {
+                  return <ProfileAudioListItem key={msg.id} msg={msg} sharedSecret={sharedSecret} i18nLang={i18n.language} />;
+                }
+                if (tab === 'voice') {
+                  return <ProfileVoiceListItem key={msg.id} msg={msg} sharedSecret={sharedSecret} i18nLang={i18n.language} />;
+                }
+                if (tab === 'links') {
+                  return <ProfileLinkListItem key={msg.id} msg={msg} onLinkClick={onLinkClick} />;
+                }
+                return null;
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderMainContent = () => (
+    <div
+      style={{
+        padding: '20px 0 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        position: 'relative',
+        boxSizing: 'border-box',
+        width: '100%',
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{ width: 96, height: 96, marginBottom: 10, marginTop: 0, cursor: chat.avatarUrl ? 'pointer' : 'default' }}
+        onClick={() => {
+          if (chat.avatarUrl) {
+            setViewerState({
+              isOpen: true,
+              items: [{
+                id: 'avatar',
+                url: chat.avatarUrl,
+                type: 'photo',
+                name: `${chat.name || 'Avatar'}.jpg`,
+                sender: chat.name,
+                time: Date.now(),
+              }],
+              initialIndex: 0,
+            });
+          }
+        }}
+      >
+        {chatId === 'notes' ? (
+          <NotesAvatar className="w-24 h-24" />
+        ) : (
+          <Avatar
+            src={chat.avatarUrl}
+            alt={chat.name}
+            className="w-24 h-24 rounded-full"
+          />
+        )}
+      </div>
+
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2px', padding: '0 20px', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center' }}>
+            {chatId === 'notes' ? t('connectModal.notes') : chat.name}
+          </h3>
+          <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
+            <DeveloperBadge
+              userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
+              size={34}
+              onClick={triggerDevToast}
+            />
+          </div>
+        </div>
+      </div>
+      {statusText && (
+        <p
+          style={{
+            fontSize: '13px',
+            color: (!isChannel && chatId !== 'notes' && chat.online) ? 'var(--accent-color)' : 'var(--text-dim)',
+            fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 600 : 400,
+            textShadow: (!isChannel && chatId !== 'notes' && chat.online) ? '0 0 1.5px color-mix(in srgb, var(--accent-color) 30%, transparent)' : 'none',
+            margin: '0 0 20px',
+            padding: '0 20px',
+            textAlign: 'center',
+          }}
+        >
+          {statusText}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '20px', padding: '0 16px', width: '100%', boxSizing: 'border-box' }}>
+        <button
+          onClick={handleChatClick}
+          aria-label={t('profile.chat')}
+          style={{
+            width: '92px',
+            height: '56px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            background: 'var(--md-surface, #211c2e)',
+            border: 'none',
+            borderRadius: '12px',
+            padding: '0',
+            color: 'var(--text-main)',
+            cursor: 'pointer',
+            flexShrink: 0,
+            outline: 'none',
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+            <path fill="var(--accent-color)" stroke="var(--accent-color)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 21a9 9 0 1 0-7.605-4.185L3 21l4.185-1.395A8.96 8.96 0 0 0 12 21"/>
+          </svg>
+          <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.chat')}</span>
+        </button>
+
+        <button
+          onClick={handleSoundClick}
+          aria-label={t('profile.sound')}
+          style={{
+            width: '92px',
+            height: '56px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            background: 'var(--md-surface, #211c2e)',
+            border: 'none',
+            borderRadius: '12px',
+            padding: '0',
+            color: 'var(--text-main)',
+            cursor: 'pointer',
+            flexShrink: 0,
+            outline: 'none',
+          }}
+        >
+          <motion.div
+            key={soundAnimTrigger}
+            animate={
+              soundAnimTrigger > 0
+                ? {
+                    scale: [0.85, 1.15, 1],
+                    rotate: chat?.muted ? [-14, 14, 0] : [14, -14, 0],
+                  }
+                : { scale: 1, rotate: 0 }
+            }
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {chat?.muted ? (
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none">
+                <path
+                  fill="var(--accent-color)"
+                  stroke="var(--accent-color)"
+                  strokeWidth="1.5"
+                  d="M12 3.398a5 5 0 00-5 5v2c0 .758-.442 1.505-1.005 2.012A3 3 0 008 17.642h8a3 3 0 002.005-5.232C17.442 11.903 17 11.156 17 10.398v-2a5 5 0 00-5-5z"
+                />
+                <path
+                  stroke="var(--accent-color)"
+                  strokeLinecap="round"
+                  strokeWidth="1.8"
+                  d="M14.39 20.312l-.043.01a9.714 9.714 0 01-4.67-.01"
+                />
+                <path
+                  stroke="var(--md-surface, #211c2e)"
+                  strokeLinecap="round"
+                  strokeWidth="3.5"
+                  d="M19 5L5 19"
+                />
+                <path
+                  stroke="var(--accent-color)"
+                  strokeLinecap="round"
+                  strokeWidth="2"
+                  d="M19 5L5 19"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none">
+                <path
+                  fill="var(--accent-color)"
+                  stroke="var(--accent-color)"
+                  strokeWidth="1.5"
+                  d="M12 3.398a5 5 0 00-5 5v2c0 .758-.442 1.505-1.005 2.012A3 3 0 008 17.642h8a3 3 0 002.005-5.232C17.442 11.903 17 11.156 17 10.398v-2a5 5 0 00-5-5z"
+                />
+                <path
+                  stroke="var(--accent-color)"
+                  strokeLinecap="round"
+                  strokeWidth="1.8"
+                  d="M14.39 20.312l-.043.01a9.714 9.714 0 01-4.67-.01"
+                />
+              </svg>
+            )}
+          </motion.div>
+          <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.sound')}</span>
+        </button>
+
+        {isChannel ? (
+          <button
+            onClick={handleCopyChannelKey}
+            aria-label={copiedKey ? 'Скопирован' : 'Ключ'}
+            style={{
+              width: '92px',
+              height: '56px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: 'var(--md-surface, #211c2e)',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '0',
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              flexShrink: 0,
+              outline: 'none',
+            }}
+          >
+            {copiedKey ? (
+              <Check size={20} className="text-green-400" />
+            ) : (
+              <Copy size={20} style={{ color: 'var(--accent-color)' }} />
+            )}
+            <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{copiedKey ? 'Скопирован' : 'Ключ'}</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleCallClick}
+            disabled={!voiceCallsEnabled || chatId === 'notes'}
+            aria-label={t('profile.call')}
+            style={{
+              width: '92px',
+              height: '56px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              background: 'var(--md-surface, #211c2e)',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '0',
+              color: 'var(--text-main)',
+              cursor: (!voiceCallsEnabled || chatId === 'notes') ? 'not-allowed' : 'pointer',
+              opacity: (!voiceCallsEnabled || chatId === 'notes') ? 0.4 : 1,
+              flexShrink: 0,
+              outline: 'none',
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 42 42" fill="var(--accent-color)">
+              <path d="M15.562 20.766c-1.328-1.922-2.118-4.241-2.281-4.438c1.945-1.356 5.749-3.06 5.962-5.505c.271-3.159-5.081-9.763-6.107-9.823c-2.808.03-7.947 4.782-8.556 6.218c-1.132 2.969-.571 5.732 1.375 9.732c2.478 5.95 11.682 17.237 16.947 20.78c3.484 2.674 6.029 3.724 9.068 3.09c1.413-.268 6.516-4.455 7.027-7.286c.125-1.05-5.807-8.011-8.875-8.287c-2.382-.22-4.666 3.346-6.303 5.089c-.163-.208-1.559-1.297-3.057-3.021c-1.95-2.049-3.762-4.456-5.2-6.549" />
+            </svg>
+            <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.call')}</span>
+          </button>
+        )}
+      </div>
+
+      {isChannel && (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', padding: '0 20px', marginBottom: '16px', boxSizing: 'border-box' }}>
+          {chat.description && (
+            <div style={{
+              background: 'var(--surface-container, rgba(255,255,255,0.04))',
+              borderRadius: '14px',
+              padding: '12px 14px',
+              marginBottom: '10px',
+              border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                Описание
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4', wordBreak: 'break-word', userSelect: 'text' }}>
+                {chat.description}
+              </div>
+            </div>
+          )}
+
+          <div style={{
+            background: 'var(--surface-container, rgba(255,255,255,0.04))',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            marginBottom: '10px',
+            border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                Ключ канала для входа (36 знаков)
+              </div>
+              <div style={{
+                fontSize: '12px',
+                fontFamily: 'monospace',
+                color: 'var(--accent-color)',
+                wordBreak: 'break-all',
+                userSelect: 'all',
+                background: 'rgba(0,0,0,0.2)',
+                padding: '6px 8px',
+                borderRadius: '8px',
+              }}>
+                {chat.id}
+              </div>
+            </div>
+            <button
+              onClick={handleCopyChannelKey}
+              aria-label="Скопировать ключ канала"
+              style={{
+                background: copiedKey ? 'var(--accent-color)' : 'var(--surface-container-strong, rgba(255,255,255,0.1))',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '8px',
+                color: '#ffffff',
+                cursor: 'pointer',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+              }}
+            >
+              {copiedKey ? <Check size={18} /> : <Copy size={18} />}
+            </button>
+          </div>
+
+          <div style={{
+            background: isChannelOwner ? 'rgba(34, 197, 94, 0.1)' : 'var(--surface-container, rgba(255,255,255,0.04))',
+            borderRadius: '14px',
+            padding: '10px 14px',
+            border: isChannelOwner ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            {isChannelOwner ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, color: '#4ade80' }}>
+                <span>👑</span>
+                <span>Вы создатель этого канала (полный доступ к публикациям)</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '10px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Вы подписчик</span>
+                <button
+                  onClick={() => setIsAdminAuthModalOpen(true)}
+                  aria-label="Войти как создатель"
+                  style={{
+                    background: 'var(--surface-container-strong, rgba(255,255,255,0.1))',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    color: 'var(--text-main)',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Key size={14} style={{ color: 'var(--accent-color)' }} />
+                  <span>Войти как создатель</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isGroup && (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', padding: '0 20px', marginBottom: '16px', boxSizing: 'border-box' }}>
+          {chat.description && (
+            <div style={{
+              background: 'var(--surface-container, rgba(255,255,255,0.04))',
+              borderRadius: '14px',
+              padding: '12px 14px',
+              marginBottom: '10px',
+              border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                Описание
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4', wordBreak: 'break-word', userSelect: 'text' }}>
+                {chat.description}
+              </div>
+            </div>
+          )}
+
+          {chat.inviteCode && (
+            <div style={{
+              background: 'var(--surface-container, rgba(255,255,255,0.04))',
+              borderRadius: '14px',
+              padding: '12px 14px',
+              marginBottom: '10px',
+              border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                  {t('groupSettings.group_code')}
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  color: 'var(--accent-color)',
+                  wordBreak: 'break-all',
+                  userSelect: 'all',
+                  background: 'rgba(0,0,0,0.2)',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                }}>
+                  {chat.inviteCode}
+                </div>
+              </div>
+              <button
+                onClick={handleCopyGroupCode}
+                aria-label={t('groupSettings.copy_code')}
+                style={{
+                  background: copiedGroupCode ? 'var(--accent-color)' : 'var(--surface-container-strong, rgba(255,255,255,0.1))',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '8px',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {copiedGroupCode ? <Check size={18} /> : <Copy size={18} />}
+              </button>
+            </div>
+          )}
+
+          <div style={{
+            background: 'var(--surface-container, rgba(255,255,255,0.04))',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            marginBottom: '10px',
+            border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {t('groupSettings.participants')} ({chat.members?.length || 1} / 10)
+              </div>
+              <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>E2EE</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+              {(chat.members && chat.members.length > 0 ? chat.members : [{ nickname: myNickname, role: chat.role || 'owner' }]).map((m: any, idx: number) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Avatar src={m.avatarUrl} alt={m.nickname} className="w-6 h-6 rounded-full" />
+                    <span style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 500 }}>
+                      {m.nickname} {m.nickname === myNickname ? '(Вы)' : ''}
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    background: m.role === 'owner' ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.06)',
+                    color: m.role === 'owner' ? 'var(--accent-color)' : 'var(--text-dim)',
+                  }}>
+                    {m.role === 'owner' ? t('groupSettings.owner') : m.role === 'admin' ? t('groupSettings.admin') : t('groupSettings.member')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={handleLeaveGroup}
+            aria-label={t('groupSettings.leave_group')}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: '14px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              color: '#f87171',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'background 0.2s',
+            }}
+          >
+            <LogOut size={16} />
+            <span>{t('groupSettings.leave_group')}</span>
+          </button>
+        </div>
+      )}
+
+      {availableSections.length > 0 && (
+        <div style={{
+          backgroundColor: 'var(--md-surface, #211c2e)',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 0,
+          margin: 0,
+          padding: '4px 0',
+          boxSizing: 'border-box',
+        }}>
+          {availableSections.map((section) => {
+            const Icon = section.icon;
+            const countLabel = t(`profile.${section.labelKey}`, { count: section.count });
+            return (
+              <button
+                key={section.id}
+                onClick={() => {
+                  setSearchQuery('');
+                  setSubTab(section.id);
+                }}
+                aria-label={countLabel}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  width: '100%',
+                  padding: '12px 20px',
+                  borderRadius: 0,
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s',
+                  justifyContent: 'flex-start',
+                  boxSizing: 'border-box',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <Icon width={22} height={22} style={{ color: 'var(--text-dim, #9CA3AF)', flexShrink: 0 }} />
+                <span style={{ fontSize: '14.5px', fontWeight: 400, textAlign: 'left' }}>{countLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSubTab = () => {
+    if (!subTab) return null;
+    const getSectionTitle = () => {
+      if (subTab === 'photos') return t('profile.photos');
+      if (subTab === 'videos') return t('profile.videos');
+      if (subTab === 'files') return t('profile.files');
+      if (subTab === 'audio') return t('profile.audio_files');
+      if (subTab === 'voice') return t('profile.voice_messages');
+      if (subTab === 'links') return t('profile.links');
+      if (subTab === 'gif') return t('profile.gif');
+      return '';
+    };
+
+    const hasSearch = subTab === 'audio' || subTab === 'links' || subTab === 'files';
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+          width: '100%',
+          height: '100%',
+          minHeight: 0,
+          flex: 1,
+        }}
+      >
+        {/* Header with Back Chevron, Title, and More */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 16px 10px',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button
+              onClick={() => setSubTab(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                padding: '4px',
+                margin: '-4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                transition: 'color 150ms',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim)')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16 22L6 12L16 2l1.775 1.775L9.55 12l8.225 8.225z" />
+              </svg>
+            </button>
+            <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-main)' }}>{getSectionTitle()}</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '36px' }}>
+            {(subTab === 'photos' || subTab === 'videos') && (
+              <button
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                className="hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Options"
+              >
+                <MoreVertical size={19} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {hasSearch && (
+          <div style={{ padding: '0 16px 10px', flexShrink: 0 }}>
+            <div className="relative">
+              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-dim)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('profile.search_placeholder') || 'Поиск'}
+                className="w-full pl-10 pr-4 text-[var(--text-main)] text-[13.5px] outline-none border-none focus:outline-none focus:ring-0 transition-colors placeholder:text-[var(--text-dim)]"
+                style={{
+                  width: '100%',
+                  height: '36px',
+                  borderRadius: '999px',
+                  border: 'none',
+                  outline: 'none',
+                  boxShadow: 'none',
+                  backgroundColor: 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.05)))',
+                  color: 'var(--text-main, #e0e0e0)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Scrollable Container strictly ONLY for media items list below search */}
+        <div
+          style={{
+            position: 'relative',
+            flex: 1,
+            minHeight: 0,
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+          onMouseMove={triggerSubTabActive}
+          onMouseEnter={triggerSubTabActive}
+          onMouseLeave={handleSubTabMouseLeave}
+        >
+          <div
+            ref={subTabScrollRef}
+            onScroll={triggerSubTabActive}
+            className="chat-list-scrollbar"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              paddingBottom: '24px',
+            }}
+          >
+            {renderSubContent(subTab)}
+          </div>
+
+          {subTabThumb && (
+            <>
+              <div
+                className="overlay-scroll-track"
+                onMouseDown={(e) => handleScrollbarTrackMouseDown(e, subTabScrollRef.current)}
+                style={{
+                  top: '2px',
+                  bottom: '6px',
+                  opacity: isSubTabActive ? 1 : 0,
+                }}
+              />
+              <div
+                className="overlay-scroll-thumb"
+                onMouseDown={(e) => handleScrollbarThumbMouseDown(e, subTabScrollRef.current)}
+                style={{
+                  top: subTabThumb.top + 2,
+                  height: subTabThumb.height,
+                  opacity: isSubTabActive ? 1 : 0,
+                }}
+              />
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 200,
+          display: 'flex',
+          alignItems: isMobileView ? 'stretch' : 'flex-start',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.55)',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+          border: 'none',
+          padding: isMobileView ? '0' : 'min(7.5vh, 64px) 16px 16px',
+        }}
+        onClick={onClose}
+      >
+        <motion.div
+          onClick={(e) => e.stopPropagation()}
+          initial={{
+            opacity: 1,
+            scale: 1,
+            height: isMobileView ? 'calc(100vh - 30px)' : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.85, 750) : 750),
+          }}
+          animate={{
+            opacity: 1,
+            scale: 1,
+            height: isMobileView
+              ? 'calc(100vh - 30px)'
+              : targetHeight !== null
+              ? Math.min(targetHeight, typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.85, 750) : 750)
+              : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.85, 750) : 750),
+          }}
+          transition={{
+            height: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 0 },
+            scale: { duration: 0 },
+          }}
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: isMobileView ? '100vw' : '420px',
+            maxHeight: isMobileView ? 'calc(100vh - 30px)' : 'min(85vh, 750px)',
+            display: 'flex',
+            flexDirection: 'column',
+            margin: isMobileView ? '0' : '0 16px',
+            marginTop: isMobileView ? '30px' : '0',
+            backgroundColor: 'var(--settings-bg, var(--bg-secondary))',
+            borderRadius: isMobileView ? 0 : 10,
+            boxShadow: isMobileView ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
+            color: 'var(--text-main, #fff)',
+            overflow: 'hidden',
+            userSelect: 'none',
+            border: 'none',
+            outline: 'none',
+          }}
+        >
+          {/* Universal Settings-style Close Button - Fixed in top-right corner on Desktop */}
+          {!isMobileView && (
+            <button
+              onClick={onClose}
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 150ms, background 150ms',
+                zIndex: 30,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.color = 'var(--text-main)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--text-dim)';
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                <path fill="currentColor" d="M6.225 4.811a1 1 0 0 0-1.414 1.414L10.586 12L4.81 17.775a1 1 0 1 0 1.414 1.414L12 13.414l5.775 5.775a1 1 0 0 0 1.414-1.414L13.414 12l5.775-5.775a1 1 0 0 0-1.414-1.414L12 10.586z" />
+              </svg>
+            </button>
+          )}
+
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+              flex: 1,
+              overflow: 'hidden',
+            }}
+            onMouseMove={triggerProfileActive}
+            onMouseEnter={triggerProfileActive}
+            onMouseLeave={handleProfileMouseLeave}
+          >
+            <div
+              ref={profileScrollRef}
+              onScroll={triggerProfileActive}
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,
+                flex: 1,
+                overflowY: subTab === null ? 'auto' : 'hidden',
+                overflowX: 'hidden',
+              }}
+              className="chat-list-scrollbar"
+            >
+              <div
+                ref={innerContentRef}
+                style={{
+                  width: '100%',
+                  height: subTab !== null ? '100%' : 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  flex: subTab !== null ? 1 : 'none',
+                }}
+              >
+                {subTab !== null ? renderSubTab() : renderMainContent()}
+              </div>
+            </div>
+
+            {subTab === null && profileThumb && (
+              <>
+                <div
+                  className="overlay-scroll-track"
+                  onMouseDown={(e) => handleScrollbarTrackMouseDown(e, profileScrollRef.current)}
+                  style={{
+                    top: '6px',
+                    bottom: '6px',
+                    opacity: isProfileActive ? 1 : 0,
+                  }}
+                />
+                <div
+                  className="overlay-scroll-thumb"
+                  onMouseDown={(e) => handleScrollbarThumbMouseDown(e, profileScrollRef.current)}
+                  style={{
+                    top: profileThumb.top + 6,
+                    height: profileThumb.height,
+                    opacity: isProfileActive ? 1 : 0,
+                  }}
+                />
+              </>
+            )}
+          </div>
+
+          <DeveloperToast isOpen={devToastOpen} nickname={chat?.name} />
+        </motion.div>
+
+        {isAdminAuthModalOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.65)',
+              backdropFilter: 'blur(6px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 100,
+              padding: '16px',
+            }}
+            onClick={() => {
+              setIsAdminAuthModalOpen(false);
+              setAdminKeyError('');
+            }}
+          >
+            <div
+              style={{
+                background: 'var(--bg-primary, #1e1e2e)',
+                borderRadius: '20px',
+                padding: '24px',
+                width: '100%',
+                maxWidth: '380px',
+                border: '1px solid var(--surface-border, rgba(255,255,255,0.15))',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
+                Вход создателя канала
+              </h3>
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.4' }}>
+                Введите ключ создателя или мастер-пароль, чтобы активировать права публикации в этом канале.
+              </p>
+              <input
+                type="password"
+                placeholder="Секретный ключ создателя..."
+                value={adminKeyInput}
+                onChange={(e) => setAdminKeyInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAdminAuth();
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+                  borderRadius: '0px',
+                  padding: '8px 4px',
+                  color: 'var(--text-main, #ffffff)',
+                  fontSize: '14px',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)')}
+                onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))')}
+                autoFocus
+              />
+              {adminKeyError && (
+                <div style={{ fontSize: '11px', color: '#f87171' }}>{adminKeyError}</div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    setIsAdminAuthModalOpen(false);
+                    setAdminKeyError('');
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    color: 'var(--text-dim)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleAdminAuth}
+                  style={{
+                    background: 'var(--accent-color)',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Подтвердить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Fullscreen Telegram-style Media Viewer for Photos, Videos, GIFs */}
+      {viewerState.isOpen && (
+        <TelegramMediaViewer
+          isOpen={viewerState.isOpen}
+          items={viewerState.items}
+          initialIndex={viewerState.initialIndex}
+          sharedSecret={chat.sharedSecret}
+          showCarouselAlways={true}
+          onClose={() => setViewerState((prev) => ({ ...prev, isOpen: false }))}
+        />
+      )}
+    </>
+  );
+});

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Однотонный фон -->
+  <rect width="512" height="512" rx="128" fill="#000000"/>
+
+  <clipPath id="clip-left-tip">
+    <rect x="0" y="0" width="230" height="512" />
+  </clipPath>
+  <rect x="200" y="220" width="200" height="130" rx="65" fill="none" stroke="#9c78ff" stroke-width="10" clip-path="url(#clip-left-tip)"/>
+
+  <rect x="110" y="160" width="180" height="120" rx="60" fill="none" stroke="#b2acff" stroke-width="10"/>
+
+  <clipPath id="clip-rest-of-right">
+    <rect x="230" y="0" width="282" height="512" />
+  </clipPath>
+  <rect x="200" y="220" width="200" height="130" rx="65" fill="none" stroke="#9c78ff" stroke-width="10" clip-path="url(#clip-rest-of-right)"/>
+</svg>
