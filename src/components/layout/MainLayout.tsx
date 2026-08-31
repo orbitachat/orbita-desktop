@@ -2333,6 +2333,18 @@ export const MainLayout = () => {
         }
       }
 
+      if (typeof data.type === 'string' && data.type.startsWith('call-')) {
+        const myNick = nickname || useAuthStore.getState().nickname || useCallStore.getState().myNickname;
+        const myCurrentCode = myCode || useChatStore.getState().myCode;
+        if (
+          (data.sender && myNick && data.sender === myNick) ||
+          (data.sender && myCurrentCode && data.sender === myCurrentCode) ||
+          (data.senderId && myCurrentCode && data.senderId === myCurrentCode)
+        ) {
+          return;
+        }
+      }
+
       if (data.type === 'call-offer') {
         const currentState = useCallStore.getState();
         if (currentState.activeCall || currentState.incomingCall) {
