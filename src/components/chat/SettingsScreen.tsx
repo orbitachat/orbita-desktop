@@ -137,7 +137,7 @@ const TuxAvatar = () => (
     }}
   >
     <img
-      src="/tux.png"
+      src="./tux.png"
       alt="Tux"
       style={{
         width: '100%',
@@ -152,7 +152,7 @@ const TuxAvatar = () => (
 
 const OrbitaLogoAvatar = () => (
   <img
-    src="/orbita1.png"
+    src="./orbita1.png"
     alt="Orbita"
     style={{
       width: '60px',

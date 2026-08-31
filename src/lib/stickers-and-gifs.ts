@@ -207,12 +207,12 @@ export const BISCUIT_STICKER_PACK: StickerPack = {
   id: 'biscuit',
   title: 'Biscuit',
   author: 'Orbita',
-  avatarUrl: '/stickers/biscuit/biscuit 1.webp',
+  avatarUrl: './stickers/biscuit/biscuit 1.webp',
   stickers: Array.from({ length: 49 }, (_, i) => {
     const num = i + 1;
     return {
       id: `biscuit_${num}`,
-      url: `/stickers/biscuit/biscuit ${num}.webp`,
+      url: `./stickers/biscuit/biscuit ${num}.webp`,
       packId: 'biscuit',
       name: `Biscuit ${num}`,
       tags: ['biscuit', 'бисквит', 'кот', 'котик', 'cat', 'kitten', 'cute', 'милый'],

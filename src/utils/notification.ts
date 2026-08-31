@@ -193,7 +193,7 @@ export async function playNotificationSound() {
     }
 
     if (!notificationAudioBuffer) {
-      const response = await fetch('/sounds/incoming_notification.mp3');
+      const response = await fetch('./sounds/incoming_notification.mp3');
       const arrayBuffer = await response.arrayBuffer();
       notificationAudioBuffer = await notificationAudioContext.decodeAudioData(arrayBuffer);
     }
