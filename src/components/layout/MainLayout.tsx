@@ -2343,6 +2343,14 @@ export const MainLayout = () => {
         ) {
           return;
         }
+
+        if (data.type !== 'call-offer') {
+          const state = useCallStore.getState();
+          const currentRoom = state.activeCall?.roomName || state.incomingCall?.roomName;
+          if (data.roomName && currentRoom && data.roomName !== currentRoom) {
+            return;
+          }
+        }
       }
 
       if (data.type === 'call-offer') {
@@ -2361,6 +2369,7 @@ export const MainLayout = () => {
             type: 'call-busy',
             sender: nickname,
             text: '',
+            roomName: data.roomName,
           });
           if (channel.subscribed) sendBusy();
           else channel.bind('pusher:subscription_succeeded', sendBusy);

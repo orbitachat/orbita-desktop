@@ -234,6 +234,7 @@ export const useCallStore = create<CallStore>((set, get) => {
           connectedAt,
           sender: stateAfterCrypto.myNickname || undefined,
           text: '',
+          roomName: stateAfterCrypto.activeCall.roomName,
         });
       }
 
@@ -400,7 +401,7 @@ export const useCallStore = create<CallStore>((set, get) => {
           if (act) set({ activeCall: { ...act, endedStatus: 'missed' }, callState: 'ended' });
           callSoundService.stop();
           callSoundService.play('end');
-          sendCallSignalReliable(chatId, { type: 'call-cancel', sender: myNickname, text: '' });
+          sendCallSignalReliable(chatId, { type: 'call-cancel', sender: myNickname, text: '', roomName });
           get().endCall();
         }
       }, NO_ANSWER_TIMEOUT_MS);
@@ -434,7 +435,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       });
       callSoundService.play('connect');
 
-      sendCallSignalReliable(chatId, { type: 'call-accept', sender: myNickname, text: '' });
+      sendCallSignalReliable(chatId, { type: 'call-accept', sender: myNickname, text: '', roomName });
 
       if (connectingTimeoutTimer) clearTimeout(connectingTimeoutTimer);
       connectingTimeoutTimer = setTimeout(() => {
@@ -474,7 +475,7 @@ export const useCallStore = create<CallStore>((set, get) => {
         console.error(`${LOG_PREFIX} LiveKit connect error (incoming):`, err);
         if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
         const act = get().activeCall;
-        if (act) { sendCallSignal(chatId, { type: 'call-hangup', sender: myNickname, text: '' }); set({ activeCall: { ...act, endedStatus: 'failed' }, callState: 'ended' }); }
+        if (act) { sendCallSignal(chatId, { type: 'call-hangup', sender: myNickname, text: '', roomName }); set({ activeCall: { ...act, endedStatus: 'failed' }, callState: 'ended' }); }
         callSoundService.stop(); callSoundService.play('end');
         get().endCall();
       }
@@ -484,9 +485,9 @@ export const useCallStore = create<CallStore>((set, get) => {
       const state = get();
       if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
       if (!state.incomingCall) return;
-      const { chatId } = state.incomingCall;
+      const { chatId, roomName } = state.incomingCall;
       callSoundService.stop();
-      sendCallSignal(chatId, { type: 'call-reject', sender: state.myNickname || useAuthStore.getState().nickname || undefined, text: '' });
+      sendCallSignal(chatId, { type: 'call-reject', sender: state.myNickname || useAuthStore.getState().nickname || undefined, text: '', roomName });
       console.log(`${LOG_PREFIX} Incoming call rejected${silent ? ' (auto)' : ''}`);
       set({ incomingCall: null, activeCall: null, callState: 'idle', duration: 0, statusMessage: '', isEnding: false });
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
@@ -508,7 +509,7 @@ export const useCallStore = create<CallStore>((set, get) => {
           default: endedStatus = endedStatus || null; signalType = null;
         }
       }
-      if (signalType) sendCallSignal(chatId, { type: signalType, sender: state.myNickname || undefined, text: '' });
+      if (signalType) sendCallSignal(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName: state.activeCall.roomName });
       liveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} disconnect error:`, err));
       clearAllTimers();
       callSoundService.stop();
