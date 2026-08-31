@@ -26,7 +26,7 @@ export interface ParticipantInfo {
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://orbita-qd7zok2r.livekit.cloud';
 const LOG_PREFIX = '[LiveKit]';
-const MAX_CONNECT_RETRIES = 3;
+const MAX_CONNECT_RETRIES = 5;
 const CONNECT_RETRY_BASE_DELAY_MS = 1000;
 
 class LiveKitService extends EventEmitter {

@@ -77,12 +77,17 @@ interface CallStore {
 const LOG_PREFIX = '[CallStore]';
 const NO_ANSWER_TIMEOUT_MS = 30000;
 const INCOMING_AUTO_REJECT_MS = 30000;
+const CONNECTING_TIMEOUT_MS = 25000;
+const SIGNAL_RETRY_TIMES = 3;
+const SIGNAL_RETRY_DELAY_MS = 1500;
 
 let durationTimer: ReturnType<typeof setInterval> | null = null;
 let noAnswerTimer: ReturnType<typeof setTimeout> | null = null;
 let incomingAutoRejectTimer: ReturnType<typeof setTimeout> | null = null;
+let connectingTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 let listenersAttached = false;
 let activationInProgress = false;
+
 
 async function fetchLivekitToken(room: string, identity: string): Promise<{ token: string; url: string }> {
   const res = await gatewayManager.fetch('/token', {
@@ -121,10 +126,22 @@ function sendCallSignal(chatId: string, payload: Record<string, unknown>) {
   }
 }
 
+function sendCallSignalReliable(chatId: string, payload: Record<string, unknown>, times = SIGNAL_RETRY_TIMES) {
+  let sent = 0;
+  const fire = () => {
+    sendCallSignal(chatId, payload);
+    sent++;
+    if (sent < times) setTimeout(fire, SIGNAL_RETRY_DELAY_MS);
+  };
+  fire();
+}
+
+
 function clearAllTimers() {
   if (durationTimer) { clearInterval(durationTimer); durationTimer = null; }
   if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
   if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
+  if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
 }
 
 async function createCallMessage(chatId: string, direction: CallDirection, duration: number, endedStatus: CallEndedStatus) {
@@ -201,6 +218,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (!stateAfterCrypto.activeCall) return;
 
       if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
+      if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
       callSoundService.stop();
       liveKitService.enableMicrophone().catch(() => {});
 
@@ -208,7 +226,7 @@ export const useCallStore = create<CallStore>((set, get) => {
         || (stateAfterCrypto.activeCall.startTime > 0 ? stateAfterCrypto.activeCall.startTime : Date.now());
 
       if (stateAfterCrypto.activeCall.direction === 'outgoing' && !syncedConnectedAt) {
-        sendCallSignal(stateAfterCrypto.activeCall.chatId, {
+        sendCallSignalReliable(stateAfterCrypto.activeCall.chatId, {
           type: 'call-connected',
           connectedAt,
           sender: stateAfterCrypto.myNickname || undefined,
@@ -335,14 +353,14 @@ export const useCallStore = create<CallStore>((set, get) => {
       try { useAudioStore.getState().pause(); } catch {}
       set({ callState: 'ringing', statusMessage: 'Звонок...' });
       callSoundService.play('outgoing');
-      sendCallSignal(chatId, { type: 'call-offer', sender: myNickname, callType: 'audio', roomName, verificationSalt, text: '' });
+      sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: 'audio', roomName, verificationSalt, text: '' });
       noAnswerTimer = setTimeout(() => {
         if (get().callState === 'ringing') {
           const act = get().activeCall;
           if (act) set({ activeCall: { ...act, endedStatus: 'missed' }, callState: 'ended' });
           callSoundService.stop();
           callSoundService.play('end');
-          sendCallSignal(chatId, { type: 'call-cancel', sender: myNickname, text: '' });
+          sendCallSignalReliable(chatId, { type: 'call-cancel', sender: myNickname, text: '' });
           get().endCall();
         }
       }, NO_ANSWER_TIMEOUT_MS);
@@ -379,6 +397,19 @@ export const useCallStore = create<CallStore>((set, get) => {
         isMicEnabled: false, isVideoEnabled: false, duration: 0, isEnding: false,
       });
       callSoundService.play('connect');
+
+      sendCallSignalReliable(chatId, { type: 'call-accept', sender: myNickname, text: '' });
+
+      if (connectingTimeoutTimer) clearTimeout(connectingTimeoutTimer);
+      connectingTimeoutTimer = setTimeout(() => {
+        if (get().callState === 'connecting') {
+          console.warn(`${LOG_PREFIX} Connecting timeout reached, ending call`);
+          const act = get().activeCall;
+          if (act) set({ activeCall: { ...act, endedStatus: 'failed' }, callState: 'ended' });
+          get().endCall();
+        }
+      }, CONNECTING_TIMEOUT_MS);
+
       try {
         const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
         const { token, url } = await fetchLivekitToken(roomName, myNickname);
@@ -386,11 +417,11 @@ export const useCallStore = create<CallStore>((set, get) => {
         await liveKitService.connect(roomName, token, url, sessionKey);
         console.log(`${LOG_PREFIX} LiveKit connected (incoming)`);
         if (get().callState !== 'connecting') return;
-        sendCallSignal(chatId, { type: 'call-accept', sender: myNickname, text: '' });
         set({ callState: 'connecting', statusMessage: 'Соединение...' });
         if (liveKitService.remoteParticipants.length > 0) activateConnected();
       } catch (err) {
         console.error(`${LOG_PREFIX} LiveKit connect error (incoming):`, err);
+        if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
         const act = get().activeCall;
         if (act) { sendCallSignal(chatId, { type: 'call-hangup', sender: myNickname, text: '' }); set({ activeCall: { ...act, endedStatus: 'failed' }, callState: 'ended' }); }
         callSoundService.stop(); callSoundService.play('end');
@@ -460,6 +491,17 @@ export const useCallStore = create<CallStore>((set, get) => {
       callSoundService.stop(); callSoundService.play('connect');
       set({ callState: 'connecting', statusMessage: 'Соединение...' });
       if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
+
+      if (connectingTimeoutTimer) clearTimeout(connectingTimeoutTimer);
+      connectingTimeoutTimer = setTimeout(() => {
+        if (get().callState === 'connecting') {
+          console.warn(`${LOG_PREFIX} Caller connecting timeout, ending call`);
+          const act = get().activeCall;
+          if (act) set({ activeCall: { ...act, endedStatus: 'failed' }, callState: 'ended' });
+          get().endCall();
+        }
+      }, CONNECTING_TIMEOUT_MS);
+
       if (liveKitService.remoteParticipants.length > 0) activateConnected();
     },
 
