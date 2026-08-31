@@ -261,7 +261,9 @@ export const useCallStore = create<CallStore>((set, get) => {
       console.log(`${LOG_PREFIX} LiveKit disconnected event`);
       const state = get();
       if (state.isEnding) return;
-      if (state.activeCall) get().endCall();
+      if (state.activeCall && state.callState === 'connected') {
+        get().endCall();
+      }
     });
 
     liveKitService.on('reconnectFailed', () => {
@@ -412,11 +414,7 @@ export const useCallStore = create<CallStore>((set, get) => {
         if (cs !== 'ringing' && cs !== 'connecting') return;
         if (liveKitService.remoteParticipants.length > 0) activateConnected();
       } catch (err) {
-        console.error(`${LOG_PREFIX} LiveKit connect error (outgoing):`, err);
-        const act = get().activeCall;
-        if (act) set({ activeCall: { ...act, endedStatus: 'failed' }, callState: 'ended' });
-        callSoundService.stop(); callSoundService.play('end');
-        get().endCall();
+        console.warn(`${LOG_PREFIX} Initial LiveKit connect warning (outgoing):`, err);
       }
     },
 
@@ -537,7 +535,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       get().endCall(false);
     },
 
-    handleAccept: () => {
+    handleAccept: async () => {
       const state = get();
       if (!state.activeCall) return;
       console.log(`${LOG_PREFIX} handleAccept: callee accepted`);
@@ -554,6 +552,17 @@ export const useCallStore = create<CallStore>((set, get) => {
           get().endCall();
         }
       }, CONNECTING_TIMEOUT_MS);
+
+      if (liveKitService.status !== 'connected' && liveKitService.status !== 'connecting') {
+        try {
+          const { roomName, verificationSalt, verificationSecret } = state.activeCall;
+          const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
+          const { token, url } = await fetchLivekitToken(roomName, state.myNickname || 'YOU');
+          await liveKitService.connect(roomName, token, url, sessionKey);
+        } catch (err) {
+          console.error(`${LOG_PREFIX} Caller LiveKit connect error on accept:`, err);
+        }
+      }
 
       if (liveKitService.remoteParticipants.length > 0) activateConnected();
     },
