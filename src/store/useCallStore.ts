@@ -53,7 +53,9 @@ interface CallStore {
   statusMessage: string;
   isEnding: boolean;
   isMinimized: boolean;
+  processedRoomNames: string[];
   setIncomingCall: (call: IncomingCall | null) => void;
+  addProcessedRoomName: (roomName: string) => void;
   setMinimized: (minimized: boolean) => void;
   startCall: (chatId: string, callType: CallType, myNickname: string) => Promise<void>;
   initiateCall: () => Promise<void>;
@@ -195,13 +197,28 @@ export const useCallStore = create<CallStore>((set, get) => {
   };
 
   const activateConnected = async (syncedConnectedAt?: number) => {
+    const s = get();
+    if (!s.activeCall) return;
+
+    if (s.callState === 'connected') {
+      if (syncedConnectedAt && s.activeCall.startTime === 0) {
+        set((st) => {
+          if (!st.activeCall) return st;
+          return {
+            activeCall: {
+              ...st.activeCall,
+              startTime: syncedConnectedAt,
+            },
+            duration: Math.max(0, Math.floor((Date.now() - syncedConnectedAt) / 1000)),
+          };
+        });
+      }
+      return;
+    }
+
     if (activationInProgress) return;
     activationInProgress = true;
     try {
-      const s = get();
-      if (!s.activeCall) return;
-      if (s.callState === 'connected' && !syncedConnectedAt) return;
-
       set({ statusMessage: i18n.t('call.exchanging_keys') });
 
       const sessionKey = s.activeCall.verificationSecret
@@ -210,14 +227,12 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (sessionKey) {
         try {
           await liveKitService.setE2EEKey(sessionKey);
-          await new Promise(resolve => setTimeout(resolve, 800));
         } catch (err) {
           console.warn(`${LOG_PREFIX} E2EE key error:`, err);
         }
       }
 
       set({ statusMessage: i18n.t('call.connected') });
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       let emojis = s.activeCall.verificationEmojis;
       if (!emojis && s.activeCall.verificationSecret && s.activeCall.verificationSalt) {
@@ -346,6 +361,15 @@ export const useCallStore = create<CallStore>((set, get) => {
     statusMessage: '',
     isEnding: false,
     isMinimized: false,
+    processedRoomNames: [],
+
+    addProcessedRoomName: (roomName) => {
+      set((state) => {
+        const list = [...state.processedRoomNames, roomName];
+        if (list.length > 20) list.shift();
+        return { processedRoomNames: list };
+      });
+    },
 
     setMinimized: (isMinimized) => set({ isMinimized }),
 

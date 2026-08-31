@@ -234,20 +234,6 @@ export const CallWindowView = () => {
       </div>
 
       <div className="flex flex-col items-center justify-center flex-1 py-4">
-        {!isConnected && !isIncoming && statusMessage && (
-          <div
-            className="mb-3 px-3.5 py-1 rounded-full text-xs font-medium tracking-wide select-none animate-pulse flex items-center gap-1.5"
-            style={{
-              backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 14%, rgba(255, 255, 255, 0.08))',
-              color: 'var(--accent-light, #c4b5fd)',
-              border: '1px solid color-mix(in srgb, var(--accent-color, #7C3AED) 24%, rgba(255, 255, 255, 0.12))',
-            }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-color,#7C3AED)] animate-ping" />
-            <span>{statusMessage}</span>
-          </div>
-        )}
-
         <div className="w-[120px] h-[120px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-lg pointer-events-none">
           {otherName ? (
             <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '48px' }} />
@@ -277,6 +263,10 @@ export const CallWindowView = () => {
             style={{ color: 'var(--accent-light, #a995ec)' }}
           >
             {formatDuration(duration)}
+          </p>
+        ) : statusMessage ? (
+          <p className="mt-1 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+            {statusMessage}
           </p>
         ) : null}
       </div>

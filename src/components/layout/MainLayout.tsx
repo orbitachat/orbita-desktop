@@ -2357,10 +2357,13 @@ export const MainLayout = () => {
         const currentState = useCallStore.getState();
         if (
           (currentState.incomingCall && currentState.incomingCall.roomName === data.roomName) ||
-          (currentState.activeCall && currentState.activeCall.roomName === data.roomName)
+          (currentState.activeCall && currentState.activeCall.roomName === data.roomName) ||
+          currentState.processedRoomNames.includes(data.roomName)
         ) {
           return;
         }
+
+        useCallStore.getState().addProcessedRoomName(data.roomName);
 
         if (currentState.activeCall || currentState.incomingCall) {
           const pusher = getPusher();
