@@ -335,20 +335,21 @@
       "playback_speed": "Playback speed"
     },
     "call": {
-      "answer": "Answer",
+      "answer": "Accept",
       "reject": "Decline",
       "call": "Call",
       "cancel": "Cancel",
-      "hang_up": "Hang up",
-      "close": "Close",
+      "hang_up": "End",
+      "end_call": "End",
+      "close": "Minimize",
       "calling_you": "Incoming call...",
       "incoming_video_call": "Video call",
       "incoming_audio_call": "Audio call",
       "unknown_caller": "Unknown",
-      "outgoing": "Outgoing",
+      "outgoing": "Ringing...",
       "incoming": "Incoming",
       "missed": "Missed",
-      "rejected": "Declined",
+      "rejected": "Call declined",
       "busy": "User is busy",
       "failed": "Connection failed",
       "encryption_failed": "Encryption failed",
@@ -363,6 +364,8 @@
       "preparing": "Preparing...",
       "ringing": "Ringing...",
       "connecting": "Connecting...",
+      "connecting_attempt": "Connecting attempt {{attempt}} of {{total}}",
+      "request_attempt": "Sending requests: {{attempt}} of {{total}}",
       "encrypting": "Encrypting...",
       "speak": "Speak",
       "missed_call": "Missed call",
@@ -372,8 +375,8 @@
       "duration": "{mins}m {secs}s",
       "seconds": "{count}s",
       "encryption_info": "If these emojis match on your and your partner's screen, your call is securely end-to-end encrypted.",
-      "enable_video": "Turn on video",
-      "video_call_hint": "If you want to start a video call, click the camera icon."
+      "enable_video": "Video",
+      "video_call_hint": "Video calls are temporarily unavailable"
     },
     "settings": {
       "title": "Settings",
@@ -746,23 +749,6 @@
       "start_call": "Call",
       "direct_call": "Voice call",
       "no_calls": "Call history is empty"
-    },
-    "call": {
-      "reject": "Decline",
-      "answer": "Accept",
-      "close": "Minimize",
-      "calling_you": "Incoming call...",
-      "video_call_hint": "Video calls are temporarily unavailable",
-      "enable_video": "Video",
-      "end_call": "End",
-      "connecting": "Connecting...",
-      "connecting_attempt": "Connecting attempt {{attempt}} of {{total}}",
-      "request_attempt": "Sending requests: {{attempt}} of {{total}}",
-      "outgoing": "Ringing...",
-      "encrypting": "Encrypting...",
-      "busy": "User is busy",
-      "rejected": "Call declined",
-      "failed": "Connection failed"
     }
   }
 }
