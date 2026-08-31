@@ -5387,72 +5387,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             />
           )}
 
-          <AnimatePresence>
-            {otherUserTyping && activeChat?.type !== 'channel' && activeChatId !== 'notes' && (() => {
-              const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
-              const lastIsOutgoing = lastMsg ? isMessageOutgoing(lastMsg, myCode, myNickname, activeChat) : false;
-              const isGroupedWithPrev = Boolean(lastMsg && !lastIsOutgoing && Math.abs(Date.now() - lastMsg.time) <= 15 * 60 * 1000);
-              const topGap = !lastMsg ? '4px' : (isGroupedWithPrev ? '2px' : '6px');
-              const bRadius = typeof bubbleRadius === 'number' ? `${bubbleRadius}px` : (bubbleRadius || '14px');
-              const sRadius = '8px';
-              const radius = isGroupedWithPrev
-                ? `${sRadius} ${bRadius} ${bRadius} ${bRadius}`
-                : `${bRadius} ${bRadius} ${bRadius} ${bRadius}`;
 
-              return (
-                <motion.div
-                  initial={{ opacity: 0, y: 4, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 4, scale: 0.96 }}
-                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                  style={{
-                    width: '100%',
-                    paddingTop: topGap,
-                    paddingBottom: '0px',
-                    paddingLeft: '10px',
-                    paddingRight: '10px',
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    alignItems: 'center',
-                    willChange: 'transform, opacity',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                    <div
-                      className="group relative flex flex-col items-start"
-                      style={{
-                        transformOrigin: 'top left',
-                        flex: 1,
-                      }}
-                    >
-                      <div
-                        className="min-w-[50px] relative flex items-center justify-center w-fit"
-                        style={{
-                          padding: '6.5px 12px 6.5px 11px',
-                          borderRadius: radius,
-                          backgroundColor: 'var(--md-surface, var(--surface-container, rgba(255, 255, 255, 0.06)))',
-                          color: 'var(--text-main)',
-                          border: 'none',
-                          boxShadow: 'none',
-                          outline: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px',
-                          height: '31px',
-                          boxSizing: 'border-box',
-                        }}
-                      >
-                        <span className="typing-dot" style={{ animationDelay: '0s' }} />
-                        <span className="typing-dot" style={{ animationDelay: '0.18s' }} />
-                        <span className="typing-dot" style={{ animationDelay: '0.36s' }} />
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })()}
-          </AnimatePresence>
 
           <div style={{ height: '10px', flexShrink: 0 }} />
         </div>
