@@ -2347,6 +2347,13 @@ export const MainLayout = () => {
 
       if (data.type === 'call-offer') {
         const currentState = useCallStore.getState();
+        if (
+          (currentState.incomingCall && currentState.incomingCall.roomName === data.roomName) ||
+          (currentState.activeCall && currentState.activeCall.roomName === data.roomName)
+        ) {
+          return;
+        }
+
         if (currentState.activeCall || currentState.incomingCall) {
           const pusher = getPusher();
           const channel = pusher.subscribe(`private-chat-${chatId}`);
