@@ -383,7 +383,6 @@
       "screen_share_active": "Демонстрация",
       "preparing": "Подготовка...",
       "ringing": "Звонок...",
-      "connecting": "Подключение...",
       "connecting_attempt": "Попытка подключения {{attempt}} из {{total}}",
       "request_attempt": "Отправка запросов: {{attempt}} из {{total}}",
       "encrypting": "Шифрование...",

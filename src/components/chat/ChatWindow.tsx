@@ -5211,7 +5211,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                         textShadow: isOnline ? '0 0 1.5px color-mix(in srgb, var(--accent-color) 30%, transparent)' : 'none',
                       }}
                     >
-                      {isOnline ? t('chatWindow.online') : (activeChat?.lastSeen ? formatLastSeen(activeChat.lastSeen, t) : t('chatWindow.offline'))}
+                      {otherUserTyping && activeChatId !== 'notes' ? (
+                        <span className="text-[11px] font-semibold animate-pulse" style={{ color: 'var(--accent-color)' }}>
+                          {t('chatWindow.typing') || 'печатает...'}
+                        </span>
+                      ) : (
+                        isOnline ? t('chatWindow.online') : (activeChat?.lastSeen ? formatLastSeen(activeChat.lastSeen, t) : t('chatWindow.offline'))
+                      )}
                     </span>
                   )}
                 </div>

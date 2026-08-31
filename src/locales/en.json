@@ -368,7 +368,6 @@
       "screen_share_active": "Sharing screen",
       "preparing": "Preparing...",
       "ringing": "Ringing...",
-      "connecting": "Connecting...",
       "connecting_attempt": "Connecting attempt {{attempt}} of {{total}}",
       "request_attempt": "Sending requests: {{attempt}} of {{total}}",
       "encrypting": "Encrypting...",
