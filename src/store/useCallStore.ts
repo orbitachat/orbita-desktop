@@ -7,6 +7,7 @@ import { callSoundService } from '../services/callSoundService';
 import { generateCallVerificationEmojis } from '../lib/call-verification';
 import { useAudioStore } from './useAudioStore';
 import { gatewayManager } from '../services/gatewayManager';
+import i18n from '../i18n';
 
 export type CallType = 'audio' | 'video';
 export type CallDirection = 'incoming' | 'outgoing';
@@ -201,14 +202,22 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (!s.activeCall) return;
       if (s.callState === 'connected' && !syncedConnectedAt) return;
 
-      set({ statusMessage: 'Шифрование...' });
+      set({ statusMessage: i18n.t('call.exchanging_keys') });
 
       const sessionKey = s.activeCall.verificationSecret
         ? (s.activeCall.verificationSalt ? `${s.activeCall.verificationSecret}:${s.activeCall.verificationSalt}` : s.activeCall.verificationSecret)
         : undefined;
       if (sessionKey) {
-        try { await liveKitService.setE2EEKey(sessionKey); } catch (err) { console.warn(`${LOG_PREFIX} E2EE key error:`, err); }
+        try {
+          await liveKitService.setE2EEKey(sessionKey);
+          await new Promise(resolve => setTimeout(resolve, 800));
+        } catch (err) {
+          console.warn(`${LOG_PREFIX} E2EE key error:`, err);
+        }
       }
+
+      set({ statusMessage: i18n.t('call.connected') });
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       let emojis = s.activeCall.verificationEmojis;
       if (!emojis && s.activeCall.verificationSecret && s.activeCall.verificationSalt) {
@@ -303,7 +312,9 @@ export const useCallStore = create<CallStore>((set, get) => {
     liveKitService.on('connectAttempt', (attempt: number, total: number) => {
       const state = get();
       if (!state.activeCall) return;
-      set({ statusMessage: `\u041E\u0442\u043F\u0440\u0430\u0432\u043A\u0430 \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432: ${attempt} \u0438\u0437 ${total}...` });
+      if (state.callState === 'ringing' || state.callState === 'preparing') {
+        set({ statusMessage: i18n.t('call.requesting_n_of_total', { current: attempt, total }) });
+      }
     });
 
     liveKitService.on('connectSuccess', (attempt: number) => {
@@ -312,7 +323,11 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (attempt > 1) {
         console.log(`${LOG_PREFIX} Connected on attempt ${attempt}`);
       }
-      set({ statusMessage: '\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435...' });
+      if (state.callState === 'ringing') {
+        set({ statusMessage: i18n.t('call.calling') });
+      } else if (state.callState === 'connecting') {
+        set({ statusMessage: i18n.t('call.connecting') });
+      }
     });
   };
 
@@ -392,7 +407,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       const myNickname = state.myNickname;
       if (!myNickname) return;
       try { useAudioStore.getState().pause(); } catch {}
-      set({ callState: 'ringing', statusMessage: 'Звонок...' });
+      set({ callState: 'ringing', statusMessage: i18n.t('call.calling') });
       callSoundService.play('outgoing');
       sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: 'audio', roomName, verificationSalt, text: '' });
       noAnswerTimer = setTimeout(() => {
@@ -429,7 +444,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
       const verificationSecret = chat?.type === 'private' ? chat.sharedSecret : undefined;
       set({
-        myNickname, incomingCall: null, callState: 'connecting', statusMessage: 'Подключение...',
+        myNickname, incomingCall: null, callState: 'connecting', statusMessage: i18n.t('call.connecting'),
         activeCall: { chatId, roomName, direction: 'incoming', callType: 'audio', startTime: 0, participants: [], isMuted: false, isVideoEnabled: false, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
         isMicEnabled: false, isVideoEnabled: false, duration: 0, isEnding: false,
       });
@@ -523,7 +538,7 @@ export const useCallStore = create<CallStore>((set, get) => {
     handleBusy: () => {
       const state = get();
       if (!state.activeCall) return;
-      set({ callState: 'ended', statusMessage: 'Собеседник занят', activeCall: { ...state.activeCall, endedStatus: 'busy' } });
+      set({ callState: 'ended', statusMessage: i18n.t('call.busy'), activeCall: { ...state.activeCall, endedStatus: 'busy' } });
       callSoundService.stop(); callSoundService.play('end');
       get().endCall(false);
     },
@@ -531,7 +546,7 @@ export const useCallStore = create<CallStore>((set, get) => {
     handleReject: () => {
       const state = get();
       if (!state.activeCall) return;
-      set({ callState: 'ended', statusMessage: 'Отклоненный звонок', activeCall: { ...state.activeCall, endedStatus: 'rejected' } });
+      set({ callState: 'ended', statusMessage: i18n.t('call.rejected'), activeCall: { ...state.activeCall, endedStatus: 'rejected' } });
       callSoundService.stop(); callSoundService.play('end');
       get().endCall(false);
     },
@@ -541,7 +556,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (!state.activeCall) return;
       console.log(`${LOG_PREFIX} handleAccept: callee accepted`);
       callSoundService.stop(); callSoundService.play('connect');
-      set({ callState: 'connecting', statusMessage: 'Соединение...' });
+      set({ callState: 'connecting', statusMessage: i18n.t('call.connecting') });
       if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
 
       if (connectingTimeoutTimer) clearTimeout(connectingTimeoutTimer);
