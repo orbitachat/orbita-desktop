@@ -525,7 +525,7 @@ export const MainLayout = () => {
   const [showVoiceDiscardModal, setShowVoiceDiscardModal] = useState(false);
 
   const activeSubscriptions = useRef<Map<string, { channel: any; handler: (data: any) => void }>>(new Map());
-  const onlineTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
   const processedChatIds = useRef<Set<string>>(new Set());
   const codeChannelRef = useRef<any>(null);
   const pingIntervals = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
@@ -537,12 +537,7 @@ export const MainLayout = () => {
 
   const deliveryUnsubscribes = useRef<Map<string, () => void>>(new Map());
 
-  const setUserOffline = useCallback(
-    (chatId: string) => {
-      updateChat(chatId, { online: false });
-    },
-    [updateChat]
-  );
+
 
   const isLoadingPendingRef = useRef(false);
 
@@ -1697,10 +1692,7 @@ export const MainLayout = () => {
         }
         return;
       }
-      updateChat(chatId, { online: true });
       lastPongTime.current.set(chatId, Date.now());
-      if (onlineTimers.current.has(chatId)) clearTimeout(onlineTimers.current.get(chatId));
-      onlineTimers.current.set(chatId, setTimeout(() => setUserOffline(chatId), 60000));
       const chat = useChatStore.getState().chats.find(c => c.id === chatId);
       if (!chat) return;
 
@@ -1849,7 +1841,7 @@ export const MainLayout = () => {
     activeSubscriptions.current.set(chatId, { channel, handler: handleMessage });
     startPingForChat(chatId);
     return channel;
-  }, [nickname, addMessage, updateChat, setUserOffline, t]);
+  }, [nickname, addMessage, updateChat, t]);
 
   const subscribeToPublicChannel = useCallback((channelId: string) => {
     const pusher = getPusher();
@@ -2282,15 +2274,10 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'ping') {
-        const updates: Partial<Chat> = { online: true };
+        const updates: Partial<Chat> = {};
         if (data.senderCode) updates.peerCode = data.senderCode;
-        updateChat(chatId, updates);
+        if (Object.keys(updates).length > 0) updateChat(chatId, updates);
         lastPongTime.current.set(chatId, Date.now());
-        if (onlineTimers.current.has(chatId)) clearTimeout(onlineTimers.current.get(chatId));
-        onlineTimers.current.set(
-          chatId,
-          setTimeout(() => setUserOffline(chatId), 60000)
-        );
       }
 
       if (data.type === 'profile-update') {
@@ -2444,7 +2431,7 @@ export const MainLayout = () => {
 
     startPingForChat(chatId);
     return channel;
-  }, [addMessage, updateChat, setUserOffline, startPingForChat, nickname, t]);
+  }, [addMessage, updateChat, startPingForChat, nickname, t]);
 
   const subscribeToDeliveryUpdates = useCallback((chatId: string) => {
     if (deliveryUnsubscribes.current.has(chatId)) {
@@ -2496,7 +2483,7 @@ export const MainLayout = () => {
       const pusher = getPusher();
       activeSubscriptions.current.forEach((sub) => { try { sub.channel.unbind_all(); pusher.unsubscribe(sub.channel.name); } catch {} });
       activeSubscriptions.current.clear();
-      onlineTimers.current.forEach(t => clearTimeout(t)); onlineTimers.current.clear();
+
       pingIntervals.current.forEach(t => clearInterval(t)); pingIntervals.current.clear();
       if (codeChannelRef.current) { codeChannelRef.current.unbind_all(); pusher.unsubscribe(codeChannelRef.current.name); }
       processedChatIds.current.clear();
