@@ -521,11 +521,12 @@ export const MessageInput = memo<MessageInputProps>(({
         flexShrink: 0,
         zIndex: 10,
         backgroundColor: 'transparent',
-        padding: '6px 14px 10px 14px',
+        padding: '12px 16px 14px 16px',
         borderTop: 'none',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
+        justifyContent: 'center',
       }}
     >
       {liveLinkPreview && !isRecordingActive && (
