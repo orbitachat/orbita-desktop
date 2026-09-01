@@ -4,7 +4,15 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash } from 'lucide-react';
+import { X, Trash, Phone, Smile } from 'lucide-react';
+import {
+  Picture as GravityPictureIcon,
+  Video as GravityVideoIcon,
+  File as GravityFileIcon,
+  Headphones as GravityHeadphonesIcon,
+  Link as GravityLinkIcon,
+  Microphone as GravityMicIcon,
+} from '@gravity-ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher } from '../../utils/pusher';
@@ -68,8 +76,40 @@ interface ChatContextMenu {
   chatId: string;
 }
 
-const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.ReactNode => {
+const GravityGifBadgeIcon = ({ width = 14, height = 14, style, className }: { width?: number; height?: number; style?: React.CSSProperties; className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={width}
+    height={height}
+    viewBox="0 0 16 16"
+    fill="none"
+    className={className}
+    style={style}
+  >
+    <rect
+      x="1.25"
+      y="2.5"
+      width="13.5"
+      height="11"
+      rx="2.75"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    />
+    <text
+      x="8"
+      y="10.5"
+      textAnchor="middle"
+      fill="currentColor"
+      fontSize="7.5"
+      fontWeight="700"
+      fontFamily="system-ui, sans-serif"
+    >
+      GIF
+    </text>
+  </svg>
+);
 
+const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.ReactNode => {
   if (lastMsg?.text?.startsWith('[Call]')) {
     const parts = lastMsg.text.split(', ');
     const directionPart = parts[0].replace(/^\[Call\]\s/, '');
@@ -87,13 +127,18 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
     } else {
       text = isOutgoing ? t('call.outgoing_call') : t('call.incoming_call');
     }
-    return text;
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <Phone size={13} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{text}</span>
+      </span>
+    );
   }
 
   if (lastMsg?.mediaItems && lastMsg.mediaItems.length > 0) {
     if (lastMsg.text && lastMsg.text.trim()) {
       const cleanText = lastMsg.text.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ');
-      return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'var(--accent-color)') }} /> : null;
+      return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor') }} /> : null;
     }
 
     const items = lastMsg.mediaItems;
@@ -104,108 +149,218 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
     const fileCount = items.filter(i => i.type === 'file').length;
 
     if (photoCount > 0 && videoCount === 0 && audioCount === 0 && fileCount === 0) {
+      const count = photoCount;
+      let label = photoCount === 1 ? t('chatWindow.photo') : `${photoCount} ${t('chatWindow.photos', 'photos')}`;
       if (isRu) {
-        const count = photoCount;
         const mod10 = count % 10;
         const mod100 = count % 100;
         let word = 'фотографий';
         if (mod10 === 1 && mod100 !== 11) word = 'фотография';
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'фотографии';
-        return <span style={{ color: 'var(--accent-color)' }}>{count === 1 ? t('chatWindow.photo') : `${count} ${word}`}</span>;
+        label = count === 1 ? t('chatWindow.photo') : `${count} ${word}`;
       }
-      return <span style={{ color: 'var(--accent-color)' }}>{photoCount === 1 ? t('chatWindow.photo') : `${photoCount} ${t('chatWindow.photos', 'photos')}`}</span>;
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{label}</span>
+        </span>
+      );
     }
 
     if (videoCount > 0 && photoCount === 0 && audioCount === 0 && fileCount === 0) {
+      const count = videoCount;
+      let label = videoCount === 1 ? t('chatWindow.video') : `${videoCount} ${t('chatWindow.videos', 'videos')}`;
       if (isRu) {
-        const count = videoCount;
         const mod10 = count % 10;
         const mod100 = count % 100;
         let word = 'видеозаписей';
         if (mod10 === 1 && mod100 !== 11) word = 'видеозапись';
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'видеозаписи';
-        return <span style={{ color: 'var(--accent-color)' }}>{count === 1 ? t('chatWindow.video') : `${count} ${word}`}</span>;
+        label = count === 1 ? t('chatWindow.video') : `${count} ${word}`;
       }
-      return <span style={{ color: 'var(--accent-color)' }}>{videoCount === 1 ? t('chatWindow.video') : `${videoCount} ${t('chatWindow.videos', 'videos')}`}</span>;
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{label}</span>
+        </span>
+      );
     }
 
     if ((photoCount > 0 || videoCount > 0) && audioCount === 0 && fileCount === 0) {
       const count = photoCount + videoCount;
+      let label = `${count} ${t('chatWindow.media_items', 'media files')}`;
       if (isRu) {
         const mod10 = count % 10;
         const mod100 = count % 100;
         let word = 'медиафайлов';
         if (mod10 === 1 && mod100 !== 11) word = 'медиафайл';
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'медиафайла';
-        return <span style={{ color: 'var(--accent-color)' }}>{`${count} ${word}`}</span>;
+        label = `${count} ${word}`;
       }
-      return <span style={{ color: 'var(--accent-color)' }}>{`${count} ${t('chatWindow.media_items', 'media files')}`}</span>;
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{label}</span>
+        </span>
+      );
     }
 
     if (audioCount > 0 && photoCount === 0 && videoCount === 0 && fileCount === 0) {
+      const count = audioCount;
+      let label = audioCount === 1 ? t('chatWindow.audio') : `${audioCount} ${t('chatWindow.audio_files', 'audio files')}`;
       if (isRu) {
-        const count = audioCount;
         const mod10 = count % 10;
         const mod100 = count % 100;
         let word = 'аудиофайлов';
         if (mod10 === 1 && mod100 !== 11) word = 'аудиофайл';
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'аудиофайла';
-        return <span style={{ color: 'var(--accent-color)' }}>{count === 1 ? t('chatWindow.audio') : `${count} ${word}`}</span>;
+        label = count === 1 ? t('chatWindow.audio') : `${count} ${word}`;
       }
-      return <span style={{ color: 'var(--accent-color)' }}>{audioCount === 1 ? t('chatWindow.audio') : `${audioCount} ${t('chatWindow.audio_files', 'audio files')}`}</span>;
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{label}</span>
+        </span>
+      );
     }
 
     const totalFiles = items.length;
+    let label = `${totalFiles} ${t('chatWindow.files', 'files')}`;
     if (isRu) {
       const mod10 = totalFiles % 10;
       const mod100 = totalFiles % 100;
       let word = 'файлов';
       if (mod10 === 1 && mod100 !== 11) word = 'файл';
       else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'файла';
-      return <span style={{ color: 'var(--accent-color)' }}>{`${totalFiles} ${word}`}</span>;
+      label = `${totalFiles} ${word}`;
     }
-    return <span style={{ color: 'var(--accent-color)' }}>{`${totalFiles} ${t('chatWindow.files', 'files')}`}</span>;
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{label}</span>
+      </span>
+    );
   }
 
   if (lastMsg?.mediaType) {
-    if (lastMsg.text && /^\[GIF\]/i.test(lastMsg.text)) return <span style={{ color: 'var(--accent-color)' }}>GIF</span>;
-    if (lastMsg.text && /^\[Sticker\]/i.test(lastMsg.text)) return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.sticker')}</span>;
-    
+    if (lastMsg.text && /^\[GIF\]/i.test(lastMsg.text)) {
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityGifBadgeIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span>GIF</span>
+        </span>
+      );
+    }
+    if (lastMsg.text && /^\[Sticker\]/i.test(lastMsg.text)) {
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <Smile size={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{t('chatWindow.sticker')}</span>
+        </span>
+      );
+    }
+
     switch (lastMsg.mediaType) {
       case 'photo':
-        return t('chatWindow.photo');
+        return (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+            <span className="truncate">{t('chatWindow.photo')}</span>
+          </span>
+        );
       case 'video':
-        return t('chatWindow.video');
+        return (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+            <span className="truncate">{t('chatWindow.video')}</span>
+          </span>
+        );
       case 'voice':
-        return t('chatWindow.voice_message');
+        return (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+            <span className="truncate">{t('chatWindow.voice_message')}</span>
+          </span>
+        );
       case 'audio': {
         const meta = lastMsg.audioMetadata;
-        if (meta && meta.artist && meta.title) {
-          return `${meta.artist} – ${meta.title}`;
-        }
-        return lastMsg.mediaName || t('chatWindow.audio');
+        const title = (meta && meta.artist && meta.title) ? `${meta.artist} – ${meta.title}` : (lastMsg.mediaName || t('chatWindow.audio'));
+        return (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+            <span className="truncate">{title}</span>
+          </span>
+        );
       }
       case 'file':
-        return lastMsg.mediaName || t('chatWindow.file');
+        return (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+            <span className="truncate">{lastMsg.mediaName || t('chatWindow.file')}</span>
+          </span>
+        );
       default:
-        return lastMsg.mediaName || t('chatWindow.file');
+        return (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+            <span className="truncate">{lastMsg.mediaName || t('chatWindow.file')}</span>
+          </span>
+        );
     }
   }
 
   if (lastMsg?.text) {
     const text = lastMsg.text.replace(/\[emoji:[a-zA-Z0-9_]+\]/g, '').trim();
     if (text.startsWith('http://') || text.startsWith('https://')) {
-      return <span style={{ color: 'var(--accent-color)' }}>{text}</span>;
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityLinkIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{text}</span>
+        </span>
+      );
     }
     const cleanText = text.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ');
-    if (/^\[Sticker\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.sticker')}</span>;
-    if (/^\[GIF\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>GIF</span>;
-    if (/^\[Photo\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.photo')}</span>;
-    if (/^\[Video\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.video')}</span>;
-    if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
-      return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.voice_message')}</span>;
+    if (/^\[Sticker\]/i.test(cleanText)) {
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <Smile size={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{t('chatWindow.sticker')}</span>
+        </span>
+      );
     }
-    return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'var(--accent-color)') }} /> : t('common.no_messages');
+    if (/^\[GIF\]/i.test(cleanText)) {
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityGifBadgeIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span>GIF</span>
+        </span>
+      );
+    }
+    if (/^\[Photo\]/i.test(cleanText)) {
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{t('chatWindow.photo')}</span>
+        </span>
+      );
+    }
+    if (/^\[Video\]/i.test(cleanText)) {
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{t('chatWindow.video')}</span>
+        </span>
+      );
+    }
+    if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{t('chatWindow.voice_message')}</span>
+        </span>
+      );
+    }
+    return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor') }} /> : t('common.no_messages');
   }
 
   if (chat.lastMsg === 'E2EE_SECURE_CHANNEL_READY') return t('common.no_messages');
@@ -213,36 +368,87 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
   if (!chat.lastMsg && !lastMsg) return t('common.no_messages');
 
   let cleanText = chat.lastMsg || '';
-  if (/^\[Sticker\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.sticker')}</span>;
-  if (/^\[GIF\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>GIF</span>;
-  if (/^\[Photo\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.photo')}</span>;
-  if (/^\[Video\]/i.test(cleanText)) return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.video')}</span>;
+  if (/^\[Sticker\]/i.test(cleanText)) {
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <Smile size={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{t('chatWindow.sticker')}</span>
+      </span>
+    );
+  }
+  if (/^\[GIF\]/i.test(cleanText)) {
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <GravityGifBadgeIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span>GIF</span>
+      </span>
+    );
+  }
+  if (/^\[Photo\]/i.test(cleanText)) {
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{t('chatWindow.photo')}</span>
+      </span>
+    );
+  }
+  if (/^\[Video\]/i.test(cleanText)) {
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{t('chatWindow.video')}</span>
+      </span>
+    );
+  }
   if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
-    return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.voice_message')}</span>;
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{t('chatWindow.voice_message')}</span>
+      </span>
+    );
   }
   if (/^\[Audio\]/i.test(cleanText)) {
     const match = cleanText.match(/^\[Audio\]\s+(.+?)\s+https?:\/\//i);
     if (match) {
       if (/^voice_\d+\.ogg$/i.test(match[1])) {
-        return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.voice_message')}</span>;
+        return (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+            <span className="truncate">{t('chatWindow.voice_message')}</span>
+          </span>
+        );
       }
       const parts = match[1].split(' – ');
-      if (parts.length === 2) {
-        return <span style={{ color: 'var(--accent-color)' }}>{parts[0]} – {parts[1]}</span>;
-      }
-      return <span style={{ color: 'var(--accent-color)' }}>{match[1]}</span>;
+      const title = parts.length === 2 ? `${parts[0]} – ${parts[1]}` : match[1];
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="truncate">{title}</span>
+        </span>
+      );
     }
-    return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.audio')}</span>;
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{t('chatWindow.audio')}</span>
+      </span>
+    );
   }
   if (/^\[File\]/i.test(cleanText)) {
     const match = cleanText.match(/^\[File\]\s+(.+?)\s+https?:\/\//i);
-    if (match) return <span style={{ color: 'var(--accent-color)' }}>{match[1]}</span>;
-    return <span style={{ color: 'var(--accent-color)' }}>{t('chatWindow.file')}</span>;
+    const fileName = match ? match[1] : t('chatWindow.file');
+    return (
+      <span className="inline-flex items-center gap-1 min-w-0">
+        <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="truncate">{fileName}</span>
+      </span>
+    );
   }
 
   cleanText = cleanText.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '');
   cleanText = cleanText.replace(/\n/g, ' ');
-  return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'var(--accent-color)') }} /> : t('common.no_messages');
+  return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor') }} /> : t('common.no_messages');
 };
 
 const formatUnreadCount = (count: number): string => {
@@ -393,8 +599,6 @@ const ChatListItem = React.memo(({
               style={{
                 color: showDraft
                   ? (isLightTheme ? '#111111' : 'rgba(255,255,255,0.85)')
-                  : (lastMsg?.mediaType || lastMsg?.text?.startsWith('http')) 
-                  ? 'var(--accent-color)' 
                   : (isLightTheme ? '#757575' : '#9ca3af'),
                 textTransform: 'none',
                 fontFamily: 'inherit'
@@ -2832,7 +3036,7 @@ export const MainLayout = () => {
           <button
             type="button"
             aria-label={t('common.all_chats', 'Все чаты')}
-            className="w-full flex items-center justify-center cursor-pointer transition-all text-[var(--accent-color)]"
+            className="w-full flex items-center justify-center cursor-pointer transition-all text-[var(--text-dim)] hover:text-[var(--text-main)]"
             style={{
               height: '64px',
               border: 'none',
