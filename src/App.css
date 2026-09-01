@@ -28,7 +28,8 @@
   --accent-dark: #443db8;
   --accent-glow: rgba(92, 84, 229, 0.25);
   --text-main: #f6f6f6;
-  --text-dim: #9ea1ab;
+  --text-dim: #808080;
+  --text-offline: #616161;
   --surface-container: #33363f;
   --surface-container-strong: #3d414c;
   --surface-container-soft: rgba(255, 255, 255, 0.06);

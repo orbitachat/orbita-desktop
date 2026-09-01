@@ -14,8 +14,8 @@ export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className 
     flexShrink: 0,
   };
 
-  const checkColor = isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--text-dim, #9ca3af)';
-  const readColor = isOwn ? '#ffffff' : 'var(--text-dim, #9ca3af)';
+  const checkColor = isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--text-dim, #808080)';
+  const readColor = isOwn ? '#ffffff' : 'var(--text-dim, #808080)';
 
   if (status === 'sent' || status === 'delivered') {
     return (

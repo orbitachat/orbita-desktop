@@ -585,7 +585,7 @@ const ChatListItem = React.memo(({
                 <span
                   className="text-[12px] font-medium tabular-nums whitespace-nowrap"
                   style={{
-                    color: isLightTheme ? '#757575' : '#9ca3af',
+                    color: isLightTheme ? '#757575' : 'var(--text-dim, #808080)',
                   }}
                 >
                   {timeStr}
@@ -599,7 +599,7 @@ const ChatListItem = React.memo(({
               style={{
                 color: showDraft
                   ? (isLightTheme ? '#111111' : 'rgba(255,255,255,0.85)')
-                  : (isLightTheme ? '#757575' : '#9ca3af'),
+                  : (isLightTheme ? '#757575' : 'var(--text-dim, #808080)'),
                 textTransform: 'none',
                 fontFamily: 'inherit'
               }}
