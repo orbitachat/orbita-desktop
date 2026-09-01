@@ -3041,7 +3041,7 @@ export const MainLayout = () => {
           <main
             className="flex-1 flex flex-col rounded-none overflow-hidden"
             style={{
-              backgroundColor: 'var(--surface-container-soft, rgba(255,255,255,0.02))',
+              backgroundColor: 'var(--bg-primary)',
               minWidth: isMobileView ? 0 : CHAT_MIN_WIDTH,
             }}
           >

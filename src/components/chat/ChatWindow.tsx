@@ -5203,9 +5203,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     </span>
                   ) : (
                     <span
-                      className="text-[11.5px] font-medium"
+                      className="text-[11.5px] font-normal"
                       style={{
-                        color: isOnline ? 'var(--accent-color)' : 'rgba(255, 255, 255, 0.65)',
+                        color: isOnline ? 'var(--accent-color)' : '#b5b8c2',
                         textShadow: isOnline ? '0 0 1.5px color-mix(in srgb, var(--accent-color) 30%, transparent)' : 'none',
                       }}
                     >
