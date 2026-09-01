@@ -35,6 +35,7 @@
   --chat-bubble-incoming-bg: var(--surface-container, #33363f);
   --chat-bubble-incoming-text: #f6f6f6;
   --border-color: #373a43;
+  --scroll-thumb-color: rgba(255, 255, 255, 0.45);
   --online-color: #4caf50;
   --offline-color: #f44336;
 
@@ -543,7 +544,7 @@ a:hover {
   right: 3px;
   width: 4px;
   border-radius: 9999px;
-  background-color: rgba(255, 255, 255, 0.45);
+  background-color: var(--scroll-thumb-color, rgba(255, 255, 255, 0.45));
   pointer-events: auto;
   z-index: 11;
   cursor: pointer;
@@ -551,12 +552,16 @@ a:hover {
   transition: opacity 0.2s ease;
 }
 
+[data-theme-light="true"] {
+  --scroll-thumb-color: rgba(0, 0, 0, 0.32);
+}
+
 [data-theme-light="true"] .overlay-scroll-track {
   background-color: rgba(0, 0, 0, 0.07);
 }
 
 [data-theme-light="true"] .overlay-scroll-thumb {
-  background-color: rgba(0, 0, 0, 0.32);
+  background-color: var(--scroll-thumb-color, rgba(0, 0, 0, 0.32));
 }
 
 .m3-switch-root {

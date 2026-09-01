@@ -15,7 +15,7 @@ export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className 
   };
 
   const checkColor = isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--text-dim, #9ca3af)';
-  const readColor = isOwn ? '#ffffff' : 'var(--accent-color, #2c6bed)';
+  const readColor = isOwn ? '#ffffff' : 'var(--text-dim, #9ca3af)';
 
   if (status === 'sent' || status === 'delivered') {
     return (

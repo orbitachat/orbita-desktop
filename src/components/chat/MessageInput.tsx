@@ -856,7 +856,7 @@ export const MessageInput = memo<MessageInputProps>(({
                 overflowY: 'auto',
                 padding: '0',
                 width: '100%',
-                caretColor: 'var(--accent-color, #5c54e5)',
+                caretColor: 'var(--scroll-thumb-color, rgba(255, 255, 255, 0.45))',
                 wordBreak: 'break-word',
                 whiteSpace: 'pre-wrap',
                 userSelect: isRatchetReady ? 'text' : 'none',
