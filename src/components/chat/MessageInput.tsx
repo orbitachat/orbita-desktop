@@ -821,6 +821,7 @@ export const MessageInput = memo<MessageInputProps>(({
               alignItems: 'center',
               boxSizing: 'border-box',
               position: 'relative',
+              transform: 'translateY(2.5px)',
               transition: 'background-color 0.15s ease',
             }}
           >
