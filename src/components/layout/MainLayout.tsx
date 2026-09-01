@@ -360,7 +360,17 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         </span>
       );
     }
-    return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor') }} /> : t('common.no_messages');
+    const plain = cleanText
+      .replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n?/, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/~~(.*?)~~/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\|\|(.*?)\|\|/g, '$1')
+      .replace(/^>\s?(.*)$/gm, '$1')
+      .replace(/\n+/g, ' ')
+      .trim();
+    return plain || t('common.no_messages');
   }
 
   if (chat.lastMsg === 'E2EE_SECURE_CHANNEL_READY') return t('common.no_messages');
@@ -446,9 +456,17 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
     );
   }
 
-  cleanText = cleanText.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '');
-  cleanText = cleanText.replace(/\n/g, ' ');
-  return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor') }} /> : t('common.no_messages');
+  const plain = cleanText
+    .replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n?/, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/~~(.*?)~~/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\|\|(.*?)\|\|/g, '$1')
+    .replace(/^>\s?(.*)$/gm, '$1')
+    .replace(/\n+/g, ' ')
+    .trim();
+  return plain || t('common.no_messages');
 };
 
 const formatUnreadCount = (count: number): string => {
@@ -593,26 +611,26 @@ const ChatListItem = React.memo(({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <p
-              className="text-[13px] truncate font-normal whitespace-nowrap overflow-hidden text-ellipsis"
+          <div className="flex items-center gap-1.5 min-w-0 w-full overflow-hidden">
+            <div
+              className="text-[13px] font-normal whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0"
               style={{
                 color: showDraft
                   ? (isLightTheme ? '#111111' : 'rgba(255,255,255,0.85)')
-                  : (isLightTheme ? '#757575' : 'var(--text-dim, #808080)'),
+                  : (isLightTheme ? '#757575' : 'var(--text-dim, #8e8e93)'),
                 textTransform: 'none',
                 fontFamily: 'inherit'
               }}
             >
               {showDraft ? (
-                <>
+                <span className="truncate block min-w-0">
                   <span style={{ color: '#ef4444', fontWeight: 600 }}>Черновик: </span>
                   <span>{draftText}</span>
-                </>
+                </span>
               ) : (
                 getLastMsgDisplay(chat, lastMsg, t)
               )}
-            </p>
+            </div>
             {chat.type === 'group' && chat.role && (
               <span className="text-[9px] uppercase font-bold flex-shrink-0" style={{ color: 'var(--accent-color, #7C3AED)' }}>
                 {chat.role === 'owner' ? t('groupSettings.owner') : chat.role === 'admin' ? t('groupSettings.admin') : chat.role === 'member' ? t('groupSettings.member') : ''}

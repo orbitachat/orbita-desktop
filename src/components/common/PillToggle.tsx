@@ -19,7 +19,7 @@ export const PillToggle = memo(({
       width: '42px',
       height: '24px',
       borderRadius: '12px',
-      backgroundColor: checked ? 'var(--accent-color, #7C3AED)' : 'rgba(255,255,255,0.12)',
+      backgroundColor: checked ? 'var(--text-dim, #8e8e93)' : 'rgba(255,255,255,0.12)',
       boxShadow: checked ? 'none' : 'inset 0 0 0 1.5px rgba(255,255,255,0.25)',
       position: 'relative',
       cursor: disabled ? 'not-allowed' : 'pointer',

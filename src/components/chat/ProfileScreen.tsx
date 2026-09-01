@@ -1697,7 +1697,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             alignItems: 'center',
             justifyContent: 'center',
             gap: '4px',
-            background: 'var(--md-surface, #211c2e)',
+            background: 'var(--surface-container, #282828)',
             border: 'none',
             borderRadius: '12px',
             padding: '0',
@@ -1708,7 +1708,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
-            <path fill="var(--accent-color)" stroke="var(--accent-color)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 21a9 9 0 1 0-7.605-4.185L3 21l4.185-1.395A8.96 8.96 0 0 0 12 21"/>
+            <path fill="var(--text-dim, #8e8e93)" stroke="var(--text-dim, #8e8e93)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 21a9 9 0 1 0-7.605-4.185L3 21l4.185-1.395A8.96 8.96 0 0 0 12 21"/>
           </svg>
           <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.chat')}</span>
         </button>
@@ -1724,7 +1724,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             alignItems: 'center',
             justifyContent: 'center',
             gap: '4px',
-            background: 'var(--md-surface, #211c2e)',
+            background: 'var(--surface-container, #282828)',
             border: 'none',
             borderRadius: '12px',
             padding: '0',
@@ -1750,25 +1750,25 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             {chat?.muted ? (
               <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none">
                 <path
-                  fill="var(--accent-color)"
-                  stroke="var(--accent-color)"
+                  fill="var(--text-dim, #8e8e93)"
+                  stroke="var(--text-dim, #8e8e93)"
                   strokeWidth="1.5"
                   d="M12 3.398a5 5 0 00-5 5v2c0 .758-.442 1.505-1.005 2.012A3 3 0 008 17.642h8a3 3 0 002.005-5.232C17.442 11.903 17 11.156 17 10.398v-2a5 5 0 00-5-5z"
                 />
                 <path
-                  stroke="var(--accent-color)"
+                  stroke="var(--text-dim, #8e8e93)"
                   strokeLinecap="round"
                   strokeWidth="1.8"
                   d="M14.39 20.312l-.043.01a9.714 9.714 0 01-4.67-.01"
                 />
                 <path
-                  stroke="var(--md-surface, #211c2e)"
+                  stroke="var(--surface-container, #282828)"
                   strokeLinecap="round"
                   strokeWidth="3.5"
                   d="M19 5L5 19"
                 />
                 <path
-                  stroke="var(--accent-color)"
+                  stroke="var(--text-dim, #8e8e93)"
                   strokeLinecap="round"
                   strokeWidth="2"
                   d="M19 5L5 19"
@@ -1777,13 +1777,13 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             ) : (
               <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none">
                 <path
-                  fill="var(--accent-color)"
-                  stroke="var(--accent-color)"
+                  fill="var(--text-dim, #8e8e93)"
+                  stroke="var(--text-dim, #8e8e93)"
                   strokeWidth="1.5"
                   d="M12 3.398a5 5 0 00-5 5v2c0 .758-.442 1.505-1.005 2.012A3 3 0 008 17.642h8a3 3 0 002.005-5.232C17.442 11.903 17 11.156 17 10.398v-2a5 5 0 00-5-5z"
                 />
                 <path
-                  stroke="var(--accent-color)"
+                  stroke="var(--text-dim, #8e8e93)"
                   strokeLinecap="round"
                   strokeWidth="1.8"
                   d="M14.39 20.312l-.043.01a9.714 9.714 0 01-4.67-.01"
@@ -1806,7 +1806,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px',
-              background: 'var(--md-surface, #211c2e)',
+              background: 'var(--surface-container, #282828)',
               border: 'none',
               borderRadius: '12px',
               padding: '0',
@@ -1819,7 +1819,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             {copiedKey ? (
               <Check size={20} className="text-green-400" />
             ) : (
-              <Copy size={20} style={{ color: 'var(--accent-color)' }} />
+              <Copy size={20} style={{ color: 'var(--text-dim, #8e8e93)' }} />
             )}
             <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{copiedKey ? 'Скопирован' : 'Ключ'}</span>
           </button>
@@ -1836,7 +1836,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px',
-              background: 'var(--md-surface, #211c2e)',
+              background: 'var(--surface-container, #282828)',
               border: 'none',
               borderRadius: '12px',
               padding: '0',
@@ -1847,7 +1847,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               outline: 'none',
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 42 42" fill="var(--accent-color)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 42 42" fill="var(--text-dim, #8e8e93)">
               <path d="M15.562 20.766c-1.328-1.922-2.118-4.241-2.281-4.438c1.945-1.356 5.749-3.06 5.962-5.505c.271-3.159-5.081-9.763-6.107-9.823c-2.808.03-7.947 4.782-8.556 6.218c-1.132 2.969-.571 5.732 1.375 9.732c2.478 5.95 11.682 17.237 16.947 20.78c3.484 2.674 6.029 3.724 9.068 3.09c1.413-.268 6.516-4.455 7.027-7.286c.125-1.05-5.807-8.011-8.875-8.287c-2.382-.22-4.666 3.346-6.303 5.089c-.163-.208-1.559-1.297-3.057-3.021c-1.95-2.049-3.762-4.456-5.2-6.549" />
             </svg>
             <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.call')}</span>
