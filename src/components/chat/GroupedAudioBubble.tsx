@@ -19,6 +19,7 @@ const AudioTrackRow = memo(({
   isCurrentTrack,
   isPlaying,
   msgId,
+  isOwn = false,
   onPlayToggle,
 }: {
   item: MediaItem;
@@ -26,6 +27,7 @@ const AudioTrackRow = memo(({
   isCurrentTrack: boolean;
   isPlaying: boolean;
   msgId?: string;
+  isOwn?: boolean;
   onPlayToggle: (resolvedCover: string | null, resolvedDuration: number, resolvedTitle: string, resolvedArtist: string) => void;
 }) => {
   const { t } = useTranslation();
@@ -137,10 +139,10 @@ const AudioTrackRow = memo(({
       />
 
       <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">
-        <span className="truncate text-[13px] font-semibold text-[var(--text-main)] leading-snug">
+        <span className="truncate text-[13px] font-semibold leading-snug" style={{ color: isOwn ? '#ffffff' : 'var(--text-main)' }}>
           {artist ? `${artist} – ${title}` : title}
         </span>
-        <span className="text-[11px] text-[var(--text-dim)] font-medium mt-0.5 tabular-nums">
+        <span className="text-[11px] font-medium mt-0.5 tabular-nums" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.8)' : 'var(--text-dim)' }}>
           {formatTime(duration)}
         </span>
       </div>
@@ -240,6 +242,7 @@ export const GroupedAudioBubble = memo(({
               isCurrentTrack={isThisTrack}
               isPlaying={isGlobalPlaying}
               msgId={msg.id}
+              isOwn={isOwn}
               onPlayToggle={(resolvedCover, resolvedDuration, resolvedTitle, resolvedArtist) =>
                 handlePlayToggle(item, index, resolvedCover, resolvedDuration, resolvedTitle, resolvedArtist)
               }

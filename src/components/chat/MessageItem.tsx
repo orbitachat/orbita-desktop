@@ -130,7 +130,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
       <span
         className="tabular-nums select-none"
         style={{
-          color: isOwn ? 'rgba(255, 255, 255, 0.75)' : 'var(--text-dim)',
+          color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-dim)',
           fontSize: '11px',
           display: 'inline-flex',
           alignItems: 'center',
@@ -140,7 +140,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
         {timeStr}
         {isOwn && msg.status && (
           <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
-            <MessageStatus status={msg.status} />
+            <MessageStatus status={msg.status} isOwn={isOwn} />
           </span>
         )}
       </span>
@@ -198,7 +198,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               <span>{timeStr}</span>
               {isOwn && msg.status && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0 }}>
-                  <MessageStatus status={msg.status} />
+                  <MessageStatus status={msg.status} isOwn={isOwn} />
                 </span>
               )}
             </div>

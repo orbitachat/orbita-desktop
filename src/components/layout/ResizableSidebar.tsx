@@ -135,8 +135,8 @@ export const ResizableSidebar: React.FC<ResizableSidebarProps> = ({
     flexShrink: 0,
     position: 'relative',
     transition: 'none',
-    backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
-    borderRight: isMobile ? 'none' : '1px solid color-mix(in srgb, var(--accent-color) 4%, var(--bg-primary))',
+    backgroundColor: 'var(--bg-primary)',
+    borderRight: isMobile ? 'none' : '1px solid var(--border-color)',
   };
 
   return (

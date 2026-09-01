@@ -218,7 +218,7 @@ export const CallWindowView = () => {
     <div
       className="w-full h-full min-h-screen flex flex-col justify-between overflow-hidden select-none"
       style={{
-        backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
+        backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-main, #ffffff)',
         userSelect: 'none',
         WebkitUserSelect: 'none',

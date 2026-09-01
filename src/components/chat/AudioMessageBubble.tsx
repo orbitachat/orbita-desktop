@@ -215,7 +215,7 @@ export const AudioMessageBubble = memo(({
             className="font-semibold truncate"
             style={{
               fontSize: orbitFs(13),
-              color: 'var(--text-main)',
+              color: isOwn ? '#ffffff' : 'var(--text-main)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -225,7 +225,7 @@ export const AudioMessageBubble = memo(({
           >
             {artist ? `${artist} – ${title}` : title}
           </div>
-          <div style={{ fontSize: orbitFs(11), color: 'var(--text-dim)' }}>
+          <div style={{ fontSize: orbitFs(11), color: isOwn ? 'rgba(255, 255, 255, 0.8)' : 'var(--text-dim)' }}>
             {timeDisplay}
           </div>
         </div>
@@ -247,7 +247,7 @@ export const AudioMessageBubble = memo(({
         {timeNode ? (
           timeNode
         ) : (
-          <span style={{ fontSize: orbitFs(11), color: 'var(--text-dim)' }}>
+          <span style={{ fontSize: orbitFs(11), color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-dim)' }}>
             {formatTimeOfDay(msg.time)}
           </span>
         )}

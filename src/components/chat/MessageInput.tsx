@@ -520,7 +520,7 @@ export const MessageInput = memo<MessageInputProps>(({
         position: 'relative',
         flexShrink: 0,
         zIndex: 10,
-        backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
+        backgroundColor: 'var(--bg-primary)',
         padding: '7px 20px 9px 20px',
         borderTop: 'none',
         display: 'flex',

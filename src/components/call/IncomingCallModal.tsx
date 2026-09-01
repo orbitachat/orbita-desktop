@@ -17,7 +17,7 @@ const StaticBackground = () => (
       position: 'absolute',
       inset: 0,
       zIndex: 0,
-      backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
+      backgroundColor: 'var(--bg-primary)',
     }}
   />
 );
@@ -55,7 +55,7 @@ export const IncomingCallModal = () => {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[500] flex flex-col justify-between overflow-hidden"
         style={{
-          backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
+          backgroundColor: 'var(--bg-primary)',
           userSelect: 'none',
           WebkitUserSelect: 'none',
         }}

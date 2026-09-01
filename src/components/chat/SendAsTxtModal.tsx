@@ -111,7 +111,7 @@ export const SendAsTxtModal: React.FC<SendAsTxtModalProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '14px',
-                  backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
+                  backgroundColor: 'var(--surface-container)',
                   padding: '12px 16px',
                   borderRadius: '14px',
                 }}

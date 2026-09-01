@@ -4380,14 +4380,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const timeBadge = useCallback((msg: Message, isPinned?: boolean) => {
     const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
     return (
-      <span className="tabular-nums select-none" style={{ color: 'var(--text-dim)', fontSize: orbitFs(11), display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+      <span className="tabular-nums select-none" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-dim)', fontSize: orbitFs(11), display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
         {isPinned && (
-          <CustomPinIcon size={12} style={{ color: 'var(--accent-color, #7C3AED)' }} className="flex-shrink-0" />
+          <CustomPinIcon size={12} style={{ color: isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--accent-color, #7C3AED)' }} className="flex-shrink-0" />
         )}
         {formatTime(msg.time)}
         {isOwn && msg.status && (
           <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
-            <MessageStatus status={msg.status} />
+            <MessageStatus status={msg.status} isOwn={isOwn} />
           </span>
         )}
       </span>
@@ -4955,7 +4955,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     <span>{formatTimeOfDay(msg.time)}</span>
                     {isOwn && msg.status && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0 }}>
-                        <MessageStatus status={msg.status} />
+                        <MessageStatus status={msg.status} isOwn={isOwn} />
                       </span>
                     )}
                   </div>
@@ -5139,9 +5139,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         ref={headerRef}
         className="sticky top-0 z-20 w-full"
         style={{
-          backgroundColor: activeChatId === 'notes'
-            ? 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))'
-            : 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
+          backgroundColor: 'var(--bg-primary)',
           borderBottom: 'none',
         }}
       >

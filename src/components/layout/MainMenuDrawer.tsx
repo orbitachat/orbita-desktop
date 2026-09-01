@@ -102,9 +102,9 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
             style={{
               width: '280px',
               maxWidth: '85vw',
-              backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
-              borderRight: '1px solid color-mix(in srgb, var(--accent-color) 4%, var(--bg-primary))',
-              borderTop: '1px solid color-mix(in srgb, var(--accent-color) 4%, var(--bg-primary))',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRight: '1px solid var(--border-color)',
+              borderTop: '1px solid var(--border-color)',
             }}
           >
             <div
@@ -129,7 +129,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
             <div
               style={{
                 height: '1px',
-                backgroundColor: 'color-mix(in srgb, var(--accent-color) 4%, var(--bg-primary))',
+                backgroundColor: 'var(--border-color)',
                 width: '100%',
                 flexShrink: 0,
                 marginTop: '6px',
@@ -161,7 +161,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               <div
                 style={{
                   height: '1px',
-                  backgroundColor: 'color-mix(in srgb, var(--accent-color) 4%, var(--bg-primary))',
+                  backgroundColor: 'var(--border-color)',
                   width: '100%',
                   flexShrink: 0,
                   marginTop: '6px',

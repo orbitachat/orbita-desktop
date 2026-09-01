@@ -5,13 +5,17 @@ type MessageStatusType = 'sent' | 'delivered' | 'read';
 interface MessageStatusProps {
   status: MessageStatusType;
   className?: string;
+  isOwn?: boolean;
 }
 
-export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className = '' }) => {
+export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className = '', isOwn = false }) => {
   const statusStyle: React.CSSProperties = {
     transform: 'translateY(-1px)',
     flexShrink: 0,
   };
+
+  const checkColor = isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--text-dim, #9ca3af)';
+  const readColor = isOwn ? '#ffffff' : 'var(--accent-color, #2c6bed)';
 
   if (status === 'sent' || status === 'delivered') {
     return (
@@ -26,8 +30,8 @@ export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className 
       >
         <path
           d="m1 6l2.5 2.5l5-5"
-          stroke="var(--text-dim, #9ca3af)"
-          strokeWidth="1.2"
+          stroke={checkColor}
+          strokeWidth="1.3"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -48,8 +52,8 @@ export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className 
       >
         <path
           d="m1 6l2.5 2.5l5-5m-2 5l5-5"
-          stroke="var(--accent-color, #7C3AED)"
-          strokeWidth="1.2"
+          stroke={readColor}
+          strokeWidth="1.3"
           strokeLinecap="round"
           strokeLinejoin="round"
         />

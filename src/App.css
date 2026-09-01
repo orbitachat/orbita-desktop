@@ -21,17 +21,17 @@
   --orbit-ring-4: 16px;
   --orbit-ring-5: 24px;
   --orbit-ring-6: 32px;
-  --bg-primary: #17212b;
-  --bg-secondary: #1e2932;
-  --accent-color: #8774e1;
-  --accent-light: #a995ec;
-  --accent-dark: #6c5bbf;
-  --accent-glow: rgba(135, 116, 225, 0.25);
-  --text-main: #e1e1e1;
-  --text-dim: #8a96a3;
-  --border-color: rgba(255, 255, 255, 0.06);
-  --online-color: #22c55e;
-  --offline-color: #ef4444;
+  --bg-primary: #121212;
+  --bg-secondary: #1b1b1b;
+  --accent-color: #2c6bed;
+  --accent-light: #548bf5;
+  --accent-dark: #1f4bb6;
+  --accent-glow: rgba(44, 107, 237, 0.25);
+  --text-main: #f6f6f6;
+  --text-dim: #848484;
+  --border-color: #343434;
+  --online-color: #4caf50;
+  --offline-color: #f44336;
 
   /* Цвета для интерфейса ввода кода */
   --color-background-primary: var(--bg-secondary);

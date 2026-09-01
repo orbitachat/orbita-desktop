@@ -331,7 +331,7 @@ const ChatListItem = React.memo(({
                 height: 12,
                 borderRadius: '50%',
                 backgroundColor: 'var(--accent-color, #7C3AED)',
-                boxShadow: '0 0 0 2.5px color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))',
+                boxShadow: '0 0 0 2.5px var(--bg-primary)',
                 zIndex: 2,
                 pointerEvents: 'none',
               }}
@@ -2818,7 +2818,7 @@ export const MainLayout = () => {
               height: '64px',
               border: 'none',
               borderRadius: 0,
-              backgroundColor: 'color-mix(in srgb, var(--accent-color) 12%, transparent)',
+              backgroundColor: 'var(--surface-container-strong)',
               outline: 'none',
               boxSizing: 'border-box',
             }}
@@ -2933,7 +2933,7 @@ export const MainLayout = () => {
                 <div
                   className="flex items-center px-4 pt-2.5 pb-1 gap-5 overflow-x-auto no-scrollbar select-none"
                   style={{
-                    borderBottom: '1px solid color-mix(in srgb, var(--accent-color) 4%, var(--bg-primary))',
+                    borderBottom: '1px solid var(--border-color)',
                   }}
                 >
                   <div className="relative pb-1.5 cursor-pointer text-[13px] font-semibold text-[var(--accent-color)] flex-shrink-0">
@@ -3140,7 +3140,7 @@ export const MainLayout = () => {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.15 }}
               className="fixed inset-x-0 bottom-0 top-[30px] z-[100] flex flex-col"
-              style={{ backgroundColor: 'color-mix(in srgb, var(--accent-color) 8%, var(--bg-primary))' }}
+              style={{ backgroundColor: 'var(--bg-primary)' }}
             >
               <InChatSidebarSearch
                 onClose={closeInChatSearch}
