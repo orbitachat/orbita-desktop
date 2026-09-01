@@ -2782,7 +2782,7 @@ export const MainLayout = () => {
           style={{
             width: '72px',
             backgroundColor: 'var(--surface-container-soft, rgba(255,255,255,0.02))',
-            borderRight: 'none',
+            borderRight: '1px solid var(--border-color)',
           }}
         >
           <div
@@ -2813,7 +2813,8 @@ export const MainLayout = () => {
 
           <button
             type="button"
-            className="w-full flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-[var(--accent-color)]"
+            aria-label={t('common.all_chats', 'Все чаты')}
+            className="w-full flex items-center justify-center cursor-pointer transition-all text-[var(--accent-color)]"
             style={{
               height: '64px',
               border: 'none',
@@ -2827,9 +2828,6 @@ export const MainLayout = () => {
               <path fill="currentColor" d="M1.5 22C1.5 10.678 10.678 1.5 22 1.5c10.994 0 19.966 8.654 20.477 19.521A15.43 15.43 0 0 0 34 18.5c-8.56 0-15.5 6.94-15.5 15.5c0 3.129.927 6.041 2.521 8.477a20.4 20.4 0 0 1-9.602-2.915c-2.081.838-4.47 1.709-6.657 2.316c-1.657.46-3.15-.965-2.73-2.645c.566-2.27 1.438-4.722 2.304-6.823A20.4 20.4 0 0 1 1.5 22"/>
               <path fill="currentColor" d="M34 21.5c6.904 0 12.5 5.596 12.5 12.5c0 2.3-.622 4.458-1.707 6.31c.4.871.795 1.858 1.112 2.912c.507 1.681-1.023 3.133-2.675 2.593a29 29 0 0 1-2.802-1.093A12.44 12.44 0 0 1 34 46.5c-6.904 0-12.5-5.596-12.5-12.5S27.096 21.5 34 21.5"/>
             </svg>
-            <span style={{ fontSize: '11px', fontWeight: 600, lineHeight: 1.1 }}>
-              {t('common.all_chats', 'Все чаты')}
-            </span>
           </button>
         </div>
       )}

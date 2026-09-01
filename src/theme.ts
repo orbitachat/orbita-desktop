@@ -255,7 +255,7 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
 
   const effectiveChatColor = chatColor || root.style.getPropertyValue('--chat-bubble-own-bg') || DEFAULT_CHAT_COLOR;
   root.style.setProperty('--chat-bubble-own-bg', effectiveChatColor);
-  root.style.setProperty('--chat-bubble-incoming-bg', resolvedMode === 'light' ? '#e9e9e9' : '#343434');
+  root.style.setProperty('--chat-bubble-incoming-bg', resolvedMode === 'light' ? '#e4e6eb' : '#2e3037');
   root.style.setProperty('--chat-bubble-incoming-text', resolvedMode === 'light' ? '#1b1b1b' : '#f6f6f6');
 
   const solidAccent = effectiveChatColor.startsWith('linear-gradient')

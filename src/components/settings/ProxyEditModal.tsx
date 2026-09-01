@@ -151,22 +151,22 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
         style={{
           width: '100%',
           maxWidth: '400px',
-          backgroundColor: '#1b1726',
+          backgroundColor: 'var(--settings-surface, var(--bg-secondary))',
           borderRadius: '10px',
-          border: 'none',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.7)',
+          border: '1px solid var(--border-color)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
           padding: '18px 20px',
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
           animation: 'scaleUp 0.15s ease',
-          color: '#fff',
+          color: 'var(--text-main)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
             {proxyToEdit ? 'Редактировать прокси' : 'Добавить SOCKS5 прокси'}
           </h3>
           <button
@@ -175,7 +175,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: 'rgba(255, 255, 255, 0.6)',
+              color: 'var(--text-dim)',
               cursor: 'pointer',
               padding: '4px',
               display: 'flex',
@@ -188,7 +188,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
         {/* Quick link paste */}
         {!proxyToEdit && (
           <div>
-            <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
               Быстрая вставка ссылки (socks5://...)
             </label>
             <input
@@ -200,9 +200,9 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                color: '#fff',
+                backgroundColor: 'var(--surface-container)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
                 fontSize: '13px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -213,7 +213,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
 
         {/* Name */}
         <div>
-          <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '5px' }}>
+          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
             Название
           </label>
           <input
@@ -225,9 +225,9 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
               width: '100%',
               padding: '8px 12px',
               borderRadius: '8px',
-              backgroundColor: 'rgba(255, 255, 255, 0.06)',
-              border: 'none',
-              color: '#fff',
+              backgroundColor: 'var(--surface-container)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-main)',
               fontSize: '13px',
               outline: 'none',
               boxSizing: 'border-box',
@@ -238,7 +238,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
         {/* Host & Port */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
               Сервер / Хост
             </label>
             <input
@@ -250,9 +250,9 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                color: '#fff',
+                backgroundColor: 'var(--surface-container)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
                 fontSize: '13px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -260,7 +260,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
             />
           </div>
           <div style={{ width: '90px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
               Порт
             </label>
             <input
@@ -272,9 +272,9 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                color: '#fff',
+                backgroundColor: 'var(--surface-container)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
                 fontSize: '13px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -286,7 +286,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
         {/* Username & Password */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
               Имя пользователя (опционально)
             </label>
             <input
@@ -298,9 +298,9 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                color: '#fff',
+                backgroundColor: 'var(--surface-container)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
                 fontSize: '13px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -308,7 +308,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
             />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '5px' }}>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
               Пароль (опционально)
             </label>
             <input
@@ -320,9 +320,9 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                color: '#fff',
+                backgroundColor: 'var(--surface-container)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
                 fontSize: '13px',
                 outline: 'none',
                 boxSizing: 'border-box',
@@ -358,7 +358,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           </button>
 
           {testResult && !testResult.testing && (
-            <span style={{ fontSize: '13px', color: testResult.ping ? '#fff' : '#ef4444' }}>
+            <span style={{ fontSize: '13px', color: testResult.ping ? 'var(--text-main)' : '#ef4444' }}>
               {testResult.ping !== undefined ? `${testResult.ping} ms` : (testResult.error || 'Недоступен')}
             </span>
           )}
@@ -372,9 +372,9 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
             style={{
               padding: '8px 14px',
               borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: 'none',
-              color: '#fff',
+              background: 'var(--surface-container)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-main)',
               fontSize: '13px',
               fontWeight: 500,
               cursor: 'pointer',

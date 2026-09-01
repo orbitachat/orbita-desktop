@@ -135,14 +135,14 @@ export const ResizableSidebar: React.FC<ResizableSidebarProps> = ({
     flexShrink: 0,
     position: 'relative',
     transition: 'none',
-    backgroundColor: 'var(--bg-primary)',
+    backgroundColor: 'var(--surface-container-soft, rgba(255,255,255,0.02))',
     borderRight: isMobile ? 'none' : '1px solid var(--border-color)',
   };
 
   return (
     <div
       ref={sidebarRef}
-      className={`flex flex-col h-full bg-[var(--surface-muted)] ${className}`}
+      className={`flex flex-col h-full ${className}`}
       style={sidebarStyle}
     >
       {children}

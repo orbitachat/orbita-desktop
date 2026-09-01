@@ -76,11 +76,10 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
         display: 'flex',
         flexDirection: 'column',
         gap: '16px',
-        color: '#fff',
+        color: 'var(--text-main)',
         userSelect: 'none',
       }}
     >
-      {/* 1. Main Proxy Master Toggle Card */}
       <div
         style={{
           backgroundColor: 'var(--surface-container-soft, rgba(255,255,255,0.03))',
@@ -93,10 +92,10 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
             Использовать прокси
           </div>
-          <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '2px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>
             {proxyEnabled
               ? activeProxy
                 ? `Подключено: ${activeProxy.name}${activeProxy.ping ? ` (${activeProxy.ping} ms)` : ''}`
@@ -181,18 +180,17 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                   />
 
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#fff' }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>
                       {proxy.name}
                     </span>
-                    <span style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.4)', display: 'block', marginTop: '1px' }}>
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', display: 'block', marginTop: '1px' }}>
                       {proxy.type.toUpperCase()} • {proxy.host}:{proxy.port}
                     </span>
                   </div>
                 </div>
 
-                {/* Right: Clean Ping in ms + More Menu */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '12px', color: proxy.pingStatus === 'error' ? '#ef4444' : 'rgba(255, 255, 255, 0.6)' }}>
+                  <span style={{ fontSize: '12px', color: proxy.pingStatus === 'error' ? '#ef4444' : 'var(--text-dim)' }}>
                     {proxy.pingStatus === 'testing'
                       ? 'Проверка...'
                       : proxy.ping !== null && proxy.ping !== undefined
@@ -265,13 +263,13 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                           padding: '8px 12px',
                           background: 'none',
                           border: 'none',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           fontSize: '13px',
                           cursor: 'pointer',
                           borderRadius: '6px',
                           textAlign: 'left',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         <RotateCw size={14} />
@@ -292,13 +290,13 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                           padding: '8px 12px',
                           background: 'none',
                           border: 'none',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           fontSize: '13px',
                           cursor: 'pointer',
                           borderRadius: '6px',
                           textAlign: 'left',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         <Edit2 size={14} />
@@ -315,13 +313,13 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                           padding: '8px 12px',
                           background: 'none',
                           border: 'none',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           fontSize: '13px',
                           cursor: 'pointer',
                           borderRadius: '6px',
                           textAlign: 'left',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container)')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         {copiedId === proxy.id ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
@@ -414,12 +412,12 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
             }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', paddingRight: '12px' }}>
-              <Shield size={18} style={{ marginTop: '2px', color: 'rgba(255, 255, 255, 0.8)', flexShrink: 0 }} />
+              <Shield size={18} style={{ marginTop: '2px', color: 'var(--text-main)', flexShrink: 0 }} />
               <div>
-                <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: '#fff' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: 'var(--text-main)' }}>
                   Kill Switch
                 </span>
-                <span style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.4)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
                   Блокировать трафик при обрыве связи с прокси для защиты IP-адреса.
                 </span>
               </div>
@@ -428,23 +426,22 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
             <PillToggle checked={killSwitch} onChange={() => setKillSwitch(!killSwitch)} />
           </div>
 
-          {/* Proxy Calls */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '12px 16px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+              borderBottom: '1px solid var(--border-color)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', paddingRight: '12px' }}>
-              <Phone size={18} style={{ marginTop: '2px', color: 'rgba(255, 255, 255, 0.8)', flexShrink: 0 }} />
+              <Phone size={18} style={{ marginTop: '2px', color: 'var(--text-main)', flexShrink: 0 }} />
               <div>
-                <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: '#fff' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: 'var(--text-main)' }}>
                   Проксировать звонки
                 </span>
-                <span style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.4)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
                   Маршрутизировать голосовые и видеозвонки через прокси-туннель.
                 </span>
               </div>
@@ -453,7 +450,6 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
             <PillToggle checked={proxyCalls} onChange={() => setProxyCalls(!proxyCalls)} />
           </div>
 
-          {/* Auto Fallback */}
           <div
             style={{
               display: 'flex',
@@ -463,12 +459,12 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
             }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', paddingRight: '12px' }}>
-              <Radio size={18} style={{ marginTop: '2px', color: 'rgba(255, 255, 255, 0.8)', flexShrink: 0 }} />
+              <Radio size={18} style={{ marginTop: '2px', color: 'var(--text-main)', flexShrink: 0 }} />
               <div>
-                <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: '#fff' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: 'var(--text-main)' }}>
                   Авто-переключение при сбое
                 </span>
-                <span style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.4)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
                   Автоматически переключаться на резервный рабочий прокси при падении активного.
                 </span>
               </div>
