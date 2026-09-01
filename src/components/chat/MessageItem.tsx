@@ -221,7 +221,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               borderRadius: bubbleRadius,
               background: isOwn
                 ? 'var(--chat-bubble-own-bg, #2c6bed)'
-                : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+                : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
               color: isOwn
                 ? '#ffffff'
                 : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',

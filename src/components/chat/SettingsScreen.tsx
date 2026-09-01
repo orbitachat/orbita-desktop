@@ -1186,7 +1186,7 @@ const SignalChatColorPicker: React.FC = () => {
           style={{
             alignSelf: 'flex-start',
             maxWidth: '85%',
-            background: 'var(--chat-bubble-incoming-bg, #343434)',
+            background: 'var(--chat-bubble-incoming-bg, var(--surface-container))',
             color: 'var(--chat-bubble-incoming-text, #f6f6f6)',
             borderRadius: 16,
             padding: '8px 12px',
@@ -1371,7 +1371,7 @@ const BubbleRadiusPreview = ({ radius }: { radius: number }) => {
   const otherBubbleStyle: React.CSSProperties = {
     padding: '6px 12px 6px 10px',
     borderRadius: radius,
-    background: 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+    background: 'var(--chat-bubble-incoming-bg, var(--surface-container))',
     border: 'none',
     color: 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
     fontSize: '12px',

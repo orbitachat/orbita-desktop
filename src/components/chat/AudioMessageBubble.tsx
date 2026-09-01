@@ -191,7 +191,7 @@ export const AudioMessageBubble = memo(({
         borderRadius: bubbleRadius,
         background: isOwn
           ? 'var(--chat-bubble-own-bg, #2c6bed)'
-          : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+          : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
         border: 'none',
         padding: '8px 12px 8px 8px',
         position: 'relative',

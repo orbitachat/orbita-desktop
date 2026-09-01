@@ -1268,7 +1268,7 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, time
         borderRadius: customRadius || bubbleRadius,
         background: isOwn
           ? 'var(--chat-bubble-own-bg, #2c6bed)'
-          : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+          : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
         border: 'none',
         padding: '8px 12px 8px 8px',
         position: 'relative',
@@ -1532,7 +1532,7 @@ const VoiceMessagePlayer = memo(({
         style={{
           background: isOwn
             ? 'var(--chat-bubble-own-bg, #2c6bed)'
-            : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+            : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
           padding: '8px 12px 8px 8px',
           border: 'none',
           borderRadius: customRadius || bubbleRadius,
@@ -1557,7 +1557,7 @@ const VoiceMessagePlayer = memo(({
       style={{
         background: isOwn
           ? 'var(--chat-bubble-own-bg, #2c6bed)'
-          : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+          : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
         padding: '8px 12px 8px 8px',
         border: 'none',
         borderRadius: customRadius || bubbleRadius,
@@ -4397,7 +4397,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const bubbleStyle = useCallback((isOwn: boolean, extra?: React.CSSProperties): React.CSSProperties => ({
     padding: '6.5px 12px 6.5px 11px',
     borderRadius: bubbleRadius,
-    background: isOwn ? 'var(--chat-bubble-own-bg, #2c6bed)' : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+    background: isOwn ? 'var(--chat-bubble-own-bg, #2c6bed)' : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
     border: 'none',
     color: isOwn ? '#ffffff' : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
     fontSize: orbitFs(12),
