@@ -27,18 +27,20 @@ const FileWithArrowIcon = () => (
   </svg>
 );
 
-const AttachIcon = () => (
+const PlusIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
+    width="22"
+    height="22"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeLinecap="round"
-    strokeWidth="1.5"
+    strokeLinejoin="round"
+    strokeWidth="2.2"
   >
-    <path d="m7.918 17.807l7.89-7.553a2.253 2.253 0 0 0 0-3.284a2.503 2.503 0 0 0-3.43 0l-7.834 7.498a4.28 4.28 0 0 0 0 6.24c1.8 1.723 4.718 1.723 6.518 0l7.949-7.608c2.652-2.54 2.652-6.656 0-9.196s-6.954-2.539-9.607 0L3 10.034" />
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
   </svg>
 );
 
@@ -779,82 +781,10 @@ export const MessageInput = memo<MessageInputProps>(({
           <button
             type="button"
             tabIndex={-1}
-            disabled={!isRatchetReady}
-            onClick={isRatchetReady ? onFilePick : undefined}
-            onFocus={(e) => e.currentTarget.blur()}
-            onMouseEnter={() => isRatchetReady && setHoverAttach(true)}
-            onMouseLeave={() => setHoverAttach(false)}
-            style={{
-              background: 'transparent',
-              backgroundColor: 'transparent',
-              border: 'none',
-              outline: 'none',
-              boxShadow: 'none',
-              color: attachColor,
-              cursor: isRatchetReady ? 'pointer' : 'not-allowed',
-              opacity: isRatchetReady ? 1 : 0.35,
-              padding: '2px',
-              marginLeft: '-4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'color 0.2s, opacity 0.2s',
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-            }}
-          >
-            <AttachIcon />
-          </button>
-
-          <div
-            ref={editorRef}
-            contentEditable={isRatchetReady}
-            suppressContentEditableWarning
-            spellCheck={false}
-            data-empty={isEditorEmpty}
-            data-placeholder={
-              !isRatchetReady
-                ? t('chatWindow.waiting_first_message')
-                : editingIndex !== null
-                  ? t('chatWindow.edit_message_placeholder')
-                  : t('chatWindow.placeholder')
-            }
-            onInput={handleEditorInput}
-            onKeyDown={handleKeyDown}
-            onContextMenu={handleEditorContextMenu}
-            className="rich-editor"
-            style={{
-              flex: 1,
-              position: 'relative',
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              color: 'var(--text-main)',
-              fontSize: '15px',
-              lineHeight: 1.5,
-              fontFamily: 'inherit',
-              minHeight: '20px',
-              maxHeight: '120px',
-              overflowY: 'auto',
-              padding: '4px 0',
-              marginLeft: '-3px',
-              width: '100%',
-              caretColor: 'rgba(255, 255, 255, 0.45)',
-              wordBreak: 'break-word',
-              whiteSpace: 'pre-wrap',
-              userSelect: isRatchetReady ? 'text' : 'none',
-              WebkitUserSelect: isRatchetReady ? 'text' : 'none',
-              cursor: isRatchetReady ? 'text' : 'not-allowed',
-              opacity: isRatchetReady ? 1 : 0.6,
-            }}
-          />
-
-          <button
-            type="button"
-            tabIndex={-1}
             ref={emojiButtonRef}
             disabled={!isRatchetReady}
             onClick={onToggleEmoji}
+            aria-label={t('chatWindow.emoji', 'Эмодзи')}
             onMouseEnter={() => {
               if (isRatchetReady) {
                 setHoverEmoji(true);
@@ -873,15 +803,73 @@ export const MessageInput = memo<MessageInputProps>(({
               color: emojiColor,
               cursor: isRatchetReady ? 'pointer' : 'not-allowed',
               opacity: isRatchetReady ? 1 : 0.35,
-              padding: '4px',
+              padding: '6px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'color 0.2s, opacity 0.2s',
+              flexShrink: 0,
             }}
           >
             <EmojiIcon />
           </button>
+
+          <div
+            style={{
+              flex: 1,
+              backgroundColor: 'var(--surface-container, rgba(255, 255, 255, 0.08))',
+              borderRadius: '24px',
+              padding: '6px 16px',
+              minHeight: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              boxSizing: 'border-box',
+              position: 'relative',
+              transition: 'background-color 0.15s ease',
+            }}
+          >
+            <div
+              ref={editorRef}
+              contentEditable={isRatchetReady}
+              suppressContentEditableWarning
+              spellCheck={false}
+              data-empty={isEditorEmpty}
+              data-placeholder={
+                !isRatchetReady
+                  ? t('chatWindow.waiting_first_message')
+                  : editingIndex !== null
+                    ? t('chatWindow.edit_message_placeholder')
+                    : t('chatWindow.placeholder')
+              }
+              onInput={handleEditorInput}
+              onKeyDown={handleKeyDown}
+              onContextMenu={handleEditorContextMenu}
+              className="rich-editor"
+              style={{
+                flex: 1,
+                position: 'relative',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'var(--text-main)',
+                fontSize: '14.5px',
+                lineHeight: 1.4,
+                fontFamily: 'inherit',
+                minHeight: '20px',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                padding: '2px 0',
+                width: '100%',
+                caretColor: 'var(--accent-color, #5c54e5)',
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap',
+                userSelect: isRatchetReady ? 'text' : 'none',
+                WebkitUserSelect: isRatchetReady ? 'text' : 'none',
+                cursor: isRatchetReady ? 'text' : 'not-allowed',
+                opacity: isRatchetReady ? 1 : 0.6,
+              }}
+            />
+          </div>
 
           <button
             type="button"
@@ -897,6 +885,7 @@ export const MessageInput = memo<MessageInputProps>(({
                     onStartRecording();
                   }
             }
+            aria-label={editingIndex !== null ? t('chatWindow.confirm_edit', 'Сохранить') : isHasContent ? t('chatWindow.send', 'Отправить') : t('chatWindow.voice_message', 'Голосовое сообщение')}
             onMouseEnter={() => isRatchetReady && setHoverMic(true)}
             onMouseLeave={() => setHoverMic(false)}
             style={{
@@ -907,11 +896,12 @@ export const MessageInput = memo<MessageInputProps>(({
               color: !isRatchetReady ? 'var(--text-dim)' : editingIndex !== null ? 'var(--accent-color)' : micColor,
               cursor: !isRatchetReady ? 'not-allowed' : 'pointer',
               opacity: !isRatchetReady ? 0.35 : 1,
-              padding: '4px',
+              padding: '6px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'color 0.2s, opacity 0.2s',
+              flexShrink: 0,
             }}
           >
             {editingIndex !== null ? (
@@ -921,6 +911,37 @@ export const MessageInput = memo<MessageInputProps>(({
             ) : (
               <MicIcon />
             )}
+          </button>
+
+          <button
+            type="button"
+            tabIndex={-1}
+            disabled={!isRatchetReady}
+            onClick={isRatchetReady ? onFilePick : undefined}
+            onFocus={(e) => e.currentTarget.blur()}
+            aria-label={t('chatWindow.attach_file', 'Прикрепить файл')}
+            onMouseEnter={() => isRatchetReady && setHoverAttach(true)}
+            onMouseLeave={() => setHoverAttach(false)}
+            style={{
+              background: 'transparent',
+              backgroundColor: 'transparent',
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none',
+              color: attachColor,
+              cursor: isRatchetReady ? 'pointer' : 'not-allowed',
+              opacity: isRatchetReady ? 1 : 0.35,
+              padding: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'color 0.2s, opacity 0.2s',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              flexShrink: 0,
+            }}
+          >
+            <PlusIcon />
           </button>
         </div>
       )}
