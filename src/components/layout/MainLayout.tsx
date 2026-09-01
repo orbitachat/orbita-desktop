@@ -271,10 +271,12 @@ const ChatListItem = React.memo(({
   t: any;
   isLightTheme: boolean;
 }) => {
-  const lastMsg = useChatStore((s) => {
-    const msgs = s.messagesByChatId[chat.id];
-    return msgs && msgs.length > 0 ? msgs[msgs.length - 1] : null;
-  });
+  const lastMsg = useChatStore(
+    useCallback((s) => {
+      const msgs = s.messagesByChatId[chat.id];
+      return msgs && msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    }, [chat.id])
+  );
   const lastMsgTime = lastMsg ? new Date(lastMsg.time) : null;
   const timeStr = lastMsgTime
     ? `${lastMsgTime.getHours().toString().padStart(2, '0')}:${lastMsgTime.getMinutes().toString().padStart(2, '0')}`
@@ -282,7 +284,9 @@ const ChatListItem = React.memo(({
   const isOwn = isMessageOutgoing(lastMsg, myCode, nickname, chat);
   const status = isOwn && lastMsg?.status ? lastMsg.status : undefined;
 
-  const rawDraft = useChatStore((s) => s.draftsByChatId[chat.id]);
+  const rawDraft = useChatStore(
+    useCallback((s) => s.draftsByChatId[chat.id], [chat.id])
+  );
   const draftText = rawDraft ? rawDraft.trim() : '';
   const showDraft = !!(draftText && !isActive);
 
@@ -290,7 +294,7 @@ const ChatListItem = React.memo(({
     <div
       onClick={() => onSelect(chat.id)}
       onContextMenu={(e) => onContextMenu(e, chat.id)}
-      className="group relative cursor-pointer transition-all duration-200"
+      className="group relative cursor-pointer"
       style={{
         borderRadius: 0,
         width: '100%',
@@ -301,6 +305,10 @@ const ChatListItem = React.memo(({
         padding: '8px 11px 8px 14px',
         minHeight: 48,
         boxSizing: 'border-box',
+        contentVisibility: 'auto',
+        containIntrinsicSize: '64px',
+        willChange: 'transform',
+        transition: 'background-color 0.12s ease',
       }}
       onMouseEnter={(e) => {
         if (!isActive) {
@@ -2674,67 +2682,77 @@ export const MainLayout = () => {
   }, [searchedChats, renderedChatCount]);
 
   const chatListScrollRef = useRef<HTMLDivElement>(null);
-  const CHAT_TRACK_INSET = 6;
-  const [chatThumb, setChatThumb] = useState<{ top: number; height: number } | null>(null);
+  const chatThumbRef = useRef<HTMLDivElement>(null);
+  const chatTrackRef = useRef<HTMLDivElement>(null);
+  const chatListScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const updateChatThumb = useCallback(() => {
+  const updateChatThumbDom = useCallback(() => {
     const el = chatListScrollRef.current;
-    if (!el) {
-      setChatThumb(null);
-      return;
-    }
+    const thumb = chatThumbRef.current;
+    const track = chatTrackRef.current;
+    if (!el || !thumb || !track) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
     if (scrollHeight <= clientHeight + 4 || clientHeight === 0) {
-      setChatThumb(null);
+      thumb.style.display = 'none';
+      track.style.display = 'none';
       return;
     }
+    thumb.style.display = 'block';
+    track.style.display = 'block';
 
-    const trackHeight = clientHeight - CHAT_TRACK_INSET * 2;
+    const trackHeight = clientHeight - 12;
     const thumbHeight = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
     const maxTop = trackHeight - thumbHeight;
     const scrollableDistance = scrollHeight - clientHeight;
     const ratio = scrollableDistance > 0 ? scrollTop / scrollableDistance : 0;
+    const top = maxTop * ratio;
 
-    setChatThumb({ top: maxTop * ratio, height: thumbHeight });
+    thumb.style.height = `${thumbHeight}px`;
+    thumb.style.transform = `translateY(${top}px)`;
+  }, []);
+
+  const showChatScrollbar = useCallback(() => {
+    updateChatThumbDom();
+    if (chatThumbRef.current) chatThumbRef.current.style.opacity = '1';
+    if (chatTrackRef.current) chatTrackRef.current.style.opacity = '1';
+    if (chatListScrollTimerRef.current) clearTimeout(chatListScrollTimerRef.current);
+    chatListScrollTimerRef.current = setTimeout(() => {
+      if (chatThumbRef.current) chatThumbRef.current.style.opacity = '0';
+      if (chatTrackRef.current) chatTrackRef.current.style.opacity = '0';
+    }, 900);
+  }, [updateChatThumbDom]);
+
+  const handleChatListMouseLeave = useCallback(() => {
+    if (chatListScrollTimerRef.current) clearTimeout(chatListScrollTimerRef.current);
+    if (chatThumbRef.current) chatThumbRef.current.style.opacity = '0';
+    if (chatTrackRef.current) chatTrackRef.current.style.opacity = '0';
   }, []);
 
   useEffect(() => {
-    updateChatThumb();
-  }, [visibleChats, sortedChats, updateChatThumb]);
+    updateChatThumbDom();
+  }, [visibleChats, sortedChats, updateChatThumbDom]);
 
   useEffect(() => {
     const el = chatListScrollRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => updateChatThumb());
+    const ro = new ResizeObserver(() => updateChatThumbDom());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [updateChatThumb]);
-
-  const [isChatListActive, setIsChatListActive] = useState(false);
-  const chatListActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const triggerChatListActive = useCallback(() => {
-    updateChatThumb();
-    setIsChatListActive(true);
-    if (chatListActiveTimerRef.current) clearTimeout(chatListActiveTimerRef.current);
-    chatListActiveTimerRef.current = setTimeout(() => {
-      setIsChatListActive(false);
-    }, 1000);
-  }, [updateChatThumb]);
-
-  const handleChatListMouseLeave = useCallback(() => {
-    if (chatListActiveTimerRef.current) clearTimeout(chatListActiveTimerRef.current);
-    setIsChatListActive(false);
-  }, []);
+  }, [updateChatThumbDom]);
 
   const handleChatListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    triggerChatListActive();
+    showChatScrollbar();
 
     const el = e.currentTarget;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 250 && renderedChatCount < searchedChats.length) {
-      setRenderedChatCount((prev) => Math.min(searchedChats.length, prev + CHAT_BATCH_SIZE));
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 350) {
+      setRenderedChatCount((prev) => {
+        if (prev < searchedChats.length) {
+          return Math.min(searchedChats.length, prev + CHAT_BATCH_SIZE);
+        }
+        return prev;
+      });
     }
-  }, [searchedChats.length, renderedChatCount, triggerChatListActive]);
+  }, [searchedChats.length, showChatScrollbar]);
 
   const CHAT_MIN_WIDTH = 300;
   const SIDEBAR_MIN_WIDTH = 260;
@@ -2975,8 +2993,7 @@ export const MainLayout = () => {
 
               <div
                 className="relative flex-1 min-h-0 overflow-hidden flex flex-col"
-                onMouseMove={triggerChatListActive}
-                onMouseEnter={triggerChatListActive}
+                onMouseEnter={showChatScrollbar}
                 onMouseLeave={handleChatListMouseLeave}
               >
                 <div
@@ -3003,29 +3020,31 @@ export const MainLayout = () => {
                   )}
                 </div>
 
-                {chatThumb && (
-                  <>
-                    <div
-                      className="overlay-scroll-track"
-                      onMouseDown={(e) => handleScrollbarTrackMouseDown(e, chatListScrollRef.current)}
-                      style={{
-                        top: '15px',
-                        bottom: '6px',
-                        opacity: isChatListActive ? 1 : 0,
-                      }}
-                    />
+                <div
+                  ref={chatTrackRef}
+                  className="overlay-scroll-track"
+                  onMouseDown={(e) => handleScrollbarTrackMouseDown(e, chatListScrollRef.current)}
+                  style={{
+                    top: '15px',
+                    bottom: '6px',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease',
+                    pointerEvents: 'auto',
+                  }}
+                />
 
-                    <div
-                      className="overlay-scroll-thumb"
-                      onMouseDown={(e) => handleScrollbarThumbMouseDown(e, chatListScrollRef.current)}
-                      style={{
-                        top: chatThumb.top + 15,
-                        height: chatThumb.height,
-                        opacity: isChatListActive ? 1 : 0,
-                      }}
-                    />
-                  </>
-                )}
+                <div
+                  ref={chatThumbRef}
+                  className="overlay-scroll-thumb"
+                  onMouseDown={(e) => handleScrollbarThumbMouseDown(e, chatListScrollRef.current)}
+                  style={{
+                    top: '15px',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease',
+                    willChange: 'transform',
+                    pointerEvents: 'auto',
+                  }}
+                />
               </div>
             </div>
           )}
