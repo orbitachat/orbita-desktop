@@ -257,10 +257,6 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
   root.style.setProperty('--chat-bubble-incoming-bg', resolvedMode === 'light' ? '#e9e9e9' : '#343434');
   root.style.setProperty('--chat-bubble-incoming-text', resolvedMode === 'light' ? '#1b1b1b' : '#f6f6f6');
 
-  if (!effectiveChatColor.includes('gradient')) {
-    root.style.setProperty('--accent-color', effectiveChatColor);
-  }
-
   root.style.setProperty('--surface-container',        theme.vars['--surface-container'] || '#2e2e2e');
   root.style.setProperty('--surface-container-strong', theme.vars['--surface-container-strong'] || '#343434');
   root.style.setProperty('--surface-container-soft',   theme.vars['--surface-container-soft'] || 'rgba(255,255,255,0.05)');

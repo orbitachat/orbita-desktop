@@ -97,19 +97,32 @@ h6 {
   font-family: var(--item-font), 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
 }
 
-/* Links: no underline by default, accent color underline on hover */
 .select-text a,
 a.message-inline-link {
-  color: var(--accent-color) !important;
-  text-decoration: none !important;
+  color: var(--accent-color);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
 }
 
 .select-text a:hover,
 a.message-inline-link:hover {
-  color: var(--accent-color) !important;
+  opacity: 0.85;
+}
+
+.select-text-own a,
+.select-text-own a.message-inline-link,
+[data-is-own="true"] .select-text a {
+  color: #ffffff !important;
   text-decoration: underline !important;
-  text-decoration-color: var(--accent-color) !important;
+  text-underline-offset: 2px !important;
+}
+
+.select-text-own a:hover,
+.select-text-own a.message-inline-link:hover,
+[data-is-own="true"] .select-text a:hover {
+  color: #ffffff !important;
+  opacity: 0.85;
 }
 
 /* Quote bar in markdown blockquotes */

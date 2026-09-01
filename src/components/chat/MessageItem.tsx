@@ -54,7 +54,7 @@ const MessageText = ({
 
   return (
     <div
-      className="select-text"
+      className={`select-text ${isOwn ? 'select-text-own' : 'select-text-incoming'}`}
       style={{
         fontSize: 'inherit',
         lineHeight: 1.3,
@@ -66,7 +66,7 @@ const MessageText = ({
     >
       <span>
         <span 
-          dangerouslySetInnerHTML={{ __html: markdownToHtml(text, themeColor) }} 
+          dangerouslySetInnerHTML={{ __html: markdownToHtml(text, isOwn ? '#ffffff' : (themeColor || 'var(--accent-color)')) }} 
           onClick={handleHtmlClick}
         />
       </span>
@@ -301,8 +301,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
 
             <MessageText
               text={parsed.body}
-              timeNode={hasReactions || hasLinkPreview ? undefined : timeBadge}
-              themeColor={themeColor}
+              timeNode={!hasLinkPreview && !hasReactions ? timeBadge : undefined}
+              themeColor={isOwn ? '#ffffff' : (themeColor || 'var(--accent-color)')}
               isOwn={isOwn}
               isEmojiOnly={isEmoji && emojiCount >= 4}
               onLinkClick={onLinkClick}
@@ -319,15 +319,15 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 className="flex flex-col w-full min-w-0 mt-2 cursor-pointer hover:opacity-90 transition-opacity select-none"
                 style={{
                   padding: '8px 12px',
-                  backgroundColor: 'color-mix(in srgb, var(--accent-color) 10%, rgba(0,0,0,0.15))',
+                  backgroundColor: isOwn ? 'rgba(0,0,0,0.18)' : 'color-mix(in srgb, var(--accent-color) 10%, rgba(0,0,0,0.15))',
                   borderRadius: '0 8px 8px 0',
-                  borderLeft: '3px solid var(--accent-color)',
+                  borderLeft: isOwn ? '3px solid rgba(255,255,255,0.7)' : '3px solid var(--accent-color)',
                 }}
               >
                 {msg.linkPreview!.siteName && (
                   <span
                     className="font-bold text-[12.5px] mb-0.5 truncate"
-                    style={{ color: 'var(--accent-color)' }}
+                    style={{ color: isOwn ? 'rgba(255,255,255,0.95)' : 'var(--accent-color)' }}
                   >
                     {msg.linkPreview!.siteName}
                   </span>
@@ -337,7 +337,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                     msg.linkPreview!.title.trim().toLowerCase() !== msg.linkPreview!.siteName.trim().toLowerCase()) && (
                   <span
                     className="font-bold text-[13.5px] leading-snug mb-1 line-clamp-2"
-                    style={{ color: 'var(--text-main)' }}
+                    style={{ color: isOwn ? '#ffffff' : 'var(--text-main)' }}
                   >
                     {msg.linkPreview!.title}
                   </span>
@@ -345,7 +345,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 {msg.linkPreview!.description && (
                   <span
                     className="text-[12.5px] leading-normal mb-1.5 opacity-90 line-clamp-4"
-                    style={{ color: 'var(--text-dim)' }}
+                    style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--text-dim)' }}
                   >
                     {msg.linkPreview!.description}
                   </span>
