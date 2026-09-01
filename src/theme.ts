@@ -29,29 +29,29 @@ export interface ChatColorPreset {
 export const DEFAULT_CHAT_COLOR = '#5c54e5';
 
 export const CHAT_COLOR_PRESETS: ChatColorPreset[] = [
-  { id: 'iris',        name: 'Iris',        type: 'solid', value: '#5c54e5' },
+  { id: 'iris', name: 'Iris', type: 'solid', value: '#5c54e5' },
   { id: 'ultramarine', name: 'Ultramarine', type: 'solid', value: '#2c6bed' },
-  { id: 'crimson',     name: 'Crimson',     type: 'solid', value: '#c41b4b' },
-  { id: 'vermilion',   name: 'Vermilion',   type: 'solid', value: '#cf3d24' },
-  { id: 'burlap',      name: 'Burlap',      type: 'solid', value: '#69664f' },
-  { id: 'forest',      name: 'Forest',      type: 'solid', value: '#3c6e47' },
+  { id: 'crimson', name: 'Crimson', type: 'solid', value: '#c41b4b' },
+  { id: 'vermilion', name: 'Vermilion', type: 'solid', value: '#cf3d24' },
+  { id: 'burlap', name: 'Burlap', type: 'solid', value: '#69664f' },
+  { id: 'forest', name: 'Forest', type: 'solid', value: '#3c6e47' },
   { id: 'wintergreen', name: 'Wintergreen', type: 'solid', value: '#167a5b' },
-  { id: 'teal',        name: 'Teal',        type: 'solid', value: '#0c7285' },
-  { id: 'blue',        name: 'Blue',        type: 'solid', value: '#3761a6' },
-  { id: 'indigo',      name: 'Indigo',      type: 'solid', value: '#5951c8' },
-  { id: 'violet',      name: 'Violet',      type: 'solid', value: '#8038b3' },
-  { id: 'plum',        name: 'Plum',        type: 'solid', value: '#9d3483' },
-  { id: 'taupe',       name: 'Taupe',       type: 'solid', value: '#82626e' },
-  { id: 'steel',       name: 'Steel',       type: 'solid', value: '#596678' },
-  { id: 'ember',       name: 'Ember',       type: 'gradient', value: 'linear-gradient(135deg, #d33c2a 0%, #d87a20 100%)' },
-  { id: 'midnight',    name: 'Midnight',    type: 'gradient', value: 'linear-gradient(135deg, #2b395d 0%, #584f7b 100%)' },
-  { id: 'infrared',    name: 'Infrared',    type: 'gradient', value: 'linear-gradient(135deg, #7c2271 0%, #a42c55 100%)' },
-  { id: 'lagoon',      name: 'Lagoon',      type: 'gradient', value: 'linear-gradient(135deg, #09687e 0%, #158b76 100%)' },
+  { id: 'teal', name: 'Teal', type: 'solid', value: '#0c7285' },
+  { id: 'blue', name: 'Blue', type: 'solid', value: '#3761a6' },
+  { id: 'indigo', name: 'Indigo', type: 'solid', value: '#5951c8' },
+  { id: 'violet', name: 'Violet', type: 'solid', value: '#8038b3' },
+  { id: 'plum', name: 'Plum', type: 'solid', value: '#9d3483' },
+  { id: 'taupe', name: 'Taupe', type: 'solid', value: '#82626e' },
+  { id: 'steel', name: 'Steel', type: 'solid', value: '#596678' },
+  { id: 'ember', name: 'Ember', type: 'gradient', value: 'linear-gradient(135deg, #d33c2a 0%, #d87a20 100%)' },
+  { id: 'midnight', name: 'Midnight', type: 'gradient', value: 'linear-gradient(135deg, #2b395d 0%, #584f7b 100%)' },
+  { id: 'infrared', name: 'Infrared', type: 'gradient', value: 'linear-gradient(135deg, #7c2271 0%, #a42c55 100%)' },
+  { id: 'lagoon', name: 'Lagoon', type: 'gradient', value: 'linear-gradient(135deg, #09687e 0%, #158b76 100%)' },
   { id: 'fluorescent', name: 'Fluorescent', type: 'gradient', value: 'linear-gradient(135deg, #762299 0%, #c42978 100%)' },
-  { id: 'basil',       name: 'Basil',       type: 'gradient', value: 'linear-gradient(135deg, #206d4e 0%, #177a33 100%)' },
-  { id: 'sublime',     name: 'Sublime',     type: 'gradient', value: 'linear-gradient(135deg, #4456a2 0%, #90539b 100%)' },
-  { id: 'sea',         name: 'Sea',         type: 'gradient', value: 'linear-gradient(135deg, #246497 0%, #19808a 100%)' },
-  { id: 'tangerine',   name: 'Tangerine',   type: 'gradient', value: 'linear-gradient(135deg, #bd3450 0%, #d86824 100%)' },
+  { id: 'basil', name: 'Basil', type: 'gradient', value: 'linear-gradient(135deg, #206d4e 0%, #177a33 100%)' },
+  { id: 'sublime', name: 'Sublime', type: 'gradient', value: 'linear-gradient(135deg, #4456a2 0%, #90539b 100%)' },
+  { id: 'sea', name: 'Sea', type: 'gradient', value: 'linear-gradient(135deg, #246497 0%, #19808a 100%)' },
+  { id: 'tangerine', name: 'Tangerine', type: 'gradient', value: 'linear-gradient(135deg, #bd3450 0%, #d86824 100%)' },
 ];
 
 export const AVAILABLE_FONTS = {
@@ -235,7 +235,7 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
             applyThemeToRoot('system');
           }
         });
-      } catch (e) {}
+      } catch (e) { }
     }
   } else if (themeId === 'light' || themeId === 'dark') {
     resolvedMode = themeId;
@@ -268,23 +268,23 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
   root.style.setProperty('--selection-bg', `color-mix(in srgb, ${solidAccent} 28%, transparent)`);
   root.style.setProperty('--settings-primary', solidAccent);
 
-  root.style.setProperty('--surface-container',        theme.vars['--surface-container'] || '#2e2e2e');
+  root.style.setProperty('--surface-container', theme.vars['--surface-container'] || '#2e2e2e');
   root.style.setProperty('--surface-container-strong', theme.vars['--surface-container-strong'] || '#343434');
-  root.style.setProperty('--surface-container-soft',   theme.vars['--surface-container-soft'] || 'rgba(255,255,255,0.05)');
-  root.style.setProperty('--surface-border',           theme.vars['--surface-border'] || '#2e2e2e');
+  root.style.setProperty('--surface-container-soft', theme.vars['--surface-container-soft'] || 'rgba(255,255,255,0.05)');
+  root.style.setProperty('--surface-border', theme.vars['--surface-border'] || '#2e2e2e');
 
-  root.style.setProperty('--md-bg',             theme.vars['--settings-bg'] || theme.vars['--bg-secondary']);
-  root.style.setProperty('--md-surface',        theme.vars['--settings-surface'] || theme.vars['--surface-container']);
-  root.style.setProperty('--md-surface-var',    theme.vars['--settings-surface-var'] || theme.vars['--surface-container-strong']);
-  root.style.setProperty('--md-outline',        theme.vars['--settings-outline'] || theme.vars['--border-color']);
-  root.style.setProperty('--md-outline-med',    theme.vars['--settings-outline-med'] || theme.vars['--border-color']);
-  root.style.setProperty('--md-on-surface',     theme.vars['--settings-on-surface'] || theme.vars['--text-main']);
+  root.style.setProperty('--md-bg', theme.vars['--settings-bg'] || theme.vars['--bg-secondary']);
+  root.style.setProperty('--md-surface', theme.vars['--settings-surface'] || theme.vars['--surface-container']);
+  root.style.setProperty('--md-surface-var', theme.vars['--settings-surface-var'] || theme.vars['--surface-container-strong']);
+  root.style.setProperty('--md-outline', theme.vars['--settings-outline'] || theme.vars['--border-color']);
+  root.style.setProperty('--md-outline-med', theme.vars['--settings-outline-med'] || theme.vars['--border-color']);
+  root.style.setProperty('--md-on-surface', theme.vars['--settings-on-surface'] || theme.vars['--text-main']);
   root.style.setProperty('--md-on-surface-var', theme.vars['--settings-on-surface-var'] || theme.vars['--text-dim']);
-  root.style.setProperty('--md-primary',        solidAccent);
-  root.style.setProperty('--md-on-primary',     '#ffffff');
-  root.style.setProperty('--md-primary-cont',   solidAccent);
-  root.style.setProperty('--md-error',          theme.vars['--settings-error'] || '#f44336');
-  root.style.setProperty('--md-error-cont',     theme.vars['--settings-error-cont'] || 'rgba(244,67,54,0.12)');
+  root.style.setProperty('--md-primary', solidAccent);
+  root.style.setProperty('--md-on-primary', '#ffffff');
+  root.style.setProperty('--md-primary-cont', solidAccent);
+  root.style.setProperty('--md-error', theme.vars['--settings-error'] || '#f44336');
+  root.style.setProperty('--md-error-cont', theme.vars['--settings-error-cont'] || 'rgba(244,67,54,0.12)');
 
   root.style.setProperty('--title-bar-bg', theme.vars['--settings-surface'] || theme.vars['--md-surface'] || theme.vars['--surface-container'] || '#1b1b1b');
 
@@ -295,7 +295,7 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
       theme.vars['--bg-secondary'] || '#1b1b1b',
       theme.isLight
     );
-  } catch (e) {}
+  } catch (e) { }
 
   try {
     if (typeof window !== 'undefined' && (window as any).orbita?.setThemeForElectron) {
@@ -306,7 +306,7 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
         '--md-surface-var': theme.vars['--settings-surface-var'] || theme.vars['--surface-container-strong'],
       });
     }
-  } catch (e) {}
+  } catch (e) { }
 };
 
 const defaultFontFamily = DEFAULT_FONT;
@@ -323,10 +323,10 @@ const md3Theme = createTheme({
     },
     background: {
       default: themePalettes.dark.vars['--bg-primary'],
-      paper:   themePalettes.dark.vars['--bg-secondary'],
+      paper: themePalettes.dark.vars['--bg-secondary'],
     },
     text: {
-      primary:   themePalettes.dark.vars['--text-main'],
+      primary: themePalettes.dark.vars['--text-main'],
       secondary: themePalettes.dark.vars['--text-dim'],
     },
   },
