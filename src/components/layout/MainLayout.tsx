@@ -502,14 +502,13 @@ const ChatListItem = React.memo(({
       onContextMenu={(e) => onContextMenu(e, chat.id)}
       className="group relative cursor-pointer"
       style={{
-        borderRadius: '12px',
-        width: 'calc(100% - 16px)',
-        margin: '2px 8px',
+        borderRadius: 0,
+        width: '100%',
         backgroundColor: isActive
           ? 'rgba(255, 255, 255, 0.08)'
           : 'transparent',
         border: 'none',
-        padding: '8px 10px',
+        padding: '8px 11px 8px 14px',
         minHeight: 48,
         boxSizing: 'border-box',
         contentVisibility: 'auto',
