@@ -120,8 +120,8 @@ export function showNotification(
   if (typeof window !== 'undefined' && (window as any).orbita?.showCustomNotification) {
     const themeDef = themePalettes[state.currentTheme] || themePalettes.dark;
     const colors = {
-      accent:      themeDef.vars['--accent-color'] || themeDef.preview.accent || '#2c6bed',
-      accentLight: themeDef.vars['--accent-light'] || themeDef.preview.accentSecondary || '#548bf5',
+      accent:      state.chatColor || themeDef.vars['--accent-color'] || '#5c54e5',
+      accentLight: themeDef.vars['--accent-light'] || '#7c75f2',
       bg:          themeDef.vars['--bg-secondary'] || themeDef.vars['--surface-container'] || '#1b1b1b',
       text:        themeDef.vars['--text-main'] || themeDef.preview.text || '#ffffff',
       textDim:     themeDef.vars['--text-dim'] || '#848484',

@@ -26,9 +26,10 @@ export interface ChatColorPreset {
   value: string;
 }
 
-export const DEFAULT_CHAT_COLOR = '#2c6bed';
+export const DEFAULT_CHAT_COLOR = '#5c54e5';
 
 export const CHAT_COLOR_PRESETS: ChatColorPreset[] = [
+  { id: 'iris',        name: 'Iris',        type: 'solid', value: '#5c54e5' },
   { id: 'ultramarine', name: 'Ultramarine', type: 'solid', value: '#2c6bed' },
   { id: 'crimson',     name: 'Crimson',     type: 'solid', value: '#c41b4b' },
   { id: 'vermilion',   name: 'Vermilion',   type: 'solid', value: '#cf3d24' },
@@ -257,6 +258,16 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
   root.style.setProperty('--chat-bubble-incoming-bg', resolvedMode === 'light' ? '#e9e9e9' : '#343434');
   root.style.setProperty('--chat-bubble-incoming-text', resolvedMode === 'light' ? '#1b1b1b' : '#f6f6f6');
 
+  const solidAccent = effectiveChatColor.startsWith('linear-gradient')
+    ? (effectiveChatColor.match(/#[a-fA-F0-9]{6}/)?.[0] || DEFAULT_CHAT_COLOR)
+    : effectiveChatColor;
+
+  root.style.setProperty('--accent-color', solidAccent);
+  root.style.setProperty('--accent-glow', `color-mix(in srgb, ${solidAccent} 30%, transparent)`);
+  root.style.setProperty('--accent-glow-light', `color-mix(in srgb, ${solidAccent} 15%, transparent)`);
+  root.style.setProperty('--selection-bg', `color-mix(in srgb, ${solidAccent} 28%, transparent)`);
+  root.style.setProperty('--settings-primary', solidAccent);
+
   root.style.setProperty('--surface-container',        theme.vars['--surface-container'] || '#2e2e2e');
   root.style.setProperty('--surface-container-strong', theme.vars['--surface-container-strong'] || '#343434');
   root.style.setProperty('--surface-container-soft',   theme.vars['--surface-container-soft'] || 'rgba(255,255,255,0.05)');
@@ -269,9 +280,9 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
   root.style.setProperty('--md-outline-med',    theme.vars['--settings-outline-med'] || theme.vars['--border-color']);
   root.style.setProperty('--md-on-surface',     theme.vars['--settings-on-surface'] || theme.vars['--text-main']);
   root.style.setProperty('--md-on-surface-var', theme.vars['--settings-on-surface-var'] || theme.vars['--text-dim']);
-  root.style.setProperty('--md-primary',        theme.vars['--settings-primary'] || theme.vars['--accent-color']);
-  root.style.setProperty('--md-on-primary',     theme.vars['--settings-on-primary'] || '#ffffff');
-  root.style.setProperty('--md-primary-cont',   theme.vars['--settings-primary-cont'] || theme.vars['--accent-dark']);
+  root.style.setProperty('--md-primary',        solidAccent);
+  root.style.setProperty('--md-on-primary',     '#ffffff');
+  root.style.setProperty('--md-primary-cont',   solidAccent);
   root.style.setProperty('--md-error',          theme.vars['--settings-error'] || '#f44336');
   root.style.setProperty('--md-error-cont',     theme.vars['--settings-error-cont'] || 'rgba(244,67,54,0.12)');
 
@@ -280,7 +291,7 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
   try {
     applyMd3DynamicTokens(
       root,
-      theme.vars['--accent-color'] || '#2c6bed',
+      solidAccent,
       theme.vars['--bg-secondary'] || '#1b1b1b',
       theme.isLight
     );

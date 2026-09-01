@@ -1,7 +1,6 @@
-// src/store/useChatStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
-import { ThemeId, applyThemeToRoot } from '../theme';
+import { ThemeId, DEFAULT_CHAT_COLOR, applyThemeToRoot } from '../theme';
 import { RatchetState } from '../lib/double-ratchet';
 import { generateChatId as genChatId } from '../lib/crypto';
 import { mediaManager } from '../services/mediaManager';
@@ -471,7 +470,7 @@ export const useChatStore = create<ChatState>()(
       messagesByChatId: {},
       passcode: null,
       currentTheme: 'system',
-      chatColor: '#2c6bed',
+      chatColor: DEFAULT_CHAT_COLOR,
       currentView: 'chats',
       dotOverlay: true,
       blurProtection: false,
@@ -946,8 +945,8 @@ export const useChatStore = create<ChatState>()(
         applyThemeToRoot(get().currentTheme, color);
       },
       resetChatColor: () => {
-        set({ chatColor: '#2c6bed' });
-        applyThemeToRoot(get().currentTheme, '#2c6bed');
+        set({ chatColor: DEFAULT_CHAT_COLOR });
+        applyThemeToRoot(get().currentTheme, DEFAULT_CHAT_COLOR);
       },
       toggleDots: () => set((state) => ({ dotOverlay: !state.dotOverlay })),
       setCurrentView: (view) => set({ currentView: view }),
@@ -1119,7 +1118,7 @@ export const useChatStore = create<ChatState>()(
       },
       resetChats: () => {
         const defaultTheme: ThemeId = 'system';
-        applyThemeToRoot(defaultTheme, '#2c6bed');
+        applyThemeToRoot(defaultTheme, DEFAULT_CHAT_COLOR);
         mediaManager.clearMemoryCache();
         set({
           chats: [],
@@ -1128,7 +1127,7 @@ export const useChatStore = create<ChatState>()(
           messagesByChatId: {},
           passcode: null,
           currentTheme: defaultTheme,
-          chatColor: '#2c6bed',
+          chatColor: DEFAULT_CHAT_COLOR,
           currentView: 'chats',
           dotOverlay: true,
           blurProtection: false,
