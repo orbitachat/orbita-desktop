@@ -239,7 +239,7 @@
     "chatWindow": {
       "drag_drop_title": "Drop files here",
       "drag_drop_subtitle": "to send them without compression",
-      "placeholder": "Message...",
+      "placeholder": "Message",
       "back": "Back",
       "online": "online",
       "offline": "last seen recently",

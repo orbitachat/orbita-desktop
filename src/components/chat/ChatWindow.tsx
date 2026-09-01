@@ -5203,14 +5203,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     </span>
                   ) : (
                     <span
-                      className="text-[11px] font-semibold"
+                      className="text-[11.5px] font-medium"
                       style={{
-                        color: isOnline ? 'var(--accent-color)' : 'var(--text-dim)',
+                        color: isOnline ? 'var(--accent-color)' : 'rgba(255, 255, 255, 0.65)',
                         textShadow: isOnline ? '0 0 1.5px color-mix(in srgb, var(--accent-color) 30%, transparent)' : 'none',
                       }}
                     >
                       {otherUserTyping && activeChatId !== 'notes' ? (
-                        <span className="text-[11px] font-semibold" style={{ color: 'var(--accent-color)' }}>
+                        <span className="text-[11.5px] font-semibold" style={{ color: 'var(--accent-color)' }}>
                           {t('chatWindow.typing')}
                         </span>
                       ) : (

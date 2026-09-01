@@ -253,7 +253,7 @@
     "chatWindow": {
       "drag_drop_title": "Перетащите сюда файлы",
       "drag_drop_subtitle": "для их отправки без сжатия",
-      "placeholder": "Сообщение...",
+      "placeholder": "Сообщение",
       "back": "Назад",
       "online": "в сети",
       "offline": "был(а) недавно",
