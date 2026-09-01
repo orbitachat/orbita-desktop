@@ -1266,9 +1266,9 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, time
       className="group relative flex flex-col cursor-pointer select-none"
       style={{
         borderRadius: customRadius || bubbleRadius,
-        backgroundColor: isOwn
-          ? 'color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)'
-          : 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.06)))',
+        background: isOwn
+          ? 'var(--chat-bubble-own-bg, #2c6bed)'
+          : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
         border: 'none',
         padding: '8px 12px 8px 8px',
         position: 'relative',
@@ -1530,9 +1530,9 @@ const VoiceMessagePlayer = memo(({
       <div
         className="inline-flex items-center gap-2 select-none"
         style={{
-          backgroundColor: isOwn
-            ? 'color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)'
-            : 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.06)))',
+          background: isOwn
+            ? 'var(--chat-bubble-own-bg, #2c6bed)'
+            : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
           padding: '8px 12px 8px 8px',
           border: 'none',
           borderRadius: customRadius || bubbleRadius,
@@ -1555,9 +1555,9 @@ const VoiceMessagePlayer = memo(({
     <div
       className="flex items-center gap-2.5 select-none flex-shrink-0"
       style={{
-        backgroundColor: isOwn
-          ? 'color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)'
-          : 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.06)))',
+        background: isOwn
+          ? 'var(--chat-bubble-own-bg, #2c6bed)'
+          : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
         padding: '8px 12px 8px 8px',
         border: 'none',
         borderRadius: customRadius || bubbleRadius,
@@ -4397,9 +4397,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const bubbleStyle = useCallback((isOwn: boolean, extra?: React.CSSProperties): React.CSSProperties => ({
     padding: '6.5px 12px 6.5px 11px',
     borderRadius: bubbleRadius,
-    backgroundColor: isOwn ? 'color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)' : 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.06)))',
+    background: isOwn ? 'var(--chat-bubble-own-bg, #2c6bed)' : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
     border: 'none',
-    color: 'var(--text-main)',
+    color: isOwn ? '#ffffff' : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
     fontSize: orbitFs(12),
     maxWidth: 'min(440px, 75%)',
     ...extra,

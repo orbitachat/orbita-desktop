@@ -130,7 +130,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
       <span
         className="tabular-nums select-none"
         style={{
-          color: 'var(--text-dim)',
+          color: isOwn ? 'rgba(255, 255, 255, 0.75)' : 'var(--text-dim)',
           fontSize: '11px',
           display: 'inline-flex',
           alignItems: 'center',
@@ -219,10 +219,12 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
             style={{
               padding: '6.5px 12px 6.5px 11px',
               borderRadius: bubbleRadius,
-              backgroundColor: isOwn
-                ? 'color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)'
-                : 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.06)))',
-              color: 'var(--text-main)',
+              background: isOwn
+                ? 'var(--chat-bubble-own-bg, #2c6bed)'
+                : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
+              color: isOwn
+                ? '#ffffff'
+                : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
               fontSize: bubbleFontSize,
             }}
           >

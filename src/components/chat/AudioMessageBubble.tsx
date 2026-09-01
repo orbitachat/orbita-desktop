@@ -189,9 +189,9 @@ export const AudioMessageBubble = memo(({
       className="group relative flex flex-col cursor-pointer select-none"
       style={{
         borderRadius: bubbleRadius,
-        backgroundColor: isOwn
-          ? 'color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)'
-          : 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.06)))',
+        background: isOwn
+          ? 'var(--chat-bubble-own-bg, #2c6bed)'
+          : 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
         border: 'none',
         padding: '8px 12px 8px 8px',
         position: 'relative',

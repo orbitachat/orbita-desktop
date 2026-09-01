@@ -117,15 +117,14 @@ export function showNotification(
     }
   }
 
-  // ── Electron Custom Window (Telegram Desktop style) ──
   if (typeof window !== 'undefined' && (window as any).orbita?.showCustomNotification) {
-    const themeDef = themePalettes[state.currentTheme] || themePalettes.orbita;
+    const themeDef = themePalettes[state.currentTheme] || themePalettes.dark;
     const colors = {
-      accent:      themeDef.vars['--accent-color'] || themeDef.preview.accent || '#9b7dd4',
-      accentLight: themeDef.vars['--accent-light'] || themeDef.preview.accentSecondary || '#b89fee',
-      bg:          themeDef.vars['--bg-secondary'] || themeDef.vars['--surface-container'] || '#1b1727',
+      accent:      themeDef.vars['--accent-color'] || themeDef.preview.accent || '#2c6bed',
+      accentLight: themeDef.vars['--accent-light'] || themeDef.preview.accentSecondary || '#548bf5',
+      bg:          themeDef.vars['--bg-secondary'] || themeDef.vars['--surface-container'] || '#1b1b1b',
       text:        themeDef.vars['--text-main'] || themeDef.preview.text || '#ffffff',
-      textDim:     themeDef.vars['--text-dim'] || '#9f96b3',
+      textDim:     themeDef.vars['--text-dim'] || '#848484',
     };
 
     (window as any).orbita.showCustomNotification({

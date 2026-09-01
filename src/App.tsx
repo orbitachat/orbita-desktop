@@ -71,15 +71,14 @@ function App() {
     gatewayManager.selectFastestGateway().catch(() => {});
   }, []);
 
+  const chatColor = useChatStore((state) => state.chatColor);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && window.orbita?.setThemeForElectron) {
       try {
-        const themeDefinition = themePalettes[currentTheme] || themePalettes.orbita;
+        const themeDefinition = themePalettes[currentTheme] || themePalettes.dark;
         window.orbita.setThemeForElectron(currentTheme, themeDefinition.vars || {});
-        console.log('[App] Theme sent to Electron:', currentTheme);
-      } catch (err) {
-        console.warn('[App] Could not send theme to Electron:', err);
-      }
+      } catch (err) {}
     }
   }, [currentTheme]);
 
@@ -188,8 +187,8 @@ function App() {
   }, [setLanguage, i18n, language]);
 
   useEffect(() => {
-    applyThemeToRoot(currentTheme);
-  }, [currentTheme]);
+    applyThemeToRoot(currentTheme, chatColor);
+  }, [currentTheme, chatColor]);
 
   useEffect(() => {
     setProxyActive(false);

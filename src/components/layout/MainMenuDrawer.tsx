@@ -54,7 +54,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
     if (isNightMode) {
       setTheme('light');
     } else {
-      setTheme('orbita');
+      setTheme('dark');
     }
   }, [isNightMode, setTheme]);
 

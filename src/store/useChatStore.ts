@@ -276,6 +276,7 @@ interface ChatState {
   messagesByChatId: Record<string, Message[]>;
   passcode: string | null;
   currentTheme: ThemeId;
+  chatColor: string;
   currentView: 'chats' | 'settings';
   dotOverlay: boolean;
   blurProtection: boolean;
@@ -378,6 +379,8 @@ interface ChatState {
   getMessages: (chatId: string) => Message[];
   setPasscode: (code: string | null) => void;
   setTheme: (theme: ThemeId) => void;
+  setChatColor: (color: string) => void;
+  resetChatColor: () => void;
   toggleDots: () => void;
   setCurrentView: (view: 'chats' | 'settings') => void;
   initialSettingsTab?: string;
@@ -467,7 +470,8 @@ export const useChatStore = create<ChatState>()(
       activeProfileChatId: null,
       messagesByChatId: {},
       passcode: null,
-      currentTheme: 'orbita',
+      currentTheme: 'system',
+      chatColor: '#2c6bed',
       currentView: 'chats',
       dotOverlay: true,
       blurProtection: false,
@@ -935,7 +939,15 @@ export const useChatStore = create<ChatState>()(
       setPasscode: (code) => set({ passcode: code }),
       setTheme: (theme) => {
         set({ currentTheme: theme });
-        applyThemeToRoot(theme);
+        applyThemeToRoot(theme, get().chatColor);
+      },
+      setChatColor: (color) => {
+        set({ chatColor: color });
+        applyThemeToRoot(get().currentTheme, color);
+      },
+      resetChatColor: () => {
+        set({ chatColor: '#2c6bed' });
+        applyThemeToRoot(get().currentTheme, '#2c6bed');
       },
       toggleDots: () => set((state) => ({ dotOverlay: !state.dotOverlay })),
       setCurrentView: (view) => set({ currentView: view }),
@@ -1106,8 +1118,8 @@ export const useChatStore = create<ChatState>()(
         });
       },
       resetChats: () => {
-        const defaultTheme = 'orbita';
-        applyThemeToRoot(defaultTheme);
+        const defaultTheme: ThemeId = 'system';
+        applyThemeToRoot(defaultTheme, '#2c6bed');
         mediaManager.clearMemoryCache();
         set({
           chats: [],
@@ -1116,6 +1128,7 @@ export const useChatStore = create<ChatState>()(
           messagesByChatId: {},
           passcode: null,
           currentTheme: defaultTheme,
+          chatColor: '#2c6bed',
           currentView: 'chats',
           dotOverlay: true,
           blurProtection: false,

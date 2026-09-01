@@ -26,7 +26,7 @@ import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { LinkCopiedToast } from '../common/LinkCopiedToast';
 import { QrCodeView } from './QrCodeView';
 import { getInviteLink } from '../../utils/inviteLink';
-import { themePalettes, type ThemeDefinition, type ThemeId } from '../../theme';
+import { CHAT_COLOR_PRESETS, DEFAULT_CHAT_COLOR, type ThemeId } from '../../theme';
 
 const QrCodeMiniIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size}>
@@ -1048,146 +1048,307 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
   );
 };
 
-const themes: ThemeDefinition[] = Object.values(themePalettes);
+const SignalThemePicker: React.FC<{
+  activeTheme?: ThemeId;
+  onThemeChange?: (id: ThemeId) => void;
+}> = ({ activeTheme = 'system', onThemeChange }) => {
+  const { t } = useTranslation();
 
-interface ThemeCardProps {
-  theme: ThemeDefinition;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-const ThemeCard: React.FC<ThemeCardProps> = ({ theme, isActive, onClick }) => {
-  const { preview } = theme;
-  const outBubbleBg = theme.isLight ? preview.accent : preview.accent;
-  const inBubbleBg = theme.isLight
-    ? `color-mix(in srgb, ${preview.accent} 15%, ${preview.bg})`
-    : preview.surface;
-  const ringColor = preview.accent;
-
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        all: 'unset',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 4,
-        outline: 'none',
-        WebkitTapHighlightColor: 'transparent',
-        userSelect: 'none',
-      }}
-    >
-      <div
-        style={{
-          width: 72,
-          height: 96,
-          borderRadius: 0,
-          backgroundColor: preview.bg,
-          border: isActive
-            ? `2.5px solid ${ringColor}`
-            : `2px solid ${theme.isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'}`,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '10px 0 10px 0',
-          boxSizing: 'border-box',
-          position: 'relative',
-          overflow: 'hidden',
-          transition: 'border-color 0.18s, transform 0.14s',
-          transform: isActive ? 'scale(1.05)' : 'scale(1)',
-          boxShadow: isActive
-            ? `0 0 0 1px ${ringColor}40, 0 4px 16px ${ringColor}30`
-            : '0 2px 8px rgba(0,0,0,0.18)',
-        }}
-      >
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5, padding: '0 8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <div
-              style={{
-                width: 36,
-                height: 16,
-                borderRadius: 0,
-                backgroundColor: outBubbleBg,
-                opacity: 0.92,
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div
-              style={{
-                width: 36,
-                height: 16,
-                borderRadius: 0,
-                backgroundColor: inBubbleBg,
-                border: `1px solid ${theme.isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)'}`,
-              }}
-            />
-          </div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 2 }}>
-          <div
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: '50%',
-              border: `2px solid ${preview.accent}`,
-              backgroundColor: isActive ? preview.accent : 'transparent',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background-color 0.18s',
-              flexShrink: 0,
-            }}
-          >
-            {isActive && (
-              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                <path
-                  d="M1 4L3.5 6.5L9 1"
-                  stroke={theme.isLight ? '#fff' : preview.bg}
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-};
-
-const ThemePicker: React.FC<{ activeTheme?: ThemeId; onThemeChange?: (id: ThemeId) => void }> = ({
-  activeTheme = 'orbita',
-  onThemeChange,
-}) => {
-  const [selected, setSelected] = useState<ThemeId>(activeTheme);
-
-  const handleSelect = (id: ThemeId) => {
-    setSelected(id);
-    onThemeChange?.(id);
-  };
+  const themeOptions: { id: ThemeId; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'system',
+      label: t('settings.theme_system'),
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect width="20" height="14" x="2" y="3" rx="2" />
+          <line x1="8" x2="16" y1="21" y2="21" />
+          <line x1="12" x2="12" y1="17" y2="21" />
+        </svg>
+      ),
+    },
+    {
+      id: 'light',
+      label: t('settings.theme_light'),
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.93 4.93 1.41 1.41" />
+          <path d="m17.66 17.66 1.41 1.41" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m6.34 17.66-1.41 1.41" />
+          <path d="m19.07 4.93-1.41 1.41" />
+        </svg>
+      ),
+    },
+    {
+      id: 'dark',
+      label: t('settings.theme_dark'),
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-        gap: 12,
-        padding: '8px 4px 12px',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 10,
+        padding: '4px 20px 14px',
         userSelect: 'none',
       }}
     >
-      {themes.map((theme) => (
-        <ThemeCard
-          key={theme.id}
-          theme={theme}
-          isActive={selected === theme.id}
-          onClick={() => handleSelect(theme.id)}
-        />
-      ))}
+      {themeOptions.map((opt) => {
+        const isActive = activeTheme === opt.id;
+        return (
+          <button
+            key={opt.id}
+            onClick={() => onThemeChange?.(opt.id)}
+            aria-label={opt.label}
+            style={{
+              all: 'unset',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '14px 8px',
+              borderRadius: 14,
+              backgroundColor: isActive
+                ? 'color-mix(in srgb, var(--accent-color, #2c6bed) 14%, var(--surface-container, #262626))'
+                : 'var(--surface-container, #262626)',
+              border: isActive
+                ? '2px solid var(--accent-color, #2c6bed)'
+                : '2px solid transparent',
+              color: isActive ? 'var(--accent-color, #2c6bed)' : 'var(--text-main)',
+              transition: 'all 0.18s ease',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div style={{ opacity: isActive ? 1 : 0.8 }}>{opt.icon}</div>
+            <span style={{ fontSize: 13, fontWeight: isActive ? 600 : 500 }}>{opt.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const SignalChatColorPicker: React.FC = () => {
+  const { t } = useTranslation();
+  const chatColor = useChatStore((s) => s.chatColor);
+  const setChatColor = useChatStore((s) => s.setChatColor);
+  const resetChatColor = useChatStore((s) => s.resetChatColor);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCustomColorClick = () => {
+    colorInputRef.current?.click();
+  };
+
+  const handleColorInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val) {
+      setChatColor(val);
+    }
+  };
+
+  const isCustomActive = !CHAT_COLOR_PRESETS.some((p) => p.value === chatColor);
+
+  return (
+    <div
+      style={{
+        margin: '0 20px 16px',
+        backgroundColor: 'var(--surface-container, #262626)',
+        borderRadius: 16,
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          padding: '6px 4px 10px',
+        }}
+      >
+        <div
+          style={{
+            alignSelf: 'flex-start',
+            maxWidth: '85%',
+            background: 'var(--chat-bubble-incoming-bg, #343434)',
+            color: 'var(--chat-bubble-incoming-text, #f6f6f6)',
+            borderRadius: 16,
+            padding: '8px 12px',
+            fontSize: 13,
+            lineHeight: 1.35,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
+        >
+          <div>{t('settings.chat_color_preview_incoming')}</div>
+          <div
+            style={{
+              fontSize: 10.5,
+              color: 'var(--text-dim)',
+              textAlign: 'right',
+              marginTop: 3,
+            }}
+          >
+            20:19
+          </div>
+        </div>
+
+        <div
+          style={{
+            alignSelf: 'flex-end',
+            maxWidth: '85%',
+            background: chatColor || DEFAULT_CHAT_COLOR,
+            color: '#ffffff',
+            borderRadius: 16,
+            padding: '8px 12px',
+            fontSize: 13,
+            lineHeight: 1.35,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+          }}
+        >
+          <div>{t('settings.chat_color_preview_outgoing')}</div>
+          <div
+            style={{
+              fontSize: 10.5,
+              color: 'rgba(255, 255, 255, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 4,
+              marginTop: 3,
+            }}
+          >
+            <span>{t('settings.chat_color_just_now')}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 7 17l-5-5" />
+              <path d="m22 10-7.5 7.5L13 16" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ height: 1, backgroundColor: 'var(--border-color, rgba(255,255,255,0.08))', width: '100%' }} />
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(38px, 1fr))',
+          gap: 10,
+          justifyItems: 'center',
+          alignItems: 'center',
+        }}
+      >
+        {CHAT_COLOR_PRESETS.map((preset) => {
+          const isSelected = chatColor === preset.value;
+          return (
+            <button
+              key={preset.id}
+              onClick={() => setChatColor(preset.value)}
+              aria-label={preset.name}
+              style={{
+                all: 'unset',
+                cursor: 'pointer',
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: preset.value,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                boxSizing: 'border-box',
+                outline: isSelected ? '2.5px solid var(--accent-color, #2c6bed)' : 'none',
+                outlineOffset: 3,
+                transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                transition: 'transform 0.15s ease, outline 0.15s ease',
+              }}
+            >
+              {isSelected && (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </button>
+          );
+        })}
+
+        <button
+          onClick={handleCustomColorClick}
+          aria-label={t('settings.custom_color')}
+          style={{
+            all: 'unset',
+            cursor: 'pointer',
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            backgroundColor: isCustomActive ? chatColor : '#ffffff',
+            color: isCustomActive ? '#ffffff' : '#121212',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            outline: isCustomActive ? '2.5px solid var(--accent-color, #2c6bed)' : 'none',
+            outlineOffset: 3,
+            transform: isCustomActive ? 'scale(1.08)' : 'scale(1)',
+            transition: 'transform 0.15s ease, outline 0.15s ease',
+            boxSizing: 'border-box',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+          }}
+        >
+          {isCustomActive ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          )}
+          <input
+            ref={colorInputRef}
+            type="color"
+            value={chatColor.startsWith('#') ? chatColor : '#2c6bed'}
+            onChange={handleColorInputChange}
+            style={{ display: 'none' }}
+          />
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
+        <button
+          onClick={resetChatColor}
+          aria-label={t('settings.reset_all_chat_colors')}
+          style={{
+            all: 'unset',
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 500,
+            color: 'var(--accent-color, #2c6bed)',
+            padding: '6px 12px',
+            borderRadius: 8,
+            transition: 'opacity 0.15s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.75')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+        >
+          {t('settings.reset_all_chat_colors')}
+        </button>
+      </div>
     </div>
   );
 };
@@ -1196,9 +1357,9 @@ const BubbleRadiusPreview = ({ radius }: { radius: number }) => {
   const ownBubbleStyle: React.CSSProperties = {
     padding: '6px 12px 6px 10px',
     borderRadius: radius,
-    backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)',
+    background: 'var(--chat-bubble-own-bg, #2c6bed)',
     border: 'none',
-    color: 'var(--text-main)',
+    color: '#ffffff',
     fontSize: '12px',
     maxWidth: 'min(480px, 75%)',
     alignSelf: 'flex-end',
@@ -1210,9 +1371,9 @@ const BubbleRadiusPreview = ({ radius }: { radius: number }) => {
   const otherBubbleStyle: React.CSSProperties = {
     padding: '6px 12px 6px 10px',
     borderRadius: radius,
-    backgroundColor: 'var(--surface-container, rgba(255,255,255,0.06))',
+    background: 'var(--chat-bubble-incoming-bg, var(--surface-container, #343434))',
     border: 'none',
-    color: 'var(--text-main)',
+    color: 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
     fontSize: '12px',
     maxWidth: 'min(480px, 75%)',
     alignSelf: 'flex-start',
@@ -2419,9 +2580,13 @@ export const SettingsScreen = () => {
       case 'chats':
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 4 }}>
               <p style={{ fontSize: 14, fontWeight: 500, color: MD3.onSurface, margin: '0 0 8px', userSelect: 'none', padding: '0 20px' }}>{t('settings.themes')}</p>
-              <ThemePicker activeTheme={currentTheme} onThemeChange={setTheme} />
+              <SignalThemePicker activeTheme={currentTheme} onThemeChange={setTheme} />
+            </div>
+            <div style={{ marginBottom: 4 }}>
+              <p style={{ fontSize: 14, fontWeight: 500, color: MD3.onSurface, margin: '0 0 8px', userSelect: 'none', padding: '0 20px' }}>{t('settings.chat_color')}</p>
+              <SignalChatColorPicker />
             </div>
             <SettingsRow
               label={t('settings.font')}
