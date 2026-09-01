@@ -521,12 +521,11 @@ export const MessageInput = memo<MessageInputProps>(({
         flexShrink: 0,
         zIndex: 10,
         backgroundColor: 'transparent',
-        padding: '12px 16px 14px 16px',
+        padding: '6px 14px 10px 14px',
         borderTop: 'none',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
-        justifyContent: 'center',
       }}
     >
       {liveLinkPreview && !isRecordingActive && (
@@ -855,7 +854,7 @@ export const MessageInput = memo<MessageInputProps>(({
                 minHeight: '20px',
                 maxHeight: '120px',
                 overflowY: 'auto',
-                padding: '7px 0',
+                padding: '0',
                 width: '100%',
                 caretColor: 'var(--accent-color, #5c54e5)',
                 wordBreak: 'break-word',
@@ -1132,9 +1131,12 @@ export const MessageInput = memo<MessageInputProps>(({
           color: var(--text-dim, rgba(255, 255, 255, 0.45));
           pointer-events: none;
           position: absolute;
-          top: 7px;
-          left: 0;
+          top: 0;
+          bottom: 0;
+          height: 20px;
           line-height: 20px;
+          margin: auto 0;
+          left: 0;
           cursor: text;
         }
 
