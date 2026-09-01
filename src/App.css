@@ -29,6 +29,11 @@
   --accent-glow: rgba(92, 84, 229, 0.25);
   --text-main: #f6f6f6;
   --text-dim: #9ea1ab;
+  --surface-container: #33363f;
+  --surface-container-strong: #3d414c;
+  --surface-container-soft: rgba(255, 255, 255, 0.06);
+  --chat-bubble-incoming-bg: var(--surface-container, #33363f);
+  --chat-bubble-incoming-text: #f6f6f6;
   --border-color: #373a43;
   --online-color: #4caf50;
   --offline-color: #f44336;

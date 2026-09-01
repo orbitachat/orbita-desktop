@@ -812,7 +812,7 @@ export const MessageInput = memo<MessageInputProps>(({
           <div
             style={{
               flex: 1,
-              backgroundColor: 'var(--surface-container, rgba(255, 255, 255, 0.08))',
+              backgroundColor: 'var(--surface-container, #33363f)',
               borderRadius: '20px',
               padding: '0 14px',
               minHeight: '34px',
