@@ -743,7 +743,7 @@ export const MessageInput = memo<MessageInputProps>(({
           </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', position: 'relative', transform: 'translateY(2.5px)' }}>
           {currentText.length > 256 && onOpenTxtModal && (
             <button
               type="button"
@@ -821,7 +821,6 @@ export const MessageInput = memo<MessageInputProps>(({
               alignItems: 'center',
               boxSizing: 'border-box',
               position: 'relative',
-              transform: 'translateY(2.5px)',
               transition: 'background-color 0.15s ease',
             }}
           >
