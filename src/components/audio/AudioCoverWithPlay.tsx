@@ -9,6 +9,7 @@ interface AudioCoverWithPlayProps {
   onClick?: () => void;
   state?: 'play' | 'pause' | 'download' | 'file';
   customIcon?: React.ReactNode;
+  isOwn?: boolean;
 }
 
 export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
@@ -18,6 +19,7 @@ export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
   onClick,
   state = 'play',
   customIcon,
+  isOwn = false,
 }) => {
   const iconSize = size * 0.5;
 
@@ -49,7 +51,7 @@ export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
         overflow: 'hidden',
         position: 'relative',
         flexShrink: 0,
-        backgroundColor: cover ? 'transparent' : 'var(--accent-color)',
+        backgroundColor: cover ? 'transparent' : (isOwn ? 'rgba(255, 255, 255, 0.2)' : 'var(--accent-color)'),
         cursor: onClick ? 'pointer' : 'default',
       }}
     >

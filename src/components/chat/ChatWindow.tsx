@@ -750,8 +750,21 @@ const clampMenuPosition = (
 };
 
 const CallMessage = memo(
-  ({ msg, chatId, onCall }: { msg: Message; chatId: string; onCall: (chatId: string) => void }) => {
+  ({
+    msg,
+    chatId,
+    onCall,
+    isOwn = false,
+    customRadius,
+  }: {
+    msg: Message;
+    chatId: string;
+    onCall: (chatId: string) => void;
+    isOwn?: boolean;
+    customRadius?: string;
+  }) => {
     const { t } = useTranslation();
+    const bubbleRadius = useChatStore((state) => state.bubbleRadius);
 
     const parts = msg.text.split(', ');
     const directionPart = parts[0].replace(/^\[Call\]\s/, '');
@@ -761,7 +774,6 @@ const CallMessage = memo(
     const status = msg.mediaName || 'completed';
     const displayStatus = status === 'busy' ? 'rejected' : status;
 
-    // Fast check for duration format
     const isValidDuration = (str: string): boolean => {
       if (!str) return false;
       const p = str.split(':');
@@ -800,7 +812,10 @@ const CallMessage = memo(
       <div
         className="flex items-center justify-between p-3 rounded-xl cursor-pointer select-none"
         style={{
-          backgroundColor: 'var(--surface-container, rgba(255,255,255,0.05))',
+          backgroundColor: isOwn
+            ? 'var(--chat-bubble-own-bg, #2c6bed)'
+            : 'var(--chat-bubble-incoming-bg, var(--surface-container, rgba(255,255,255,0.05)))',
+          borderRadius: customRadius || bubbleRadius,
           border: 'none',
           gap: '40px',
           minWidth: '220px',
@@ -810,15 +825,15 @@ const CallMessage = memo(
         onClick={() => onCall(chatId)}
       >
         <div className="flex flex-col min-w-0">
-          <span className="font-medium truncate" style={{ color: 'var(--text-main)', fontSize: orbitFs(13) }}>
+          <span className="font-medium truncate" style={{ color: isOwn ? '#ffffff' : 'var(--text-main)', fontSize: orbitFs(13) }}>
             {mainText}
           </span>
-          <div className="text-xs truncate" style={{ color: 'var(--text-dim)', fontSize: orbitFs(11) }}>
+          <div className="text-xs truncate" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-dim)', fontSize: orbitFs(11) }}>
             {timeStr}
             {durationDisplay && `, ${durationDisplay}`}
           </div>
         </div>
-        <div style={{ color: 'var(--accent-color)' }} className="flex-shrink-0 flex items-center justify-center">
+        <div style={{ color: isOwn ? '#ffffff' : 'var(--accent-color)' }} className="flex-shrink-0 flex items-center justify-center">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 42 42" fill="currentColor">
             <path d="M15.562 20.766c-1.328-1.922-2.118-4.241-2.281-4.438c1.945-1.356 5.749-3.06 5.962-5.505c.271-3.159-5.081-9.763-6.107-9.823c-2.808.03-7.947 4.782-8.556 6.218c-1.132 2.969-.571 5.732 1.375 9.732c2.478 5.95 11.682 17.237 16.947 20.78c3.484 2.674 6.029 3.724 9.068 3.09c1.413-.268 6.516-4.455 7.027-7.286c.125-1.05-5.807-8.011-8.875-8.287c-2.382-.22-4.666 3.346-6.303 5.089c-.163-.208-1.559-1.297-3.057-3.021c-1.95-2.049-3.762-4.456-5.2-6.549" />
           </svg>
@@ -831,7 +846,9 @@ const CallMessage = memo(
     prevProps.msg.time === nextProps.msg.time &&
     prevProps.msg.text === nextProps.msg.text &&
     prevProps.msg.mediaName === nextProps.msg.mediaName &&
-    prevProps.chatId === nextProps.chatId
+    prevProps.chatId === nextProps.chatId &&
+    prevProps.isOwn === nextProps.isOwn &&
+    prevProps.customRadius === nextProps.customRadius
 );
 
 const SpoilerSpan: React.FC<{ content: string }> = ({ content }) => {
@@ -1286,13 +1303,14 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, time
           size={48}
           onClick={handleOpenFile}
           state={!blobUrl ? 'download' : 'file'}
+          isOwn={isOwn}
         />
         <div className="flex flex-col min-w-0 flex-1 gap-1 overflow-hidden" style={{ maxWidth: '100%' }}>
           <div
             className="font-semibold truncate"
             style={{
               fontSize: orbitFs(13),
-              color: 'var(--text-main)',
+              color: isOwn ? '#ffffff' : 'var(--text-main)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -1302,7 +1320,7 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, time
           >
             {displayName}
           </div>
-          <div style={{ fontSize: orbitFs(11), color: 'var(--text-dim)' }}>
+          <div style={{ fontSize: orbitFs(11), color: isOwn ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-dim)' }}>
             {fileSize || ext || t('chatWindow.document')}
           </div>
         </div>
@@ -1541,8 +1559,8 @@ const VoiceMessagePlayer = memo(({
           boxSizing: 'border-box',
         }}
       >
-        <MD3CircularSpinner size="small" color="var(--accent-color, #7C3AED)" />
-        <span style={{ fontSize: orbitFs(10), color: 'var(--text-dim)' }}>{t('chatWindow.loading')}</span>
+        <MD3CircularSpinner size="small" color={isOwn ? '#ffffff' : 'var(--accent-color, #7C3AED)'} />
+        <span style={{ fontSize: orbitFs(10), color: isOwn ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-dim)' }}>{t('chatWindow.loading')}</span>
       </div>
     );
   }
@@ -1574,6 +1592,7 @@ const VoiceMessagePlayer = memo(({
         isPlayingTrack={isPlaying}
         size={48}
         onClick={handlePlayToggle}
+        isOwn={isOwn}
       />
 
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
@@ -1609,8 +1628,12 @@ const VoiceMessagePlayer = memo(({
                   minWidth: '2px',
                   height: `${h}%`,
                   backgroundColor: fillRatio > 0
-                    ? `color-mix(in srgb, var(--accent-color, #7C3AED) ${Math.round(fillRatio * 100)}%, color-mix(in srgb, var(--text-main) 30%, transparent))`
-                    : 'color-mix(in srgb, var(--text-main) 30%, transparent)',
+                    ? (isOwn
+                        ? '#ffffff'
+                        : `color-mix(in srgb, var(--accent-color, #7C3AED) ${Math.round(fillRatio * 100)}%, color-mix(in srgb, var(--text-main) 30%, transparent))`)
+                    : (isOwn
+                        ? 'rgba(255, 255, 255, 0.4)'
+                        : 'color-mix(in srgb, var(--text-main) 30%, transparent)'),
                   borderRadius: '2px',
                   willChange: 'background-color',
                   transform: 'translateZ(0)',
@@ -1621,7 +1644,7 @@ const VoiceMessagePlayer = memo(({
           })}
         </div>
 
-        <div className="flex items-center justify-between" style={{ fontSize: '10.5px', color: 'var(--text-dim)', marginTop: '1px' }}>
+        <div className="flex items-center justify-between" style={{ fontSize: '10.5px', color: isOwn ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-dim)', marginTop: '1px' }}>
           <span className="tabular-nums">
             {isPlaying || displayCurrentTime > 0
               ? `${formatTime(displayCurrentTime)} / ${formatTime(effectiveDuration)}`
@@ -5048,14 +5071,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                         className="flex w-full items-start gap-2 mb-0.5"
                         style={{
                           padding: '5px 10px',
-                          backgroundColor: 'color-mix(in srgb, var(--accent-color) 12%, transparent)',
+                          backgroundColor: isOwn ? 'rgba(255, 255, 255, 0.15)' : 'color-mix(in srgb, var(--accent-color) 12%, transparent)',
                           borderRadius: '0 6px 6px 0',
-                          borderLeft: '3px solid var(--accent-color)',
+                          borderLeft: isOwn ? '3px solid #ffffff' : '3px solid var(--accent-color)',
                         }}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="truncate font-semibold" style={{ color: 'var(--accent-color)', fontSize: '12.5px', lineHeight: '1.2' }}>{q.sender}</p>
-                          <p className="truncate" style={{ color: 'var(--text-main)', fontSize: '13px', lineHeight: '1.35', marginTop: '2px' }}>{q.text}</p>
+                          <p className="truncate font-semibold" style={{ color: isOwn ? '#ffffff' : 'var(--accent-color)', fontSize: '12.5px', lineHeight: '1.2' }}>{q.sender}</p>
+                          <p className="truncate" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-main)', fontSize: '13px', lineHeight: '1.35', marginTop: '2px' }}>{q.text}</p>
                         </div>
                       </div>
                     ))}
@@ -5112,7 +5135,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
             {media.type === 'call' && (
               <div onContextMenu={(e) => handleContextMenu(e, index, isOwn)}>
-                <CallMessage msg={msg} chatId={activeChatId!} onCall={handleCallPress} />
+                <CallMessage msg={msg} chatId={activeChatId!} onCall={handleCallPress} isOwn={isOwn} customRadius={customRadius} />
               </div>
             )}
             {renderReactionBadges(msg, index)}

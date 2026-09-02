@@ -209,6 +209,7 @@ export const AudioMessageBubble = memo(({
           size={48}
           onClick={!blobUrl ? handleDownload : handlePlay}
           state={buttonState}
+          isOwn={isOwn}
         />
         <div className="flex flex-col min-w-0 flex-1 gap-1 overflow-hidden" style={{ maxWidth: '100%' }}>
           <div

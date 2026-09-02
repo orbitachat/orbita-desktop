@@ -256,9 +256,9 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                     className="flex w-full items-start gap-2 cursor-pointer hover:opacity-85 transition-opacity"
                     style={{
                       padding: '5px 10px',
-                      backgroundColor: 'color-mix(in srgb, var(--accent-color) 12%, transparent)',
+                      backgroundColor: isOwn ? 'rgba(255, 255, 255, 0.15)' : 'color-mix(in srgb, var(--accent-color) 12%, transparent)',
                       borderRadius: '0 6px 6px 0',
-                      borderLeft: '3px solid var(--accent-color)',
+                      borderLeft: isOwn ? '3px solid #ffffff' : '3px solid var(--accent-color)',
                     }}
                   >
                     <div className="flex-1 min-w-0">
@@ -266,7 +266,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                         <p
                           className="truncate font-semibold"
                           style={{
-                            color: 'var(--accent-color)',
+                            color: isOwn ? '#ffffff' : 'var(--accent-color)',
                             fontSize: '12.5px',
                             lineHeight: '1.2',
                           }}
@@ -286,12 +286,12 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                       <p
                         className="truncate"
                         style={{
-                          color: 'var(--text-main)',
+                          color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-main)',
                           fontSize: '13px',
                           lineHeight: '1.35',
                           marginTop: '2px',
                         }}
-                        dangerouslySetInnerHTML={{ __html: markdownToHtml(formatPreviewText(q.text, t), themeColor).replace(/<br\s*\/?>/gi, ' ') }}
+                        dangerouslySetInnerHTML={{ __html: markdownToHtml(formatPreviewText(q.text, t), isOwn ? '#ffffff' : themeColor).replace(/<br\s*\/?>/gi, ' ') }}
                       />
                     </div>
                   </div>
