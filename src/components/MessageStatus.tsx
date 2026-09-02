@@ -6,16 +6,17 @@ interface MessageStatusProps {
   status: MessageStatusType;
   className?: string;
   isOwn?: boolean;
+  color?: string;
 }
 
-export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className = '', isOwn = false }) => {
+export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className = '', isOwn = false, color }) => {
   const statusStyle: React.CSSProperties = {
     transform: 'translateY(-1px)',
     flexShrink: 0,
   };
 
-  const checkColor = isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--text-dim, #808080)';
-  const readColor = isOwn ? '#ffffff' : 'var(--text-dim, #808080)';
+  const checkColor = color || (isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--text-dim, #808080)');
+  const readColor = color || (isOwn ? '#ffffff' : 'var(--text-dim, #808080)');
 
   if (status === 'sent' || status === 'delivered') {
     return (

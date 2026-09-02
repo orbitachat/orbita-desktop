@@ -4,15 +4,7 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash, Phone, Smile } from 'lucide-react';
-import {
-  Picture as GravityPictureIcon,
-  Video as GravityVideoIcon,
-  File as GravityFileIcon,
-  Headphones as GravityHeadphonesIcon,
-  Link as GravityLinkIcon,
-  Microphone as GravityMicIcon,
-} from '@gravity-ui/icons';
+import { X, Trash } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher } from '../../utils/pusher';
@@ -76,40 +68,9 @@ interface ChatContextMenu {
   chatId: string;
 }
 
-const GravityGifBadgeIcon = ({ width = 14, height = 14, style, className }: { width?: number; height?: number; style?: React.CSSProperties; className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={width}
-    height={height}
-    viewBox="0 0 16 16"
-    fill="none"
-    className={className}
-    style={style}
-  >
-    <rect
-      x="1.25"
-      y="2.5"
-      width="13.5"
-      height="11"
-      rx="2.75"
-      stroke="currentColor"
-      strokeWidth="1.3"
-    />
-    <text
-      x="8"
-      y="10.5"
-      textAnchor="middle"
-      fill="currentColor"
-      fontSize="7.5"
-      fontWeight="700"
-      fontFamily="system-ui, sans-serif"
-    >
-      GIF
-    </text>
-  </svg>
-);
-
 const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.ReactNode => {
+  const accentStyle: React.CSSProperties = { color: 'var(--accent-color, #7C3AED)' };
+
   if (lastMsg?.text?.startsWith('[Call]')) {
     const parts = lastMsg.text.split(', ');
     const directionPart = parts[0].replace(/^\[Call\]\s/, '');
@@ -128,10 +89,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
       text = isOutgoing ? t('call.outgoing_call') : t('call.incoming_call');
     }
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <Phone size={13} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span className="truncate">{text}</span>
-      </span>
+      <span className="truncate" style={accentStyle}>{text}</span>
     );
   }
 
@@ -160,10 +118,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         label = count === 1 ? t('chatWindow.photo') : `${count} ${word}`;
       }
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{label}</span>
-        </span>
+        <span className="truncate" style={accentStyle}>{label}</span>
       );
     }
 
@@ -179,10 +134,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         label = count === 1 ? t('chatWindow.video') : `${count} ${word}`;
       }
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{label}</span>
-        </span>
+        <span className="truncate" style={accentStyle}>{label}</span>
       );
     }
 
@@ -198,10 +150,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         label = `${count} ${word}`;
       }
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{label}</span>
-        </span>
+        <span className="truncate" style={accentStyle}>{label}</span>
       );
     }
 
@@ -217,8 +166,8 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         label = count === 1 ? t('chatWindow.audio') : `${count} ${word}`;
       }
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
+          <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
           <span className="truncate">{label}</span>
         </span>
       );
@@ -235,76 +184,52 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
       label = `${totalFiles} ${word}`;
     }
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span className="truncate">{label}</span>
-      </span>
+      <span className="truncate" style={accentStyle}>{label}</span>
     );
   }
 
   if (lastMsg?.mediaType) {
     if (lastMsg.text && /^\[GIF\]/i.test(lastMsg.text)) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityGifBadgeIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span>GIF</span>
-        </span>
+        <span className="truncate" style={accentStyle}>GIF</span>
       );
     }
     if (lastMsg.text && /^\[Sticker\]/i.test(lastMsg.text)) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <Smile size={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{t('chatWindow.sticker')}</span>
-        </span>
+        <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
       );
     }
 
     switch (lastMsg.mediaType) {
       case 'photo':
         return (
-          <span className="inline-flex items-center gap-1 min-w-0">
-            <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-            <span className="truncate">{t('chatWindow.photo')}</span>
-          </span>
+          <span className="truncate" style={accentStyle}>{t('chatWindow.photo')}</span>
         );
       case 'video':
         return (
-          <span className="inline-flex items-center gap-1 min-w-0">
-            <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-            <span className="truncate">{t('chatWindow.video')}</span>
-          </span>
+          <span className="truncate" style={accentStyle}>{t('chatWindow.video')}</span>
         );
       case 'voice':
         return (
-          <span className="inline-flex items-center gap-1 min-w-0">
-            <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-            <span className="truncate">{t('chatWindow.voice_message')}</span>
-          </span>
+          <span className="truncate" style={accentStyle}>{t('chatWindow.voice_message')}</span>
         );
       case 'audio': {
         const meta = lastMsg.audioMetadata;
         const title = (meta && meta.artist && meta.title) ? `${meta.artist} – ${meta.title}` : (lastMsg.mediaName || t('chatWindow.audio'));
         return (
-          <span className="inline-flex items-center gap-1 min-w-0">
-            <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+          <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
+            <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
             <span className="truncate">{title}</span>
           </span>
         );
       }
       case 'file':
         return (
-          <span className="inline-flex items-center gap-1 min-w-0">
-            <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-            <span className="truncate">{lastMsg.mediaName || t('chatWindow.file')}</span>
-          </span>
+          <span className="truncate" style={accentStyle}>{lastMsg.mediaName || t('chatWindow.file')}</span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 min-w-0">
-            <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-            <span className="truncate">{lastMsg.mediaName || t('chatWindow.file')}</span>
-          </span>
+          <span className="truncate" style={accentStyle}>{lastMsg.mediaName || t('chatWindow.file')}</span>
         );
     }
   }
@@ -313,51 +238,50 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
     const text = lastMsg.text.replace(/\[emoji:[a-zA-Z0-9_]+\]/g, '').trim();
     if (text.startsWith('http://') || text.startsWith('https://')) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityLinkIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{text}</span>
-        </span>
+        <span className="truncate">{text}</span>
       );
     }
     const cleanText = text.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ');
     if (/^\[Sticker\]/i.test(cleanText)) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <Smile size={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{t('chatWindow.sticker')}</span>
-        </span>
+        <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
       );
     }
     if (/^\[GIF\]/i.test(cleanText)) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityGifBadgeIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span>GIF</span>
-        </span>
+        <span className="truncate" style={accentStyle}>GIF</span>
       );
     }
     if (/^\[Photo\]/i.test(cleanText)) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{t('chatWindow.photo')}</span>
-        </span>
+        <span className="truncate" style={accentStyle}>{t('chatWindow.photo')}</span>
       );
     }
     if (/^\[Video\]/i.test(cleanText)) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{t('chatWindow.video')}</span>
-        </span>
+        <span className="truncate" style={accentStyle}>{t('chatWindow.video')}</span>
       );
     }
     if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-          <span className="truncate">{t('chatWindow.voice_message')}</span>
+        <span className="truncate" style={accentStyle}>{t('chatWindow.voice_message')}</span>
+      );
+    }
+    if (/^\[Audio\]/i.test(cleanText)) {
+      const match = cleanText.match(/^\[Audio\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
+      const title = match ? match[1] : t('chatWindow.audio');
+      return (
+        <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
+          <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
+          <span className="truncate">{title}</span>
         </span>
+      );
+    }
+    if (/^\[File\]/i.test(cleanText)) {
+      const match = cleanText.match(/^\[File\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
+      const fileName = match ? match[1] : t('chatWindow.file');
+      return (
+        <span className="truncate" style={accentStyle}>{fileName}</span>
       );
     }
     const plain = cleanText
@@ -380,42 +304,27 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
   let cleanText = chat.lastMsg || '';
   if (/^\[Sticker\]/i.test(cleanText)) {
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <Smile size={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span className="truncate">{t('chatWindow.sticker')}</span>
-      </span>
+      <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
     );
   }
   if (/^\[GIF\]/i.test(cleanText)) {
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <GravityGifBadgeIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span>GIF</span>
-      </span>
+      <span className="truncate" style={accentStyle}>GIF</span>
     );
   }
   if (/^\[Photo\]/i.test(cleanText)) {
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <GravityPictureIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span className="truncate">{t('chatWindow.photo')}</span>
-      </span>
+      <span className="truncate" style={accentStyle}>{t('chatWindow.photo')}</span>
     );
   }
   if (/^\[Video\]/i.test(cleanText)) {
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <GravityVideoIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span className="truncate">{t('chatWindow.video')}</span>
-      </span>
+      <span className="truncate" style={accentStyle}>{t('chatWindow.video')}</span>
     );
   }
   if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span className="truncate">{t('chatWindow.voice_message')}</span>
-      </span>
+      <span className="truncate" style={accentStyle}>{t('chatWindow.voice_message')}</span>
     );
   }
   if (/^\[Audio\]/i.test(cleanText)) {
@@ -423,24 +332,23 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
     if (match) {
       if (/^voice_\d+\.ogg$/i.test(match[1])) {
         return (
-          <span className="inline-flex items-center gap-1 min-w-0">
-            <GravityMicIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-            <span className="truncate">{t('chatWindow.voice_message')}</span>
+          <span className="truncate" style={accentStyle}>
+            {t('chatWindow.voice_message')}
           </span>
         );
       }
       const parts = match[1].split(' – ');
       const title = parts.length === 2 ? `${parts[0]} – ${parts[1]}` : match[1];
       return (
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+        <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
+          <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
           <span className="truncate">{title}</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <GravityHeadphonesIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
+      <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
+        <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
         <span className="truncate">{t('chatWindow.audio')}</span>
       </span>
     );
@@ -449,10 +357,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
     const match = cleanText.match(/^\[File\]\s+(.+?)\s+https?:\/\//i);
     const fileName = match ? match[1] : t('chatWindow.file');
     return (
-      <span className="inline-flex items-center gap-1 min-w-0">
-        <GravityFileIcon width={14} height={14} className="flex-shrink-0" style={{ opacity: 0.85 }} />
-        <span className="truncate">{fileName}</span>
-      </span>
+      <span className="truncate" style={accentStyle}>{fileName}</span>
     );
   }
 
@@ -596,7 +501,11 @@ const ChatListItem = React.memo(({
             <div className="ml-auto flex items-center flex-shrink-0" style={{ gap: 3 }}>
               {status && (
                 <div style={{ display: 'flex', alignItems: 'center', transform: 'translateY(-2.5px)' }}>
-                  <MessageStatus status={status} />
+                  <MessageStatus
+                    status={status}
+                    isOwn={true}
+                    color={isLightTheme ? 'var(--accent-color, #2c6bed)' : '#ffffff'}
+                  />
                 </div>
               )}
               {timeStr && (
