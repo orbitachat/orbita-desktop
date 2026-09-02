@@ -45,6 +45,7 @@ export interface UserDirectoryRecord {
 
 class SupabaseService {
   private client: SupabaseClient | null = null;
+  private failedRelays: Map<string, number> = new Map();
 
   constructor() {
     const url = import.meta.env.VITE_SUPABASE_URL;
@@ -185,6 +186,9 @@ class SupabaseService {
     const seenIds = new Set<string>();
 
     for (const relay of activeRelays) {
+      const lastFail = this.failedRelays.get(relay.url) || 0;
+      if (Date.now() - lastFail < 60000) continue;
+
       try {
         const res = await fetch(`${relay.url}/relay/messages?recipientId=${encodeURIComponent(recipientId)}`);
         if (res.ok) {
@@ -195,8 +199,11 @@ class SupabaseService {
               allMessages.push(msg);
             }
           }
+        } else {
+          this.failedRelays.set(relay.url, Date.now());
         }
       } catch (err) {
+        this.failedRelays.set(relay.url, Date.now());
         console.warn(`[Relay] Failed to fetch pending messages from ${relay.url}:`, err);
       }
     }
@@ -330,6 +337,9 @@ class SupabaseService {
     const seenIds = new Set<string>();
 
     for (const relay of nodes) {
+      const lastFail = this.failedRelays.get(relay.url) || 0;
+      if (Date.now() - lastFail < 60000) continue;
+
       try {
         const res = await fetch(`${relay.url}/relay/handshakes?recipientCode=${encodeURIComponent(recipientCode)}`);
         if (res.ok) {
@@ -340,8 +350,11 @@ class SupabaseService {
               allHandshakes.push(hs);
             }
           }
+        } else {
+          this.failedRelays.set(relay.url, Date.now());
         }
       } catch (err) {
+        this.failedRelays.set(relay.url, Date.now());
         console.warn(`[Relay] Failed to fetch pending handshakes from ${relay.url}:`, err);
       }
     }

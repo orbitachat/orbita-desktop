@@ -92,7 +92,7 @@ class GatewayManager {
     
     const now = Date.now();
     const hasHealthy = this.gateways.some((g) => g.id === this.activeGatewayId && g.status === 'healthy');
-    if (!force && hasHealthy && now - this.lastTestTime < this.TEST_COOLDOWN_MS) {
+    if (hasHealthy && now - this.lastTestTime < (force ? 10000 : this.TEST_COOLDOWN_MS)) {
       return this.getActiveGateway();
     }
 

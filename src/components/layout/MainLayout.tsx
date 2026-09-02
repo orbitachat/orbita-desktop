@@ -1396,12 +1396,15 @@ export const MainLayout = () => {
     }
   }, [nickname, myCode, addMessage, updateChat]);
 
+  const checkedRecoveryChatsRef = useRef<Set<string>>(new Set());
+
   const recoverCorruptedFriendProfiles = useCallback(async () => {
     const currentChats = useChatStore.getState().chats;
     const privateChats = currentChats.filter((c) => c.type === 'private' && c.id !== 'notes');
     if (privateChats.length === 0) return;
 
     for (const chat of privateChats) {
+      if (checkedRecoveryChatsRef.current.has(chat.id)) continue;
       const is36CharCode = Boolean(chat.name && chat.name.length === 36 && !chat.name.includes(' '));
       const isCorruptedName =
         chat.name === nickname ||
@@ -1524,10 +1527,17 @@ export const MainLayout = () => {
         console.log('[Recovery] Cleaned friend profile for chat', chat.id, updates);
         updateChat(chat.id, updates);
       }
+      checkedRecoveryChatsRef.current.add(chat.id);
     }
   }, [nickname, avatarUrl, myCode, updateChat]);
 
-  // Фоновый менеджер синхронизации, мгновенного авто-восстановления соединений и надежного получения сообщений
+  const loadPendingHandshakesRef = useRef(loadPendingHandshakes);
+  loadPendingHandshakesRef.current = loadPendingHandshakes;
+  const loadPendingMessagesRef = useRef(loadPendingMessages);
+  loadPendingMessagesRef.current = loadPendingMessages;
+  const recoverProfilesRef = useRef(recoverCorruptedFriendProfiles);
+  recoverProfilesRef.current = recoverCorruptedFriendProfiles;
+
   const lastSyncTimeRef = useRef<number>(0);
   const isSyncingRef = useRef<boolean>(false);
 
@@ -1539,7 +1549,8 @@ export const MainLayout = () => {
     const syncAll = async (force = false) => {
       if (isDestroyed || isSyncingRef.current) return;
       const now = Date.now();
-      if (!force && now - lastSyncTimeRef.current < 25000) return;
+      const minInterval = force ? 10000 : 30000;
+      if (now - lastSyncTimeRef.current < minInterval) return;
       lastSyncTimeRef.current = now;
       isSyncingRef.current = true;
 
@@ -1550,11 +1561,9 @@ export const MainLayout = () => {
           return;
         }
 
-        // Проверяем доступность серверов / гейтвеев с кэшированием
-        const fastestGateway = await gatewayManager.selectFastestGateway(force);
+        const fastestGateway = await gatewayManager.selectFastestGateway(false);
         const isGatewayHealthy = fastestGateway && fastestGateway.status === 'healthy';
 
-        // Проверяем и восстанавливаем Pusher при необходимости
         const pusher = getPusher();
         const pusherConnected = pusher.connection.state === 'connected';
         if (pusher.connection.state === 'disconnected' || pusher.connection.state === 'unavailable' || pusher.connection.state === 'failed') {
@@ -1565,7 +1574,6 @@ export const MainLayout = () => {
           }
         }
 
-        // Проверяем и восстанавливаем Ably при необходимости
         const ablyState = ablyService.getConnectionState();
         if (ablyState === 'disconnected' || ablyState === 'suspended' || ablyState === 'failed') {
           ablyService.reconnect();
@@ -1573,10 +1581,9 @@ export const MainLayout = () => {
           ablyService.connect(myCode || nickname).catch(() => {});
         }
 
-        // Запускаем синхронизацию оффлайн-заявок и сообщений
         await Promise.allSettled([
-          loadPendingHandshakes(),
-          loadPendingMessages(),
+          loadPendingHandshakesRef.current(),
+          loadPendingMessagesRef.current(),
         ]);
 
         const isConnected = isGatewayHealthy || pusherConnected;
@@ -1589,11 +1596,9 @@ export const MainLayout = () => {
       }
     };
 
-    // Первичный запуск синхронизации и единоразовое восстановление профилей
     syncAll(true);
-    recoverCorruptedFriendProfiles().catch(() => {});
+    recoverProfilesRef.current().catch(() => {});
 
-    // Слушатели событий сети для мгновенного восстановления
     const handleOnline = () => {
       console.log('[SyncManager] Network online event received! Instantly restoring connections...');
       useConnectionStore.getState().setServerConnected(true);
@@ -1613,7 +1618,6 @@ export const MainLayout = () => {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('focus', handleFocus);
 
-    // Редкий фоновый опрос (раз в 5 минут) только как абсолютный резерв, так как 99% синхронизации идет по Push и событиям focus/online
     const interval = setInterval(() => syncAll(false), 300000);
 
     return () => {
@@ -1623,7 +1627,7 @@ export const MainLayout = () => {
       window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
-  }, [step, nickname, myCode, loadPendingHandshakes, loadPendingMessages, recoverCorruptedFriendProfiles]);
+  }, [step, nickname, myCode]);
 
   const handleConnectRequest = useCallback(
     (friendCode: string, callback: (success: boolean, error?: string) => void) => {
