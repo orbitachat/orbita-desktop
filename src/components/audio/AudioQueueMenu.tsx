@@ -466,7 +466,7 @@ export const AudioQueueMenu: React.FC<AudioQueueMenuProps> = ({ position, onClos
         top: menuStyle.top,
         width: menuStyle.width,
         maxHeight: '320px',
-        backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 12%, var(--bg-secondary, #1a1625))',
+        backgroundColor: 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.05)))',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         border: 'none',

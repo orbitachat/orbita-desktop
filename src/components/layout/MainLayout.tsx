@@ -504,7 +504,7 @@ const ChatListItem = React.memo(({
                   <MessageStatus
                     status={status}
                     isOwn={true}
-                    color={isLightTheme ? 'var(--accent-color, #2c6bed)' : '#ffffff'}
+                    color="var(--accent-color, #7C3AED)"
                   />
                 </div>
               )}

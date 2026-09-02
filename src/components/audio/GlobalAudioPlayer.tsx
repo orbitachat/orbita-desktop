@@ -50,6 +50,7 @@ export const GlobalAudioPlayer = () => {
   const volumeBtnRef = useRef<HTMLButtonElement>(null);
   const orderBtnRef = useRef<HTMLButtonElement>(null);
   const speedBtnRef = useRef<HTMLButtonElement>(null);
+  const volumeHoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const playerRef = useRef<HTMLDivElement>(null);
 
@@ -231,6 +232,14 @@ export const GlobalAudioPlayer = () => {
     setIsSpeedOpen(false);
   };
 
+  useEffect(() => {
+    return () => {
+      if (volumeHoverTimerRef.current) {
+        clearTimeout(volumeHoverTimerRef.current);
+      }
+    };
+  }, []);
+
   const isOrderActive = isReverseOrder || shuffle;
 
   const isVoice = Boolean(
@@ -390,6 +399,10 @@ export const GlobalAudioPlayer = () => {
           ref={volumeBtnRef}
           onClick={(e) => {
             e.stopPropagation();
+            if (volumeHoverTimerRef.current) {
+              clearTimeout(volumeHoverTimerRef.current);
+              volumeHoverTimerRef.current = null;
+            }
             setIsVolumeOpen(!isVolumeOpen);
             setIsOrderOpen(false);
             setIsSpeedOpen(false);
@@ -408,8 +421,24 @@ export const GlobalAudioPlayer = () => {
             opacity: isVolumeOpen ? 1 : 0.75,
             transition: 'color 0.15s, opacity 0.15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
-          onMouseLeave={(e) => { if (!isVolumeOpen) e.currentTarget.style.opacity = '0.75'; }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+            if (volumeHoverTimerRef.current) {
+              clearTimeout(volumeHoverTimerRef.current);
+            }
+            volumeHoverTimerRef.current = setTimeout(() => {
+              setIsVolumeOpen(true);
+              setIsOrderOpen(false);
+              setIsSpeedOpen(false);
+            }, 250);
+          }}
+          onMouseLeave={(e) => {
+            if (!isVolumeOpen) e.currentTarget.style.opacity = '0.75';
+            if (volumeHoverTimerRef.current) {
+              clearTimeout(volumeHoverTimerRef.current);
+              volumeHoverTimerRef.current = null;
+            }
+          }}
         >
           {volume === 0 ? (
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

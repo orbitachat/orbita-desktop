@@ -162,7 +162,7 @@ export function htmlToMarkdown(node: Node): string {
   return inner;
 }
 
-export function markdownToHtml(md: string, themeColor: string = '#7C3AED'): string {
+export function markdownToHtml(md: string, themeColor: string = '#7C3AED', disableLinks: boolean = false): string {
   if (!md) return '';
   let html = md
     .replace(/&/g, '&amp;')
@@ -171,6 +171,9 @@ export function markdownToHtml(md: string, themeColor: string = '#7C3AED'): stri
 
   const links: string[] = [];
   const addLink = (href: string, label: string) => {
+    if (disableLinks) {
+      return label;
+    }
     const safeHref = href.replace(/"/g, '&quot;');
     const linkHtml = `<a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="color:${themeColor};text-decoration:none;cursor:pointer;">${label}</a>`;
     links.push(linkHtml);

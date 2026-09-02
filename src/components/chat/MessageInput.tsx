@@ -264,7 +264,7 @@ export const MessageInput = memo<MessageInputProps>(({
 
       const currentMd = htmlToMarkdown(editorRef.current);
       if (currentMd.trim() !== currentText.trim()) {
-        editorRef.current.innerHTML = markdownToHtml(currentText);
+        editorRef.current.innerHTML = markdownToHtml(currentText, 'inherit', true);
         setIsEditorEmpty(currentText.trim() === '');
         setTimeout(() => {
           if (editorRef.current) {
@@ -612,7 +612,9 @@ export const MessageInput = memo<MessageInputProps>(({
                     formatPreviewText(
                       editingIndex !== null ? (editingOriginalText || editText) : (replyingTo?.text || ''),
                       t
-                    )
+                    ),
+                    'inherit',
+                    true
                   ).replace(/<br\s*\/?>/gi, ' '),
                 }}
               />
