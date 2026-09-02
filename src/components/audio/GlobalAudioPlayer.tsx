@@ -50,7 +50,8 @@ export const GlobalAudioPlayer = () => {
   const volumeBtnRef = useRef<HTMLButtonElement>(null);
   const orderBtnRef = useRef<HTMLButtonElement>(null);
   const speedBtnRef = useRef<HTMLButtonElement>(null);
-  const volumeHoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const volumeOpenTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const volumeCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const playerRef = useRef<HTMLDivElement>(null);
 
@@ -232,13 +233,52 @@ export const GlobalAudioPlayer = () => {
     setIsSpeedOpen(false);
   };
 
+  const clearVolumeTimers = useCallback(() => {
+    if (volumeOpenTimerRef.current) {
+      clearTimeout(volumeOpenTimerRef.current);
+      volumeOpenTimerRef.current = null;
+    }
+    if (volumeCloseTimerRef.current) {
+      clearTimeout(volumeCloseTimerRef.current);
+      volumeCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const handleVolumeMouseEnter = useCallback(() => {
+    if (volumeCloseTimerRef.current) {
+      clearTimeout(volumeCloseTimerRef.current);
+      volumeCloseTimerRef.current = null;
+    }
+    if (!isVolumeOpen) {
+      if (volumeOpenTimerRef.current) {
+        clearTimeout(volumeOpenTimerRef.current);
+      }
+      volumeOpenTimerRef.current = setTimeout(() => {
+        setIsVolumeOpen(true);
+        setIsOrderOpen(false);
+        setIsSpeedOpen(false);
+      }, 250);
+    }
+  }, [isVolumeOpen]);
+
+  const handleVolumeMouseLeave = useCallback(() => {
+    if (volumeOpenTimerRef.current) {
+      clearTimeout(volumeOpenTimerRef.current);
+      volumeOpenTimerRef.current = null;
+    }
+    if (volumeCloseTimerRef.current) {
+      clearTimeout(volumeCloseTimerRef.current);
+    }
+    volumeCloseTimerRef.current = setTimeout(() => {
+      setIsVolumeOpen(false);
+    }, 250);
+  }, []);
+
   useEffect(() => {
     return () => {
-      if (volumeHoverTimerRef.current) {
-        clearTimeout(volumeHoverTimerRef.current);
-      }
+      clearVolumeTimers();
     };
-  }, []);
+  }, [clearVolumeTimers]);
 
   const isOrderActive = isReverseOrder || shuffle;
 
@@ -399,10 +439,7 @@ export const GlobalAudioPlayer = () => {
           ref={volumeBtnRef}
           onClick={(e) => {
             e.stopPropagation();
-            if (volumeHoverTimerRef.current) {
-              clearTimeout(volumeHoverTimerRef.current);
-              volumeHoverTimerRef.current = null;
-            }
+            clearVolumeTimers();
             setIsVolumeOpen(!isVolumeOpen);
             setIsOrderOpen(false);
             setIsSpeedOpen(false);
@@ -423,21 +460,11 @@ export const GlobalAudioPlayer = () => {
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.opacity = '1';
-            if (volumeHoverTimerRef.current) {
-              clearTimeout(volumeHoverTimerRef.current);
-            }
-            volumeHoverTimerRef.current = setTimeout(() => {
-              setIsVolumeOpen(true);
-              setIsOrderOpen(false);
-              setIsSpeedOpen(false);
-            }, 250);
+            handleVolumeMouseEnter();
           }}
           onMouseLeave={(e) => {
             if (!isVolumeOpen) e.currentTarget.style.opacity = '0.75';
-            if (volumeHoverTimerRef.current) {
-              clearTimeout(volumeHoverTimerRef.current);
-              volumeHoverTimerRef.current = null;
-            }
+            handleVolumeMouseLeave();
           }}
         >
           {volume === 0 ? (
@@ -668,7 +695,12 @@ export const GlobalAudioPlayer = () => {
       {isVolumeOpen && (
         <AudioVolumePopover
           anchorRect={volumeBtnRef.current?.getBoundingClientRect() || null}
-          onClose={() => setIsVolumeOpen(false)}
+          onClose={() => {
+            clearVolumeTimers();
+            setIsVolumeOpen(false);
+          }}
+          onMouseEnter={handleVolumeMouseEnter}
+          onMouseLeave={handleVolumeMouseLeave}
         />
       )}
 

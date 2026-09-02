@@ -10,14 +10,18 @@ interface PopupProps {
 }
 
 // ----------------------------------------------------
-// 1. VOLUME POPOVER
-// ----------------------------------------------------
-export const AudioVolumePopover: React.FC<PopupProps> = ({ anchorRect, onClose }) => {
+interface AudioVolumePopoverProps extends PopupProps {
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+}
+
+export const AudioVolumePopover: React.FC<AudioVolumePopoverProps> = ({ anchorRect, onClose, onMouseEnter, onMouseLeave }) => {
   const volume = useAudioStore((s) => s.volume);
   const setVolume = useAudioStore((s) => s.setVolume);
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const isMouseInsideRef = useRef(false);
 
   // Close on outside click
   useEffect(() => {
@@ -58,12 +62,18 @@ export const AudioVolumePopover: React.FC<PopupProps> = ({ anchorRect, onClose }
     };
     const handleMouseUp = () => {
       setIsDragging(false);
+      if (!isMouseInsideRef.current) {
+        onMouseLeave?.();
+      }
     };
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches[0]) updateVolumeFromY(e.touches[0].clientY);
     };
     const handleTouchEnd = () => {
       setIsDragging(false);
+      if (!isMouseInsideRef.current) {
+        onMouseLeave?.();
+      }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -76,7 +86,7 @@ export const AudioVolumePopover: React.FC<PopupProps> = ({ anchorRect, onClose }
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isDragging, updateVolumeFromY]);
+  }, [isDragging, updateVolumeFromY, onMouseLeave]);
 
   if (!anchorRect) return null;
 
@@ -87,6 +97,16 @@ export const AudioVolumePopover: React.FC<PopupProps> = ({ anchorRect, onClose }
     <div
       ref={popoverRef}
       className="audio-controls-popover select-none"
+      onMouseEnter={() => {
+        isMouseInsideRef.current = true;
+        onMouseEnter?.();
+      }}
+      onMouseLeave={() => {
+        isMouseInsideRef.current = false;
+        if (!isDragging) {
+          onMouseLeave?.();
+        }
+      }}
       style={{
         position: 'fixed',
         left: `${left}px`,

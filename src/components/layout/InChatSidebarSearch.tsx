@@ -548,7 +548,7 @@ export const InChatSidebarSearch: React.FC<InChatSidebarSearchProps> = ({
                             status={res.message.read || res.message.status === 'read' ? 'read' : (res.message.status || 'sent')}
                             className="mr-1"
                             isOwn={true}
-                            color="var(--accent-color, #7C3AED)"
+                            color={(res.message.read || res.message.status === 'read') ? 'var(--accent-color, #7C3AED)' : (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme-light') === 'true' ? '#757575' : '#ffffff')}
                           />
                         )}
                         <span className="text-[11px] text-[var(--text-dim)] tabular-nums">
