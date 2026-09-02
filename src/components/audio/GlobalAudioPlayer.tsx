@@ -176,6 +176,53 @@ export const GlobalAudioPlayer = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
+  const clearVolumeTimers = useCallback(() => {
+    if (volumeOpenTimerRef.current) {
+      clearTimeout(volumeOpenTimerRef.current);
+      volumeOpenTimerRef.current = null;
+    }
+    if (volumeCloseTimerRef.current) {
+      clearTimeout(volumeCloseTimerRef.current);
+      volumeCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const handleVolumeMouseEnter = useCallback(() => {
+    if (volumeCloseTimerRef.current) {
+      clearTimeout(volumeCloseTimerRef.current);
+      volumeCloseTimerRef.current = null;
+    }
+    if (!isVolumeOpen) {
+      if (volumeOpenTimerRef.current) {
+        clearTimeout(volumeOpenTimerRef.current);
+      }
+      volumeOpenTimerRef.current = setTimeout(() => {
+        setIsVolumeOpen(true);
+        setIsOrderOpen(false);
+        setIsSpeedOpen(false);
+      }, 250);
+    }
+  }, [isVolumeOpen]);
+
+  const handleVolumeMouseLeave = useCallback(() => {
+    if (volumeOpenTimerRef.current) {
+      clearTimeout(volumeOpenTimerRef.current);
+      volumeOpenTimerRef.current = null;
+    }
+    if (volumeCloseTimerRef.current) {
+      clearTimeout(volumeCloseTimerRef.current);
+    }
+    volumeCloseTimerRef.current = setTimeout(() => {
+      setIsVolumeOpen(false);
+    }, 250);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearVolumeTimers();
+    };
+  }, [clearVolumeTimers]);
+
   if (!currentTrack) return null;
 
   const formatTime = (seconds: number) => {
@@ -232,53 +279,6 @@ export const GlobalAudioPlayer = () => {
     setIsOrderOpen(false);
     setIsSpeedOpen(false);
   };
-
-  const clearVolumeTimers = useCallback(() => {
-    if (volumeOpenTimerRef.current) {
-      clearTimeout(volumeOpenTimerRef.current);
-      volumeOpenTimerRef.current = null;
-    }
-    if (volumeCloseTimerRef.current) {
-      clearTimeout(volumeCloseTimerRef.current);
-      volumeCloseTimerRef.current = null;
-    }
-  }, []);
-
-  const handleVolumeMouseEnter = useCallback(() => {
-    if (volumeCloseTimerRef.current) {
-      clearTimeout(volumeCloseTimerRef.current);
-      volumeCloseTimerRef.current = null;
-    }
-    if (!isVolumeOpen) {
-      if (volumeOpenTimerRef.current) {
-        clearTimeout(volumeOpenTimerRef.current);
-      }
-      volumeOpenTimerRef.current = setTimeout(() => {
-        setIsVolumeOpen(true);
-        setIsOrderOpen(false);
-        setIsSpeedOpen(false);
-      }, 250);
-    }
-  }, [isVolumeOpen]);
-
-  const handleVolumeMouseLeave = useCallback(() => {
-    if (volumeOpenTimerRef.current) {
-      clearTimeout(volumeOpenTimerRef.current);
-      volumeOpenTimerRef.current = null;
-    }
-    if (volumeCloseTimerRef.current) {
-      clearTimeout(volumeCloseTimerRef.current);
-    }
-    volumeCloseTimerRef.current = setTimeout(() => {
-      setIsVolumeOpen(false);
-    }, 250);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearVolumeTimers();
-    };
-  }, [clearVolumeTimers]);
 
   const isOrderActive = isReverseOrder || shuffle;
 
