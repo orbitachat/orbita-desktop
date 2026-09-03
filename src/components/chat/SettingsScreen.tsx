@@ -1180,7 +1180,10 @@ const SignalChatColorPicker: React.FC = () => {
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
-          padding: '6px 4px 10px',
+          padding: '14px 12px',
+          backgroundColor: 'var(--bg-primary, #121212)',
+          borderRadius: 12,
+          border: '1px solid var(--border-color, rgba(255,255,255,0.06))',
         }}
       >
         <div
@@ -1191,8 +1194,8 @@ const SignalChatColorPicker: React.FC = () => {
             width: 'fit-content',
             minWidth: '50px',
             padding: '6.5px 12px 6.5px 11px',
-            borderRadius: bubbleRadius,
-            background: 'var(--chat-bubble-incoming-bg, var(--surface-container))',
+            borderRadius: `var(--bubble-radius, ${bubbleRadius}px)`,
+            background: 'var(--chat-bubble-incoming-bg, var(--surface-container, #282828))',
             color: 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
             fontSize: 'calc(12px * var(--text-scale, 1))',
           }}
@@ -1254,7 +1257,7 @@ const SignalChatColorPicker: React.FC = () => {
             width: 'fit-content',
             minWidth: '50px',
             padding: '6.5px 12px 6.5px 11px',
-            borderRadius: bubbleRadius,
+            borderRadius: `var(--bubble-radius, ${bubbleRadius}px)`,
             background: chatColor || DEFAULT_CHAT_COLOR,
             color: '#ffffff',
             fontSize: 'calc(12px * var(--text-scale, 1))',
@@ -1433,6 +1436,7 @@ const BubbleSlider = ({
   step,
   label,
   valueDisplay,
+  cssVar,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -1441,29 +1445,79 @@ const BubbleSlider = ({
   step: number;
   label?: string;
   valueDisplay?: string;
+  cssVar?: string;
 }) => {
-  const fillPercent = ((value - min) / (max - min)) * 100;
+  const [localVal, setLocalVal] = useState(value);
+  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      setLocalVal(value);
+      if (cssVar) {
+        document.documentElement.style.setProperty(cssVar, `${value}px`);
+      }
+    }
+  }, [value, cssVar]);
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextVal = Number(e.target.value);
+    setLocalVal(nextVal);
+    if (cssVar) {
+      document.documentElement.style.setProperty(cssVar, `${nextVal}px`);
+    }
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      onChange(nextVal);
+    });
+  };
+
+  const handlePointerDown = () => {
+    isDraggingRef.current = true;
+    setIsDragging(true);
+  };
+
+  const handlePointerUp = () => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    onChange(localVal);
+  };
+
+  const fillPercent = Math.max(0, Math.min(100, ((localVal - min) / (max - min)) * 100));
 
   return (
     <div style={{ padding: '0 20px', marginTop: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, userSelect: 'none' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, userSelect: 'none' }}>
         {label && <span style={{ fontSize: 12, color: MD3.onSurfaceVar }}>{label}</span>}
         {valueDisplay && <span style={{ fontSize: 12, fontWeight: 600, color: MD3.onSurface }}>{valueDisplay}</span>}
       </div>
-      <div style={{ position: 'relative', height: 4, borderRadius: 2, backgroundColor: 'rgba(197,180,227,0.08)', marginBottom: 6 }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${fillPercent}%`, borderRadius: 2, backgroundColor: MD3.primary, transition: 'width 0.05s' }} />
+      <div style={{ position: 'relative', height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 6 }}>
         <div
           style={{
             position: 'absolute',
-            left: `calc(${fillPercent}% - 4px)`,
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: `${fillPercent}%`,
+            borderRadius: 2,
+            backgroundColor: 'var(--accent-color, #2c6bed)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: `${fillPercent}%`,
             top: '50%',
-            transform: 'translateY(-50%)',
-            width: 8,
-            height: 8,
+            transform: isDragging ? 'translate(-50%, -50%) scale(1.15)' : 'translate(-50%, -50%) scale(1)',
+            width: 14,
+            height: 14,
             borderRadius: '50%',
-            backgroundColor: MD3.primary,
-            boxShadow: '0 0 4px rgba(197,180,227,0.6)',
-            transition: 'left 0.05s',
+            backgroundColor: 'var(--accent-color, #2c6bed)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+            transition: 'transform 0.12s ease',
+            pointerEvents: 'none',
           }}
         />
       </div>
@@ -1472,11 +1526,38 @@ const BubbleSlider = ({
         min={min}
         max={max}
         step={step}
-        value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{ width: '100%', marginTop: -22, position: 'relative', zIndex: 1, opacity: 0, cursor: 'pointer', height: 24, display: 'block' }}
+        value={localVal}
+        onChange={handleInput}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        aria-label={label || 'slider'}
+        style={{
+          width: '100%',
+          marginTop: -24,
+          position: 'relative',
+          zIndex: 1,
+          opacity: 0,
+          cursor: isDragging ? 'grabbing' : 'pointer',
+          height: 28,
+          display: 'block',
+        }}
       />
     </div>
+  );
+};
+
+const BubbleRadiusControl = () => {
+  const bubbleRadius = useChatStore((s) => s.bubbleRadius);
+  const setBubbleRadius = useChatStore((s) => s.setBubbleRadius);
+  return (
+    <BubbleSlider
+      value={bubbleRadius}
+      onChange={setBubbleRadius}
+      min={4}
+      max={16}
+      step={1}
+      cssVar="--bubble-radius"
+    />
   );
 };
 
@@ -1599,7 +1680,6 @@ export const SettingsScreen = () => {
     language, setLanguage,
     notificationCount, setNotificationCount,
     notificationPosition, setNotificationPosition,
-    bubbleRadius, setBubbleRadius,
     notificationSoundEnabled, setNotificationSoundEnabled,
     notificationsEnabled, setNotificationsEnabled,
     notificationFlashTaskbar, setNotificationFlashTaskbar,
@@ -2521,7 +2601,7 @@ export const SettingsScreen = () => {
               }
             />
             <SettingsRow label={t('settings.bubble_radius')} />
-            <BubbleSlider value={bubbleRadius} onChange={setBubbleRadius} min={4} max={16} step={1} />
+            <BubbleRadiusControl />
 
           </motion.div>
         );
