@@ -1144,6 +1144,7 @@ const SignalThemePicker: React.FC<{
 const SignalChatColorPicker: React.FC = () => {
   const { t } = useTranslation();
   const chatColor = useChatStore((s) => s.chatColor);
+  const bubbleRadius = useChatStore((s) => s.bubbleRadius);
   const setChatColor = useChatStore((s) => s.setChatColor);
   const resetChatColor = useChatStore((s) => s.resetChatColor);
   const colorInputRef = useRef<HTMLInputElement>(null);
@@ -1183,61 +1184,131 @@ const SignalChatColorPicker: React.FC = () => {
         }}
       >
         <div
+          className="relative flex flex-col"
           style={{
             alignSelf: 'flex-start',
-            maxWidth: '85%',
+            maxWidth: 'min(460px, 88%)',
+            width: 'fit-content',
+            minWidth: '50px',
+            padding: '6.5px 12px 6.5px 11px',
+            borderRadius: bubbleRadius,
             background: 'var(--chat-bubble-incoming-bg, var(--surface-container))',
-            color: 'var(--chat-bubble-incoming-text, #f6f6f6)',
-            borderRadius: 16,
-            padding: '8px 12px',
-            fontSize: 13,
-            lineHeight: 1.35,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            color: 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
+            fontSize: 'calc(12px * var(--text-scale, 1))',
           }}
         >
-          <div>{t('settings.chat_color_preview_incoming')}</div>
           <div
+            className="select-text select-text-incoming"
             style={{
-              fontSize: 10.5,
-              color: 'var(--text-dim)',
-              textAlign: 'right',
-              marginTop: 3,
+              fontSize: 'inherit',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              whiteSpace: 'pre-wrap',
+              width: '100%',
+              position: 'relative',
             }}
           >
-            20:19
+            <span>
+              {t('settings.chat_color_preview_incoming')}{' '}
+              <span className="emoji-font" style={{ fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', sans-serif" }}>
+                👋
+              </span>
+            </span>
+            <span
+              aria-hidden
+              className="flex-shrink-0"
+              style={{
+                float: 'right',
+                marginLeft: '10px',
+                marginRight: '-6px',
+                marginBottom: '-4.5px',
+                marginTop: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                className="tabular-nums select-none"
+                style={{
+                  color: 'var(--text-dim)',
+                  fontSize: 'calc(11px * var(--text-scale, 1))',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  lineHeight: 1,
+                }}
+              >
+                20:19
+              </span>
+            </span>
+            <div style={{ clear: 'both' }} />
           </div>
         </div>
 
         <div
+          className="relative flex flex-col"
           style={{
             alignSelf: 'flex-end',
-            maxWidth: '85%',
+            maxWidth: 'min(460px, 88%)',
+            width: 'fit-content',
+            minWidth: '50px',
+            padding: '6.5px 12px 6.5px 11px',
+            borderRadius: bubbleRadius,
             background: chatColor || DEFAULT_CHAT_COLOR,
             color: '#ffffff',
-            borderRadius: 16,
-            padding: '8px 12px',
-            fontSize: 13,
-            lineHeight: 1.35,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+            fontSize: 'calc(12px * var(--text-scale, 1))',
           }}
         >
-          <div>{t('settings.chat_color_preview_outgoing')}</div>
           <div
+            className="select-text select-text-own"
             style={{
-              fontSize: 10.5,
-              color: 'rgba(255, 255, 255, 0.8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 4,
-              marginTop: 3,
+              fontSize: 'inherit',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              whiteSpace: 'pre-wrap',
+              width: '100%',
+              position: 'relative',
             }}
           >
-            <span>{t('settings.chat_color_just_now')}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 7 17l-5-5" />
-              <path d="m22 10-7.5 7.5L13 16" />
-            </svg>
+            <span>
+              {t('settings.chat_color_preview_outgoing')}{' '}
+              <span className="emoji-font" style={{ fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', sans-serif" }}>
+                ✨
+              </span>
+            </span>
+            <span
+              aria-hidden
+              className="flex-shrink-0"
+              style={{
+                float: 'right',
+                marginLeft: '10px',
+                marginRight: '-9px',
+                marginBottom: '-4.5px',
+                marginTop: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                className="tabular-nums select-none"
+                style={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  fontSize: 'calc(11px * var(--text-scale, 1))',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  lineHeight: 1,
+                }}
+              >
+                20:20
+                <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
+                  <MessageStatus status="read" isOwn={true} />
+                </span>
+              </span>
+            </span>
+            <div style={{ clear: 'both' }} />
           </div>
         </div>
       </div>
@@ -1353,64 +1424,6 @@ const SignalChatColorPicker: React.FC = () => {
   );
 };
 
-const BubbleRadiusPreview = ({ radius }: { radius: number }) => {
-  const ownBubbleStyle: React.CSSProperties = {
-    padding: '6px 12px 6px 10px',
-    borderRadius: radius,
-    background: 'var(--chat-bubble-own-bg, #2c6bed)',
-    border: 'none',
-    color: '#ffffff',
-    fontSize: '12px',
-    maxWidth: 'min(480px, 75%)',
-    alignSelf: 'flex-end',
-    marginBottom: 8,
-    wordBreak: 'break-word',
-    position: 'relative',
-  };
-
-  const otherBubbleStyle: React.CSSProperties = {
-    padding: '6px 12px 6px 10px',
-    borderRadius: radius,
-    background: 'var(--chat-bubble-incoming-bg, var(--surface-container))',
-    border: 'none',
-    color: 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
-    fontSize: '12px',
-    maxWidth: 'min(480px, 75%)',
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    wordBreak: 'break-word',
-    position: 'relative',
-  };
-
-  const timeStyle: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    float: 'right',
-    marginLeft: '12px',
-    fontSize: '10px',
-    color: 'var(--text-dim)',
-    lineHeight: 1,
-    position: 'relative',
-    top: '2px',
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', padding: '12px 20px', gap: 4, backgroundColor: 'var(--md-surface)', marginTop: 12 }}>
-      <div style={otherBubbleStyle}>
-        Привет! Как дела?
-        <span style={timeStyle}>12:34</span>
-      </div>
-      <div style={ownBubbleStyle}>
-        Всё отлично, спасибо!
-        <span style={timeStyle}>
-          12:35
-          <MessageStatus status="read" />
-        </span>
-      </div>
-    </div>
-  );
-};
 
 const BubbleSlider = ({
   value,
@@ -1467,89 +1480,6 @@ const BubbleSlider = ({
   );
 };
 
-interface AppIcon {
-  id: string;
-  name: string;
-  src: string;
-}
-
-const DEFAULT_ICONS: AppIcon[] = [
-  { id: 'orbita1', name: 'Orbita 1', src: 'orbita1.png' },
-  { id: 'orbita4', name: 'Orbita 4', src: 'orbita4.png' },
-];
-
-interface AppIconPickerProps {
-  icons?: AppIcon[];
-  activeIconId?: string;
-  onIconChange?: (id: string) => void;
-}
-
-const AppIconPicker: React.FC<AppIconPickerProps> = ({
-  icons = DEFAULT_ICONS,
-  activeIconId,
-  onIconChange,
-}) => {
-  const [selected, setSelected] = useState<string>(activeIconId ?? icons[0]?.id ?? '');
-
-  const handleSelect = (id: string) => {
-    setSelected(id);
-    onIconChange?.(id);
-  };
-
-  return (
-    <div style={{ display: 'inline-block', width: '100%', userSelect: 'none', padding: '0 20px' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
-          gap: 16,
-        }}
-      >
-        {icons.map((icon) => {
-          const isActive = selected === icon.id;
-          return (
-            <button
-              key={icon.id}
-              onClick={() => handleSelect(icon.id)}
-              style={{
-                all: 'unset',
-                cursor: 'pointer',
-                width: 60,
-                height: 60,
-                borderRadius: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: isActive
-                  ? 'rgba(255, 255, 255, 0.10)'
-                  : 'transparent',
-                transition: 'background-color 0.15s ease',
-                outline: 'none',
-                WebkitTapHighlightColor: 'transparent',
-                position: 'relative',
-              }}
-            >
-              <img
-                src={icon.src}
-                alt={icon.name}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 12,
-                  objectFit: 'cover',
-                  display: 'block',
-                  pointerEvents: 'none',
-                  userSelect: 'none',
-                }}
-                draggable={false}
-              />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
 
 
 
@@ -1678,7 +1608,6 @@ export const SettingsScreen = () => {
     notificationShowText, setNotificationShowText,
     notificationNativeWindows, setNotificationNativeWindows,
     notificationRespectFocus, setNotificationRespectFocus,
-    appIcon, setAppIcon,
     myCode,
     setMyCode,
     autoUpdate, setAutoUpdate,
@@ -2000,15 +1929,6 @@ export const SettingsScreen = () => {
     });
   }, []);
 
-  const handleAppIconChange = (iconId: string) => {
-    setAppIcon(iconId as any);
-    if ((window as any).orbita?.setAppIcon) {
-      (window as any).orbita.setAppIcon(iconId);
-    }
-    if ((window as any).orbita?.setNotificationIcon) {
-      (window as any).orbita.setNotificationIcon(iconId);
-    }
-  };
 
   const handleNicknameSave = (newNickname: string) => {
     setNickname(newNickname);
@@ -2602,11 +2522,7 @@ export const SettingsScreen = () => {
             />
             <SettingsRow label={t('settings.bubble_radius')} />
             <BubbleSlider value={bubbleRadius} onChange={setBubbleRadius} min={4} max={16} step={1} />
-            <BubbleRadiusPreview radius={bubbleRadius} />
-            <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 14, fontWeight: 500, color: MD3.onSurface, margin: '0 0 8px', userSelect: 'none', padding: '0 20px' }}>{t('settings.app_icon')}</p>
-              <AppIconPicker activeIconId={appIcon} onIconChange={handleAppIconChange} />
-            </div>
+
           </motion.div>
         );
       case 'font':
