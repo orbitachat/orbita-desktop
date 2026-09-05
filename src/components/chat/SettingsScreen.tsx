@@ -1551,8 +1551,8 @@ const BubbleSlider = ({
   };
 
   const fillPercent = Math.max(0, Math.min(100, ((localVal - min) / (max - min)) * 100));
-  const displayedVal = step && step >= 1 ? Math.round(localVal) : localVal;
-  const displayedText = formatValue ? formatValue(localVal) : (valueDisplay !== undefined ? valueDisplay : `${displayedVal}`);
+  const activeVal = step && step > 0 ? Math.round((localVal - min) / step) * step + min : localVal;
+  const displayedText = formatValue ? formatValue(activeVal) : (valueDisplay !== undefined ? valueDisplay : `${activeVal}`);
 
   const trackContent = (
     <div
@@ -1607,7 +1607,7 @@ const BubbleSlider = ({
         type="range"
         min={min}
         max={max}
-        step="any"
+        step={step || 1}
         value={localVal}
         onChange={handleInput}
         onPointerDown={handlePointerDown}
@@ -2805,7 +2805,7 @@ export const SettingsScreen = () => {
               max={100}
               step={1}
               label={t('settings.volume') || 'Громкость'}
-              formatValue={(v) => `${v}%`}
+              formatValue={(v) => `${Math.round(v)}%`}
               valuePlacement="right"
               ariaLabel={t('settings.volume') || 'Громкость'}
             />
