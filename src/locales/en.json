@@ -227,7 +227,9 @@
       "delete_account_description": "All your data will be instantly deleted"
     },
     "chatPlaceholder": {
-      "title": "Select a chat or start a new one"
+      "title": "Select a chat or start a new one",
+      "welcome": "We are glad to see you in Orbita",
+      "footer": "Orbita is a completely free and independent messenger"
     },
     "chatSearch": {
       "in_chat": "Search in chat:",
