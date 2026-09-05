@@ -1461,7 +1461,6 @@ const BubbleSlider = ({
 }) => {
   const [localVal, setLocalVal] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const isDraggingRef = useRef(false);
   const localValRef = useRef(value);
   const rafRef = useRef<number | null>(null);
@@ -1489,12 +1488,16 @@ const BubbleSlider = ({
       clearTimeout(commitTimeoutRef.current);
       commitTimeoutRef.current = null;
     }
+    const snappedVal = step && step > 0 ? Math.round((finalVal - min) / step) * step + min : finalVal;
+    const clampedVal = Math.max(min, Math.min(max, snappedVal));
+    setLocalVal(clampedVal);
+    localValRef.current = clampedVal;
     if (onChangeCommitted) {
-      onChangeCommitted(finalVal);
+      onChangeCommitted(clampedVal);
     } else if (onChange) {
-      onChange(finalVal);
+      onChange(clampedVal);
     }
-  }, [onChange, onChangeCommitted]);
+  }, [min, max, step, onChange, onChangeCommitted]);
 
   useEffect(() => {
     const handleGlobalPointerUp = () => {
@@ -1519,7 +1522,8 @@ const BubbleSlider = ({
     if (cssVar) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
-        document.documentElement.style.setProperty(cssVar, `${nextVal}px`);
+        const rounded = step && step >= 1 ? Math.round(nextVal) : nextVal;
+        document.documentElement.style.setProperty(cssVar, `${rounded}px`);
       });
     }
     if (onChange && onChangeCommitted) {
@@ -1547,7 +1551,8 @@ const BubbleSlider = ({
   };
 
   const fillPercent = Math.max(0, Math.min(100, ((localVal - min) / (max - min)) * 100));
-  const displayedText = formatValue ? formatValue(localVal) : (valueDisplay !== undefined ? valueDisplay : `${localVal}`);
+  const displayedVal = step && step >= 1 ? Math.round(localVal) : localVal;
+  const displayedText = formatValue ? formatValue(localVal) : (valueDisplay !== undefined ? valueDisplay : `${displayedVal}`);
 
   const trackContent = (
     <div
@@ -1558,8 +1563,6 @@ const BubbleSlider = ({
         display: 'flex',
         alignItems: 'center',
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         style={{
@@ -1588,24 +1591,14 @@ const BubbleSlider = ({
             position: 'absolute',
             left: `${fillPercent}%`,
             top: '50%',
-            transform: isDragging
-              ? 'translate(-50%, -50%) scale(1.22)'
-              : isHovered
-              ? 'translate(-50%, -50%) scale(1.12)'
-              : 'translate(-50%, -50%) scale(1)',
+            transform: 'translate(-50%, -50%)',
             width: 14,
             height: 14,
             borderRadius: '50%',
             backgroundColor: 'var(--accent-color, #7c54cc)',
-            boxShadow: isDragging
-              ? '0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(124, 84, 204, 0.22)'
-              : isHovered
-              ? '0 2px 6px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(124, 84, 204, 0.14)'
-              : '0 1px 4px rgba(0, 0, 0, 0.35)',
-            transition: isDragging
-              ? 'transform 0.12s ease, box-shadow 0.12s ease'
-              : 'left 0.18s cubic-bezier(0.2, 0, 0, 1), transform 0.15s ease, box-shadow 0.15s ease',
-            willChange: 'left, transform',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.35)',
+            transition: isDragging ? 'none' : 'left 0.18s cubic-bezier(0.2, 0, 0, 1)',
+            willChange: 'left',
             pointerEvents: 'none',
           }}
         />
@@ -1614,7 +1607,7 @@ const BubbleSlider = ({
         type="range"
         min={min}
         max={max}
-        step={step}
+        step="any"
         value={localVal}
         onChange={handleInput}
         onPointerDown={handlePointerDown}
@@ -2162,16 +2155,23 @@ export const SettingsScreen = () => {
     const totalSizeDisplay = totalSizeMB >= 1024 ? `${(totalSizeMB / 1024).toFixed(1)} GB` : `${totalSizeMB.toFixed(1)} MB`;
 
     const totalDisplay = (v: number) => {
-      if (v >= 1024) return `${(v / 1024).toFixed(0)} GB`;
-      return `${v} MB`;
+      if (v >= 1024) {
+        const gb = +(v / 1024).toFixed(1);
+        return `${gb} GB`;
+      }
+      return `${Math.round(v)} MB`;
     };
     const mediaDisplay = (v: number) => {
-      if (v >= 1024) return `${(v / 1024).toFixed(0)} GB`;
-      return `${v} MB`;
+      if (v >= 1024) {
+        const gb = +(v / 1024).toFixed(1);
+        return `${gb} GB`;
+      }
+      return `${Math.round(v)} MB`;
     };
     const ageDisplay = (v: number) => {
       if (v === 0) return t('settings.never');
-      const days = Math.floor(v / (24 * 60 * 60 * 1000));
+      const days = Math.round(v / (24 * 60 * 60 * 1000));
+      if (days === 0) return t('settings.never');
       if (days === 7) return t('settings.one_week');
       if (days === 14) return t('settings.two_weeks');
       if (days === 30) return t('settings.one_month');
