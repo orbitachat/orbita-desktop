@@ -166,10 +166,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         label = count === 1 ? t('chatWindow.audio') : `${count} ${word}`;
       }
       return (
-        <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
-          <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
-          <span className="truncate">{label}</span>
-        </span>
+        <span className="truncate block min-w-0" style={accentStyle}>🎧 {label}</span>
       );
     }
 
@@ -217,10 +214,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         const meta = lastMsg.audioMetadata;
         const title = (meta && meta.artist && meta.title) ? `${meta.artist} – ${meta.title}` : (lastMsg.mediaName || t('chatWindow.audio'));
         return (
-          <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
-            <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
-            <span className="truncate">{title}</span>
-          </span>
+          <span className="truncate block min-w-0" style={accentStyle}>🎧 {title}</span>
         );
       }
       case 'file':
@@ -271,10 +265,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
       const match = cleanText.match(/^\[Audio\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
       const title = match ? match[1] : t('chatWindow.audio');
       return (
-        <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
-          <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
-          <span className="truncate">{title}</span>
-        </span>
+        <span className="truncate block min-w-0" style={accentStyle}>🎧 {title}</span>
       );
     }
     if (/^\[File\]/i.test(cleanText)) {
@@ -340,17 +331,11 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
       const parts = match[1].split(' – ');
       const title = parts.length === 2 ? `${parts[0]} – ${parts[1]}` : match[1];
       return (
-        <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
-          <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
-          <span className="truncate">{title}</span>
-        </span>
+        <span className="truncate block min-w-0" style={accentStyle}>🎧 {title}</span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 min-w-0" style={accentStyle}>
-        <span style={{ fontFamily: "'Apple Color Emoji', sans-serif", fontSize: '13px', lineHeight: 1, flexShrink: 0 }}>🎧</span>
-        <span className="truncate">{t('chatWindow.audio')}</span>
-      </span>
+      <span className="truncate block min-w-0" style={accentStyle}>🎧 {t('chatWindow.audio')}</span>
     );
   }
   if (/^\[File\]/i.test(cleanText)) {
@@ -476,7 +461,6 @@ const ChatListItem = React.memo(({
           )}
         </div>
         <div className="flex flex-col min-w-0 flex-1">
-          {/* Верхняя строка: имя + закрепите + время */}
           <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               <span
@@ -520,7 +504,7 @@ const ChatListItem = React.memo(({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 min-w-0 w-full overflow-hidden">
+          <div className="flex items-center min-w-0 w-full overflow-hidden">
             <div
               className="text-[13px] font-normal whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0"
               style={{
@@ -541,29 +525,31 @@ const ChatListItem = React.memo(({
               )}
             </div>
             {chat.type === 'group' && chat.role && (
-              <span className="text-[9px] uppercase font-bold flex-shrink-0" style={{ color: 'var(--accent-color, #7C3AED)' }}>
+              <span className="text-[9px] uppercase font-bold flex-shrink-0 ml-1.5" style={{ color: 'var(--accent-color, #7C3AED)' }}>
                 {chat.role === 'owner' ? t('groupSettings.owner') : chat.role === 'admin' ? t('groupSettings.admin') : chat.role === 'member' ? t('groupSettings.member') : ''}
               </span>
             )}
-            <div className="ml-auto flex items-center gap-1.5">
-              {isPinned && (
-                <CustomPinIcon size={13} style={{ color: 'var(--accent-color, #7C3AED)' }} className="flex-shrink-0" />
-              )}
-              {(chat.unreadCount ?? 0) > 0 && (
-                <span
-                  className="text-[12px] font-bold px-2 rounded-full text-gray flex-shrink-0"
-                  style={{
-                    backgroundColor: 'var(--accent-color, #7C3AED)',
-                    paddingTop: '0.1rem',
-                    paddingBottom: '0.1rem',
-                    minWidth: '24px',
-                    textAlign: 'center',
-                  }}
-                >
-                  {formatUnreadCount(chat.unreadCount!)}
-                </span>
-              )}
-            </div>
+            {(isPinned || (chat.unreadCount ?? 0) > 0) && (
+              <div className="ml-1.5 flex items-center gap-1.5 flex-shrink-0">
+                {isPinned && (
+                  <CustomPinIcon size={13} style={{ color: 'var(--accent-color, #7C3AED)' }} className="flex-shrink-0" />
+                )}
+                {(chat.unreadCount ?? 0) > 0 && (
+                  <span
+                    className="text-[12px] font-bold px-2 rounded-full text-gray flex-shrink-0"
+                    style={{
+                      backgroundColor: 'var(--accent-color, #7C3AED)',
+                      paddingTop: '0.1rem',
+                      paddingBottom: '0.1rem',
+                      minWidth: '24px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {formatUnreadCount(chat.unreadCount!)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
