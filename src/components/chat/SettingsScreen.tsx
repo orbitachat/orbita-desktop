@@ -1431,46 +1431,105 @@ const SignalChatColorPicker: React.FC = () => {
 const BubbleSlider = ({
   value,
   onChange,
+  onChangeCommitted,
   min,
   max,
   step,
   label,
+  labelColor,
   valueDisplay,
+  formatValue,
+  valuePlacement = 'top-right',
   cssVar,
+  containerStyle,
+  ariaLabel,
 }: {
   value: number;
-  onChange: (v: number) => void;
+  onChange?: (v: number) => void;
+  onChangeCommitted?: (v: number) => void;
   min: number;
   max: number;
   step: number;
   label?: string;
+  labelColor?: string;
   valueDisplay?: string;
+  formatValue?: (v: number) => string;
+  valuePlacement?: 'top-right' | 'right';
   cssVar?: string;
+  containerStyle?: React.CSSProperties;
+  ariaLabel?: string;
 }) => {
   const [localVal, setLocalVal] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const isDraggingRef = useRef(false);
+  const localValRef = useRef(value);
   const rafRef = useRef<number | null>(null);
+  const commitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isDraggingRef.current) {
       setLocalVal(value);
+      localValRef.current = value;
       if (cssVar) {
         document.documentElement.style.setProperty(cssVar, `${value}px`);
       }
     }
   }, [value, cssVar]);
 
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
+    };
+  }, []);
+
+  const commit = useCallback((finalVal: number) => {
+    if (commitTimeoutRef.current) {
+      clearTimeout(commitTimeoutRef.current);
+      commitTimeoutRef.current = null;
+    }
+    if (onChangeCommitted) {
+      onChangeCommitted(finalVal);
+    } else if (onChange) {
+      onChange(finalVal);
+    }
+  }, [onChange, onChangeCommitted]);
+
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        commit(localValRef.current);
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+    };
+  }, [commit]);
+
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nextVal = Number(e.target.value);
     setLocalVal(nextVal);
+    localValRef.current = nextVal;
     if (cssVar) {
-      document.documentElement.style.setProperty(cssVar, `${nextVal}px`);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        document.documentElement.style.setProperty(cssVar, `${nextVal}px`);
+      });
     }
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
+    if (onChange && onChangeCommitted) {
       onChange(nextVal);
-    });
+    } else if (onChange) {
+      if (commitTimeoutRef.current) clearTimeout(commitTimeoutRef.current);
+      commitTimeoutRef.current = setTimeout(() => {
+        onChange(nextVal);
+      }, 150);
+    }
   };
 
   const handlePointerDown = () => {
@@ -1479,21 +1538,38 @@ const BubbleSlider = ({
   };
 
   const handlePointerUp = () => {
-    isDraggingRef.current = false;
-    setIsDragging(false);
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    onChange(localVal);
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      commit(localValRef.current);
+    }
   };
 
   const fillPercent = Math.max(0, Math.min(100, ((localVal - min) / (max - min)) * 100));
+  const displayedText = formatValue ? formatValue(localVal) : (valueDisplay !== undefined ? valueDisplay : `${localVal}`);
 
-  return (
-    <div style={{ padding: '0 20px', marginTop: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, userSelect: 'none' }}>
-        {label && <span style={{ fontSize: 12, color: MD3.onSurfaceVar }}>{label}</span>}
-        {valueDisplay && <span style={{ fontSize: 12, fontWeight: 600, color: MD3.onSurface }}>{valueDisplay}</span>}
-      </div>
-      <div style={{ position: 'relative', height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 6 }}>
+  const trackContent = (
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: 28,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: MD3.outline,
+        }}
+      >
         <div
           style={{
             position: 'absolute',
@@ -1502,7 +1578,9 @@ const BubbleSlider = ({
             bottom: 0,
             width: `${fillPercent}%`,
             borderRadius: 2,
-            backgroundColor: 'var(--accent-color, #2c6bed)',
+            backgroundColor: 'var(--accent-color, #7c54cc)',
+            transition: isDragging ? 'none' : 'width 0.18s cubic-bezier(0.2, 0, 0, 1)',
+            willChange: 'width',
           }}
         />
         <div
@@ -1510,13 +1588,24 @@ const BubbleSlider = ({
             position: 'absolute',
             left: `${fillPercent}%`,
             top: '50%',
-            transform: isDragging ? 'translate(-50%, -50%) scale(1.15)' : 'translate(-50%, -50%) scale(1)',
+            transform: isDragging
+              ? 'translate(-50%, -50%) scale(1.22)'
+              : isHovered
+              ? 'translate(-50%, -50%) scale(1.12)'
+              : 'translate(-50%, -50%) scale(1)',
             width: 14,
             height: 14,
             borderRadius: '50%',
-            backgroundColor: 'var(--accent-color, #2c6bed)',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
-            transition: 'transform 0.12s ease',
+            backgroundColor: 'var(--accent-color, #7c54cc)',
+            boxShadow: isDragging
+              ? '0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(124, 84, 204, 0.22)'
+              : isHovered
+              ? '0 2px 6px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(124, 84, 204, 0.14)'
+              : '0 1px 4px rgba(0, 0, 0, 0.35)',
+            transition: isDragging
+              ? 'transform 0.12s ease, box-shadow 0.12s ease'
+              : 'left 0.18s cubic-bezier(0.2, 0, 0, 1), transform 0.15s ease, box-shadow 0.15s ease',
+            willChange: 'left, transform',
             pointerEvents: 'none',
           }}
         />
@@ -1530,18 +1619,70 @@ const BubbleSlider = ({
         onChange={handleInput}
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
-        aria-label={label || 'slider'}
+        onPointerCancel={handlePointerUp}
+        onKeyUp={handlePointerUp}
+        onBlur={handlePointerUp}
+        aria-label={ariaLabel || label || 'slider'}
         style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
           width: '100%',
-          marginTop: -24,
-          position: 'relative',
-          zIndex: 1,
+          height: '100%',
           opacity: 0,
+          margin: 0,
+          padding: 0,
           cursor: isDragging ? 'grabbing' : 'pointer',
-          height: 28,
-          display: 'block',
+          zIndex: 2,
         }}
       />
+    </div>
+  );
+
+  if (valuePlacement === 'right') {
+    return (
+      <div style={{ padding: '0 20px 14px 20px', userSelect: 'none', ...containerStyle }}>
+        {label && (
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: labelColor || 'var(--accent-color, #9b7dd4)',
+              marginBottom: 10,
+            }}
+          >
+            {label}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ flex: 1 }}>{trackContent}</div>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: labelColor || 'var(--accent-color, #9b7dd4)',
+              minWidth: 40,
+              textAlign: 'right',
+            }}
+          >
+            {displayedText}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '0 20px', marginTop: 8, userSelect: 'none', ...containerStyle }}>
+      {(label || (displayedText && valueDisplay !== undefined) || (displayedText && formatValue)) && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          {label && <span style={{ fontSize: 12, color: labelColor || MD3.onSurfaceVar }}>{label}</span>}
+          {displayedText && (
+            <span style={{ fontSize: 12, fontWeight: 600, color: MD3.onSurface }}>{displayedText}</span>
+          )}
+        </div>
+      )}
+      {trackContent}
     </div>
   );
 };
@@ -1552,7 +1693,7 @@ const BubbleRadiusControl = () => {
   return (
     <BubbleSlider
       value={bubbleRadius}
-      onChange={setBubbleRadius}
+      onChangeCommitted={setBubbleRadius}
       min={4}
       max={16}
       step={1}
@@ -2156,21 +2297,21 @@ export const SettingsScreen = () => {
           }}>
             <BubbleSlider
               value={cacheSizeLimit}
-              onChange={handleCacheSizeLimitChange}
+              onChangeCommitted={handleCacheSizeLimitChange}
               min={100 * 1024 * 1024}
               max={10 * 1024 * 1024 * 1024}
               step={100 * 1024 * 1024}
               label={t('settings.total_cache_limit')}
-              valueDisplay={totalDisplay(cacheSizeLimit / (1024 * 1024))}
+              formatValue={(v) => totalDisplay(v / (1024 * 1024))}
             />
             <BubbleSlider
               value={mediaCacheLimit}
-              onChange={handleMediaCacheLimitChange}
+              onChangeCommitted={handleMediaCacheLimitChange}
               min={100 * 1024 * 1024}
               max={8 * 1024 * 1024 * 1024}
               step={100 * 1024 * 1024}
               label={t('settings.media_cache_limit')}
-              valueDisplay={mediaDisplay(mediaCacheLimit / (1024 * 1024))}
+              formatValue={(v) => mediaDisplay(v / (1024 * 1024))}
             />
           </div>
         </div>
@@ -2194,12 +2335,12 @@ export const SettingsScreen = () => {
           }}>
             <BubbleSlider
               value={cacheCleanupAge}
-              onChange={handleCacheCleanupAgeChange}
+              onChangeCommitted={handleCacheCleanupAgeChange}
               min={0}
               max={90 * 24 * 60 * 60 * 1000}
               step={7 * 24 * 60 * 60 * 1000}
               label={t('settings.cache_cleanup_age')}
-              valueDisplay={ageDisplay(cacheCleanupAge)}
+              formatValue={(v) => ageDisplay(v)}
             />
             <div style={{ padding: '8px 20px 0' }}>
               <PreferenceSwitch
@@ -2657,49 +2798,17 @@ export const SettingsScreen = () => {
               />
             </Surface>
 
-            {/* Громкость Slider */}
-            <div style={{ padding: '0 20px 14px 20px', userSelect: 'none' }}>
-              <div
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: 'var(--accent-color, #9b7dd4)',
-                  marginBottom: '10px',
-                }}
-              >
-                {t('settings.volume') || 'Громкость'}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={notificationVolume}
-                  onChange={(e) => setNotificationVolume(Number(e.target.value))}
-                  style={{
-                    flex: 1,
-                    height: '4px',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    borderRadius: '2px',
-                    background: `linear-gradient(to right, var(--accent-color, #9b7dd4) ${notificationVolume}%, rgba(255, 255, 255, 0.12) ${notificationVolume}%)`,
-                    outline: 'none',
-                    cursor: 'pointer',
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--accent-color, #9b7dd4)',
-                    minWidth: '40px',
-                    textAlign: 'right',
-                  }}
-                >
-                  {notificationVolume}%
-                </span>
-              </div>
-            </div>
+            <BubbleSlider
+              value={notificationVolume}
+              onChangeCommitted={setNotificationVolume}
+              min={0}
+              max={100}
+              step={1}
+              label={t('settings.volume') || 'Громкость'}
+              formatValue={(v) => `${v}%`}
+              valuePlacement="right"
+              ariaLabel={t('settings.volume') || 'Громкость'}
+            />
 
             {/* Notification Preview Card */}
             <div
