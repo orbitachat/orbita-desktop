@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useChatStore } from '../store/useChatStore';
+import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
 
 export interface RecordedAudioData {
   blob: Blob;
@@ -92,6 +93,11 @@ export function useAudioRecorder() {
 
   const startRecording = useCallback(async () => {
     try {
+      const micGranted = await useDevicePermissionStore.getState().requestPermission('microphone');
+      if (!micGranted) {
+        setStatus('idle');
+        return;
+      }
       cleanupStream();
       cleanupAudioContext();
       clearTimer();

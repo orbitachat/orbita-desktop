@@ -58,6 +58,7 @@ import { CallsModal } from '../call/CallsModal';
 import { MainMenuDrawer } from './MainMenuDrawer';
 import { DeleteAccountModal } from '../common/DeleteAccountModal';
 import { ActionConfirmModal } from '../common/ActionConfirmModal';
+import { DevicePermissionModal } from '../common/DevicePermissionModal';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
 
@@ -3406,6 +3407,7 @@ export const MainLayout = () => {
 
         {showCallModalsInWindow && <IncomingCallModal />}
         {showCallModalsInWindow && <CallWindow />}
+        <DevicePermissionModal />
 
       <GlobalAudioEngine />
 

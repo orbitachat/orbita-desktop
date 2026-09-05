@@ -13,6 +13,7 @@ import {
 } from 'livekit-client';
 import { EventEmitter } from 'events';
 import { useChatStore } from '../store/useChatStore';
+import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
 
 export type CallStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
@@ -190,6 +191,18 @@ class LiveKitService extends EventEmitter {
       .on(RoomEvent.TrackMuted, this.onTrackMuted.bind(this))
       .on(RoomEvent.TrackUnmuted, this.onTrackUnmuted.bind(this))
       .on(RoomEvent.ConnectionQualityChanged, this.onConnectionQualityChanged.bind(this))
+      .on(RoomEvent.LocalTrackPublished, (pub: any) => {
+        if (pub.source === Track.Source.ScreenShare) {
+          this.screenShareTrack = (pub.track as LocalTrack) || null;
+          this.emit('screenShareChanged', true, this.screenShareTrack);
+        }
+      })
+      .on(RoomEvent.LocalTrackUnpublished, (pub: any) => {
+        if (pub.source === Track.Source.ScreenShare) {
+          this.screenShareTrack = null;
+          this.emit('screenShareChanged', false, null);
+        }
+      })
       .on(RoomEvent.EncryptionError, (err: Error) => {
         console.error(`${LOG_PREFIX} SFrame Encryption error:`, err);
       });
@@ -264,6 +277,13 @@ class LiveKitService extends EventEmitter {
     this.desiredMicEnabled = true;
 
     if (!this.localParticipant) {
+      return false;
+    }
+
+    const granted = await useDevicePermissionStore.getState().requestPermission('microphone');
+    if (!granted) {
+      this.desiredMicEnabled = false;
+      this.emit('micChanged', false);
       return false;
     }
 
@@ -357,6 +377,13 @@ class LiveKitService extends EventEmitter {
     if (!this.localParticipant) {
       return false;
     }
+    const granted = await useDevicePermissionStore.getState().requestPermission('camera');
+    if (!granted) {
+      this.localVideoTrack = null;
+      this.updateParticipants();
+      this.emit('cameraChanged', false, null);
+      return false;
+    }
     try {
       await this.localParticipant.setCameraEnabled(true, {
         resolution: VideoPresets.h720.resolution,
@@ -423,9 +450,71 @@ class LiveKitService extends EventEmitter {
     return null;
   }
 
-  public async startScreenShare(): Promise<void> {}
-  public async stopScreenShare(): Promise<void> {}
-  public async toggleScreenShare(): Promise<boolean> { return false; }
+  public async startScreenShare(): Promise<boolean> {
+    if (!this.localParticipant) {
+      return false;
+    }
+    try {
+      await this.localParticipant.setScreenShareEnabled(true, {
+        audio: false,
+      });
+      const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+      if (pub?.track) {
+        this.screenShareTrack = pub.track as LocalTrack;
+      }
+      this.emit('screenShareChanged', true, this.screenShareTrack);
+      return true;
+    } catch (err) {
+      this.screenShareTrack = null;
+      this.emit('screenShareChanged', false, null);
+      return false;
+    }
+  }
+
+  public async stopScreenShare(): Promise<void> {
+    if (!this.localParticipant) {
+      return;
+    }
+    try {
+      await this.localParticipant.setScreenShareEnabled(false);
+    } catch {}
+    this.screenShareTrack = null;
+    this.emit('screenShareChanged', false, null);
+  }
+
+  public async toggleScreenShare(): Promise<boolean> {
+    if (this.isScreenSharing()) {
+      await this.stopScreenShare();
+      return false;
+    } else {
+      return await this.startScreenShare();
+    }
+  }
+
+  public isScreenSharing(): boolean {
+    if (!this.localParticipant) return false;
+    return !!(this.localParticipant.isScreenShareEnabled || this.screenShareTrack);
+  }
+
+  public getScreenShareTrack(): LocalTrack | null {
+    if (!this.localParticipant) return null;
+    const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+    return (pub?.track as LocalTrack) || this.screenShareTrack;
+  }
+
+  public getRemoteScreenShareTrack(identity?: string): RemoteTrack | null {
+    if (!this.room) return null;
+    if (identity) {
+      const p = this.room.getParticipantByIdentity(identity);
+      const pub = p?.getTrackPublication(Track.Source.ScreenShare);
+      return (pub?.track as RemoteTrack) || null;
+    }
+    for (const p of this.room.remoteParticipants.values()) {
+      const pub = p.getTrackPublication(Track.Source.ScreenShare);
+      if (pub?.track) return pub.track as RemoteTrack;
+    }
+    return null;
+  }
 
   private onConnected(): void {
     this.connectionAttempts = 0;

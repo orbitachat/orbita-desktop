@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Phone, Mic, MicOff, Video, VideoOff, X } from 'lucide-react';
+import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff } from 'lucide-react';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
@@ -30,6 +30,7 @@ interface CallStatePayload {
   callState: 'idle' | 'preparing' | 'ringing' | 'connecting' | 'connected' | 'ended';
   isMicEnabled: boolean;
   isVideoEnabled?: boolean;
+  isScreenSharing?: boolean;
   duration: number;
   statusMessage: string;
   myNickname: string | null;
@@ -198,6 +199,12 @@ export const CallWindowView = () => {
     sendAction('toggleVideo', next);
   };
 
+  const handleToggleScreenShare = () => {
+    const next = !isScreenSharing;
+    setCallData((prev) => (prev ? { ...prev, isScreenSharing: next } : prev));
+    sendAction('toggleScreenShare', next);
+  };
+
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
@@ -209,6 +216,7 @@ export const CallWindowView = () => {
   const callState = callData?.callState || 'idle';
   const isMicEnabled = callData?.isMicEnabled ?? false;
   const isVideoEnabled = callData?.isVideoEnabled ?? (activeCall?.callType === 'video');
+  const isScreenSharing = callData?.isScreenSharing ?? false;
   const duration = callData?.duration ?? 0;
   const statusMessage = callData?.statusMessage ?? '';
 
@@ -389,6 +397,22 @@ export const CallWindowView = () => {
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera')}
               </span>
             </button>
+
+            {isConnected && (
+              <button
+                type="button"
+                onClick={handleToggleScreenShare}
+                aria-label={isScreenSharing ? t('call.stop_screen_share') : t('call.screen_share')}
+                className="flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none"
+              >
+                <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-md" style={neutralButtonStyle(isScreenSharing)}>
+                  {isScreenSharing ? <ScreenShareOff size={24} /> : <ScreenShare size={24} />}
+                </div>
+                <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '12px', fontWeight: 500 }}>
+                  {isScreenSharing ? t('call.stop_screen_share') : t('call.screen_share')}
+                </span>
+              </button>
+            )}
 
             <button
               type="button"

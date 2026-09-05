@@ -58,6 +58,7 @@ import { SendAsTxtModal } from './SendAsTxtModal';
 import { FileAttachmentModal } from './FileAttachmentModal';
 import { TelegramMediaViewer } from './TelegramMediaViewer';
 import { ActionConfirmModal } from '../common/ActionConfirmModal';
+import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { EmptyChatGreeting } from './EmptyChatGreeting';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 
@@ -2166,7 +2167,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const startCall = useCallStore((state) => state.startCall);
 
-  const handleCallPress = useCallback(() => {
+  const handleAudioCallPress = useCallback(async () => {
     if (!activeChatId) return;
     if (activeChatId === 'notes') {
       showToast(t('chatWindow.calls_not_available'));
@@ -2176,11 +2177,35 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       showToast(t('settings.voice_calls_disabled'));
       return;
     }
+    const micGranted = await useDevicePermissionStore.getState().requestPermission('microphone');
+    if (!micGranted) return;
+    startCall(activeChatId, 'audio', myNickname).catch((err) => {
+      console.error('[Call] Error starting call:', err);
+      showToast(t('call.connection_error'));
+    });
+  }, [activeChatId, myNickname, startCall, t, showToast, voiceCallsEnabled]);
+
+  const handleVideoCallPress = useCallback(async () => {
+    if (!activeChatId) return;
+    if (activeChatId === 'notes') {
+      showToast(t('chatWindow.calls_not_available'));
+      return;
+    }
+    if (!voiceCallsEnabled) {
+      showToast(t('settings.voice_calls_disabled'));
+      return;
+    }
+    const camGranted = await useDevicePermissionStore.getState().requestPermission('camera');
+    if (!camGranted) return;
+    const micGranted = await useDevicePermissionStore.getState().requestPermission('microphone');
+    if (!micGranted) return;
     startCall(activeChatId, 'video', myNickname).catch((err) => {
       console.error('[Call] Error starting call:', err);
       showToast(t('call.connection_error'));
     });
   }, [activeChatId, myNickname, startCall, t, showToast, voiceCallsEnabled]);
+
+  const handleCallPress = handleAudioCallPress;
 
   const scrollToBottom = useCallback((smooth = true) => {
     if (messagesContainerRef.current) {
@@ -5258,18 +5283,33 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 </svg>
               </button>
               {activeChatId !== 'notes' && activeChat?.type !== 'channel' && voiceCallsEnabled && (
-                <button
-                  className="p-2 transition-colors duration-200 text-[var(--text-dim)] hover:text-[var(--text-main)] cursor-pointer bg-transparent border-none outline-none flex items-center justify-center"
-                  onClick={(e) => { e.stopPropagation(); handleCallPress(); }}
-                  aria-label={t('call.call', 'Позвонить')}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
-                    <g fill="none">
-                      <path fill="currentColor" d="M20 16v4c-2.758 0-5.07-.495-7-1.325-3.841-1.652-6.176-4.63-7.5-7.675C4.4 8.472 4 5.898 4 4h4l1 4l-3.5 3c1.324 3.045 3.659 6.023 7.5 7.675L16 15z" />
-                      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 18.675c1.93.83 4.242 1.325 7 1.325v-4l-4-1zm0 0C9.159 17.023 6.824 14.045 5.5 11m0 0C4.4 8.472 4 5.898 4 4h4l1 4z" />
-                    </g>
-                  </svg>
-                </button>
+                <>
+                  <button
+                    className="p-2 transition-colors duration-200 text-[var(--text-dim)] hover:text-[var(--text-main)] cursor-pointer bg-transparent border-none outline-none flex items-center justify-center"
+                    onClick={(e) => { e.stopPropagation(); handleVideoCallPress(); }}
+                    aria-label={t('call.video_call', 'Видеозвонок')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
+                      <g fill="currentColor" fillRule="evenodd" clipRule="evenodd">
+                        <path d="M11.5 4h-7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h7a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3m-8 3a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1z"/>
+                        <path d="m16.934 5.176l-3.468 2.381a1 1 0 0 0-.434.815L13 11.587a1 1 0 0 0 .434.834l3.5 2.403A1 1 0 0 0 18.5 14V6a1 1 0 0 0-1.566-.824M16.5 12.1l-1.495-1.026l.022-2.163L16.5 7.9z"/>
+                      </g>
+                    </svg>
+                  </button>
+
+                  <button
+                    className="p-2 transition-colors duration-200 text-[var(--text-dim)] hover:text-[var(--text-main)] cursor-pointer bg-transparent border-none outline-none flex items-center justify-center"
+                    onClick={(e) => { e.stopPropagation(); handleAudioCallPress(); }}
+                    aria-label={t('call.audio_call', 'Аудиозвонок')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                      <g fill="none">
+                        <path fill="currentColor" d="M20 16v4c-2.758 0-5.07-.495-7-1.325-3.841-1.652-6.176-4.63-7.5-7.675C4.4 8.472 4 5.898 4 4h4l1 4l-3.5 3c1.324 3.045 3.659 6.023 7.5 7.675L16 15z" />
+                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 18.675c1.93.83 4.242 1.325 7 1.325v-4l-4-1zm0 0C9.159 17.023 6.824 14.045 5.5 11m0 0C4.4 8.472 4 5.898 4 4h4l1 4z" />
+                      </g>
+                    </svg>
+                  </button>
+                </>
               )}
             </div>
           </div>

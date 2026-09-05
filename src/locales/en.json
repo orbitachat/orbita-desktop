@@ -370,6 +370,9 @@
       "you": "You",
       "screen_share": "Screen share",
       "screen_share_active": "Sharing screen",
+      "stop_screen_share": "Stop sharing",
+      "video_call": "Video call",
+      "audio_call": "Voice call",
       "preparing": "Preparing...",
       "ringing": "Ringing...",
       "connecting_attempt": "Connecting attempt {{attempt}} of {{total}}",
@@ -385,6 +388,11 @@
       "encryption_info": "If these emojis match on your and your partner's screen, your call is securely end-to-end encrypted.",
       "enable_video": "Video",
       "video_call_hint": "Ready for video call"
+    },
+    "permission": {
+      "camera_title": "Allow access to the device camera?",
+      "microphone_title": "Allow access to the device microphone?",
+      "allow": "Allow"
     },
     "settings": {
       "title": "Settings",

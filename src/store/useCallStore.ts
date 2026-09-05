@@ -331,6 +331,11 @@ export const useCallStore = create<CallStore>((set, get) => {
       const act = get().activeCall;
       if (act) set({ activeCall: { ...act, isVideoEnabled: enabled } });
     });
+    liveKitService.on('screenShareChanged', (enabled: boolean) => {
+      set({ isScreenSharing: enabled });
+      const act = get().activeCall;
+      if (act) set({ activeCall: { ...act, isScreenSharing: enabled } });
+    });
     liveKitService.on('trackMuted', () => {
       get().updateParticipants(liveKitService.allParticipants);
     });
@@ -691,7 +696,13 @@ export const useCallStore = create<CallStore>((set, get) => {
         console.error(`${LOG_PREFIX} toggleVideo failed:`, err);
       }
     },
-    toggleScreenShare: async () => {},
+    toggleScreenShare: async () => {
+      try {
+        await liveKitService.toggleScreenShare();
+      } catch (err) {
+        console.error(`${LOG_PREFIX} toggleScreenShare failed:`, err);
+      }
+    },
 
     updateParticipants: (participants) => { const act = get().activeCall; if (act) set({ activeCall: { ...act, participants } }); },
 
@@ -724,7 +735,7 @@ const syncCallState = (state: CallStore) => {
   const payload = {
     activeCall: state.activeCall ? { ...state.activeCall, otherName: chat?.name || state.activeCall.chatId, otherAvatar: chat?.avatarUrl || null } : null,
     incomingCall: state.incomingCall ? { ...state.incomingCall, otherName: chat?.name || state.incomingCall.from, otherAvatar: chat?.avatarUrl || null } : null,
-    callState: state.callState, isMicEnabled: state.isMicEnabled, isVideoEnabled: state.isVideoEnabled, duration: state.duration, statusMessage: state.statusMessage, myNickname: state.myNickname,
+    callState: state.callState, isMicEnabled: state.isMicEnabled, isVideoEnabled: state.isVideoEnabled, isScreenSharing: state.isScreenSharing, duration: state.duration, statusMessage: state.statusMessage, myNickname: state.myNickname,
   };
   try { (window as any).orbita?.sendCallState?.(payload); } catch {}
   try {
@@ -753,6 +764,7 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
     case 'endCall': store.endCall(false); break;
     case 'toggleMic': store.toggleMic(); break;
     case 'toggleVideo': store.toggleVideo(); break;
+    case 'toggleScreenShare': store.toggleScreenShare(); break;
   }
 };
 
