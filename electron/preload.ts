@@ -293,6 +293,8 @@ contextBridge.exposeInMainWorld('orbita', {
     ipcRenderer.invoke('orbita:rustFastTextSearch', haystack, query),
   rustReadFileFast: (filePath: string) =>
     ipcRenderer.invoke('orbita:rustReadFileFast', filePath),
+  getDesktopSources: (opts?: { types?: Array<'screen' | 'window'>; thumbnailWidth?: number; thumbnailHeight?: number; fetchWindowIcons?: boolean }) =>
+    ipcRenderer.invoke('orbita:get-desktop-sources', opts),
 });
 
 Object.defineProperty(window, '__ELECTRON_RENDERER__', {

@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
 import { liveKitService } from '../../services/livekitService';
 import { useTranslation } from 'react-i18next';
-import { Phone, PhoneOff, Mic, MicOff, ChevronLeft, Video, VideoOff, X, ScreenShare, ScreenShareOff } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, ChevronLeft, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2 } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
+import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 
 const accentButtonStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, var(--accent-color), var(--accent-dark))',
@@ -52,9 +53,12 @@ export const CallWindow = () => {
   const toggleVideo = useCallStore((state) => state.toggleVideo);
   const toggleScreenShare = useCallStore((state) => state.toggleScreenShare);
   const myNickname = useCallStore((state) => state.myNickname);
+  const remoteScreenShareTrack = useCallStore((state) => state.remoteScreenShareTrack);
 
   const [isRemoteVideoActive, setIsRemoteVideoActive] = useState<boolean>(false);
   const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
+  const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const chat = useChatStore((state) =>
     activeCall ? state.chats.find((c) => c.id === activeCall.chatId) : null
@@ -65,6 +69,9 @@ export const CallWindow = () => {
   const remoteAudioContainerRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteScreenShareRef = useRef<HTMLVideoElement>(null);
+  const localScreenShareRef = useRef<HTMLVideoElement>(null);
+  const callContainerRef = useRef<HTMLDivElement>(null);
   const previewStreamRef = useRef<MediaStream | null>(null);
   const attachedElements = useRef<Map<string, HTMLMediaElement>>(new Map());
 
@@ -73,6 +80,24 @@ export const CallWindow = () => {
   const isConnecting = callState === 'connecting';
   const isConnected = callState === 'connected';
   const isEnded = callState === 'ended';
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      callContainerRef.current?.requestFullscreen?.().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
 
   useEffect(() => {
     const handleTrackSubscribed = (track: RemoteTrack, identity: string) => {
@@ -83,7 +108,12 @@ export const CallWindow = () => {
         remoteAudioContainerRef.current?.appendChild(el);
         attachedElements.current.set(`${identity}:${track.sid}`, el);
       } else if (track.kind === 'video') {
-        if (remoteVideoRef.current) {
+        if (track.source === 'screen_share') {
+          if (remoteScreenShareRef.current) {
+            track.attach(remoteScreenShareRef.current);
+            setIsRemoteScreenShareActive(true);
+          }
+        } else if (remoteVideoRef.current) {
           track.attach(remoteVideoRef.current);
           setIsRemoteVideoActive(true);
         }
@@ -102,16 +132,25 @@ export const CallWindow = () => {
           track.detach().forEach((detachedEl) => detachedEl.remove());
         }
       } else if (track.kind === 'video') {
-        if (remoteVideoRef.current) {
-          track.detach(remoteVideoRef.current);
+        if (track.source === 'screen_share') {
+          if (remoteScreenShareRef.current) {
+            track.detach(remoteScreenShareRef.current);
+          }
+          setIsRemoteScreenShareActive(false);
+        } else {
+          if (remoteVideoRef.current) {
+            track.detach(remoteVideoRef.current);
+          }
+          setIsRemoteVideoActive(false);
         }
-        setIsRemoteVideoActive(false);
       }
     };
 
     const handleTrackMuted = () => {
       const track = liveKitService.getRemoteVideoTrack();
       setIsRemoteVideoActive(!!(track && !track.isMuted));
+      const sTrack = liveKitService.getRemoteScreenShareTrack();
+      setIsRemoteScreenShareActive(!!(sTrack && !sTrack.isMuted));
     };
 
     const handleTrackUnmuted = () => {
@@ -119,6 +158,11 @@ export const CallWindow = () => {
       if (track && remoteVideoRef.current) {
         track.attach(remoteVideoRef.current);
         setIsRemoteVideoActive(true);
+      }
+      const sTrack = liveKitService.getRemoteScreenShareTrack();
+      if (sTrack && remoteScreenShareRef.current) {
+        sTrack.attach(remoteScreenShareRef.current);
+        setIsRemoteScreenShareActive(true);
       }
     };
 
@@ -140,12 +184,19 @@ export const CallWindow = () => {
           track.detach(remoteVideoRef.current);
         }
       }
+      if (remoteScreenShareRef.current) {
+        const sTrack = liveKitService.getRemoteScreenShareTrack();
+        if (sTrack) {
+          sTrack.detach(remoteScreenShareRef.current);
+        }
+      }
     };
   }, []);
 
   useEffect(() => {
     if (!isConnected) {
       setIsRemoteVideoActive(false);
+      setIsRemoteScreenShareActive(false);
       return;
     }
     const track = liveKitService.getRemoteVideoTrack();
@@ -153,7 +204,49 @@ export const CallWindow = () => {
       track.attach(remoteVideoRef.current);
       setIsRemoteVideoActive(true);
     }
+    const sTrack = liveKitService.getRemoteScreenShareTrack();
+    if (sTrack && !sTrack.isMuted && remoteScreenShareRef.current) {
+      sTrack.attach(remoteScreenShareRef.current);
+      setIsRemoteScreenShareActive(true);
+    }
   }, [isConnected]);
+
+  useEffect(() => {
+    if (remoteScreenShareTrack && remoteScreenShareRef.current) {
+      remoteScreenShareTrack.attach(remoteScreenShareRef.current);
+      setIsRemoteScreenShareActive(true);
+    } else if (!remoteScreenShareTrack && remoteScreenShareRef.current) {
+      setIsRemoteScreenShareActive(false);
+    }
+  }, [remoteScreenShareTrack]);
+
+  useEffect(() => {
+    if (!isConnected || !isScreenSharing) {
+      if (localScreenShareRef.current) {
+        const track = liveKitService.getScreenShareTrack();
+        if (track) track.detach(localScreenShareRef.current);
+      }
+      return;
+    }
+    const track = liveKitService.getScreenShareTrack();
+    if (track && localScreenShareRef.current) {
+      track.attach(localScreenShareRef.current);
+    }
+    const onScreenChanged = (enabled: boolean, tr: any) => {
+      if (enabled && tr && localScreenShareRef.current) {
+        tr.attach(localScreenShareRef.current);
+      } else if (!enabled && localScreenShareRef.current) {
+        tr?.detach(localScreenShareRef.current);
+      }
+    };
+    liveKitService.on('screenShareChanged', onScreenChanged);
+    return () => {
+      liveKitService.off('screenShareChanged', onScreenChanged);
+      if (localScreenShareRef.current && track) {
+        track.detach(localScreenShareRef.current);
+      }
+    };
+  }, [isConnected, isScreenSharing]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -365,24 +458,81 @@ export const CallWindow = () => {
         </div>
       )}
 
-      <div className="absolute inset-0 z-0 overflow-hidden flex items-center justify-center">
+      <div
+        ref={callContainerRef}
+        className="absolute inset-0 z-0 overflow-hidden flex items-center justify-center bg-[#09080e]"
+      >
+        <video
+          ref={remoteScreenShareRef}
+          autoPlay
+          playsInline
+          className="w-full h-full object-contain transition-opacity duration-300"
+          style={{
+            display: isRemoteScreenShareActive ? 'block' : 'none',
+          }}
+        />
+
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
           className="w-full h-full object-cover transition-opacity duration-300"
           style={{
-            display: isRemoteVideoActive ? 'block' : 'none',
+            display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none',
           }}
         />
 
-        {isRemoteVideoActive && (
+        {isScreenSharing && !isRemoteScreenShareActive && !isRemoteVideoActive && (
+          <video
+            ref={localScreenShareRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-contain opacity-75"
+          />
+        )}
+
+        {(isRemoteVideoActive || isRemoteScreenShareActive) && (
           <>
             <div className="absolute top-0 inset-x-0 h-36 bg-gradient-to-b from-black/80 via-black/30 to-transparent pointer-events-none z-10" />
             <div className="absolute bottom-0 inset-x-0 h-44 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none z-10" />
           </>
         )}
       </div>
+
+      {isRemoteScreenShareActive && (
+        <div className="absolute top-14 left-16 z-30 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[12px] font-medium text-white/90">
+            {t('call.screen_of', { name: otherName })}
+          </span>
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            aria-label={isFullscreen ? t('call.exit_fullscreen') : t('call.fullscreen')}
+            className="p-1 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors border-0 bg-transparent cursor-pointer ml-1"
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        </div>
+      )}
+
+      {isScreenSharing && (
+        <div className="absolute top-14 left-16 z-30 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[12px] font-medium text-white/90">
+            {t('call.sharing_your_screen')}
+          </span>
+          <button
+            type="button"
+            onClick={toggleScreenShare}
+            aria-label={t('call.stop_screen_share')}
+            className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors border-0 cursor-pointer ml-1"
+          >
+            {t('call.stop_screen_share')}
+          </button>
+        </div>
+      )}
 
       <AnimatePresence>
         {isLocalVideoActive && (
@@ -590,6 +740,8 @@ export const CallWindow = () => {
           </button>
         ) : null}
       </div>
+
+      <ScreenSharePickerModal />
     </div>
   );
 };

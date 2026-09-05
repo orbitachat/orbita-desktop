@@ -14,6 +14,7 @@ import {
   session,
   protocol,
   net as electronNet,
+  desktopCapturer,
 } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -2286,6 +2287,25 @@ ipcMain.on('orbita:send-call-action', (_event, action: any) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('orbita:call-action', action);
   }
+});
+
+ipcMain.handle('orbita:get-desktop-sources', async (_event, opts?: { types?: Array<'screen' | 'window'>; thumbnailWidth?: number; thumbnailHeight?: number; fetchWindowIcons?: boolean }) => {
+  const sources = await desktopCapturer.getSources({
+    types: opts?.types || ['screen', 'window'],
+    thumbnailSize: {
+      width: opts?.thumbnailWidth || 360,
+      height: opts?.thumbnailHeight || 202,
+    },
+    fetchWindowIcons: opts?.fetchWindowIcons !== false,
+  });
+
+  return sources.map((s) => ({
+    id: s.id,
+    name: s.name,
+    thumbnail: s.thumbnail.toDataURL(),
+    appIcon: s.appIcon ? s.appIcon.toDataURL() : null,
+    display_id: s.display_id,
+  }));
 });
 
 ipcMain.handle('window:minimize', (event) => {

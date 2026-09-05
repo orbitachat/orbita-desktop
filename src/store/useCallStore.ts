@@ -47,6 +47,9 @@ interface CallStore {
   isMicEnabled: boolean;
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
+  isScreenPickerOpen: boolean;
+  remoteScreenShareTrack: any | null;
+  remoteScreenShareIdentity: string | null;
   connectionQuality: 'excellent' | 'good' | 'poor' | 'unknown';
   duration: number;
   myNickname: string | null;
@@ -70,6 +73,10 @@ interface CallStore {
   handleHangup: () => void;
   toggleMic: () => Promise<void>;
   toggleVideo: () => Promise<void>;
+  openScreenPicker: () => void;
+  closeScreenPicker: () => void;
+  startScreenShareWithOptions: (options: { sourceId?: string; quality: '720p' | '1080p'; fps: 30 | 60; audio: boolean }) => Promise<void>;
+  stopScreenShare: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
   updateParticipants: (participants: ParticipantInfo[]) => void;
   updateConnectionQuality: (quality: 'excellent' | 'good' | 'poor' | 'unknown') => void;
@@ -336,6 +343,12 @@ export const useCallStore = create<CallStore>((set, get) => {
       const act = get().activeCall;
       if (act) set({ activeCall: { ...act, isScreenSharing: enabled } });
     });
+    liveKitService.on('remoteScreenShareChanged', (active: boolean, track: any, identity?: string) => {
+      set({
+        remoteScreenShareTrack: active ? track : null,
+        remoteScreenShareIdentity: active ? (identity || null) : null,
+      });
+    });
     liveKitService.on('trackMuted', () => {
       get().updateParticipants(liveKitService.allParticipants);
     });
@@ -374,6 +387,9 @@ export const useCallStore = create<CallStore>((set, get) => {
     isMicEnabled: false,
     isVideoEnabled: false,
     isScreenSharing: false,
+    isScreenPickerOpen: false,
+    remoteScreenShareTrack: null,
+    remoteScreenShareIdentity: null,
     connectionQuality: 'unknown',
     duration: 0,
     myNickname: null,
@@ -576,7 +592,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       activationInProgress = false;
       if (endedStatus !== null && state.myNickname) createCallMessage(chatId, direction, duration, endedStatus);
       console.log(`${LOG_PREFIX} Call ended. status=${endedStatus} duration=${duration}s`);
-      set({ activeCall: null, incomingCall: null, callState: 'idle', duration: 0, isMicEnabled: false, isVideoEnabled: false, isScreenSharing: false, statusMessage: '', isEnding: false, isMinimized: false });
+      set({ activeCall: null, incomingCall: null, callState: 'idle', duration: 0, isMicEnabled: false, isVideoEnabled: false, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, statusMessage: '', isEnding: false, isMinimized: false });
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
     },
 
@@ -696,11 +712,32 @@ export const useCallStore = create<CallStore>((set, get) => {
         console.error(`${LOG_PREFIX} toggleVideo failed:`, err);
       }
     },
-    toggleScreenShare: async () => {
+    openScreenPicker: () => set({ isScreenPickerOpen: true }),
+    closeScreenPicker: () => set({ isScreenPickerOpen: false }),
+
+    startScreenShareWithOptions: async (options) => {
+      set({ isScreenPickerOpen: false });
       try {
-        await liveKitService.toggleScreenShare();
+        await liveKitService.startScreenShare(options);
       } catch (err) {
-        console.error(`${LOG_PREFIX} toggleScreenShare failed:`, err);
+        console.error(`${LOG_PREFIX} startScreenShareWithOptions failed:`, err);
+      }
+    },
+
+    stopScreenShare: async () => {
+      try {
+        await liveKitService.stopScreenShare();
+      } catch (err) {
+        console.error(`${LOG_PREFIX} stopScreenShare failed:`, err);
+      }
+    },
+
+    toggleScreenShare: async () => {
+      const state = get();
+      if (state.isScreenSharing) {
+        await state.stopScreenShare();
+      } else {
+        state.openScreenPicker();
       }
     },
 
@@ -717,7 +754,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       clearAllTimers();
       callSoundService.stop();
       activationInProgress = false;
-      set({ activeCall: null, incomingCall: null, callState: 'idle', duration: 0, isMicEnabled: false, isVideoEnabled: false, isScreenSharing: false, connectionQuality: 'unknown', statusMessage: '', isEnding: false, isMinimized: false });
+      set({ activeCall: null, incomingCall: null, callState: 'idle', duration: 0, isMicEnabled: false, isVideoEnabled: false, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, connectionQuality: 'unknown', statusMessage: '', isEnding: false, isMinimized: false });
     },
   };
 });

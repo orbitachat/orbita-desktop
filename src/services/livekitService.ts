@@ -5,6 +5,8 @@ import {
   RoomEvent,
   RemoteTrack,
   LocalTrack,
+  LocalVideoTrack,
+  LocalAudioTrack,
   Track,
   ExternalE2EEKeyProvider,
   isE2EESupported,
@@ -37,6 +39,7 @@ class LiveKitService extends EventEmitter {
   private localAudioTrack: LocalTrack | null = null;
   private localVideoTrack: LocalTrack | null = null;
   private screenShareTrack: LocalTrack | null = null;
+  private screenShareAudioTrack: LocalTrack | null = null;
   private participants: Map<string, ParticipantInfo> = new Map();
   private reconnectTimer: NodeJS.Timeout | null = null;
   private connectionAttempts = 0;
@@ -450,22 +453,86 @@ class LiveKitService extends EventEmitter {
     return null;
   }
 
-  public async startScreenShare(): Promise<boolean> {
+  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: 30 | 60; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) {
       return false;
     }
+    const width = options?.quality === '1080p' ? 1920 : 1280;
+    const height = options?.quality === '1080p' ? 1080 : 720;
+    const frameRate = options?.fps || 30;
+    const includeAudio = !!options?.audio;
+
     try {
+      if (options?.sourceId) {
+        const constraints: any = {
+          audio: includeAudio
+            ? {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                },
+              }
+            : false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: options.sourceId,
+              maxWidth: width,
+              maxHeight: height,
+              maxFrameRate: frameRate,
+            },
+          },
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const vTrack = stream.getVideoTracks()[0];
+        if (!vTrack) throw new Error('No video track');
+
+        const localVTrack = new LocalVideoTrack(vTrack, undefined, false);
+        await this.localParticipant.publishTrack(localVTrack, {
+          source: Track.Source.ScreenShare,
+          name: 'screen_share',
+          simulcast: false,
+        });
+        this.screenShareTrack = localVTrack;
+
+        vTrack.onended = () => {
+          void this.stopScreenShare();
+        };
+
+        if (includeAudio && stream.getAudioTracks().length > 0) {
+          const aTrack = stream.getAudioTracks()[0];
+          const localATrack = new LocalAudioTrack(aTrack, undefined, false);
+          await this.localParticipant.publishTrack(localATrack, {
+            source: Track.Source.ScreenShareAudio,
+            name: 'screen_share_audio',
+          });
+          this.screenShareAudioTrack = localATrack;
+        }
+
+        this.emit('screenShareChanged', true, this.screenShareTrack);
+        return true;
+      }
+
       await this.localParticipant.setScreenShareEnabled(true, {
-        audio: false,
+        audio: includeAudio,
+        resolution: {
+          width,
+          height,
+          frameRate,
+        },
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.track) {
         this.screenShareTrack = pub.track as LocalTrack;
+        pub.track.mediaStreamTrack.onended = () => {
+          void this.stopScreenShare();
+        };
       }
       this.emit('screenShareChanged', true, this.screenShareTrack);
       return true;
     } catch (err) {
       this.screenShareTrack = null;
+      this.screenShareAudioTrack = null;
       this.emit('screenShareChanged', false, null);
       return false;
     }
@@ -475,19 +542,34 @@ class LiveKitService extends EventEmitter {
     if (!this.localParticipant) {
       return;
     }
+    if (this.screenShareAudioTrack) {
+      try {
+        await this.localParticipant.unpublishTrack(this.screenShareAudioTrack);
+        this.screenShareAudioTrack.stop();
+      } catch {}
+      this.screenShareAudioTrack = null;
+    }
+    if (this.screenShareTrack) {
+      try {
+        await this.localParticipant.unpublishTrack(this.screenShareTrack);
+        this.screenShareTrack.stop();
+      } catch {}
+      this.screenShareTrack = null;
+    }
     try {
       await this.localParticipant.setScreenShareEnabled(false);
     } catch {}
     this.screenShareTrack = null;
+    this.screenShareAudioTrack = null;
     this.emit('screenShareChanged', false, null);
   }
 
-  public async toggleScreenShare(): Promise<boolean> {
+  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: 30 | 60; audio?: boolean }): Promise<boolean> {
     if (this.isScreenSharing()) {
       await this.stopScreenShare();
       return false;
     } else {
-      return await this.startScreenShare();
+      return await this.startScreenShare(options);
     }
   }
 
@@ -575,6 +657,9 @@ class LiveKitService extends EventEmitter {
         this.attachedAudioElements.set(key, el);
       } catch {}
     }
+    if (track.source === Track.Source.ScreenShare) {
+      this.emit('remoteScreenShareChanged', true, track, participant.identity);
+    }
     this.updateParticipants();
     this.emit('trackSubscribed', track, participant.identity);
   }
@@ -590,6 +675,9 @@ class LiveKitService extends EventEmitter {
       } else {
         try { track.detach().forEach((detachedEl) => detachedEl.remove()); } catch {}
       }
+    }
+    if (track.source === Track.Source.ScreenShare) {
+      this.emit('remoteScreenShareChanged', false, null, participant.identity);
     }
     this.updateParticipants();
     this.emit('trackUnsubscribed', track, participant.identity);
