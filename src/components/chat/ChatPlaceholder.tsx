@@ -25,10 +25,10 @@ export const ChatPlaceholder = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '24px',
+          gap: '28px',
         }}
       >
-        <div style={{ width: '108px', height: '108px', flexShrink: 0 }}>
+        <div style={{ width: '180px', height: '180px', flexShrink: 0 }}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
             <defs>
               <clipPath id="orbita-front-clip">
@@ -65,7 +65,7 @@ export const ChatPlaceholder = () => {
 
         <div
           style={{
-            fontSize: '18px',
+            fontSize: '28px',
             fontWeight: 600,
             color: 'var(--text-main, #ffffff)',
             textAlign: 'center',
@@ -78,11 +78,11 @@ export const ChatPlaceholder = () => {
 
       <div
         style={{
-          fontSize: '12px',
-          color: 'var(--text-dim, rgba(255, 255, 255, 0.4))',
+          fontSize: '14px',
+          color: 'var(--text-dim, rgba(255, 255, 255, 0.45))',
           textAlign: 'center',
           letterSpacing: '0.1px',
-          lineHeight: '18px',
+          lineHeight: '20px',
         }}
       >
         {t('chatPlaceholder.footer', 'Orbita — полностью бесплатный и независимый мессенджер')}
