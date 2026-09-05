@@ -25,10 +25,10 @@ export const ChatPlaceholder = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '28px',
+          gap: '0px',
         }}
       >
-        <div style={{ width: '180px', height: '180px', flexShrink: 0 }}>
+        <div style={{ width: '240px', height: '240px', flexShrink: 0 }}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
             <defs>
               <clipPath id="orbita-front-clip">
@@ -70,6 +70,7 @@ export const ChatPlaceholder = () => {
             color: 'var(--text-main, #ffffff)',
             textAlign: 'center',
             letterSpacing: '0.2px',
+            marginTop: '-18px',
           }}
         >
           {t('chatPlaceholder.welcome', 'Мы рады вас видеть в Orbita')}
