@@ -6,26 +6,25 @@ export const ChatPlaceholder = () => {
   return (
     <div
       style={{
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         width: '100%',
         height: '100%',
         userSelect: 'none',
-        padding: '32px 24px',
+        padding: '24px',
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ height: '40px', flexShrink: 0 }} />
-
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0px',
+          transform: 'translateY(-26px)',
         }}
       >
         <div style={{ width: '240px', height: '240px', flexShrink: 0 }}>
@@ -65,7 +64,7 @@ export const ChatPlaceholder = () => {
 
         <div
           style={{
-            fontSize: '28px',
+            fontSize: '24px',
             fontWeight: 600,
             color: 'var(--text-main, #ffffff)',
             textAlign: 'center',
@@ -79,11 +78,15 @@ export const ChatPlaceholder = () => {
 
       <div
         style={{
-          fontSize: '14px',
+          position: 'absolute',
+          bottom: '24px',
+          left: '16px',
+          right: '16px',
+          fontSize: '13px',
           color: 'var(--text-dim, rgba(255, 255, 255, 0.45))',
           textAlign: 'center',
           letterSpacing: '0.1px',
-          lineHeight: '20px',
+          lineHeight: '18px',
         }}
       >
         {t('chatPlaceholder.footer', 'Orbita — полностью бесплатный и независимый мессенджер')}
