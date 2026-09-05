@@ -365,7 +365,9 @@
       "mic": "Microphone",
       "mic_off": "Mute mic",
       "camera": "Camera",
+      "camera_on": "Turn on camera",
       "camera_off": "Turn off camera",
+      "you": "You",
       "screen_share": "Screen share",
       "screen_share_active": "Sharing screen",
       "preparing": "Preparing...",
@@ -382,7 +384,7 @@
       "seconds": "{count}s",
       "encryption_info": "If these emojis match on your and your partner's screen, your call is securely end-to-end encrypted.",
       "enable_video": "Video",
-      "video_call_hint": "Video calls are temporarily unavailable"
+      "video_call_hint": "Ready for video call"
     },
     "settings": {
       "title": "Settings",

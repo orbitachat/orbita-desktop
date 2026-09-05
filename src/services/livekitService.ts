@@ -8,6 +8,7 @@ import {
   Track,
   ExternalE2EEKeyProvider,
   isE2EESupported,
+  VideoPresets,
   type RoomOptions,
 } from 'livekit-client';
 import { EventEmitter } from 'events';
@@ -186,6 +187,8 @@ class LiveKitService extends EventEmitter {
       .on(RoomEvent.TrackUnpublished, this.onTrackUnpublished.bind(this))
       .on(RoomEvent.TrackSubscribed, this.onTrackSubscribed.bind(this))
       .on(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed.bind(this))
+      .on(RoomEvent.TrackMuted, this.onTrackMuted.bind(this))
+      .on(RoomEvent.TrackUnmuted, this.onTrackUnmuted.bind(this))
       .on(RoomEvent.ConnectionQualityChanged, this.onConnectionQualityChanged.bind(this))
       .on(RoomEvent.EncryptionError, (err: Error) => {
         console.error(`${LOG_PREFIX} SFrame Encryption error:`, err);
@@ -350,9 +353,75 @@ class LiveKitService extends EventEmitter {
     }
   }
 
-  public async enableCamera(): Promise<void> {}
-  public async disableCamera(): Promise<void> {}
-  public async toggleCamera(): Promise<boolean> { return false; }
+  public async enableCamera(): Promise<boolean> {
+    if (!this.localParticipant) {
+      return false;
+    }
+    try {
+      await this.localParticipant.setCameraEnabled(true, {
+        resolution: VideoPresets.h720.resolution,
+      });
+      const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);
+      if (pub?.track) {
+        this.localVideoTrack = pub.track as LocalTrack;
+      }
+      this.updateParticipants();
+      this.emit('cameraChanged', true, this.localVideoTrack);
+      return true;
+    } catch (err) {
+      this.localVideoTrack = null;
+      this.updateParticipants();
+      this.emit('cameraChanged', false, null);
+      return false;
+    }
+  }
+
+  public async disableCamera(): Promise<void> {
+    if (!this.localParticipant) {
+      return;
+    }
+    try {
+      await this.localParticipant.setCameraEnabled(false);
+    } catch {}
+    this.localVideoTrack = null;
+    this.updateParticipants();
+    this.emit('cameraChanged', false, null);
+  }
+
+  public async toggleCamera(): Promise<boolean> {
+    const isCurrentlyEnabled = !!(
+      this.localVideoTrack &&
+      this.localVideoTrack.mediaStreamTrack &&
+      this.localVideoTrack.mediaStreamTrack.enabled &&
+      !this.localVideoTrack.isMuted
+    );
+    if (isCurrentlyEnabled) {
+      await this.disableCamera();
+      return false;
+    } else {
+      return await this.enableCamera();
+    }
+  }
+
+  public getLocalVideoTrack(): LocalTrack | null {
+    if (!this.localParticipant) return null;
+    const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);
+    return (pub?.track as LocalTrack) || this.localVideoTrack;
+  }
+
+  public getRemoteVideoTrack(identity?: string): RemoteTrack | null {
+    if (!this.room) return null;
+    if (identity) {
+      const p = this.room.getParticipantByIdentity(identity);
+      const pub = p?.getTrackPublication(Track.Source.Camera);
+      return (pub?.track as RemoteTrack) || null;
+    }
+    for (const p of this.room.remoteParticipants.values()) {
+      const pub = p.getTrackPublication(Track.Source.Camera);
+      if (pub?.track) return pub.track as RemoteTrack;
+    }
+    return null;
+  }
 
   public async startScreenShare(): Promise<void> {}
   public async stopScreenShare(): Promise<void> {}
@@ -417,6 +486,7 @@ class LiveKitService extends EventEmitter {
         this.attachedAudioElements.set(key, el);
       } catch {}
     }
+    this.updateParticipants();
     this.emit('trackSubscribed', track, participant.identity);
   }
 
@@ -432,7 +502,18 @@ class LiveKitService extends EventEmitter {
         try { track.detach().forEach((detachedEl) => detachedEl.remove()); } catch {}
       }
     }
+    this.updateParticipants();
     this.emit('trackUnsubscribed', track, participant.identity);
+  }
+
+  private onTrackMuted(_publication: any, _participant: any): void {
+    this.updateParticipants();
+    this.emit('trackMuted');
+  }
+
+  private onTrackUnmuted(_publication: any, _participant: any): void {
+    this.updateParticipants();
+    this.emit('trackUnmuted');
   }
 
   private onConnectionQualityChanged(quality: any, participant: any): void {
@@ -444,11 +525,17 @@ class LiveKitService extends EventEmitter {
     this.participants.clear();
 
     if (this.localParticipant) {
+      const isVideoOn = !!(
+        this.localVideoTrack &&
+        this.localVideoTrack.mediaStreamTrack &&
+        this.localVideoTrack.mediaStreamTrack.enabled &&
+        !this.localVideoTrack.isMuted
+      );
       const info: ParticipantInfo = {
         identity: this.localParticipant.identity,
         name: this.localParticipant.name || this.localParticipant.identity,
         audioEnabled: this.localAudioTrack?.mediaStreamTrack.enabled ?? false,
-        videoEnabled: false,
+        videoEnabled: isVideoOn,
         isSpeaking: false,
         isLocal: true,
       };
@@ -458,11 +545,19 @@ class LiveKitService extends EventEmitter {
     for (const [identity, participant] of this.room.remoteParticipants) {
       const audioPub = participant.getTrackPublication(Track.Source.Microphone);
       const audioEnabled = audioPub?.track?.mediaStreamTrack.enabled ?? false;
+      const videoPub = participant.getTrackPublication(Track.Source.Camera);
+      const videoEnabled = !!(
+        videoPub &&
+        videoPub.track &&
+        videoPub.track.mediaStreamTrack &&
+        videoPub.track.mediaStreamTrack.enabled &&
+        !videoPub.isMuted
+      );
       const info: ParticipantInfo = {
         identity,
         name: participant.name || identity,
         audioEnabled,
-        videoEnabled: false,
+        videoEnabled,
         isSpeaking: participant.isSpeaking,
         isLocal: false,
       };

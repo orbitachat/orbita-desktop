@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Phone, Mic, MicOff, Video, X } from 'lucide-react';
+import { Phone, Mic, MicOff, Video, VideoOff, X } from 'lucide-react';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
@@ -29,6 +29,7 @@ interface CallStatePayload {
   } | null;
   callState: 'idle' | 'preparing' | 'ringing' | 'connecting' | 'connected' | 'ended';
   isMicEnabled: boolean;
+  isVideoEnabled?: boolean;
   duration: number;
   statusMessage: string;
   myNickname: string | null;
@@ -191,6 +192,12 @@ export const CallWindowView = () => {
     sendAction('toggleMic', next);
   };
 
+  const handleToggleVideo = () => {
+    const next = !isVideoEnabled;
+    setCallData((prev) => (prev ? { ...prev, isVideoEnabled: next } : prev));
+    sendAction('toggleVideo', next);
+  };
+
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
@@ -201,6 +208,7 @@ export const CallWindowView = () => {
   const incomingCall = callData?.incomingCall;
   const callState = callData?.callState || 'idle';
   const isMicEnabled = callData?.isMicEnabled ?? false;
+  const isVideoEnabled = callData?.isVideoEnabled ?? (activeCall?.callType === 'video');
   const duration = callData?.duration ?? 0;
   const statusMessage = callData?.statusMessage ?? '';
 
@@ -306,18 +314,18 @@ export const CallWindowView = () => {
           <>
             <button
               type="button"
-              disabled
-              aria-label={t('call.enable_video')}
-              className="flex flex-col items-center gap-2 opacity-50 cursor-default pointer-events-none select-none bg-transparent border-0 p-0 outline-none"
+              onClick={handleToggleVideo}
+              aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
+              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center shadow-md"
-                style={accentButtonStyle}
+                style={isVideoEnabled ? accentButtonStyle : neutralButtonStyle(false)}
               >
-                <Video size={24} color="#ffffff" />
+                {isVideoEnabled ? <Video size={24} color="#ffffff" /> : <VideoOff size={24} color="#ffffff" />}
               </div>
               <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '12px', fontWeight: 500 }}>
-                {t('call.enable_video')}
+                {isVideoEnabled ? t('call.camera_off') : t('call.enable_video')}
               </span>
             </button>
 
@@ -365,6 +373,20 @@ export const CallWindowView = () => {
               </div>
               <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '12px', fontWeight: 500 }}>
                 {isMicEnabled ? t('call.mic') : t('call.mic_off')}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleVideo}
+              aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
+              className="flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none"
+            >
+              <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-md" style={neutralButtonStyle(isVideoEnabled)}>
+                {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
+              </div>
+              <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '12px', fontWeight: 500 }}>
+                {isVideoEnabled ? t('call.camera_off') : t('call.camera')}
               </span>
             </button>
 

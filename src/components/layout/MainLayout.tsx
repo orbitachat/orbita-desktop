@@ -2879,6 +2879,12 @@ export const MainLayout = () => {
   const SIDEBAR_MIN_WIDTH = 260;
 
   const isCallMinimized = useCallStore((state) => state.isMinimized && !!state.activeCall);
+  const isVideoCallActive = useCallStore((state) => (
+    state.activeCall?.callType === 'video' ||
+    state.incomingCall?.callType === 'video' ||
+    state.isVideoEnabled
+  ));
+  const showCallModalsInWindow = !((window as any).orbita?.openCallWindow) || isVideoCallActive;
 
   const maxSidebarWidth = useMemo(() => {
     return undefined;
@@ -3398,8 +3404,8 @@ export const MainLayout = () => {
           }}
         />
 
-        {!((window as any).orbita?.openCallWindow) && <IncomingCallModal />}
-        {!((window as any).orbita?.openCallWindow) && <CallWindow />}
+        {showCallModalsInWindow && <IncomingCallModal />}
+        {showCallModalsInWindow && <CallWindow />}
 
       <GlobalAudioEngine />
 

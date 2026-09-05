@@ -248,6 +248,9 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
       callSoundService.stop();
       liveKitService.enableMicrophone().catch(() => {});
+      if (stateAfterCrypto.isVideoEnabled || stateAfterCrypto.activeCall.callType === 'video') {
+        liveKitService.enableCamera().catch(() => {});
+      }
 
       const connectedAt = syncedConnectedAt
         || (stateAfterCrypto.activeCall.startTime > 0 ? stateAfterCrypto.activeCall.startTime : Date.now());
@@ -323,6 +326,17 @@ export const useCallStore = create<CallStore>((set, get) => {
     });
 
     liveKitService.on('micChanged', (enabled: boolean) => { set({ isMicEnabled: enabled }); });
+    liveKitService.on('cameraChanged', (enabled: boolean) => {
+      set({ isVideoEnabled: enabled });
+      const act = get().activeCall;
+      if (act) set({ activeCall: { ...act, isVideoEnabled: enabled } });
+    });
+    liveKitService.on('trackMuted', () => {
+      get().updateParticipants(liveKitService.allParticipants);
+    });
+    liveKitService.on('trackUnmuted', () => {
+      get().updateParticipants(liveKitService.allParticipants);
+    });
 
     liveKitService.on('connectAttempt', (attempt: number, total: number) => {
       const state = get();
@@ -417,23 +431,24 @@ export const useCallStore = create<CallStore>((set, get) => {
       const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
       const verificationSecret = chat?.type === 'private' ? chat.sharedSecret : undefined;
       const verificationSalt = crypto.randomUUID().replace(/-/g, '');
+      const isVideo = callType === 'video';
       set({
         myNickname,
-        activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: 0, participants: [], isMuted: false, isVideoEnabled: false, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
-        callState: 'preparing', isMicEnabled: false, isVideoEnabled: false, isScreenSharing: false, connectionQuality: 'unknown', duration: 0, statusMessage: '', isEnding: false,
+        activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
+        callState: 'preparing', isMicEnabled: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', duration: 0, statusMessage: '', isEnding: false,
       });
     },
 
     initiateCall: async () => {
       const state = get();
       if (!state.activeCall || state.callState !== 'preparing') return;
-      const { chatId, roomName, verificationSalt, verificationSecret } = state.activeCall;
+      const { chatId, roomName, verificationSalt, verificationSecret, callType } = state.activeCall;
       const myNickname = state.myNickname;
       if (!myNickname) return;
       try { useAudioStore.getState().pause(); } catch {}
       set({ callState: 'ringing', statusMessage: i18n.t('call.calling') });
       callSoundService.play('outgoing');
-      sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: 'audio', roomName, verificationSalt, text: '' });
+      sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: callType || 'audio', roomName, verificationSalt, text: '' });
       noAnswerTimer = setTimeout(() => {
         if (get().callState === 'ringing') {
           const act = get().activeCall;
@@ -463,14 +478,15 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (!state.incomingCall) return;
       if (state.activeCall) return;
       try { useAudioStore.getState().pause(); } catch {}
-      const { chatId, roomName, verificationSalt } = state.incomingCall;
+      const { chatId, roomName, verificationSalt, callType } = state.incomingCall;
       if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
       const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
       const verificationSecret = chat?.type === 'private' ? chat.sharedSecret : undefined;
+      const isVideo = callType === 'video';
       set({
         myNickname, incomingCall: null, callState: 'connecting', statusMessage: i18n.t('call.connecting'),
-        activeCall: { chatId, roomName, direction: 'incoming', callType: 'audio', startTime: 0, participants: [], isMuted: false, isVideoEnabled: false, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
-        isMicEnabled: false, isVideoEnabled: false, duration: 0, isEnding: false,
+        activeCall: { chatId, roomName, direction: 'incoming', callType: callType || 'audio', startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
+        isMicEnabled: false, isVideoEnabled: isVideo, duration: 0, isEnding: false,
       });
       callSoundService.play('connect');
 
@@ -660,7 +676,21 @@ export const useCallStore = create<CallStore>((set, get) => {
       } catch (err) { console.error(`${LOG_PREFIX} toggleMic failed:`, err); }
     },
 
-    toggleVideo: async () => {},
+    toggleVideo: async () => {
+      const state = get();
+      const next = !state.isVideoEnabled;
+      set({ isVideoEnabled: next });
+      if (state.activeCall) set({ activeCall: { ...state.activeCall, isVideoEnabled: next } });
+      try {
+        if (next) {
+          await liveKitService.enableCamera();
+        } else {
+          await liveKitService.disableCamera();
+        }
+      } catch (err) {
+        console.error(`${LOG_PREFIX} toggleVideo failed:`, err);
+      }
+    },
     toggleScreenShare: async () => {},
 
     updateParticipants: (participants) => { const act = get().activeCall; if (act) set({ activeCall: { ...act, participants } }); },
@@ -694,16 +724,19 @@ const syncCallState = (state: CallStore) => {
   const payload = {
     activeCall: state.activeCall ? { ...state.activeCall, otherName: chat?.name || state.activeCall.chatId, otherAvatar: chat?.avatarUrl || null } : null,
     incomingCall: state.incomingCall ? { ...state.incomingCall, otherName: chat?.name || state.incomingCall.from, otherAvatar: chat?.avatarUrl || null } : null,
-    callState: state.callState, isMicEnabled: state.isMicEnabled, duration: state.duration, statusMessage: state.statusMessage, myNickname: state.myNickname,
+    callState: state.callState, isMicEnabled: state.isMicEnabled, isVideoEnabled: state.isVideoEnabled, duration: state.duration, statusMessage: state.statusMessage, myNickname: state.myNickname,
   };
   try { (window as any).orbita?.sendCallState?.(payload); } catch {}
   try {
     if (!persistentBc) persistentBc = new BroadcastChannel('orbita-call-channel');
     persistentBc.postMessage({ type: 'CALL_STATE_UPDATE', payload });
   } catch {}
+  const isVideo = state.activeCall?.callType === 'video' || state.incomingCall?.callType === 'video' || state.isVideoEnabled;
   const prevCallState = lastKnownCallState;
   lastKnownCallState = state.callState;
-  if (state.callState !== 'idle' && prevCallState === 'idle') {
+  if (isVideo) {
+    try { (window as any).orbita?.closeCallWindow?.(); } catch {}
+  } else if (state.callState !== 'idle' && prevCallState === 'idle') {
     try { (window as any).orbita?.openCallWindow?.(payload); } catch {}
   } else if (state.callState === 'idle') {
     try { (window as any).orbita?.closeCallWindow?.(); } catch {}
@@ -719,6 +752,7 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
     case 'cancelCall': lastKnownCallState = 'idle'; store.endCall(true); try { (window as any).orbita?.closeCallWindow?.(); } catch {} break;
     case 'endCall': store.endCall(false); break;
     case 'toggleMic': store.toggleMic(); break;
+    case 'toggleVideo': store.toggleVideo(); break;
   }
 };
 
