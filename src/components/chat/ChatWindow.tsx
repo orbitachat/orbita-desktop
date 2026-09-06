@@ -3888,13 +3888,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         reader.readAsDataURL(encryptedBlob);
       });
 
-      const tempPath = await window.orbita.writeTempFile(encryptedBase64, ext);
+      const tempPath = await window.orbita.writeTempFile(encryptedBase64);
       if (!tempPath) {
         showToast(t('chatWindow.upload_failed'));
         return;
       }
 
-      const publicId = `orbita_${voiceFileName}`;
+      const publicId = `orbita_${Date.now()}`;
       const result = await window.orbita.uploadToCloudinary(tempPath, publicId);
       window.orbita.deleteTempFile?.(tempPath);
 
