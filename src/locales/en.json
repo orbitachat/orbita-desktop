@@ -242,7 +242,16 @@
     },
     "chatPlaceholder": {
       "title": "Select a chat or start a new one",
-      "welcome": "We are glad to see you in Orbita",
+      "welcome": "Welcome to Orbita",
+      "seeWhatsNewPrefix": "See ",
+      "whatsNew": "what's new",
+      "seeWhatsNewSuffix": " in this update",
+      "whatsNewTitle": "What's new",
+      "whatsNewChange1": "Unified video and voice calls in a separate window",
+      "whatsNewChange2": "Camera is requested and enabled only during video calls",
+      "whatsNewChange3": "Microphone is enabled by default during calls",
+      "whatsNewChange4": "Updated welcome screen with minimalist design",
+      "understand": "I understand",
       "footer": "Orbita is a completely free and independent messenger"
     },
     "chatSearch": {

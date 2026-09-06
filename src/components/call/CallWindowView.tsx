@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff } from 'lucide-react';
 import { Avatar } from '../common/Avatar';
@@ -230,6 +230,49 @@ export const CallWindowView = () => {
   const isConnecting = callState === 'connecting';
   const isEnded = callState === 'ended';
 
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    const isCallActive = callState === 'ringing' || callState === 'connecting' || callState === 'connected';
+    const showWebcam = isCallActive && isVideoEnabled;
+
+    if (!showWebcam) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+    navigator.mediaDevices
+      ?.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        audio: false,
+      })
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.play().catch(() => {});
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [callState, isVideoEnabled]);
+
   return (
     <div
       className="w-full h-full min-h-screen flex flex-col justify-between overflow-hidden select-none"
@@ -250,13 +293,25 @@ export const CallWindowView = () => {
       </div>
 
       <div className="flex flex-col items-center justify-center flex-1 py-4">
-        <div className="w-[120px] h-[120px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-lg pointer-events-none">
-          {otherName ? (
-            <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '48px' }} />
-          ) : (
-            <div className="w-full h-full rounded-full bg-white/5 animate-pulse" />
-          )}
-        </div>
+        {((callState === 'ringing' || callState === 'connecting' || callState === 'connected') && isVideoEnabled) ? (
+          <div className="w-[180px] h-[180px] rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-black/60 flex items-center justify-center select-none">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover -scale-x-100"
+            />
+          </div>
+        ) : (
+          <div className="w-[120px] h-[120px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-lg pointer-events-none">
+            {otherName ? (
+              <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '48px' }} />
+            ) : (
+              <div className="w-full h-full rounded-full bg-white/5 animate-pulse" />
+            )}
+          </div>
+        )}
 
         <h2
           className="mt-4 text-xl font-bold tracking-tight text-center px-4 truncate max-w-full min-h-[28px]"

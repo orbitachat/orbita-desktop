@@ -279,10 +279,13 @@ export const CallWindow = () => {
   }, [isConnected, isVideoEnabled]);
 
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected || isPreparing) {
       if (previewStreamRef.current) {
         previewStreamRef.current.getTracks().forEach((t) => t.stop());
         previewStreamRef.current = null;
+      }
+      if (isPreparing) {
+        setIsLocalVideoActive(false);
       }
       return;
     }
@@ -323,7 +326,7 @@ export const CallWindow = () => {
         previewStreamRef.current = null;
       }
     };
-  }, [isConnected, isVideoEnabled]);
+  }, [isConnected, isPreparing, isVideoEnabled]);
 
   if (!activeCall) return null;
 

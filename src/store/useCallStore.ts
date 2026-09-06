@@ -456,7 +456,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       set({
         myNickname,
         activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
-        callState: 'preparing', isMicEnabled: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', duration: 0, statusMessage: '', isEnding: false,
+        callState: 'preparing', isMicEnabled: true, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', duration: 0, statusMessage: '', isEnding: false,
       });
     },
 
@@ -507,7 +507,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       set({
         myNickname, incomingCall: null, callState: 'connecting', statusMessage: i18n.t('call.connecting'),
         activeCall: { chatId, roomName, direction: 'incoming', callType: callType || 'audio', startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
-        isMicEnabled: false, isVideoEnabled: isVideo, duration: 0, isEnding: false,
+        isMicEnabled: true, isVideoEnabled: isVideo, duration: 0, isEnding: false,
       });
       callSoundService.play('connect');
 
@@ -779,12 +779,9 @@ const syncCallState = (state: CallStore) => {
     if (!persistentBc) persistentBc = new BroadcastChannel('orbita-call-channel');
     persistentBc.postMessage({ type: 'CALL_STATE_UPDATE', payload });
   } catch {}
-  const isVideo = state.activeCall?.callType === 'video' || state.incomingCall?.callType === 'video' || state.isVideoEnabled;
   const prevCallState = lastKnownCallState;
   lastKnownCallState = state.callState;
-  if (isVideo) {
-    try { (window as any).orbita?.closeCallWindow?.(); } catch {}
-  } else if (state.callState !== 'idle' && prevCallState === 'idle') {
+  if (state.callState !== 'idle' && prevCallState === 'idle') {
     try { (window as any).orbita?.openCallWindow?.(payload); } catch {}
   } else if (state.callState === 'idle') {
     try { (window as any).orbita?.closeCallWindow?.(); } catch {}
