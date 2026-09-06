@@ -3267,15 +3267,7 @@ export const MainLayout = () => {
 
         <AnimatePresence>
           {currentView === 'settings' && (
-            <motion.div
-              key="settings-screen-wrapper"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              <SettingsScreen />
-            </motion.div>
+            <SettingsScreen />
           )}
         </AnimatePresence>
 
@@ -3346,9 +3338,7 @@ export const MainLayout = () => {
           }}
           onOpenSettings={() => {
             setIsMainMenuOpen(false);
-            setTimeout(() => {
-              handleOpenSettings();
-            }, 180);
+            handleOpenSettings();
           }}
         />
 
