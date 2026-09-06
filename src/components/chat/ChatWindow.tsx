@@ -2578,7 +2578,18 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const getDateLabel = useCallback((timestamp: number): string => {
     const date = new Date(timestamp);
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 86400000);
+    const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const isRu = (i18n.language || 'ru').startsWith('ru');
+
+    if (msgDate.getTime() === today.getTime()) {
+      return isRu ? 'Сегодня' : 'Today';
+    }
+    if (msgDate.getTime() === yesterday.getTime()) {
+      return isRu ? 'Вчера' : 'Yesterday';
+    }
+
     const isDifferentYear = date.getFullYear() !== now.getFullYear();
 
     if (isRu) {
@@ -2669,26 +2680,34 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       loadMoreAbove();
     }
 
+    if (floatingDateTimeoutRef.current) {
+      clearTimeout(floatingDateTimeoutRef.current);
+    }
+    floatingDateTimeoutRef.current = setTimeout(() => {
+      setShowFloatingDate(false);
+    }, 1200);
+
     const now = performance.now();
-    if (now - lastDateCheckTimeRef.current > 140) {
+    if (now - lastDateCheckTimeRef.current > 80) {
       lastDateCheckTimeRef.current = now;
       if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
       scrollRafRef.current = requestAnimationFrame(() => {
         if (!messagesContainerRef.current) return;
         const rect = messagesContainerRef.current.getBoundingClientRect();
-        const probe = document.elementFromPoint(rect.left + rect.width / 2, rect.top + 40);
-        const msgContainer = probe?.closest('[data-datelabel]');
-        if (msgContainer) {
-          const dateLabel = msgContainer.getAttribute('data-datelabel');
-          if (dateLabel && dateLabel !== floatingDateRef.current) {
+        const y = rect.top + 50;
+        const target =
+          document.elementFromPoint(rect.left + rect.width / 2, y)?.closest('[data-datelabel]') ||
+          document.elementFromPoint(rect.left + 40, y)?.closest('[data-datelabel]') ||
+          document.elementFromPoint(rect.right - 40, y)?.closest('[data-datelabel]');
+        if (target) {
+          const dateLabel = target.getAttribute('data-datelabel');
+          if (dateLabel) {
             floatingDateRef.current = dateLabel;
             setFloatingDate(dateLabel);
             setShowFloatingDate(true);
-            if (floatingDateTimeoutRef.current) clearTimeout(floatingDateTimeoutRef.current);
-            floatingDateTimeoutRef.current = setTimeout(() => {
-              setShowFloatingDate(false);
-            }, 1500);
           }
+        } else if (floatingDateRef.current) {
+          setShowFloatingDate(true);
         }
       });
     }
@@ -4811,20 +4830,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       <div className="flex justify-center items-center w-full my-2.5 select-none pointer-events-none">
         <div
           style={{
-            backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255,255,255,0.08)) 85%, #000)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            color: 'var(--text-secondary, rgba(255,255,255,0.85))',
+            backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255,255,255,0.06)) 92%, #000)',
+            color: 'var(--text-main, #ffffff)',
             fontSize: '12px',
             fontWeight: 500,
-            padding: '3px 13px',
-            borderRadius: '9999px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            padding: '3px 12px',
+            borderRadius: '12px',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            letterSpacing: '0.01em',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
           }}
         >
           {getDateLabel(msg.time)}
