@@ -3346,7 +3346,9 @@ export const MainLayout = () => {
           }}
           onOpenSettings={() => {
             setIsMainMenuOpen(false);
-            handleOpenSettings();
+            setTimeout(() => {
+              handleOpenSettings();
+            }, 180);
           }}
         />
 

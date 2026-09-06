@@ -1957,6 +1957,9 @@ export const SettingsScreen = () => {
   const { appVersion } = useDeviceStore();
   const { proxyEnabled, activeProxyId, proxies } = useConnectionStore();
   const activeProxy = proxies.find((p) => p.id === activeProxyId);
+  const initialSettingsTab = useChatStore((s) => s.initialSettingsTab) as TabId | undefined;
+  const [tabStack, setTabStack] = useState<TabId[]>(() => [initialSettingsTab || 'main']);
+  const activeTab = tabStack[tabStack.length - 1];
 
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoInputDevices, setVideoInputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -1973,12 +1976,14 @@ export const SettingsScreen = () => {
   }, []);
 
   useEffect(() => {
-    loadMediaDevices();
+    if (activeTab === 'calls') {
+      loadMediaDevices();
+    }
     if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
       navigator.mediaDevices.addEventListener('devicechange', loadMediaDevices);
       return () => navigator.mediaDevices.removeEventListener('devicechange', loadMediaDevices);
     }
-  }, [loadMediaDevices]);
+  }, [activeTab, loadMediaDevices]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.orbita) {
@@ -2007,10 +2012,6 @@ export const SettingsScreen = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const initialSettingsTab = useChatStore((s) => s.initialSettingsTab) as TabId | undefined;
-  const [tabStack, setTabStack] = useState<TabId[]>(() => [initialSettingsTab || 'main']);
-  const activeTab = tabStack[tabStack.length - 1];
-
   useEffect(() => {
     if (initialSettingsTab) {
       setTabStack([initialSettingsTab]);
@@ -2021,7 +2022,12 @@ export const SettingsScreen = () => {
   const popTab = () => setTabStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev);
 
   const innerContentRef = useRef<HTMLDivElement>(null);
-  const [targetHeight, setTargetHeight] = useState<number | null>(null);
+  const [targetHeight, setTargetHeight] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      return Math.min(window.innerHeight * 0.85, 720);
+    }
+    return 720;
+  });
 
   useEffect(() => {
     if (isMobileWidth) return;
