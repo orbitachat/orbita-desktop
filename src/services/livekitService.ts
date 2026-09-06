@@ -12,6 +12,7 @@ import {
   isE2EESupported,
   VideoPresets,
   type RoomOptions,
+  type RoomConnectOptions,
 } from 'livekit-client';
 import { EventEmitter } from 'events';
 import { useChatStore } from '../store/useChatStore';
@@ -158,6 +159,9 @@ class LiveKitService extends EventEmitter {
     }
 
     const isNoiseSuppression = useChatStore.getState().noiseSuppressionCalls;
+    const alwaysRelay = useChatStore.getState().alwaysRelayCalls;
+    const selectedMicId = useChatStore.getState().selectedMicrophoneId;
+    const selectedCamId = useChatStore.getState().selectedCameraId;
 
     const roomOptions: RoomOptions = {
       adaptiveStream: true,
@@ -165,12 +169,16 @@ class LiveKitService extends EventEmitter {
       stopLocalTrackOnUnpublish: true,
       e2ee: e2eeOptions,
       audioCaptureDefaults: {
+        deviceId: selectedMicId || undefined,
         autoGainControl: false,
         echoCancellation: true,
         noiseSuppression: isNoiseSuppression,
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
+      },
+      videoCaptureDefaults: {
+        deviceId: selectedCamId || undefined,
       },
       publishDefaults: {
         dtx: false,
@@ -211,7 +219,19 @@ class LiveKitService extends EventEmitter {
       });
 
     console.log(`${LOG_PREFIX} Connecting to room:`, roomName);
-    await this.room.connect(url, token);
+    const roomConnectOptions: RoomConnectOptions = {
+      rtcConfig: {
+        iceTransportPolicy: alwaysRelay ? 'relay' : 'all',
+      },
+    };
+    await this.room.connect(url, token, roomConnectOptions);
+
+    const selectedSpeakerId = useChatStore.getState().selectedSpeakerId;
+    if (selectedSpeakerId) {
+      try {
+        await this.room.switchActiveDevice('audiooutput', selectedSpeakerId);
+      } catch {}
+    }
 
     if (this.room.hasE2EESetup) {
       try {
@@ -219,6 +239,16 @@ class LiveKitService extends EventEmitter {
         console.log(`${LOG_PREFIX} SFrame E2EE enabled for room`);
       } catch (err) {
         console.warn(`${LOG_PREFIX} Failed to enable room E2EE:`, err);
+      }
+    }
+  }
+
+  public async switchDevice(kind: 'audioinput' | 'audiooutput' | 'videoinput', deviceId: string): Promise<void> {
+    if (this.room) {
+      try {
+        await this.room.switchActiveDevice(kind, deviceId);
+      } catch (err) {
+        console.warn(`${LOG_PREFIX} Failed to switch device:`, kind, deviceId, err);
       }
     }
   }
@@ -292,7 +322,9 @@ class LiveKitService extends EventEmitter {
 
     try {
       const isNoiseSuppression = useChatStore.getState().noiseSuppressionCalls;
+      const selectedMicId = useChatStore.getState().selectedMicrophoneId;
       await this.localParticipant.setMicrophoneEnabled(true, {
+        deviceId: selectedMicId || undefined,
         autoGainControl: false,
         echoCancellation: true,
         noiseSuppression: isNoiseSuppression,
@@ -388,7 +420,9 @@ class LiveKitService extends EventEmitter {
       return false;
     }
     try {
+      const selectedCamId = useChatStore.getState().selectedCameraId;
       await this.localParticipant.setCameraEnabled(true, {
+        deviceId: selectedCamId || undefined,
         resolution: VideoPresets.h720.resolution,
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);

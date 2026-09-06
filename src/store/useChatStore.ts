@@ -344,6 +344,21 @@ interface ChatState {
   setNoiseSuppressionVoice: (enabled: boolean) => void;
   setNoiseSuppressionCalls: (enabled: boolean) => void;
 
+  callSoundsEnabled: boolean;
+  setCallSoundsEnabled: (enabled: boolean) => void;
+  alwaysRelayCalls: boolean;
+  setAlwaysRelayCalls: (enabled: boolean) => void;
+  selectedCameraId: string;
+  setSelectedCameraId: (id: string) => void;
+  selectedMicrophoneId: string;
+  setSelectedMicrophoneId: (id: string) => void;
+  selectedSpeakerId: string;
+  setSelectedSpeakerId: (id: string) => void;
+  screenProtectionEnabled: boolean;
+  setScreenProtectionEnabled: (enabled: boolean) => void;
+  hideMenuBar: boolean;
+  setHideMenuBar: (hide: boolean) => void;
+
   cacheSizeLimit: number;
   mediaCacheLimit: number;
   cacheCleanupAge: number;
@@ -548,6 +563,14 @@ export const useChatStore = create<ChatState>()(
       useImprovedPlayer: false,
       noiseSuppressionVoice: true,
       noiseSuppressionCalls: true,
+
+      callSoundsEnabled: true,
+      alwaysRelayCalls: true,
+      selectedCameraId: '',
+      selectedMicrophoneId: '',
+      selectedSpeakerId: '',
+      screenProtectionEnabled: false,
+      hideMenuBar: false,
 
       cacheSizeLimit: 5 * 1024 * 1024 * 1024,
       mediaCacheLimit: 2.5 * 1024 * 1024 * 1024,
@@ -1258,6 +1281,14 @@ export const useChatStore = create<ChatState>()(
       setNoiseSuppressionVoice: (enabled) => set({ noiseSuppressionVoice: enabled }),
       setNoiseSuppressionCalls: (enabled) => set({ noiseSuppressionCalls: enabled }),
 
+      setCallSoundsEnabled: (enabled) => set({ callSoundsEnabled: enabled }),
+      setAlwaysRelayCalls: (enabled) => set({ alwaysRelayCalls: enabled }),
+      setSelectedCameraId: (id) => set({ selectedCameraId: id }),
+      setSelectedMicrophoneId: (id) => set({ selectedMicrophoneId: id }),
+      setSelectedSpeakerId: (id) => set({ selectedSpeakerId: id }),
+      setScreenProtectionEnabled: (enabled) => set({ screenProtectionEnabled: enabled }),
+      setHideMenuBar: (hide) => set({ hideMenuBar: hide }),
+
       setCacheSizeLimit: (limit) => set({ cacheSizeLimit: limit }),
       setMediaCacheLimit: (limit) => set({ mediaCacheLimit: limit }),
       setCacheCleanupAge: (age) => set({ cacheCleanupAge: age }),
@@ -1347,6 +1378,13 @@ export const useChatStore = create<ChatState>()(
         cacheCleanupAge: state.cacheCleanupAge,
         autoLoadMedia: state.autoLoadMedia,
         draftsByChatId: state.draftsByChatId,
+        callSoundsEnabled: state.callSoundsEnabled,
+        alwaysRelayCalls: state.alwaysRelayCalls,
+        selectedCameraId: state.selectedCameraId,
+        selectedMicrophoneId: state.selectedMicrophoneId,
+        selectedSpeakerId: state.selectedSpeakerId,
+        screenProtectionEnabled: state.screenProtectionEnabled,
+        hideMenuBar: state.hideMenuBar,
       }),
       version: 34,
       migrate: (persistedState: any, version: number) => {

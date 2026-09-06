@@ -2086,6 +2086,34 @@ ipcMain.handle('orbita:get-auto-launch-state', () => {
   return false;
 });
 
+let screenProtectionSetting = false;
+
+ipcMain.handle('orbita:set-screen-protection', (_event, enabled: boolean) => {
+  screenProtectionSetting = !!enabled;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setContentProtection(screenProtectionSetting);
+  }
+  if (callWindow && !callWindow.isDestroyed()) {
+    callWindow.setContentProtection(screenProtectionSetting);
+  }
+  return screenProtectionSetting;
+});
+
+ipcMain.handle('orbita:get-screen-protection', () => screenProtectionSetting);
+
+let hideMenuBarSetting = false;
+
+ipcMain.handle('orbita:set-hide-menu-bar', (_event, hide: boolean) => {
+  hideMenuBarSetting = !!hide;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setAutoHideMenuBar(hideMenuBarSetting);
+    mainWindow.setMenuBarVisibility(!hideMenuBarSetting);
+  }
+  return hideMenuBarSetting;
+});
+
+ipcMain.handle('orbita:get-hide-menu-bar', () => hideMenuBarSetting);
+
 ipcMain.on('orbita:tray-menu-action', (_event, action: string) => {
   if (action === 'open') {
     showMainWindow();
@@ -2223,6 +2251,9 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
   });
 
   Menu.setApplicationMenu(null);
+  if (screenProtectionSetting) {
+    callWindow.setContentProtection(true);
+  }
 
   callWindow.on('resize', () => {
     if (callWindow && !callWindow.isDestroyed()) {
@@ -2567,6 +2598,11 @@ function createMainWindow() {
   if (icon && !icon.isEmpty()) mainWindow.setIcon(icon);
 
   Menu.setApplicationMenu(null);
+  if (screenProtectionSetting) {
+    mainWindow.setContentProtection(true);
+  }
+  mainWindow.setAutoHideMenuBar(hideMenuBarSetting);
+  mainWindow.setMenuBarVisibility(!hideMenuBarSetting);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();

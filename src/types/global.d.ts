@@ -72,6 +72,10 @@ declare global {
       getShowInSystemTray: () => Promise<boolean>;
       setAutoLaunch: (enabled: boolean) => Promise<boolean>;
       getAutoLaunchState: () => Promise<boolean>;
+      setScreenProtection: (enabled: boolean) => Promise<boolean>;
+      getScreenProtection: () => Promise<boolean>;
+      setHideMenuBar: (hide: boolean) => Promise<boolean>;
+      getHideMenuBar: () => Promise<boolean>;
       openOrbitaFromTray: () => void;
       closeOrbitaFromTray: () => void;
       minimizeWindow: () => Promise<void>;

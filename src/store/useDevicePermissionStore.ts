@@ -9,6 +9,8 @@ interface DevicePermissionState {
   hasMicrophonePermission: boolean;
   pendingResolve: ((granted: boolean) => void) | null;
   requestPermission: (type: DevicePermissionType) => Promise<boolean>;
+  setCameraPermission: (granted: boolean) => void;
+  setMicrophonePermission: (granted: boolean) => void;
   confirmPermission: () => void;
   denyPermission: () => void;
   resetPermissions: () => void;
@@ -45,6 +47,28 @@ export const useDevicePermissionStore = create<DevicePermissionState>((set, get)
         pendingResolve: resolve,
       });
     });
+  },
+
+  setCameraPermission: (granted: boolean) => {
+    try {
+      if (granted) {
+        localStorage.setItem('orbita_perm_camera', 'granted');
+      } else {
+        localStorage.removeItem('orbita_perm_camera');
+      }
+    } catch {}
+    set({ hasCameraPermission: granted });
+  },
+
+  setMicrophonePermission: (granted: boolean) => {
+    try {
+      if (granted) {
+        localStorage.setItem('orbita_perm_microphone', 'granted');
+      } else {
+        localStorage.removeItem('orbita_perm_microphone');
+      }
+    } catch {}
+    set({ hasMicrophonePermission: granted });
   },
 
   confirmPermission: () => {

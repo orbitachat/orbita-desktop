@@ -22,6 +22,7 @@ import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '..
 import { DeleteAccountModal } from '../common/DeleteAccountModal';
 import { ConnectionSettingsScreen } from '../settings/ConnectionSettingsScreen';
 import { useConnectionStore } from '../../store/useConnectionStore';
+import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { LinkCopiedToast } from '../common/LinkCopiedToast';
 import { QrCodeView } from './QrCodeView';
@@ -530,13 +531,28 @@ const PrivacySettingsScreen = ({ onOpenPassword }: { onOpenPassword: () => void 
     setTypingIndicatorsEnabled,
     linkPreviewsEnabled,
     setLinkPreviewsEnabled,
+    screenProtectionEnabled,
+    setScreenProtectionEnabled,
   } = useChatStore();
 
   const [isPasswordSet, setIsPasswordSet] = useState(() => securityService.isPasswordSet());
 
   useEffect(() => {
     setIsPasswordSet(securityService.isPasswordSet());
-  }, []);
+    if (typeof window !== 'undefined' && window.orbita?.getScreenProtection) {
+      window.orbita.getScreenProtection().then((val) => {
+        setScreenProtectionEnabled(val);
+      }).catch(() => {});
+    }
+  }, [setScreenProtectionEnabled]);
+
+  const handleToggleScreenProtection = async () => {
+    const nextVal = !screenProtectionEnabled;
+    setScreenProtectionEnabled(nextVal);
+    if (typeof window !== 'undefined' && window.orbita?.setScreenProtection) {
+      await window.orbita.setScreenProtection(nextVal);
+    }
+  };
 
   return (
     <motion.div
@@ -692,6 +708,38 @@ const PrivacySettingsScreen = ({ onOpenPassword }: { onOpenPassword: () => void 
             </div>
           </div>
           <ChevronRight size={20} style={{ color: MD3.onSurfaceVar }} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: MD3.onSurfaceVar,
+          letterSpacing: '0.05em',
+          padding: '0 20px',
+          marginBottom: 8,
+        }}>
+          {t('settings.app_section')}
+        </div>
+        <div style={{
+          backgroundColor: MD3.surface,
+          borderRadius: 0,
+          padding: '16px 20px',
+          margin: '0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>
+              {t('settings.screen_protection')}
+            </div>
+            <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>
+              {t('settings.screen_protection_desc')}
+            </div>
+          </div>
+          <M3Switch checked={screenProtectionEnabled} onChange={handleToggleScreenProtection} />
         </div>
       </div>
     </motion.div>
@@ -1736,7 +1784,7 @@ const PreferenceSwitch = ({
   onChange,
 }: {
   label: string;
-  description: string;
+  description?: string;
   checked: boolean;
   onChange: () => void;
 }) => (
@@ -1749,9 +1797,67 @@ const PreferenceSwitch = ({
   }}>
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>{label}</div>
-      <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>{description}</div>
+      {description && <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>{description}</div>}
     </div>
     <M3Switch checked={checked} onChange={onChange} />
+  </div>
+);
+
+const DeviceSelect = ({
+  label,
+  value,
+  devices,
+  defaultLabel,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  devices: MediaDeviceInfo[];
+  defaultLabel: string;
+  onChange: (deviceId: string) => void;
+}) => (
+  <div style={{ padding: '14px 0', borderBottom: `1px solid rgba(255, 255, 255, 0.08)` }}>
+    <div style={{ fontSize: 12, fontWeight: 600, color: MD3.onSurfaceVar, marginBottom: 6 }}>
+      {label}
+    </div>
+    <div style={{ position: 'relative', width: '100%' }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        style={{
+          width: '100%',
+          backgroundColor: MD3.surfaceVar,
+          color: MD3.onSurface,
+          border: `1px solid ${MD3.outline}`,
+          borderRadius: 8,
+          padding: '10px 36px 10px 14px',
+          fontSize: 14,
+          outline: 'none',
+          appearance: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        <option value="">{defaultLabel}</option>
+        {devices.map((device, idx) => (
+          <option key={device.deviceId || idx} value={device.deviceId}>
+            {device.label || `${label} ${idx + 1}`}
+          </option>
+        ))}
+      </select>
+      <div style={{
+        position: 'absolute',
+        right: 12,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        pointerEvents: 'none',
+        color: MD3.onSurfaceVar,
+        display: 'flex',
+        alignItems: 'center',
+      }}>
+        <ChevronRight size={16} style={{ transform: 'rotate(90deg)' }} />
+      </div>
+    </div>
   </div>
 );
 
@@ -1804,7 +1910,7 @@ const HotkeySwitch = ({
   );
 };
 
-type TabId = 'main' | 'security' | 'connection' | 'chats' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode';
+type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode';
 
 export const SettingsScreen = () => {
   const { t } = useTranslation();
@@ -1834,7 +1940,16 @@ export const SettingsScreen = () => {
     autoLoadMedia, setAutoLoadMedia,
     noiseSuppressionVoice, setNoiseSuppressionVoice,
     noiseSuppressionCalls, setNoiseSuppressionCalls,
+    callSoundsEnabled, setCallSoundsEnabled,
+    alwaysRelayCalls, setAlwaysRelayCalls,
+    selectedCameraId, setSelectedCameraId,
+    selectedMicrophoneId, setSelectedMicrophoneId,
+    selectedSpeakerId, setSelectedSpeakerId,
+    setScreenProtectionEnabled,
+    hideMenuBar, setHideMenuBar,
+    voiceCallsEnabled, setVoiceCallsEnabled,
   } = useChatStore();
+  const { hasCameraPermission, hasMicrophonePermission, setCameraPermission, setMicrophonePermission } = useDevicePermissionStore();
   const { nickname, avatarUrl, setNickname } = useAuthStore();
   const deleteAccount = useAuthStore((state) => state.deleteAccount);
   const resetChats = useChatStore((state) => state.resetChats);
@@ -1842,6 +1957,45 @@ export const SettingsScreen = () => {
   const { appVersion } = useDeviceStore();
   const { proxyEnabled, activeProxyId, proxies } = useConnectionStore();
   const activeProxy = proxies.find((p) => p.id === activeProxyId);
+
+  const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [videoInputDevices, setVideoInputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
+
+  const loadMediaDevices = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      setAudioInputDevices(devs.filter((d) => d.kind === 'audioinput'));
+      setVideoInputDevices(devs.filter((d) => d.kind === 'videoinput'));
+      setAudioOutputDevices(devs.filter((d) => d.kind === 'audiooutput'));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadMediaDevices();
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', loadMediaDevices);
+      return () => navigator.mediaDevices.removeEventListener('devicechange', loadMediaDevices);
+    }
+  }, [loadMediaDevices]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.orbita) {
+      if (window.orbita.getAutoLaunchState) {
+        window.orbita.getAutoLaunchState().then((enabled) => setAutoLaunch(enabled)).catch(() => {});
+      }
+      if (window.orbita.getShowInSystemTray) {
+        window.orbita.getShowInSystemTray().then((enabled) => setShowInSystemTray(enabled)).catch(() => {});
+      }
+      if (window.orbita.getScreenProtection) {
+        window.orbita.getScreenProtection().then((enabled) => setScreenProtectionEnabled(enabled)).catch(() => {});
+      }
+      if (window.orbita.getHideMenuBar) {
+        window.orbita.getHideMenuBar().then((hidden) => setHideMenuBar(hidden)).catch(() => {});
+      }
+    }
+  }, [setAutoLaunch, setShowInSystemTray, setScreenProtectionEnabled, setHideMenuBar]);
 
   const [isMobileWidth, setIsMobileWidth] = useState(() => 
     typeof window !== 'undefined' ? window.innerWidth < 650 : false
@@ -2043,6 +2197,7 @@ export const SettingsScreen = () => {
     password:      securityService.isPasswordSet() ? t('security.modal_title_change') : t('security.modal_title_set'),
     connection:    t('settings.connection'),
     chats:         t('settings.appearance'),
+    calls:         t('settings.calls'),
     font:          t('settings.font'),
     dataMemory:    t('settings.data_memory'),
     energy:        t('settings.energy'),
@@ -2356,6 +2511,72 @@ export const SettingsScreen = () => {
     );
   };
 
+  const renderCalls = () => {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18 }}
+        style={{ padding: '0 0 32px' }}
+      >
+        <PreferencesGroup title={t('settings.calls')}>
+          <PreferenceSwitch
+            label={t('settings.enable_incoming_calls')}
+            checked={voiceCallsEnabled}
+            onChange={() => setVoiceCallsEnabled(!voiceCallsEnabled)}
+          />
+          <PreferenceSwitch
+            label={t('settings.play_call_sounds')}
+            checked={callSoundsEnabled}
+            onChange={() => setCallSoundsEnabled(!callSoundsEnabled)}
+          />
+        </PreferencesGroup>
+
+        <PreferencesGroup title={t('settings.devices_header')}>
+          <DeviceSelect
+            label={t('settings.video_device')}
+            value={selectedCameraId}
+            devices={videoInputDevices}
+            defaultLabel={t('settings.default_device')}
+            onChange={(id) => {
+              setSelectedCameraId(id);
+              liveKitService.switchDevice('videoinput', id);
+            }}
+          />
+          <DeviceSelect
+            label={t('settings.microphone_device')}
+            value={selectedMicrophoneId}
+            devices={audioInputDevices}
+            defaultLabel={t('settings.default_device')}
+            onChange={(id) => {
+              setSelectedMicrophoneId(id);
+              liveKitService.switchDevice('audioinput', id);
+            }}
+          />
+          <DeviceSelect
+            label={t('settings.speakers_device')}
+            value={selectedSpeakerId}
+            devices={audioOutputDevices}
+            defaultLabel={t('settings.default_device')}
+            onChange={(id) => {
+              setSelectedSpeakerId(id);
+              liveKitService.switchDevice('audiooutput', id);
+            }}
+          />
+        </PreferencesGroup>
+
+        <PreferencesGroup title={t('settings.advanced_header')}>
+          <PreferenceSwitch
+            label={t('settings.always_relay_calls')}
+            description={t('settings.always_relay_calls_desc')}
+            checked={alwaysRelayCalls}
+            onChange={() => setAlwaysRelayCalls(!alwaysRelayCalls)}
+          />
+        </PreferencesGroup>
+      </motion.div>
+    );
+  };
+
   const renderLanguage = () => {
     return (
       <motion.div
@@ -2636,6 +2857,16 @@ export const SettingsScreen = () => {
 
         <MenuItem
           icon={
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          }
+          label={t('settings.calls')}
+          onClick={() => pushTab('calls')}
+        />
+
+        <MenuItem
+          icon={
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10.026 18.64h.011zm-.197-.124l.003-17.038l-.07.07L4.94 6.316a.7.7 0 0 1-.49.2H1.968a.65.65 0 0 0-.365.242c-.13.156-.207.388-.22.69l-.001 5.411c.01.19.074.334.203.463c.123.122.343.209.622.238h2.304c.183 0 .359.071.488.199zM10.207.019c.583.097.953.522 1.005 1.165V18.84l-.005.085c-.078.603-.462 1.032-1.067 1.074c-.451.03-.871-.137-1.252-.484L4.224 14.92l-2.082-.002c-.644-.06-1.166-.267-1.54-.64A2.04 2.04 0 0 0 0 12.896V7.42c.027-.606.2-1.12.532-1.522a2 2 0 0 1 1.27-.736l.105-.008h2.258L8.77.6c.428-.444.913-.668 1.437-.58m6.21 2.227C18.602 3.618 20 6.576 20 9.862s-1.398 6.243-3.582 7.615a.7.7 0 0 1-.955-.208a.675.675 0 0 1 .211-.94c1.754-1.102 2.943-3.618 2.943-6.467c0-2.85-1.189-5.366-2.943-6.468a.675.675 0 0 1-.211-.94a.7.7 0 0 1 .954-.208m-2.301 2.686c1.36 1.007 2.197 2.88 2.197 4.93 0 2.165-.935 4.128-2.42 5.084a.7.7 0 0 1-.957-.198a.675.675 0 0 1 .2-.943c1.068-.686 1.794-2.212 1.794-3.943 0-1.644-.654-3.108-1.645-3.841a.674.674 0 0 1-.137-.954a.7.7 0 0 1 .968-.135" />
             </svg>
@@ -2900,6 +3131,8 @@ export const SettingsScreen = () => {
             </div>
           </motion.div>
         );
+      case 'calls':
+        return renderCalls();
       case 'language':
         return renderLanguage();
       case 'preferences':
@@ -2910,27 +3143,60 @@ export const SettingsScreen = () => {
             transition={{ duration: 0.18 }}
             style={{ padding: '0 0 32px' }}
           >
-            <PreferencesGroup title={t('settings.preferences_updates')}>
+            <PreferencesGroup title={t('settings.system_section')}>
               <PreferenceSwitch
-                label={t('settings.preferences_auto_update')}
-                description={t('settings.preferences_auto_update_desc')}
-                checked={autoUpdate}
-                onChange={() => setAutoUpdate(!autoUpdate)}
+                label={t('settings.open_at_login')}
+                checked={autoLaunch}
+                onChange={async () => {
+                  const nextVal = !autoLaunch;
+                  setAutoLaunch(nextVal);
+                  if (typeof window !== 'undefined' && window.orbita?.setAutoLaunch) {
+                    await window.orbita.setAutoLaunch(nextVal);
+                  }
+                }}
+              />
+              <PreferenceSwitch
+                label={t('settings.hide_menu_bar')}
+                checked={hideMenuBar}
+                onChange={async () => {
+                  const nextVal = !hideMenuBar;
+                  setHideMenuBar(nextVal);
+                  if (typeof window !== 'undefined' && window.orbita?.setHideMenuBar) {
+                    await window.orbita.setHideMenuBar(nextVal);
+                  }
+                }}
+              />
+              <PreferenceSwitch
+                label={t('settings.minimize_to_tray')}
+                checked={showInSystemTray}
+                onChange={async () => {
+                  const nextVal = !showInSystemTray;
+                  setShowInSystemTray(nextVal);
+                  if (typeof window !== 'undefined' && window.orbita?.setShowInSystemTray) {
+                    await window.orbita.setShowInSystemTray(nextVal);
+                  }
+                }}
               />
             </PreferencesGroup>
 
-            <PreferencesGroup title={t('settings.preferences_system_integration')}>
+            <PreferencesGroup title={t('settings.permissions_section')}>
               <PreferenceSwitch
-                label={t('settings.preferences_show_tray')}
-                description={t('settings.preferences_show_tray_desc')}
-                checked={showInSystemTray}
-                onChange={() => setShowInSystemTray(!showInSystemTray)}
+                label={t('settings.allow_microphone')}
+                checked={hasMicrophonePermission}
+                onChange={() => setMicrophonePermission(!hasMicrophonePermission)}
               />
               <PreferenceSwitch
-                label={t('settings.preferences_auto_launch')}
-                description={t('settings.preferences_auto_launch_desc')}
-                checked={autoLaunch}
-                onChange={() => setAutoLaunch(!autoLaunch)}
+                label={t('settings.allow_camera')}
+                checked={hasCameraPermission}
+                onChange={() => setCameraPermission(!hasCameraPermission)}
+              />
+            </PreferencesGroup>
+
+            <PreferencesGroup title={t('settings.updates_section')}>
+              <PreferenceSwitch
+                label={t('settings.auto_download_updates')}
+                checked={autoUpdate}
+                onChange={() => setAutoUpdate(!autoUpdate)}
               />
             </PreferencesGroup>
 

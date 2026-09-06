@@ -1,12 +1,7 @@
-// src/services/callSoundService.ts
+import { useChatStore } from '../store/useChatStore';
+
 export type CallSoundType = 'incoming' | 'outgoing' | 'connect' | 'end';
 
-/**
- * Сервис управления звуками звонков через Web Audio API.
- * Использует AudioContext вместо HTMLAudioElement, чтобы звуки звонка
- * воспроизводились как звуковые эффекты (SFX) и НЕ попадали в системный
- * медиа-плеер Windows (SMTC / Volume Flyout).
- */
 class CallSoundService {
   private ctx: AudioContext | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
@@ -54,12 +49,12 @@ class CallSoundService {
     }
   }
 
-  /**
-   * Проигрывает звук заданного типа.
-   * Автоматически останавливает предыдущий звук.
-   * Для входящего/исходящего звонка устанавливает loop = true.
-   */
   async play(type: CallSoundType): Promise<void> {
+    const callSoundsEnabled = useChatStore.getState().callSoundsEnabled;
+    if (!callSoundsEnabled) {
+      return;
+    }
+
     const path = this.getPath(type);
     if (!path) {
       console.warn(`[CallSound] Unknown sound type: ${type}`);
@@ -70,6 +65,13 @@ class CallSoundService {
 
     const ctx = this.getAudioContext();
     if (!ctx) return;
+
+    const speakerId = useChatStore.getState().selectedSpeakerId;
+    if (speakerId && typeof (ctx as any).setSinkId === 'function') {
+      try {
+        await (ctx as any).setSinkId(speakerId);
+      } catch {}
+    }
 
     if (ctx.state === 'suspended') {
       try {

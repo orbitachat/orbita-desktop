@@ -146,6 +146,22 @@ contextBridge.exposeInMainWorld('orbita', {
     return ipcRenderer.invoke('orbita:get-auto-launch-state');
   },
 
+  setScreenProtection: (enabled: boolean) => {
+    return ipcRenderer.invoke('orbita:set-screen-protection', enabled);
+  },
+
+  getScreenProtection: () => {
+    return ipcRenderer.invoke('orbita:get-screen-protection');
+  },
+
+  setHideMenuBar: (hide: boolean) => {
+    return ipcRenderer.invoke('orbita:set-hide-menu-bar', hide);
+  },
+
+  getHideMenuBar: () => {
+    return ipcRenderer.invoke('orbita:get-hide-menu-bar');
+  },
+
   openOrbitaFromTray: () => {
     ipcRenderer.send('orbita:tray-menu-action', 'open');
   },
