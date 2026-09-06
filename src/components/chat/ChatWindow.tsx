@@ -5475,10 +5475,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         <AnimatePresence>
           {showFloatingDate && floatingDate && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: floatingDateOffsetY }}
-              exit={{ opacity: 0, scale: 0.9, y: -4 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, y: floatingDateOffsetY }}
+              exit={{ opacity: 0 }}
+              transition={{ opacity: { duration: 0.1 }, y: { duration: 0 } }}
               className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none"
               style={{ top: '12px' }}
             >
