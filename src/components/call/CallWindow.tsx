@@ -59,6 +59,29 @@ export const CallWindow = () => {
   const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
   const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [hasCamera, setHasCamera] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkCamera = async () => {
+      try {
+        if (!navigator.mediaDevices?.enumerateDevices) {
+          setHasCamera(false);
+          return;
+        }
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+        setHasCamera(videoInputs.length > 0);
+      } catch {
+        setHasCamera(false);
+      }
+    };
+
+    checkCamera();
+    navigator.mediaDevices?.addEventListener?.('devicechange', checkCamera);
+    return () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', checkCamera);
+    };
+  }, []);
 
   const chat = useChatStore((state) =>
     activeCall ? state.chats.find((c) => c.id === activeCall.chatId) : null
@@ -612,18 +635,24 @@ export const CallWindow = () => {
           <>
             <button
               type="button"
-              onClick={toggleVideo}
+              disabled={!hasCamera}
+              onClick={hasCamera ? toggleVideo : undefined}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none"
+              style={{
+                pointerEvents: hasCamera ? 'auto' : 'none',
+                opacity: hasCamera ? 1 : 0.35,
+                cursor: hasCamera ? 'pointer' : 'default',
+              }}
             >
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95"
-                style={isVideoEnabled ? accentButtonStyle : neutralButtonStyle(false)}
+                style={isVideoEnabled && hasCamera ? accentButtonStyle : neutralButtonStyle(false)}
               >
-                {isVideoEnabled ? <Video size={24} color="#ffffff" /> : <VideoOff size={24} color="#ffffff" />}
+                {isVideoEnabled && hasCamera ? <Video size={24} color="#ffffff" /> : <VideoOff size={24} color="#ffffff" />}
               </div>
               <span style={{ color: 'var(--text-dim)', fontSize: '12px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.enable_video')}
+                {isVideoEnabled && hasCamera ? t('call.camera_off') : t('call.enable_video')}
               </span>
             </button>
 
@@ -679,18 +708,24 @@ export const CallWindow = () => {
 
             <button
               type="button"
-              onClick={toggleVideo}
+              disabled={!hasCamera}
+              onClick={hasCamera ? toggleVideo : undefined}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none"
+              style={{
+                pointerEvents: hasCamera ? 'auto' : 'none',
+                opacity: hasCamera ? 1 : 0.35,
+                cursor: hasCamera ? 'pointer' : 'default',
+              }}
             >
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95"
-                style={neutralButtonStyle(isVideoEnabled)}
+                style={neutralButtonStyle(isVideoEnabled && hasCamera)}
               >
-                {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
+                {isVideoEnabled && hasCamera ? <Video size={24} /> : <VideoOff size={24} />}
               </div>
               <span style={{ color: 'var(--text-dim)', fontSize: '12px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.camera')}
+                {isVideoEnabled && hasCamera ? t('call.camera_off') : t('call.camera')}
               </span>
             </button>
 

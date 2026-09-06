@@ -799,6 +799,8 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
     case 'toggleMic': store.toggleMic(); break;
     case 'toggleVideo': store.toggleVideo(); break;
     case 'toggleScreenShare': store.toggleScreenShare(); break;
+    case 'startScreenShareWithOptions': store.startScreenShareWithOptions(action.payload); break;
+    case 'stopScreenShare': store.stopScreenShare(); break;
   }
 };
 

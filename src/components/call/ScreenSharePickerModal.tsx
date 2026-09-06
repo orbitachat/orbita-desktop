@@ -12,11 +12,32 @@ interface DesktopSource {
   display_id?: string;
 }
 
-export const ScreenSharePickerModal: React.FC = () => {
+export interface ScreenShareOptions {
+  sourceId?: string;
+  quality: '720p' | '1080p';
+  fps: 30 | 60;
+  audio: boolean;
+}
+
+interface ScreenSharePickerModalProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+  onStart?: (options: ScreenShareOptions) => void;
+}
+
+export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
+  isOpen,
+  onClose,
+  onStart,
+}) => {
   const { t } = useTranslation();
-  const isScreenPickerOpen = useCallStore((s) => s.isScreenPickerOpen);
-  const closeScreenPicker = useCallStore((s) => s.closeScreenPicker);
-  const startScreenShareWithOptions = useCallStore((s) => s.startScreenShareWithOptions);
+  const storeIsOpen = useCallStore((s) => s.isScreenPickerOpen);
+  const storeClose = useCallStore((s) => s.closeScreenPicker);
+  const storeStart = useCallStore((s) => s.startScreenShareWithOptions);
+
+  const effectiveIsOpen = isOpen !== undefined ? isOpen : storeIsOpen;
+  const handleClose = onClose || storeClose;
+  const handleStartShare = onStart || storeStart;
 
   const [activeTab, setActiveTab] = useState<'screens' | 'windows'>('screens');
   const [sources, setSources] = useState<DesktopSource[]>([]);
@@ -60,12 +81,12 @@ export const ScreenSharePickerModal: React.FC = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (isScreenPickerOpen) {
+    if (effectiveIsOpen) {
       fetchSources();
     } else {
       setSelectedSourceId(null);
     }
-  }, [isScreenPickerOpen, fetchSources]);
+  }, [effectiveIsOpen, fetchSources]);
 
   useEffect(() => {
     if (sources.length === 0) return;
@@ -81,15 +102,16 @@ export const ScreenSharePickerModal: React.FC = () => {
   }, [activeTab, sources]);
 
   const handleStart = () => {
-    startScreenShareWithOptions({
+    handleStartShare({
       sourceId: selectedSourceId || undefined,
       quality,
       fps,
       audio: shareAudio,
     });
+    handleClose();
   };
 
-  if (!isScreenPickerOpen) return null;
+  if (!effectiveIsOpen) return null;
 
   const screens = sources.filter((s) => s.id.startsWith('screen:'));
   const windows = sources.filter((s) => s.id.startsWith('window:'));
@@ -107,7 +129,7 @@ export const ScreenSharePickerModal: React.FC = () => {
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.65)',
         }}
-        onClick={closeScreenPicker}
+        onClick={handleClose}
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
@@ -145,7 +167,7 @@ export const ScreenSharePickerModal: React.FC = () => {
               )}
               <button
                 type="button"
-                onClick={closeScreenPicker}
+                onClick={handleClose}
                 aria-label={t('common.close', 'Закрыть')}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-dim,#8a96a3)] hover:text-[var(--text-main,#ffffff)] hover:bg-[var(--surface-container-hover,rgba(255,255,255,0.06))] transition-colors border-0 bg-transparent cursor-pointer outline-none"
               >
@@ -390,7 +412,7 @@ export const ScreenSharePickerModal: React.FC = () => {
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={closeScreenPicker}
+                onClick={handleClose}
                 aria-label={t('common.cancel', 'Отмена')}
                 className="px-4 py-2 rounded-lg text-[13px] font-medium text-[var(--text-main,#ffffff)] hover:bg-[var(--surface-container-hover,rgba(255,255,255,0.06))] transition-colors border-0 bg-transparent cursor-pointer"
               >

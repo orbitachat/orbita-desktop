@@ -4,6 +4,7 @@ import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff } f
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
+import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 
 interface CallStatePayload {
   activeCall: {
@@ -193,16 +194,45 @@ export const CallWindowView = () => {
     sendAction('toggleMic', next);
   };
 
+  const [hasCamera, setHasCamera] = useState<boolean>(false);
+  const [isScreenPickerOpen, setIsScreenPickerOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkCameraAvailability = async () => {
+      try {
+        if (!navigator.mediaDevices?.enumerateDevices) {
+          setHasCamera(false);
+          return;
+        }
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+        setHasCamera(videoInputs.length > 0);
+      } catch {
+        setHasCamera(false);
+      }
+    };
+
+    checkCameraAvailability();
+    navigator.mediaDevices?.addEventListener?.('devicechange', checkCameraAvailability);
+    return () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', checkCameraAvailability);
+    };
+  }, []);
+
   const handleToggleVideo = () => {
+    if (!hasCamera) return;
     const next = !isVideoEnabled;
     setCallData((prev) => (prev ? { ...prev, isVideoEnabled: next } : prev));
     sendAction('toggleVideo', next);
   };
 
   const handleToggleScreenShare = () => {
-    const next = !isScreenSharing;
-    setCallData((prev) => (prev ? { ...prev, isScreenSharing: next } : prev));
-    sendAction('toggleScreenShare', next);
+    if (isScreenSharing) {
+      sendAction('stopScreenShare');
+      setCallData((prev) => (prev ? { ...prev, isScreenSharing: false } : prev));
+    } else {
+      setIsScreenPickerOpen(true);
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -235,7 +265,7 @@ export const CallWindowView = () => {
 
   useEffect(() => {
     const isCallActive = callState === 'ringing' || callState === 'connecting' || callState === 'connected';
-    const showWebcam = isCallActive && isVideoEnabled;
+    const showWebcam = isCallActive && isVideoEnabled && hasCamera;
 
     if (!showWebcam) {
       if (streamRef.current) {
@@ -271,7 +301,7 @@ export const CallWindowView = () => {
         streamRef.current = null;
       }
     };
-  }, [callState, isVideoEnabled]);
+  }, [callState, isVideoEnabled, hasCamera]);
 
   return (
     <div
@@ -293,7 +323,7 @@ export const CallWindowView = () => {
       </div>
 
       <div className="flex flex-col items-center justify-center flex-1 py-4">
-        {((callState === 'ringing' || callState === 'connecting' || callState === 'connected') && isVideoEnabled) ? (
+        {((callState === 'ringing' || callState === 'connecting' || callState === 'connected') && isVideoEnabled && hasCamera) ? (
           <div className="w-[180px] h-[180px] rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-black/60 flex items-center justify-center select-none">
             <video
               ref={localVideoRef}
@@ -342,6 +372,23 @@ export const CallWindowView = () => {
         ) : null}
       </div>
 
+      {isScreenSharing && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[12px] font-medium text-white/90">
+            {t('call.sharing_your_screen', 'Вы транслируете свой экран')}
+          </span>
+          <button
+            type="button"
+            onClick={handleToggleScreenShare}
+            aria-label={t('call.stop_screen_share', 'Остановить')}
+            className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors border-0 cursor-pointer ml-1"
+          >
+            {t('call.stop_screen_share', 'Остановить')}
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-center gap-6 pb-8 pt-2">
         {isIncoming ? (
           <>
@@ -377,18 +424,24 @@ export const CallWindowView = () => {
           <>
             <button
               type="button"
-              onClick={handleToggleVideo}
+              disabled={!hasCamera}
+              onClick={hasCamera ? handleToggleVideo : undefined}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none"
+              style={{
+                pointerEvents: hasCamera ? 'auto' : 'none',
+                opacity: hasCamera ? 1 : 0.35,
+                cursor: hasCamera ? 'pointer' : 'default',
+              }}
             >
               <div
                 className="w-14 h-14 rounded-full flex items-center justify-center shadow-md"
-                style={isVideoEnabled ? accentButtonStyle : neutralButtonStyle(false)}
+                style={isVideoEnabled && hasCamera ? accentButtonStyle : neutralButtonStyle(false)}
               >
-                {isVideoEnabled ? <Video size={24} color="#ffffff" /> : <VideoOff size={24} color="#ffffff" />}
+                {isVideoEnabled && hasCamera ? <Video size={24} color="#ffffff" /> : <VideoOff size={24} color="#ffffff" />}
               </div>
               <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '12px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.enable_video')}
+                {isVideoEnabled && hasCamera ? t('call.camera_off') : t('call.enable_video')}
               </span>
             </button>
 
@@ -441,19 +494,25 @@ export const CallWindowView = () => {
 
             <button
               type="button"
-              onClick={handleToggleVideo}
+              disabled={!hasCamera}
+              onClick={hasCamera ? handleToggleVideo : undefined}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
-              className="flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none"
+              className="flex flex-col items-center gap-2 border-0 bg-transparent outline-none"
+              style={{
+                pointerEvents: hasCamera ? 'auto' : 'none',
+                opacity: hasCamera ? 1 : 0.35,
+                cursor: hasCamera ? 'pointer' : 'default',
+              }}
             >
-              <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-md" style={neutralButtonStyle(isVideoEnabled)}>
-                {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
+              <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-md" style={neutralButtonStyle(isVideoEnabled && hasCamera)}>
+                {isVideoEnabled && hasCamera ? <Video size={24} /> : <VideoOff size={24} />}
               </div>
               <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '12px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.camera')}
+                {isVideoEnabled && hasCamera ? t('call.camera_off') : t('call.camera')}
               </span>
             </button>
 
-            {isConnected && (
+            {(isConnected || isRinging || isConnecting) && (
               <button
                 type="button"
                 onClick={handleToggleScreenShare}
@@ -502,6 +561,15 @@ export const CallWindowView = () => {
           </button>
         ) : null}
       </div>
+
+      <ScreenSharePickerModal
+        isOpen={isScreenPickerOpen}
+        onClose={() => setIsScreenPickerOpen(false)}
+        onStart={(options) => {
+          setIsScreenPickerOpen(false);
+          sendAction('startScreenShareWithOptions', options);
+        }}
+      />
     </div>
   );
 };
