@@ -72,48 +72,49 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div
-          className="fixed inset-x-0 bottom-0 top-[30px] z-[150] flex"
+        <motion.div
+          key="main-menu-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          onClick={onClose}
+          className="fixed inset-x-0 bottom-0 top-[30px] z-[210]"
           style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            userSelect: 'none',
+          }}
+        />
+      )}
+
+      {isOpen && (
+        <motion.div
+          key="main-menu-panel"
+          initial={{ x: '-100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '-100%' }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed left-0 bottom-0 top-[30px] z-[220] flex flex-col overflow-hidden shadow-2xl"
+          style={{
+            width: '280px',
+            maxWidth: '85vw',
+            height: 'calc(100vh - 30px)',
+            backgroundColor: 'var(--bg-secondary)',
+            borderRight: '1px solid var(--border-color)',
+            borderTop: '1px solid var(--border-color)',
             userSelect: 'none',
           }}
         >
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            onClick={onClose}
-            className="fixed inset-x-0 bottom-0 top-[30px]"
+          <div
+            onClick={onOpenProfile}
+            className="px-5 pt-5 pb-3 flex flex-col gap-3 cursor-pointer transition-colors hover:bg-[var(--surface-container-soft)]"
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.45)',
-              backdropFilter: 'none',
-              WebkitBackdropFilter: 'none',
-            }}
-          />
-
-          <motion.div
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-10 flex flex-col h-full overflow-hidden shadow-2xl"
-            style={{
-              width: '280px',
-              maxWidth: '85vw',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRight: '1px solid var(--border-color)',
-              borderTop: '1px solid var(--border-color)',
+              backgroundColor: 'transparent',
             }}
           >
-            <div
-              onClick={onOpenProfile}
-              className="px-5 pt-5 pb-3 flex flex-col gap-3 cursor-pointer transition-colors hover:bg-[var(--surface-container-soft)]"
-              style={{
-                backgroundColor: 'transparent',
-              }}
-            >
               <Avatar
                 src={avatarUrl}
                 alt={nickname || '?'}
@@ -314,8 +315,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               </button>
             </div>
           </motion.div>
-        </div>
-      )}
+        )}
     </AnimatePresence>
   );
 };

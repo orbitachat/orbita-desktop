@@ -3256,43 +3256,48 @@ export const SettingsScreen = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 200,
-          display: isMobileWidth ? 'block' : 'flex',
-          alignItems: isMobileWidth ? 'stretch' : 'flex-start',
-          justifyContent: isMobileWidth ? 'stretch' : 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.55)',
-          backdropFilter: 'none',
-          WebkitBackdropFilter: 'none',
-          border: 'none',
-          padding: isMobileWidth ? '0' : 'min(7.5vh, 64px) 16px 16px',
-          userSelect: 'none',
-        }}
-        onClick={() => setCurrentView('chats')}
-      >
-        <motion.div
-          initial={{
-            opacity: 1,
-            scale: 1,
-            height: isMobileWidth ? 'calc(100vh - 30px)' : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 200,
+            display: isMobileWidth ? 'block' : 'flex',
+            alignItems: isMobileWidth ? 'stretch' : 'flex-start',
+            justifyContent: isMobileWidth ? 'stretch' : 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            border: 'none',
+            padding: isMobileWidth ? '0' : 'min(7.5vh, 64px) 16px 16px',
+            userSelect: 'none',
           }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-            height: isMobileWidth
-              ? 'calc(100vh - 30px)'
-              : targetHeight !== null
-              ? Math.min(targetHeight, typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900)
-              : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
-          }}
-          transition={{
-            height: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 0 },
-            scale: { duration: 0 },
-          }}
-          onClick={e => e.stopPropagation()}
+          onClick={() => setCurrentView('chats')}
+        >
+          <motion.div
+            initial={{
+              opacity: 0,
+              scale: 0.96,
+              height: isMobileWidth ? 'calc(100vh - 30px)' : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
+            }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              height: isMobileWidth
+                ? 'calc(100vh - 30px)'
+                : targetHeight !== null
+                ? Math.min(targetHeight, typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900)
+                : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
+            }}
+            exit={{
+              opacity: 0,
+              scale: 0.96,
+            }}
+            transition={{
+              height: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
+              opacity: { duration: 0.2, ease: 'easeOut' },
+              scale: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
+            }}
+            onClick={e => e.stopPropagation()}
           style={{
             position: 'relative',
             width: '100%',
