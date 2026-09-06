@@ -1,5 +1,5 @@
-// src/components/settings/AvatarCropperModal.tsx
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RotateCw, Crop, FlipHorizontal } from 'lucide-react';
 
 interface AvatarCropperModalProps {
@@ -17,6 +17,7 @@ export const AvatarCropperModal: React.FC<AvatarCropperModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useTranslation();
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
@@ -343,7 +344,6 @@ export const AvatarCropperModal: React.FC<AvatarCropperModalProps> = ({
           zIndex: 999999,
         }}
       >
-        {/* Отмена */}
         <button
           type="button"
           onClick={onClose}
@@ -357,14 +357,13 @@ export const AvatarCropperModal: React.FC<AvatarCropperModalProps> = ({
             padding: '4px 8px',
           }}
         >
-          Отмена
+          {t('avatar.cancel')}
         </button>
 
-        {/* Reset / Fit */}
         <button
           type="button"
           onClick={handleReset}
-          title="Сбросить масштаб"
+          aria-label={t('avatar.reset_scale')}
           style={{
             background: 'none',
             border: 'none',
@@ -379,11 +378,10 @@ export const AvatarCropperModal: React.FC<AvatarCropperModalProps> = ({
           <Crop size={18} />
         </button>
 
-        {/* Rotate */}
         <button
           type="button"
           onClick={handleRotate}
-          title="Повернуть на 90°"
+          aria-label={t('avatar.rotate_90')}
           style={{
             background: 'none',
             border: 'none',
@@ -398,11 +396,10 @@ export const AvatarCropperModal: React.FC<AvatarCropperModalProps> = ({
           <RotateCw size={18} />
         </button>
 
-        {/* Flip */}
         <button
           type="button"
           onClick={handleFlip}
-          title="Отразить по горизонтали"
+          aria-label={t('avatar.flip_horizontal')}
           style={{
             background: 'none',
             border: 'none',
@@ -417,7 +414,6 @@ export const AvatarCropperModal: React.FC<AvatarCropperModalProps> = ({
           <FlipHorizontal size={18} />
         </button>
 
-        {/* Установить фотографию */}
         <button
           type="button"
           onClick={handleSaveCrop}
@@ -431,7 +427,7 @@ export const AvatarCropperModal: React.FC<AvatarCropperModalProps> = ({
             padding: '4px 8px',
           }}
         >
-          Установить фотографию
+          {t('avatar.set_photo')}
         </button>
       </div>
     </div>

@@ -1,4 +1,3 @@
-// src/components/settings/QuickEntry.tsx
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Bluetooth, Check, AlertCircle, Loader } from 'lucide-react';
@@ -64,7 +63,6 @@ export const QuickEntry = ({ onStatusChange }: QuickEntryProps) => {
     setLoading(true);
     setError(null);
     try {
-      // Исправлено: (window as any).orbita
       const result = await (window as any).orbita.startSyncServer();
       setStatus({
         running: true,
@@ -84,7 +82,6 @@ export const QuickEntry = ({ onStatusChange }: QuickEntryProps) => {
   const stopServer = useCallback(async () => {
     setLoading(true);
     try {
-      // Исправлено: (window as any).orbita
       await (window as any).orbita.stopSyncServer();
       setStatus({ running: false, url: null, ip: null, port: null });
       onStatusChange?.(false);
@@ -107,7 +104,6 @@ export const QuickEntry = ({ onStatusChange }: QuickEntryProps) => {
   useEffect(() => {
     const init = async () => {
       try {
-        // Исправлено: (window as any).orbita
         const url = await (window as any).orbita.getSyncServerUrl();
         if (url) {
           const ip = url.split('/')[2].split(':')[0];

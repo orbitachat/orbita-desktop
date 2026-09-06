@@ -1,5 +1,5 @@
-// src/components/settings/ProxyEditModal.tsx
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { useConnectionStore, type ProxyProfile } from '../../store/useConnectionStore';
 
@@ -16,6 +16,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
   onClose,
   onSaved,
 }) => {
+  const { t } = useTranslation();
   const { addProxy, updateProxy, parseProxyUrl } = useConnectionStore();
 
   const [name, setName] = useState('');
@@ -70,7 +71,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
     const cleanHost = host.trim();
     const cleanPort = parseInt(port.trim(), 10);
     if (!cleanHost || isNaN(cleanPort)) {
-      setErrorMessage('Укажите корректный хост и порт');
+      setErrorMessage(t('proxy.err_host_port'));
       return;
     }
 
@@ -82,7 +83,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
       if (res?.success && res.ping !== undefined) {
         setTestResult({ ping: res.ping });
       } else {
-        setTestResult({ error: res?.error || 'Недоступен' });
+        setTestResult({ error: res?.error || t('proxy.unavailable') });
       }
     } else {
       setTimeout(() => {
@@ -95,11 +96,11 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
     const cleanHost = host.trim();
     const cleanPort = parseInt(port.trim(), 10);
     if (!cleanHost) {
-      setErrorMessage('Введите адрес хоста или IP');
+      setErrorMessage(t('proxy.err_host'));
       return;
     }
     if (isNaN(cleanPort) || cleanPort <= 0 || cleanPort > 65535) {
-      setErrorMessage('Введите корректный номер порта (1-65535)');
+      setErrorMessage(t('proxy.err_port'));
       return;
     }
 
@@ -164,14 +165,14 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
-            {proxyToEdit ? 'Редактировать прокси' : 'Добавить SOCKS5 прокси'}
+            {proxyToEdit ? t('proxy.edit_proxy') : t('proxy.add_socks5')}
           </h3>
           <button
             type="button"
             onClick={onClose}
+            aria-label={t('common.close')}
             style={{
               background: 'none',
               border: 'none',
@@ -185,11 +186,10 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           </button>
         </div>
 
-        {/* Quick link paste */}
         {!proxyToEdit && (
           <div>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
-              Быстрая вставка ссылки (socks5://...)
+              {t('proxy.quick_paste')}
             </label>
             <input
               type="text"
@@ -211,16 +211,15 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           </div>
         )}
 
-        {/* Name */}
         <div>
           <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
-            Название
+            {t('proxy.name')}
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Например: Нидерланды SOCKS5"
+            placeholder={t('proxy.name_placeholder')}
             style={{
               width: '100%',
               padding: '8px 12px',
@@ -235,17 +234,16 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           />
         </div>
 
-        {/* Host & Port */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
-              Сервер / Хост
+              {t('proxy.server_host')}
             </label>
             <input
               type="text"
               value={host}
               onChange={(e) => setHost(e.target.value)}
-              placeholder="127.0.0.1 или domain.com"
+              placeholder={t('proxy.host_placeholder')}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -261,7 +259,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           </div>
           <div style={{ width: '90px' }}>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
-              Порт
+              {t('proxy.port')}
             </label>
             <input
               type="text"
@@ -283,17 +281,16 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           </div>
         </div>
 
-        {/* Username & Password */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
-              Имя пользователя (опционально)
+              {t('proxy.username_optional')}
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Логин"
+              placeholder={t('proxy.username_placeholder')}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -309,13 +306,13 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           </div>
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-dim)', marginBottom: '5px' }}>
-              Пароль (опционально)
+              {t('proxy.password_optional')}
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Пароль"
+              placeholder={t('proxy.password_placeholder')}
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -331,14 +328,12 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
           </div>
         </div>
 
-        {/* Error message */}
         {errorMessage && (
           <p style={{ margin: 0, fontSize: '12px', color: '#ef4444' }}>
             {errorMessage}
           </p>
         )}
 
-        {/* Ping test status */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
           <button
             type="button"
@@ -354,17 +349,16 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
               padding: 0,
             }}
           >
-            {testResult?.testing ? 'Проверка...' : 'Проверить соединение'}
+            {testResult?.testing ? t('proxy.checking') : t('proxy.test_connection')}
           </button>
 
           {testResult && !testResult.testing && (
             <span style={{ fontSize: '13px', color: testResult.ping ? 'var(--text-main)' : '#ef4444' }}>
-              {testResult.ping !== undefined ? `${testResult.ping} ms` : (testResult.error || 'Недоступен')}
+              {testResult.ping !== undefined ? `${testResult.ping} ms` : (testResult.error || t('proxy.unavailable'))}
             </span>
           )}
         </div>
 
-        {/* Bottom Actions */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
           <button
             type="button"
@@ -380,7 +374,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
               cursor: 'pointer',
             }}
           >
-            Отмена
+            {t('avatar.cancel')}
           </button>
           <button
             type="button"
@@ -396,7 +390,7 @@ export const ProxyEditModal: React.FC<ProxyEditModalProps> = ({
               cursor: 'pointer',
             }}
           >
-            Сохранить
+            {t('avatar.save')}
           </button>
         </div>
       </div>

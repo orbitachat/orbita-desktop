@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   RotateCw,
@@ -21,6 +22,7 @@ interface ConnectionSettingsScreenProps {
 }
 
 export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> = () => {
+  const { t } = useTranslation();
   const {
     proxyEnabled,
     activeProxyId,
@@ -44,7 +46,6 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
   const [isRefreshingPings, setIsRefreshingPings] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Check pings on mount
   useEffect(() => {
     checkAllPings();
   }, []);
@@ -93,31 +94,30 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
       >
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
-            Использовать прокси
+            {t('proxy.use_proxy')}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>
             {proxyEnabled
               ? activeProxy
-                ? `Подключено: ${activeProxy.name}${activeProxy.ping ? ` (${activeProxy.ping} ms)` : ''}`
-                : 'Подключение к прокси...'
-              : 'Прямое подключение к сети'}
+                ? `${t('proxy.connected', { name: activeProxy.name })}${activeProxy.ping ? ` (${activeProxy.ping} ms)` : ''}`
+                : t('proxy.connecting')
+              : t('proxy.direct')}
           </div>
         </div>
 
         <PillToggle checked={proxyEnabled} onChange={() => setProxyEnabled(!proxyEnabled)} />
       </div>
 
-      {/* 2. Proxy List Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px' }}>
           <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Сохранённые прокси
+            {t('proxy.saved_proxies')}
           </span>
           <button
             type="button"
             onClick={handleRefreshPings}
             disabled={isRefreshingPings}
-            title="Обновить пинг"
+            aria-label={t('proxy.refresh_ping')}
             style={{
               background: 'none',
               border: 'none',
@@ -131,7 +131,7 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
             }}
           >
             <RotateCw size={13} className={isRefreshingPings ? 'animate-spin' : ''} />
-            <span>Обновить</span>
+            <span>{t('proxy.refresh')}</span>
           </button>
         </div>
 
@@ -192,17 +192,18 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                   <span style={{ fontSize: '12px', color: proxy.pingStatus === 'error' ? '#ef4444' : 'var(--text-dim)' }}>
                     {proxy.pingStatus === 'testing'
-                      ? 'Проверка...'
+                      ? t('proxy.checking')
                       : proxy.ping !== null && proxy.ping !== undefined
                       ? `${proxy.ping} ms`
                       : proxy.pingStatus === 'error'
-                      ? 'Недоступен'
+                      ? t('proxy.unavailable')
                       : '—'}
                   </span>
 
                   {/* Actions button */}
                   <button
                     type="button"
+                    aria-label={t('common.more_options')}
                     onClick={(e) => {
                       e.stopPropagation();
                       setActiveMenuId(hasMenu ? null : proxy.id);
@@ -236,17 +237,17 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                     <div
                       style={{
                         position: 'absolute',
-                        right: '16px',
-                        top: '40px',
-                        backgroundColor: '#1b1726',
-                        borderRadius: '10px',
-                        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.65)',
-                        padding: '4px',
+                        right: '8px',
+                        top: '44px',
                         zIndex: 999,
+                        backgroundColor: 'var(--surface-container-high)',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+                        border: '1px solid var(--border-color)',
+                        padding: '4px',
                         display: 'flex',
                         flexDirection: 'column',
                         minWidth: '150px',
-                        animation: 'fadeIn 0.1s ease',
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -273,7 +274,7 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         <RotateCw size={14} />
-                        <span>Проверить пинг</span>
+                        <span>{t('proxy.check_ping')}</span>
                       </button>
 
                       <button
@@ -300,7 +301,7 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         <Edit2 size={14} />
-                        <span>Изменить</span>
+                        <span>{t('proxy.edit')}</span>
                       </button>
 
                       <button
@@ -323,7 +324,7 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         {copiedId === proxy.id ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-                        <span>{copiedId === proxy.id ? 'Скопировано!' : 'Скопировать ссылку'}</span>
+                        <span>{copiedId === proxy.id ? t('proxy.copied') : t('proxy.copy_link')}</span>
                       </button>
 
                       <button
@@ -349,7 +350,7 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         <Trash2 size={14} />
-                        <span>Удалить</span>
+                        <span>{t('proxy.delete')}</span>
                       </button>
                     </div>
                   </>
@@ -381,15 +382,14 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
             }}
           >
             <Plus size={16} />
-            <span>Добавить SOCKS5 прокси</span>
+            <span>{t('proxy.add_socks5')}</span>
           </button>
         </div>
       </div>
 
-      {/* 3. Security & Calls Section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '0 8px' }}>
-          Безопасность и звонки
+          {t('proxy.security_and_calls')}
         </span>
 
         <div
@@ -401,7 +401,6 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
             flexDirection: 'column',
           }}
         >
-          {/* Kill Switch */}
           <div
             style={{
               display: 'flex',
@@ -418,7 +417,7 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
                   Kill Switch
                 </span>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
-                  Блокировать трафик при обрыве связи с прокси для защиты IP-адреса.
+                  {t('proxy.kill_switch')}
                 </span>
               </div>
             </div>
@@ -439,10 +438,10 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
               <Phone size={18} style={{ marginTop: '2px', color: 'var(--text-main)', flexShrink: 0 }} />
               <div>
                 <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: 'var(--text-main)' }}>
-                  Проксировать звонки
+                  {t('proxy.proxy_calls')}
                 </span>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
-                  Маршрутизировать голосовые и видеозвонки через прокси-туннель.
+                  {t('proxy.proxy_calls_desc')}
                 </span>
               </div>
             </div>
@@ -462,10 +461,10 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
               <Radio size={18} style={{ marginTop: '2px', color: 'var(--text-main)', flexShrink: 0 }} />
               <div>
                 <span style={{ fontSize: '13.5px', fontWeight: 500, display: 'block', color: 'var(--text-main)' }}>
-                  Авто-переключение при сбое
+                  {t('proxy.auto_fallback')}
                 </span>
                 <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px', display: 'block', lineHeight: 1.35 }}>
-                  Автоматически переключаться на резервный рабочий прокси при падении активного.
+                  {t('proxy.auto_fallback_desc')}
                 </span>
               </div>
             </div>
@@ -475,7 +474,6 @@ export const ConnectionSettingsScreen: React.FC<ConnectionSettingsScreenProps> =
         </div>
       </div>
 
-      {/* Proxy Add / Edit Modal */}
       <ProxyEditModal
         isOpen={modalOpen}
         proxyToEdit={editingProxy}

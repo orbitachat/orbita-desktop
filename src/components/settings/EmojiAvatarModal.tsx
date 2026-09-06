@@ -1,6 +1,6 @@
-// src/components/settings/EmojiAvatarModal.tsx
 import React, { useState, useMemo } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Virtuoso } from 'react-virtuoso';
 import { allEmojis, type Emoji } from '../../lib/emoji-data';
 import { AVATAR_GRADIENTS } from '../common/Avatar';
@@ -18,10 +18,10 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useTranslation();
   const [selectedGradient, setSelectedGradient] = useState(GRADIENTS[6]);
   const [selectedEmoji, setSelectedEmoji] = useState('🎁');
 
-  // Chunk all emojis into rows of 9 for smooth virtualization
   const emojiRows = useMemo(() => {
     const rows: Emoji[][] = [];
     for (let i = 0; i < allEmojis.length; i += 9) {
@@ -36,7 +36,7 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
     try {
       const size = 512;
       const center = size / 2;
-      const radius = center - 1.5; // 1.5px padding to prevent clipping of anti-aliasing pixels
+      const radius = center - 1.5;
 
       const canvas = document.createElement('canvas');
       canvas.width = size;
@@ -52,7 +52,6 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
       grad.addColorStop(0, colors[0]);
       grad.addColorStop(1, colors[1] || colors[0]);
 
-      // 1. Измеряем точные пиксельные границы эмодзи на оффскрин-холсте
       const offCanvas = document.createElement('canvas');
       offCanvas.width = size;
       offCanvas.height = size;
@@ -94,13 +93,11 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
         } catch (e) {}
       }
 
-      // 2. Рисуем фоновый градиентный круг с субпиксельным сглаживанием
       ctx.beginPath();
       ctx.arc(center, center, radius, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // 3. Рисуем эмодзи строго в геометрическом и визуальном центре круга
       ctx.font = '295px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -149,7 +146,6 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div
           style={{
             display: 'flex',
@@ -161,6 +157,7 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label={t('common.close')}
             style={{
               background: 'none',
               border: 'none',
@@ -177,7 +174,7 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
           </button>
 
           <span style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>
-            Выбрать эмодзи
+            {t('avatar.choose_emoji')}
           </span>
 
           <button
@@ -193,7 +190,7 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
               padding: '6px 8px',
             }}
           >
-            Сохранить
+            {t('avatar.save')}
           </button>
         </div>
 
@@ -206,7 +203,6 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
             padding: '8px 12px 14px',
           }}
         >
-          {/* Large Avatar Preview with Perfectly Centered Emoji */}
           <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 14px' }}>
             <div
               style={{
@@ -239,7 +235,6 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
             </div>
           </div>
 
-          {/* Background Gradients Row */}
           <div
             style={{
               display: 'flex',
@@ -275,7 +270,6 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
             })}
           </div>
 
-          {/* Virtualized Emoji Grid (9 items per row, smooth & super lightweight) */}
           <div style={{ flex: 1, height: '240px', width: '100%', overflow: 'hidden' }}>
             <Virtuoso
               style={{ height: '240px', width: '100%' }}
