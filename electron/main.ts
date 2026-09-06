@@ -2062,12 +2062,16 @@ ipcMain.handle('orbita:get-current-icons', () => ({
 
 ipcMain.handle('orbita:set-show-in-system-tray', (_event, show: boolean) => {
   showInTraySetting = !!show;
+  saveWindowSettings();
   if (showInTraySetting) setupTray();
   else destroyTray();
   return showInTraySetting;
 });
 
-ipcMain.handle('orbita:get-show-in-system-tray', () => showInTraySetting);
+ipcMain.handle('orbita:get-show-in-system-tray', () => {
+  loadWindowSettings();
+  return showInTraySetting;
+});
 
 ipcMain.handle('orbita:set-auto-launch', (_event, enable: boolean) => {
   if (typeof app.setLoginItemSettings === 'function' && process.platform === 'win32') {
@@ -2086,10 +2090,37 @@ ipcMain.handle('orbita:get-auto-launch-state', () => {
   return false;
 });
 
+const WINDOW_SETTINGS_FILE = path.join(app.getPath('userData'), 'orbita_window_settings.json');
+
+function loadWindowSettings() {
+  try {
+    if (fs.existsSync(WINDOW_SETTINGS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(WINDOW_SETTINGS_FILE, 'utf8'));
+      if (data && typeof data === 'object') {
+        if (typeof data.screenProtection === 'boolean') screenProtectionSetting = data.screenProtection;
+        if (typeof data.hideMenuBar === 'boolean') hideMenuBarSetting = data.hideMenuBar;
+        if (typeof data.showInTray === 'boolean') showInTraySetting = data.showInTray;
+      }
+    }
+  } catch {}
+}
+
+function saveWindowSettings() {
+  try {
+    const data = {
+      screenProtection: screenProtectionSetting,
+      hideMenuBar: hideMenuBarSetting,
+      showInTray: showInTraySetting,
+    };
+    fs.writeFileSync(WINDOW_SETTINGS_FILE, JSON.stringify(data), 'utf8');
+  } catch {}
+}
+
 let screenProtectionSetting = false;
 
 ipcMain.handle('orbita:set-screen-protection', (_event, enabled: boolean) => {
   screenProtectionSetting = !!enabled;
+  saveWindowSettings();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setContentProtection(screenProtectionSetting);
   }
@@ -2099,12 +2130,16 @@ ipcMain.handle('orbita:set-screen-protection', (_event, enabled: boolean) => {
   return screenProtectionSetting;
 });
 
-ipcMain.handle('orbita:get-screen-protection', () => screenProtectionSetting);
+ipcMain.handle('orbita:get-screen-protection', () => {
+  loadWindowSettings();
+  return screenProtectionSetting;
+});
 
 let hideMenuBarSetting = false;
 
 ipcMain.handle('orbita:set-hide-menu-bar', (_event, hide: boolean) => {
   hideMenuBarSetting = !!hide;
+  saveWindowSettings();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setAutoHideMenuBar(hideMenuBarSetting);
     mainWindow.setMenuBarVisibility(!hideMenuBarSetting);
@@ -2112,7 +2147,10 @@ ipcMain.handle('orbita:set-hide-menu-bar', (_event, hide: boolean) => {
   return hideMenuBarSetting;
 });
 
-ipcMain.handle('orbita:get-hide-menu-bar', () => hideMenuBarSetting);
+ipcMain.handle('orbita:get-hide-menu-bar', () => {
+  loadWindowSettings();
+  return hideMenuBarSetting;
+});
 
 ipcMain.on('orbita:tray-menu-action', (_event, action: string) => {
   if (action === 'open') {
@@ -2572,6 +2610,7 @@ ipcMain.handle('orbita:get-os-info', () => {
 // 11. Main Window
 // -----------------------------------------------------------------------------
 function createMainWindow() {
+  loadWindowSettings();
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,

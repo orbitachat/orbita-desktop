@@ -1415,6 +1415,17 @@ export const useChatStore = create<ChatState>()(
             online: false,
           }));
         }
+        if (state && typeof window !== 'undefined' && (window as any).orbita) {
+          if (typeof state.screenProtectionEnabled === 'boolean' && (window as any).orbita.setScreenProtection) {
+            (window as any).orbita.setScreenProtection(state.screenProtectionEnabled).catch(() => {});
+          }
+          if (typeof state.hideMenuBar === 'boolean' && (window as any).orbita.setHideMenuBar) {
+            (window as any).orbita.setHideMenuBar(state.hideMenuBar).catch(() => {});
+          }
+          if (typeof state.showInSystemTray === 'boolean' && (window as any).orbita.setShowInSystemTray) {
+            (window as any).orbita.setShowInSystemTray(state.showInSystemTray).catch(() => {});
+          }
+        }
       },
     }
   )

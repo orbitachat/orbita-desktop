@@ -539,12 +539,7 @@ const PrivacySettingsScreen = ({ onOpenPassword }: { onOpenPassword: () => void 
 
   useEffect(() => {
     setIsPasswordSet(securityService.isPasswordSet());
-    if (typeof window !== 'undefined' && window.orbita?.getScreenProtection) {
-      window.orbita.getScreenProtection().then((val) => {
-        setScreenProtectionEnabled(val);
-      }).catch(() => {});
-    }
-  }, [setScreenProtectionEnabled]);
+  }, []);
 
   const handleToggleScreenProtection = async () => {
     const nextVal = !screenProtectionEnabled;
@@ -1945,7 +1940,6 @@ export const SettingsScreen = () => {
     selectedCameraId, setSelectedCameraId,
     selectedMicrophoneId, setSelectedMicrophoneId,
     selectedSpeakerId, setSelectedSpeakerId,
-    setScreenProtectionEnabled,
     hideMenuBar, setHideMenuBar,
     voiceCallsEnabled, setVoiceCallsEnabled,
   } = useChatStore();
@@ -1986,21 +1980,10 @@ export const SettingsScreen = () => {
   }, [activeTab, loadMediaDevices]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.orbita) {
-      if (window.orbita.getAutoLaunchState) {
-        window.orbita.getAutoLaunchState().then((enabled) => setAutoLaunch(enabled)).catch(() => {});
-      }
-      if (window.orbita.getShowInSystemTray) {
-        window.orbita.getShowInSystemTray().then((enabled) => setShowInSystemTray(enabled)).catch(() => {});
-      }
-      if (window.orbita.getScreenProtection) {
-        window.orbita.getScreenProtection().then((enabled) => setScreenProtectionEnabled(enabled)).catch(() => {});
-      }
-      if (window.orbita.getHideMenuBar) {
-        window.orbita.getHideMenuBar().then((hidden) => setHideMenuBar(hidden)).catch(() => {});
-      }
+    if (typeof window !== 'undefined' && window.orbita?.getAutoLaunchState) {
+      window.orbita.getAutoLaunchState().then((enabled) => setAutoLaunch(enabled)).catch(() => {});
     }
-  }, [setAutoLaunch, setShowInSystemTray, setScreenProtectionEnabled, setHideMenuBar]);
+  }, [setAutoLaunch]);
 
   const [isMobileWidth, setIsMobileWidth] = useState(() => 
     typeof window !== 'undefined' ? window.innerWidth < 650 : false
