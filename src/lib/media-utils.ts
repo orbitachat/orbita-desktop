@@ -80,7 +80,7 @@ export function getOrbitaMediaUrl(
     return clean;
   }
 
-  const isElectron = typeof window !== 'undefined' && (Boolean((window as any).__ELECTRON_RENDERER__) || Boolean((window as any).orbita));
+  const isElectron = typeof window !== 'undefined' && (Boolean((window as any).__ELECTRON_RENDERER__) || Boolean((window as any).orbita?.getDesktopSources));
   if (isElectron) {
     const params = new URLSearchParams();
     params.set('url', clean);

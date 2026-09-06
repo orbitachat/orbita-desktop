@@ -156,16 +156,15 @@ export function useAudioRecorder() {
         source.connect(analyser);
       }
 
-      // Select mime type with opus/ogg priority
       let mimeType = '';
-      if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
-        mimeType = 'audio/ogg;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-        mimeType = 'audio/ogg';
-      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
         mimeType = 'audio/webm;codecs=opus';
       } else if (MediaRecorder.isTypeSupported('audio/webm')) {
         mimeType = 'audio/webm';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        mimeType = 'audio/ogg;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+        mimeType = 'audio/ogg';
       } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
         mimeType = 'audio/mp4';
       }
@@ -243,9 +242,7 @@ export function useAudioRecorder() {
         animFrameRef.current = null;
       }
       setStatus('paused');
-
-      // Build draft blob
-      const mimeType = mediaRecorderRef.current.mimeType || 'audio/ogg;codecs=opus';
+      const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm;codecs=opus';
       const blob = new Blob(audioChunksRef.current, { type: mimeType });
       setDraftBlob(blob);
       const url = URL.createObjectURL(blob);

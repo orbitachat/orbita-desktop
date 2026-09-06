@@ -2565,40 +2565,40 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const truncateText = (text: string, maxLen: number): string => text.length <= maxLen ? text : text.substring(0, maxLen) + '...';
 
-  const MONTHS_RU = useMemo(() => ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'], []);
-  const MONTHS_EN = useMemo(() => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], []);
+  const isSameDay = (ts1: number, ts2: number): boolean => {
+    const d1 = new Date(ts1);
+    const d2 = new Date(ts2);
+    return (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+  };
 
-  const getDateLabel = useCallback((timestamp: number): string | null => {
+  const getDateLabel = useCallback((timestamp: number): string => {
     const date = new Date(timestamp);
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today.getTime() - 86400000);
-    const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const isRu = (i18n.language || 'ru').startsWith('ru');
+    const isDifferentYear = date.getFullYear() !== now.getFullYear();
 
-    if (msgDate.getTime() === today.getTime()) return t('chatWindow.today');
-    if (msgDate.getTime() === yesterday.getTime()) return t('chatWindow.yesterday');
-
-    const diffDays = Math.floor((today.getTime() - msgDate.getTime()) / 86400000);
-    if (diffDays < 7) {
-      const days = [
-        t('chatWindow.sunday'),
-        t('chatWindow.monday'),
-        t('chatWindow.tuesday'),
-        t('chatWindow.wednesday'),
-        t('chatWindow.thursday'),
-        t('chatWindow.friday'),
-        t('chatWindow.saturday')
-      ];
-      return days[date.getDay()];
+    if (isRu) {
+      const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+      const wd = weekdays[date.getDay()];
+      const d = date.getDate();
+      const m = months[date.getMonth()];
+      const yr = isDifferentYear ? ` ${date.getFullYear()}` : '';
+      return `${wd}, ${d} ${m}${yr}`;
     }
 
-    const isRu = (i18n.language || 'ru').startsWith('ru');
-    const day = date.getDate();
-    const monthName = isRu ? MONTHS_RU[date.getMonth()] : MONTHS_EN[date.getMonth()];
-    const yearStr = date.getFullYear() !== now.getFullYear() ? `, ${date.getFullYear()}` : '';
-
-    return `${day} ${monthName}${yearStr}`;
-  }, [t, i18n.language, MONTHS_RU, MONTHS_EN]);
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const wd = weekdays[date.getDay()];
+    const d = date.getDate();
+    const m = months[date.getMonth()];
+    const yr = isDifferentYear ? `, ${date.getFullYear()}` : '';
+    return `${wd}, ${m} ${d}${yr}`;
+  }, [i18n.language]);
 
   const floatingDateRef = useRef<string | null>(null);
 
@@ -4782,14 +4782,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     let customRadius: string;
     if (isOwn) {
-      // Мои сообщения: правая сторона выравнивается (уменьшается радиус скрепления)
       const rTopLeft = baseRadius;
       const rBottomLeft = baseRadius;
       const rTopRight = isPrevSameSenderGroup ? smallRadius : baseRadius;
       const rBottomRight = isNextSameSenderGroup ? smallRadius : baseRadius;
       customRadius = `${rTopLeft} ${rTopRight} ${rBottomRight} ${rBottomLeft}`;
     } else {
-      // Сообщения собеседника: левая сторона выравнивается
       const rTopRight = baseRadius;
       const rBottomRight = baseRadius;
       const rTopLeft = isPrevSameSenderGroup ? smallRadius : baseRadius;
@@ -4808,7 +4806,34 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       boxSizing: 'border-box',
     };
 
-    const mediaItems = msg.mediaItems;
+    const isFirstOfDay = !prevMsg || !isSameDay(prevMsg.time, msg.time);
+    const dateDividerNode = isFirstOfDay ? (
+      <div className="flex justify-center items-center w-full my-2.5 select-none pointer-events-none">
+        <div
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255,255,255,0.08)) 85%, #000)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            color: 'var(--text-secondary, rgba(255,255,255,0.85))',
+            fontSize: '12px',
+            fontWeight: 500,
+            padding: '3px 13px',
+            borderRadius: '9999px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            letterSpacing: '0.01em',
+          }}
+        >
+          {getDateLabel(msg.time)}
+        </div>
+      </div>
+    ) : null;
+
+    const renderContent = () => {
+      const mediaItems = msg.mediaItems;
     if (mediaItems && mediaItems.length > 0) {
       return (
         <div style={{ ...highlightWrapperStyle }}>
@@ -4852,7 +4877,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (!media.type) {
       const isPinned = isMessagePinned(index);
       return (
-        <div style={{ ...highlightWrapperStyle }}>
+        <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
           <MessageItem
             msg={msg}
             isOwn={isOwn}
@@ -5175,7 +5200,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         </div>
       </div>
     );
-  }, [myNickname, editingIndex, editText, sharedSecret, bubbleRadius, themeColor, getDateLabel, isMessagePinned, selection, handleMessageClick, handleContextMenu, handleCallPress, activeChatId, triggerEditMessage, t, bubbleStyle, timeBadge, renderMediaGroup]);
+  };
+
+  return (
+    <>
+      {dateDividerNode}
+      {renderContent()}
+    </>
+  );
+}, [myNickname, editingIndex, editText, sharedSecret, bubbleRadius, themeColor, getDateLabel, isMessagePinned, selection, handleMessageClick, handleContextMenu, handleCallPress, activeChatId, triggerEditMessage, t, bubbleStyle, timeBadge, renderMediaGroup]);
 
 
 
