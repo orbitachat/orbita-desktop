@@ -2168,6 +2168,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const pinnedMessage = activeChat?.pinnedMessage;
   const [floatingDate, setFloatingDate] = useState<string | null>(null);
   const [showFloatingDate, setShowFloatingDate] = useState(false);
+  const [floatingDateOffsetY, setFloatingDateOffsetY] = useState(0);
   const floatingDateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const themeColor = 'var(--accent-color)';
@@ -2685,10 +2686,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
     floatingDateTimeoutRef.current = setTimeout(() => {
       setShowFloatingDate(false);
+      setFloatingDateOffsetY(0);
     }, 1200);
 
     const now = performance.now();
-    if (now - lastDateCheckTimeRef.current > 80) {
+    if (now - lastDateCheckTimeRef.current > 30) {
       lastDateCheckTimeRef.current = now;
       if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
       scrollRafRef.current = requestAnimationFrame(() => {
@@ -2699,15 +2701,39 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           document.elementFromPoint(rect.left + rect.width / 2, y)?.closest('[data-datelabel]') ||
           document.elementFromPoint(rect.left + 40, y)?.closest('[data-datelabel]') ||
           document.elementFromPoint(rect.right - 40, y)?.closest('[data-datelabel]');
-        if (target) {
-          const dateLabel = target.getAttribute('data-datelabel');
-          if (dateLabel) {
-            floatingDateRef.current = dateLabel;
-            setFloatingDate(dateLabel);
-            setShowFloatingDate(true);
+        const activeDate = target?.getAttribute('data-datelabel') || floatingDateRef.current;
+
+        if (activeDate) {
+          floatingDateRef.current = activeDate;
+          setFloatingDate(activeDate);
+
+          const allDividers = Array.from(messagesContainerRef.current.querySelectorAll('[data-date-divider]'));
+          const currentDivider = allDividers.find((d) => d.getAttribute('data-date-divider') === activeDate);
+          let isCurrentDividerVisible = false;
+          if (currentDivider) {
+            const divRect = currentDivider.getBoundingClientRect();
+            if (divRect.bottom > rect.top + 6 && divRect.top < rect.bottom - 10) {
+              isCurrentDividerVisible = true;
+            }
           }
-        } else if (floatingDateRef.current) {
-          setShowFloatingDate(true);
+
+          if (isCurrentDividerVisible) {
+            setShowFloatingDate(false);
+            setFloatingDateOffsetY(0);
+          } else {
+            setShowFloatingDate(true);
+            let pushOffsetY = 0;
+            for (const div of allDividers) {
+              if (div.getAttribute('data-date-divider') === activeDate) continue;
+              const r = div.getBoundingClientRect();
+              const distFromTop = r.top - rect.top;
+              if (distFromTop > 0 && distFromTop < 42) {
+                pushOffsetY = distFromTop - 42;
+                break;
+              }
+            }
+            setFloatingDateOffsetY(pushOffsetY);
+          }
         }
       });
     }
@@ -4826,8 +4852,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     };
 
     const isFirstOfDay = !prevMsg || !isSameDay(prevMsg.time, msg.time);
+    const dateLabel = getDateLabel(msg.time);
     const dateDividerNode = isFirstOfDay ? (
-      <div className="flex justify-center items-center w-full my-2.5 select-none pointer-events-none">
+      <div
+        data-date-divider={dateLabel}
+        className="flex justify-center items-center w-full my-2.5 select-none pointer-events-none"
+      >
         <div
           style={{
             backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255,255,255,0.06)) 92%, #000)',
@@ -4842,7 +4872,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
           }}
         >
-          {getDateLabel(msg.time)}
+          {dateLabel}
         </div>
       </div>
     ) : null;
@@ -5446,9 +5476,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           {showFloatingDate && floatingDate && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
+              animate={{ opacity: 1, scale: 1, y: floatingDateOffsetY }}
               exit={{ opacity: 0, scale: 0.9, y: -4 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
               className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none"
               style={{ top: '12px' }}
             >
