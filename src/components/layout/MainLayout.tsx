@@ -1313,6 +1313,8 @@ export const MainLayout = () => {
           mime: messageData.mime || null,
           mediaItems: messageData.mediaItems || undefined,
           audioMetadata: messageData.audioMetadata || undefined,
+          duration: messageData.duration || undefined,
+          waveform: messageData.waveform || undefined,
           linkPreview: messageData.linkPreview || undefined,
         });
 
@@ -1367,6 +1369,8 @@ export const MainLayout = () => {
               mime: messageData.mime || null,
               mediaItems: messageData.mediaItems || undefined,
               audioMetadata: messageData.audioMetadata || undefined,
+              duration: messageData.duration || undefined,
+              waveform: messageData.waveform || undefined,
               linkPreview: messageData.linkPreview || undefined,
             });
 

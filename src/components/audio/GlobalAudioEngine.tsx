@@ -22,7 +22,10 @@ export const GlobalAudioEngine = () => {
   const { blobUrl } = useDecryptedMedia(
     currentTrack?.url || null,
     currentTrack?.sharedSecret,
-    currentTrack?.title
+    currentTrack?.message?.mediaName || currentTrack?.title,
+    currentTrack?.message?.mime || (currentTrack?.mediaType === 'voice' ? 'audio/webm' : undefined),
+    currentTrack?.chatId,
+    currentTrack?.message?.id || currentTrack?.id
   );
 
   // Initialize persistent audio element once

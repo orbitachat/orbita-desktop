@@ -426,7 +426,17 @@ class MediaManager {
       }
     }
     else if (bytes[4] === 0x66 && bytes[5] === 0x74) mime = 'video/mp4';
-    else if (bytes[0] === 0x1A && bytes[1] === 0x45) mime = 'video/webm';
+    else if (bytes[0] === 0x1A && bytes[1] === 0x45) {
+      const isVoice = Boolean(
+        fileName && (
+          fileName.toLowerCase().includes('voice') ||
+          fileName.toLowerCase().endsWith('.weba') ||
+          fileName.toLowerCase().endsWith('.webm') ||
+          fileName.toLowerCase().endsWith('.ogg')
+        )
+      );
+      mime = isVoice ? 'audio/webm' : 'video/webm';
+    }
     else if (bytes[0] === 0x25 && bytes[1] === 0x50) mime = 'application/pdf';
     else if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) mime = 'audio/mpeg';
     else if (bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0) mime = 'audio/mpeg';
@@ -454,6 +464,8 @@ class MediaManager {
         m4a: 'audio/mp4',
         opus: 'audio/ogg',
         wma: 'audio/x-ms-wma',
+        weba: 'audio/webm',
+        webm: 'audio/webm',
       };
       const videoExts: Record<string, string> = {
         mp4: 'video/mp4',

@@ -67,7 +67,9 @@ export function getOrbitaMediaUrl(
   url: string | null,
   sharedSecret?: string,
   chatId?: string,
-  messageId?: string
+  messageId?: string,
+  fileName?: string,
+  mime?: string
 ): string | null {
   if (!url || typeof url !== 'string') return null;
   const clean = url.replace(/^\[(?:Photo|GIF|Sticker|Video|Audio|File)\]\s*/i, '').trim();
@@ -85,6 +87,8 @@ export function getOrbitaMediaUrl(
     if (sharedSecret) params.set('secret', sharedSecret);
     if (chatId) params.set('chatId', chatId);
     if (messageId) params.set('messageId', messageId);
+    if (fileName) params.set('filename', fileName);
+    if (mime) params.set('mime', mime);
     return `orbita-media://media?${params.toString()}`;
   }
 
@@ -116,8 +120,8 @@ export function useDecryptedMedia(
   const streamUrl = useMemo(() => {
     if (!cleanUrl) return null;
     if (cleanUrl.startsWith('blob:') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('orbita-media:')) return cleanUrl;
-    return getOrbitaMediaUrl(cleanUrl, sharedSecret, chatId, messageId);
-  }, [cleanUrl, sharedSecret, chatId, messageId]);
+    return getOrbitaMediaUrl(cleanUrl, sharedSecret, chatId, messageId, hintFileName, _forcedMime);
+  }, [cleanUrl, sharedSecret, chatId, messageId, hintFileName, _forcedMime]);
 
   const [result, setResult] = useState<{ blobUrl: string | null; blob: Blob | null; load: () => Promise<void> }>(() => ({
     blobUrl: streamUrl && (streamUrl.startsWith('orbita-media:') || streamUrl.startsWith('blob:') || streamUrl.startsWith('data:'))

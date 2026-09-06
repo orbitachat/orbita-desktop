@@ -756,25 +756,51 @@ function registerMediaIpcHandlers() {
   ipcMain.handle('media:delete-by-chat', async (_event, chatId: string) => ({ deleted: await deleteMediaByChat(chatId) }));
 }
 
-function detectMimeFromBuffer(buf: Buffer, fallbackUrl: string): string {
+function detectMimeFromBuffer(buf: Buffer, fallbackUrl: string, hintFileName?: string, hintMime?: string): string {
+  if (hintMime && hintMime !== 'application/octet-stream' && !hintMime.includes('undefined')) {
+    if (buf.length >= 2 && buf[0] === 0x1a && buf[1] === 0x45) {
+      return hintMime.startsWith('audio/') ? 'audio/webm' : 'video/webm';
+    }
+    return hintMime;
+  }
   if (buf.length >= 4) {
     if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
     if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png';
     if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return 'image/gif';
     if (buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF' && buf.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
-    if (buf.length >= 8 && buf.subarray(4, 8).toString('ascii') === 'ftyp') return 'video/mp4';
+    if (buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF' && buf.subarray(8, 12).toString('ascii') === 'WAVE') return 'audio/wav';
+    if (buf.subarray(0, 4).toString('ascii') === 'fLaC') return 'audio/flac';
+    if (buf.length >= 8 && buf.subarray(4, 8).toString('ascii') === 'ftyp') {
+      const isAudio = fallbackUrl.toLowerCase().endsWith('.m4a') || hintFileName?.toLowerCase().endsWith('.m4a');
+      return isAudio ? 'audio/mp4' : 'video/mp4';
+    }
     if (buf.subarray(0, 4).toString('ascii') === 'OggS') return 'audio/ogg';
     if (buf.subarray(0, 3).toString('ascii') === 'ID3' || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return 'audio/mpeg';
+    if (buf[0] === 0x1a && buf[1] === 0x45) {
+      const isAudio = fallbackUrl.toLowerCase().includes('voice_') ||
+        (hintFileName && hintFileName.toLowerCase().includes('voice')) ||
+        fallbackUrl.toLowerCase().endsWith('.weba') ||
+        (hintFileName && hintFileName.toLowerCase().endsWith('.weba')) ||
+        (hintMime && hintMime.startsWith('audio/'));
+      return isAudio ? 'audio/webm' : 'video/webm';
+    }
+    if (buf.subarray(0, 4).toString('ascii') === '%PDF') return 'application/pdf';
   }
-  const ext = path.extname(fallbackUrl.split('?')[0]).toLowerCase();
+  const checkUrl = hintFileName || fallbackUrl;
+  const ext = path.extname(checkUrl.split('?')[0]).toLowerCase();
   if (ext === '.mp4') return 'video/mp4';
   if (ext === '.webm') return 'video/webm';
-  if (ext === '.ogg') return 'audio/ogg';
+  if (ext === '.weba') return 'audio/webm';
+  if (ext === '.ogg' || ext === '.opus') return 'audio/ogg';
   if (ext === '.mp3') return 'audio/mpeg';
+  if (ext === '.wav') return 'audio/wav';
+  if (ext === '.flac') return 'audio/flac';
+  if (ext === '.m4a' || ext === '.aac') return 'audio/mp4';
   if (ext === '.png') return 'image/png';
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   if (ext === '.webp') return 'image/webp';
   if (ext === '.gif') return 'image/gif';
+  if (ext === '.pdf') return 'application/pdf';
   return 'application/octet-stream';
 }
 
@@ -829,6 +855,8 @@ function registerOrbitaMediaProtocol() {
       const secret = parsedUrl.searchParams.get('secret') || '';
       const chatId = parsedUrl.searchParams.get('chatId') || undefined;
       const messageId = parsedUrl.searchParams.get('messageId') || undefined;
+      const hintFileName = parsedUrl.searchParams.get('filename') || undefined;
+      const hintMime = parsedUrl.searchParams.get('mime') || undefined;
 
       if (!mediaUrl) {
         return new Response('Missing URL', { status: 400 });
@@ -848,15 +876,24 @@ function registerOrbitaMediaProtocol() {
           rawBuf = decryptMediaBuffer(rawBuf, secret);
         }
 
-        const mime = detectMimeFromBuffer(rawBuf, mediaUrl);
+        const mime = detectMimeFromBuffer(rawBuf, mediaUrl, hintFileName, hintMime);
         await saveMediaToCache(mediaUrl, rawBuf, mime, chatId, messageId);
         item = { data: rawBuf, mime };
-      } else if (secret && item.data && (item.mime === 'application/octet-stream' || item.mime === null)) {
-        const dec = decryptMediaBuffer(item.data, secret);
-        if (dec !== item.data) {
-          const mime = detectMimeFromBuffer(dec, mediaUrl);
-          await saveMediaToCache(mediaUrl, dec, mime, chatId, messageId);
-          item = { data: dec, mime };
+      } else {
+        if (secret && item.data && (item.mime === 'application/octet-stream' || item.mime === null)) {
+          const dec = decryptMediaBuffer(item.data, secret);
+          if (dec !== item.data) {
+            const mime = detectMimeFromBuffer(dec, mediaUrl, hintFileName, hintMime);
+            await saveMediaToCache(mediaUrl, dec, mime, chatId, messageId);
+            item = { data: dec, mime };
+          }
+        }
+        if (item.data && (item.mime === 'audio/ogg' || item.mime === 'application/octet-stream') && item.data.length >= 2 && item.data[0] === 0x1a && item.data[1] === 0x45) {
+          const correctedMime = detectMimeFromBuffer(item.data, mediaUrl, hintFileName, hintMime || 'audio/webm');
+          if (correctedMime !== item.mime) {
+            await saveMediaToCache(mediaUrl, item.data, correctedMime, chatId, messageId);
+            item.mime = correctedMime;
+          }
         }
       }
 

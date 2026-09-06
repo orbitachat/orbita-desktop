@@ -168,7 +168,7 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
   if (isVoice) {
     const url = msg.mediaUrl || msg.text?.match(/https?:\/\/[^\s]+/)?.[0] || null;
     const fileName = msg.mediaName || msg.text?.match(/voice_\S+/)?.[0] || 'voice.ogg';
-    return { type: 'voice', url, fileName, mime: msg.mime || 'audio/ogg' };
+    return { type: 'voice', url, fileName, mime: msg.mime || (fileName.endsWith('.webm') ? 'audio/webm' : 'audio/ogg') };
   }
 
   if (msg.mediaType && msg.mediaUrl) {
@@ -208,7 +208,7 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
   if (videoMatchGeneric) return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'video/mp4' };
 
   const voiceMatch = text.match(/^\[Audio\]\s+(voice_\S+)\s+(https?:\/\/\S+)\s*$/i);
-  if (voiceMatch) return { type: 'voice', url: voiceMatch[2], fileName: voiceMatch[1], mime: 'audio/ogg' };
+  if (voiceMatch) return { type: 'voice', url: voiceMatch[2], fileName: voiceMatch[1], mime: msg.mime || (voiceMatch[1].endsWith('.webm') ? 'audio/webm' : 'audio/ogg') };
   const audioMatch = text.match(/^\[Audio\]\s+(.*?)\s+(https?:\/\/\S+)\s*$/i);
   if (audioMatch && !audioMatch[1].match(/^voice_/i) && !audioMatch[1].endsWith('.ogg')) return { type: 'music', url: audioMatch[2], fileName: audioMatch[1], mime: msg.mime || 'audio/mpeg' };
   const audioMatchSingle = text.match(/^\[Audio\]\s+(\S+.*)$/i);
@@ -1410,6 +1410,12 @@ const VoiceMessagePlayer = memo(({
     };
   }, [blobUrl, localDuration, isCurrentTrack, globalDuration, setStoreDuration]);
 
+  useEffect(() => {
+    if (msg?.duration && msg.duration > 0 && (!localDuration || localDuration === 0)) {
+      setLocalDuration(msg.duration);
+    }
+  }, [msg?.duration, localDuration]);
+
   // Sync store duration if track is active
   useEffect(() => {
     if (isCurrentTrack && localDuration > 0 && (!globalDuration || globalDuration === 0)) {
@@ -1440,6 +1446,7 @@ const VoiceMessagePlayer = memo(({
         cover: null,
         url,
         sharedSecret: sharedSecret || '',
+        mediaType: 'voice',
         message: msg,
       });
     }
@@ -3868,7 +3875,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const { blob, duration, waveform } = recorded;
     if (!sharedSecret || !activeChatId) return;
 
-    const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('webm') ? 'ogg' : blob.type.includes('mp4') ? 'm4a' : 'ogg';
+    const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'webm';
     const voiceFileName = `voice_${Date.now()}.${ext}`;
 
     try {
@@ -3881,7 +3888,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         reader.readAsDataURL(encryptedBlob);
       });
 
-      const tempPath = await window.orbita.writeTempFile(encryptedBase64);
+      const tempPath = await window.orbita.writeTempFile(encryptedBase64, ext);
       if (!tempPath) {
         showToast(t('chatWindow.upload_failed'));
         return;
@@ -3892,13 +3899,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       window.orbita.deleteTempFile?.(tempPath);
 
       if (result.success && result.secure_url) {
-        mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey, blob, blob.type || 'audio/ogg;codecs=opus', activeChatId);
+        mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey, blob, blob.type || 'audio/webm;codecs=opus', activeChatId);
         await triggerMessage(`[Audio] ${voiceFileName}`, {
           type: 'voice',
           url: result.secure_url,
           key: fileKey,
           name: voiceFileName,
-          mime: blob.type || 'audio/ogg;codecs=opus',
+          mime: blob.type || 'audio/webm;codecs=opus',
           duration,
           waveform,
         });
