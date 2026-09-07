@@ -1551,14 +1551,18 @@ export const MainLayout = () => {
       isSyncingRef.current = true;
 
       try {
-        const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-        if (!isOnline) {
+        const navOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+        const fastestGateway = await gatewayManager.selectFastestGateway(force);
+        const isGatewayHealthy = fastestGateway && fastestGateway.status === 'healthy';
+
+        if (isGatewayHealthy) {
+          setIsNetworkOnline(true);
+        } else if (!navOnline) {
+          setIsNetworkOnline(false);
           useConnectionStore.getState().setServerConnected(false);
           return;
         }
-
-        const fastestGateway = await gatewayManager.selectFastestGateway(false);
-        const isGatewayHealthy = fastestGateway && fastestGateway.status === 'healthy';
 
         const pusher = getPusher();
         const pusherConnected = pusher.connection.state === 'connected';
@@ -1584,6 +1588,9 @@ export const MainLayout = () => {
 
         const isConnected = isGatewayHealthy || pusherConnected;
         useConnectionStore.getState().setServerConnected(isConnected);
+        if (isConnected) {
+          setIsNetworkOnline(true);
+        }
       } catch (err) {
         console.warn('[SyncManager] Sync cycle warning:', err);
         useConnectionStore.getState().setServerConnected(false);
@@ -1623,6 +1630,16 @@ export const MainLayout = () => {
     window.addEventListener('orbita:sync-now', handleSyncNow);
 
     const interval = setInterval(() => syncAll(false), 15000);
+    const checkTimer = setInterval(() => {
+      const navOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      const isConnected = useConnectionStore.getState().isServerConnected;
+      if (!navOnline) {
+        setIsNetworkOnline(false);
+        useConnectionStore.getState().setServerConnected(false);
+      } else if (!isConnected) {
+        syncAll(true);
+      }
+    }, 3000);
 
     return () => {
       isDestroyed = true;
@@ -1631,6 +1648,7 @@ export const MainLayout = () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('orbita:sync-now', handleSyncNow);
       clearInterval(interval);
+      clearInterval(checkTimer);
     };
   }, [step, nickname, myCode]);
 
@@ -2905,6 +2923,7 @@ export const MainLayout = () => {
   }, []);
 
   const handleBannerReconnect = useCallback(() => {
+    setIsNetworkOnline(true);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('orbita:sync-now'));
     }
@@ -3163,16 +3182,10 @@ export const MainLayout = () => {
                       {(!isServerConnected || !isNetworkOnline) && (
                         <div
                           role="button"
-                          tabIndex={0}
+                          tabIndex={-1}
                           onClick={handleBannerReconnect}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleBannerReconnect();
-                            }
-                          }}
                           aria-label={!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
-                          className="group relative cursor-pointer select-none"
+                          className="group relative cursor-pointer select-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none"
                           style={{
                             borderRadius: 0,
                             width: '100%',
@@ -3182,6 +3195,9 @@ export const MainLayout = () => {
                             backgroundColor: '#F5C518',
                             color: '#000000',
                             border: 'none',
+                            outline: 'none',
+                            boxShadow: 'none',
+                            WebkitTapHighlightColor: 'transparent',
                             padding: '6px 14px',
                             boxSizing: 'border-box',
                             userSelect: 'none',
