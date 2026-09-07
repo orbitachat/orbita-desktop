@@ -2873,8 +2873,11 @@ app.whenReady().then(async () => {
       enableBuiltInResolver: true,
       secureDnsMode: 'automatic',
       secureDnsServers: [
-        'https://cloudflare-dns.com/dns-query',
+        'https://dns.google/dns-query',
+        'https://dns.adguard-dns.com/dns-query',
+        'https://dns.yandex.ru/dns-query',
         'https://dns.quad9.net/dns-query',
+        'https://cloudflare-dns.com/dns-query',
       ],
     });
   }
