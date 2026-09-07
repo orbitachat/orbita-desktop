@@ -36,6 +36,49 @@ const HKDF_INFO_SYM_INIT = new TextEncoder().encode('OrbitaSymmetricRatchetInit'
 const CONST_CHAIN_STEP = new Uint8Array([0x02]);
 const CONST_MSG_KEY = new Uint8Array([0x01]);
 
+function zeroize(arr: Uint8Array): void {
+  arr.fill(0);
+}
+
+function padMessage(bytes: Uint8Array): Uint8Array {
+  const len = bytes.length;
+  let targetLen = 128;
+  if (len + 6 > 1024) {
+    targetLen = Math.ceil((len + 6) / 512) * 512;
+  } else if (len + 6 > 512) {
+    targetLen = 1024;
+  } else if (len + 6 > 256) {
+    targetLen = 512;
+  } else if (len + 6 > 128) {
+    targetLen = 256;
+  }
+  const padded = new Uint8Array(targetLen);
+  padded[0] = 0xFD;
+  padded[1] = 0x50;
+  padded[2] = (len >>> 24) & 0xFF;
+  padded[3] = (len >>> 16) & 0xFF;
+  padded[4] = (len >>> 8) & 0xFF;
+  padded[5] = len & 0xFF;
+  padded.set(bytes, 6);
+  if (targetLen > len + 6) {
+    const padLen = targetLen - (len + 6);
+    const padBytes = new Uint8Array(padLen);
+    crypto.getRandomValues(padBytes);
+    padded.set(padBytes, len + 6);
+  }
+  return padded;
+}
+
+function unpadMessage(bytes: Uint8Array): Uint8Array {
+  if (bytes.length >= 6 && bytes[0] === 0xFD && bytes[1] === 0x50) {
+    const len = ((bytes[2] << 24) >>> 0) + (bytes[3] << 16) + (bytes[4] << 8) + bytes[5];
+    if (len <= bytes.length - 6) {
+      return bytes.subarray(6, 6 + len);
+    }
+  }
+  return bytes;
+}
+
 function hexEncode(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -208,7 +251,10 @@ export class DoubleRatchet {
     this.state.sendIndex = index + 1;
 
     const plaintextBytes = new TextEncoder().encode(plaintext);
-    const { ciphertext, nonce, tag } = await aesGcmEncrypt(msgKey, plaintextBytes);
+    const paddedBytes = padMessage(plaintextBytes);
+    const { ciphertext, nonce, tag } = await aesGcmEncrypt(msgKey, paddedBytes);
+    zeroize(msgKey);
+    zeroize(paddedBytes);
 
     const combined = new Uint8Array(nonce.length + ciphertext.length + tag.length);
     combined.set(nonce, 0);
@@ -243,7 +289,9 @@ export class DoubleRatchet {
         delete this.state.skippedKeys[`${dhPublicKeyHex}:${index}`];
         const msgKey = getSkippedKeyBytes(skippedEntry);
         const decryptedBytes = await aesGcmDecrypt(msgKey, nonce, ciphertext, tag);
-        return new TextDecoder().decode(decryptedBytes);
+        zeroize(msgKey);
+        const unpadded = unpadMessage(decryptedBytes);
+        return new TextDecoder().decode(unpadded);
       }
 
       if (dhPublicKeyHex !== this.state.theirDHPublic) {
@@ -262,7 +310,9 @@ export class DoubleRatchet {
       this.state.recvIndex = index + 1;
 
       const decryptedBytes = await aesGcmDecrypt(msgKey, nonce, ciphertext, tag);
-      return new TextDecoder().decode(decryptedBytes);
+      zeroize(msgKey);
+      const unpadded = unpadMessage(decryptedBytes);
+      return new TextDecoder().decode(unpadded);
     } catch (err) {
       console.error('[DoubleRatchet] Decryption failed:', err);
       return null;

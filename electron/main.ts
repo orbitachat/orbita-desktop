@@ -2868,6 +2868,17 @@ app.whenReady().then(async () => {
     return true;
   });
 
+  if (app.configureHostResolver) {
+    app.configureHostResolver({
+      enableBuiltInResolver: true,
+      secureDnsMode: 'automatic',
+      secureDnsServers: [
+        'https://cloudflare-dns.com/dns-query',
+        'https://dns.quad9.net/dns-query',
+      ],
+    });
+  }
+
   getMasterKey();
   registerOrbitaMediaProtocol();
   registerMediaIpcHandlers();

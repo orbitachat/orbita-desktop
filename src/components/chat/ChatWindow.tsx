@@ -33,6 +33,7 @@ import {
 } from '../../lib/emoji-data';
 import { useDecryptedMedia } from '../../lib/media-utils';
 import { mediaManager } from '../../services/mediaManager';
+import { stripExifMetadata } from '../../lib/exifStripper';
 import { AudioMessageBubble } from './AudioMessageBubble';
 import { AudioCoverWithPlay } from '../audio/AudioCoverWithPlay';
 import { SmartGifPlayer } from './SmartGifPlayer';
@@ -4178,8 +4179,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           throw new Error('Failed to read file');
         }
 
+        const cleanedBuffer = stripExifMetadata(fileArrayBuffer, file.fileType || file.name);
         const fileKey = generateEphemeralKey();
-        const encryptedBlob = await encryptFile(fileArrayBuffer, fileKey);
+        const encryptedBlob = await encryptFile(cleanedBuffer, fileKey);
         const encryptedBase64 = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = () => resolve((reader.result as string).split(',')[1]);
@@ -4206,7 +4208,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
 
         const itemMime = resolveMime(file.fileType, file.name);
-        const localBlob = new Blob([fileArrayBuffer], { type: itemMime });
+        const localBlob = new Blob([cleanedBuffer], { type: itemMime });
         mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey, localBlob, itemMime, activeChatId);
 
         uploadedFiles.push({
