@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Trash2, Database, ChevronRight, Eye, EyeOff, CheckCircle2, XCircle, Bell } from 'lucide-react';
+import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell } from 'lucide-react';
 import { securityService } from '../../services/securityService';
 import { useState, useRef, type ReactNode, useEffect, useCallback, memo } from 'react';
 import {
@@ -1798,6 +1798,203 @@ const PreferenceSwitch = ({
   </div>
 );
 
+interface OrbitaSelectOption {
+  value: string;
+  label: string;
+}
+
+const OrbitaSelect = ({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+  minWidth = 160,
+  width = 'auto',
+}: {
+  value: string;
+  options: OrbitaSelectOption[];
+  onChange: (value: string) => void;
+  ariaLabel?: string;
+  minWidth?: number | string;
+  width?: number | string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find((opt) => opt.value === value) || options[0];
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        width,
+        minWidth,
+        userSelect: 'none',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label={ariaLabel || selectedOption?.label}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          backgroundColor: MD3.surfaceVar,
+          color: MD3.onSurface,
+          border: `1px solid ${isOpen ? MD3.primary : MD3.outline}`,
+          borderRadius: 10,
+          padding: '9px 14px',
+          fontSize: 13.5,
+          fontWeight: 600,
+          cursor: 'pointer',
+          outline: 'none',
+          boxSizing: 'border-box',
+          transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+          boxShadow: isOpen ? '0 0 0 2px rgba(155, 125, 212, 0.2)' : 'none',
+        }}
+      >
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            marginRight: 8,
+            textAlign: 'left',
+          }}
+        >
+          {selectedOption?.label}
+        </span>
+        <ChevronDown
+          size={16}
+          style={{
+            color: isOpen ? MD3.primary : MD3.onSurfaceVar,
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease, color 0.15s ease',
+            flexShrink: 0,
+          }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -4 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+            role="listbox"
+            aria-label={ariaLabel}
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              right: 0,
+              width: width === '100%' ? '100%' : 'max-content',
+              minWidth: '100%',
+              maxWidth: 320,
+              maxHeight: 240,
+              overflowY: 'auto',
+              backgroundColor: 'var(--md-surface, #2a253b)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: 10,
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35)',
+              padding: 5,
+              zIndex: 1000,
+              boxSizing: 'border-box',
+            }}
+          >
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <div
+                  key={opt.value}
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    borderRadius: 7,
+                    fontSize: 13,
+                    fontWeight: isSelected ? 600 : 400,
+                    color: isSelected ? MD3.primary : MD3.onSurface,
+                    backgroundColor: isSelected ? 'rgba(155, 125, 212, 0.12)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.12s ease',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <span
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      flex: 1,
+                    }}
+                  >
+                    {opt.label}
+                  </span>
+                  {isSelected && (
+                    <Check
+                      size={15}
+                      style={{
+                        color: MD3.primary,
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const DeviceSelect = ({
   label,
   value,
@@ -1810,51 +2007,30 @@ const DeviceSelect = ({
   devices: MediaDeviceInfo[];
   defaultLabel: string;
   onChange: (deviceId: string) => void;
-}) => (
-  <div style={{ padding: '14px 0', borderBottom: `1px solid rgba(255, 255, 255, 0.08)` }}>
-    <div style={{ fontSize: 12, fontWeight: 600, color: MD3.onSurfaceVar, marginBottom: 6 }}>
-      {label}
-    </div>
-    <div style={{ position: 'relative', width: '100%' }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={{
-          width: '100%',
-          backgroundColor: MD3.surfaceVar,
-          color: MD3.onSurface,
-          border: `1px solid ${MD3.outline}`,
-          borderRadius: 8,
-          padding: '10px 36px 10px 14px',
-          fontSize: 14,
-          outline: 'none',
-          appearance: 'none',
-          cursor: 'pointer',
-        }}
-      >
-        <option value="">{defaultLabel}</option>
-        {devices.map((device, idx) => (
-          <option key={device.deviceId || idx} value={device.deviceId}>
-            {device.label || `${label} ${idx + 1}`}
-          </option>
-        ))}
-      </select>
-      <div style={{
-        position: 'absolute',
-        right: 12,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        pointerEvents: 'none',
-        color: MD3.onSurfaceVar,
-        display: 'flex',
-        alignItems: 'center',
-      }}>
-        <ChevronRight size={16} style={{ transform: 'rotate(90deg)' }} />
+}) => {
+  const options = [
+    { value: '', label: defaultLabel },
+    ...devices.map((device, idx) => ({
+      value: device.deviceId,
+      label: device.label || `${label} ${idx + 1}`,
+    })),
+  ];
+
+  return (
+    <div style={{ padding: '14px 0', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: MD3.onSurfaceVar, marginBottom: 8 }}>
+        {label}
       </div>
+      <OrbitaSelect
+        value={value}
+        options={options}
+        onChange={onChange}
+        ariaLabel={label}
+        width="100%"
+      />
     </div>
-  </div>
-);
+  );
+};
 
 const HotkeySwitch = ({
   enterLabel,
@@ -3241,48 +3417,21 @@ export const SettingsScreen = () => {
                   )}
                 </div>
 
-                <div style={{ position: 'relative', minWidth: 140, flexShrink: 0 }}>
-                  <select
-                    value={noiseSuppressionMode || (noiseSuppression ? 'krisp' : 'none')}
-                    onChange={(e) => {
-                      const mode = e.target.value as any;
-                      setNoiseSuppressionMode(mode);
-                      liveKitService.updateAudioConstraints().catch(() => {});
-                    }}
-                    aria-label={t('settings.noise_suppression_title')}
-                    style={{
-                      width: '100%',
-                      backgroundColor: MD3.surfaceVar,
-                      color: MD3.onSurface,
-                      border: `1px solid ${MD3.outline}`,
-                      borderRadius: 10,
-                      padding: '8px 32px 8px 12px',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      outline: 'none',
-                      cursor: 'pointer',
-                      appearance: 'none',
-                    }}
-                  >
-                    <option value="krisp">{t('settings.noise_suppression_krisp')}</option>
-                    <option value="standard">{t('settings.noise_suppression_standard')}</option>
-                    <option value="none">{t('settings.noise_suppression_none')}</option>
-                  </select>
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      pointerEvents: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      color: MD3.onSurfaceVar,
-                    }}
-                  >
-                    <ChevronRight size={16} style={{ transform: 'rotate(90deg)' }} />
-                  </div>
-                </div>
+                <OrbitaSelect
+                  value={noiseSuppressionMode || (noiseSuppression ? 'krisp' : 'none')}
+                  onChange={(val) => {
+                    const mode = val as any;
+                    setNoiseSuppressionMode(mode);
+                    liveKitService.updateAudioConstraints().catch(() => {});
+                  }}
+                  ariaLabel={t('settings.noise_suppression_title')}
+                  minWidth={150}
+                  options={[
+                    { value: 'krisp', label: t('settings.noise_suppression_krisp') },
+                    { value: 'standard', label: t('settings.noise_suppression_standard') },
+                    { value: 'none', label: t('settings.noise_suppression_none') },
+                  ]}
+                />
               </div>
             </PreferencesGroup>
 
