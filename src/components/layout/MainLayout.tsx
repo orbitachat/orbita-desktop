@@ -3143,72 +3143,85 @@ export const MainLayout = () => {
                 onMouseEnter={showChatScrollbar}
                 onMouseLeave={handleChatListMouseLeave}
               >
-                {(!isServerConnected || !isNetworkOnline) && (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={handleBannerReconnect}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleBannerReconnect();
-                      }
-                    }}
-                    aria-label={!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#F5C518',
-                      color: '#000000',
-                      padding: '10px 16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                      boxSizing: 'border-box',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: '22px', height: '22px' }}>
-                      {!isNetworkOnline ? (
-                        <WifiOff size={20} color="#000000" strokeWidth={2.2} />
-                      ) : (
-                        <svg
-                          className="animate-spin"
-                          viewBox="0 0 24 24"
-                          width="20"
-                          height="20"
-                          fill="none"
-                          stroke="#000000"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                        >
-                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                        </svg>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: 1.2, color: '#000000' }}>
-                        {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
-                      </span>
-                      <span style={{ fontSize: '11.5px', lineHeight: 1.35, color: '#1a1a1a', marginTop: '2px' }}>
-                        {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
                 <div
                   ref={chatListScrollRef}
                   onScroll={handleChatListScroll}
                   className="flex-1 chat-list-scrollbar select-none"
                   style={{
-                    marginTop: (!isServerConnected || !isNetworkOnline) ? '0px' : '9px',
+                    marginTop: '9px',
                     paddingTop: '0px',
                     overflowY: 'scroll',
                     overflowX: 'hidden',
                   }}
                 >
+                  {(!isServerConnected || !isNetworkOnline) && (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleBannerReconnect}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleBannerReconnect();
+                        }
+                      }}
+                      aria-label={!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
+                      className="group relative cursor-pointer"
+                      style={{
+                        borderRadius: 0,
+                        width: '100%',
+                        minHeight: 64,
+                        backgroundColor: '#F5C518',
+                        color: '#000000',
+                        border: 'none',
+                        padding: '8px 11px 8px 14px',
+                        boxSizing: 'border-box',
+                        display: 'flex',
+                        alignItems: 'center',
+                        userSelect: 'none',
+                        flexShrink: 0,
+                        transition: 'background-color 0.12s ease',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 48,
+                          height: 48,
+                          marginRight: 10,
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {!isNetworkOnline ? (
+                          <WifiOff size={24} color="#000000" strokeWidth={2.2} />
+                        ) : (
+                          <svg
+                            className="animate-spin"
+                            viewBox="0 0 24 24"
+                            width="24"
+                            height="24"
+                            fill="none"
+                            stroke="#000000"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          >
+                            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                          </svg>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '14px', fontWeight: 700, lineHeight: 1.25, color: '#000000' }}>
+                          {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
+                        </span>
+                        <span style={{ fontSize: '12px', lineHeight: 1.3, color: '#1a1a1a', marginTop: '2px' }}>
+                          {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {isMobileView && chats.length === 0 ? (
                     <div className="h-full flex items-center justify-center">
                       <ChatPlaceholder />
