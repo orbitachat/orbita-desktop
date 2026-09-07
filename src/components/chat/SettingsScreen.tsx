@@ -1869,7 +1869,7 @@ const OrbitaSelect = ({
           width: '100%',
           backgroundColor: MD3.surfaceVar,
           color: MD3.onSurface,
-          border: `1px solid ${isOpen ? MD3.primary : MD3.outline}`,
+          border: 'none',
           borderRadius: 10,
           padding: '9px 14px',
           fontSize: 13.5,
@@ -1877,8 +1877,14 @@ const OrbitaSelect = ({
           cursor: 'pointer',
           outline: 'none',
           boxSizing: 'border-box',
-          transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
-          boxShadow: isOpen ? '0 0 0 2px rgba(155, 125, 212, 0.2)' : 'none',
+          transition: 'background-color 0.15s ease',
+          boxShadow: 'none',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = MD3.surfaceVar;
         }}
       >
         <span
@@ -1895,9 +1901,9 @@ const OrbitaSelect = ({
         <ChevronDown
           size={16}
           style={{
-            color: isOpen ? MD3.primary : MD3.onSurfaceVar,
+            color: MD3.onSurfaceVar,
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease, color 0.15s ease',
+            transition: 'transform 0.2s ease',
             flexShrink: 0,
           }}
         />
@@ -1922,9 +1928,9 @@ const OrbitaSelect = ({
               maxHeight: 240,
               overflowY: 'auto',
               backgroundColor: 'var(--md-surface, #2a253b)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
+              border: 'none',
               borderRadius: 10,
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35)',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
               padding: 5,
               zIndex: 1000,
               boxSizing: 'border-box',
