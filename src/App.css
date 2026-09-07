@@ -23,6 +23,7 @@
   --orbit-ring-6: 32px;
   --bg-primary: #121212;
   --bg-secondary: #1b1b1b;
+  --chat-list-bg: #1e1e1e;
   --accent-color: #5c54e5;
   --accent-light: #7c75f2;
   --accent-dark: #443db8;
@@ -237,12 +238,12 @@ blockquote {
 /* =============================================== */
 [data-theme-light="true"] {
   --md-on-surface: #49454f;
-  /* Светлая тема: тёмно-серый */
+  --chat-list-bg: #f5f5f5;
 }
 
 [data-theme-light="false"] {
   --md-on-surface: #ffffff;
-  /* Тёмная тема: чисто белый */
+  --chat-list-bg: #1e1e1e;
 }
 
 /* =============================================== */

@@ -410,6 +410,10 @@ const ChatListItem = React.memo(({
   const draftText = rawDraft ? rawDraft.trim() : '';
   const showDraft = !!(draftText && !isActive);
 
+  const ringColor = isActive
+    ? (isLightTheme ? '#eaeaea' : '#2c2c2c')
+    : (isLightTheme ? '#f5f5f5' : '#1e1e1e');
+
   return (
     <div
       onClick={() => onSelect(chat.id)}
@@ -459,9 +463,11 @@ const ChatListItem = React.memo(({
                 height: 12,
                 borderRadius: '50%',
                 backgroundColor: 'var(--accent-color, #7C3AED)',
-                boxShadow: '0 0 0 2.5px var(--bg-primary)',
+                boxShadow: `0 0 0 2px ${ringColor}`,
                 zIndex: 2,
                 pointerEvents: 'none',
+                flexShrink: 0,
+                transition: 'box-shadow 0.12s ease',
               }}
             />
           )}
@@ -1015,6 +1021,8 @@ export const MainLayout = () => {
           const unsubscribe = ablyService.subscribeToUserPresence(
             targetId,
             (isOnline, lastSeen) => {
+              const current = useChatStore.getState().chats.find(c => c.id === chat.id);
+              if (current && current.online === isOnline && (lastSeen ? current.lastSeen === lastSeen : true)) return;
               updateChat(chat.id, {
                 online: isOnline,
                 ...(lastSeen ? { lastSeen } : {}),

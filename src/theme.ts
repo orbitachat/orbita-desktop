@@ -92,6 +92,7 @@ export const themePalettes: Record<ThemeId, ThemeDefinition> = {
       '--surface-muted-strong': 'rgba(255,255,255,0.14)',
       '--surface-subtle': 'rgba(255,255,255,0.03)',
       '--border-color': '#242424',
+      '--chat-list-bg': '#1e1e1e',
       '--surface-border': '#282828',
       '--online-color': '#4caf50',
       '--offline-color': '#f44336',
@@ -142,6 +143,7 @@ export const themePalettes: Record<ThemeId, ThemeDefinition> = {
       '--surface-muted-strong': 'rgba(0,0,0,0.10)',
       '--surface-subtle': 'rgba(0,0,0,0.02)',
       '--border-color': '#e5e5e7',
+      '--chat-list-bg': '#f5f5f5',
       '--surface-border': '#e0e0e0',
       '--online-color': '#4caf50',
       '--offline-color': '#f44336',
@@ -192,6 +194,7 @@ export const themePalettes: Record<ThemeId, ThemeDefinition> = {
       '--surface-muted-strong': 'rgba(255,255,255,0.14)',
       '--surface-subtle': 'rgba(255,255,255,0.03)',
       '--border-color': '#242424',
+      '--chat-list-bg': '#1e1e1e',
       '--surface-border': '#282828',
       '--online-color': '#4caf50',
       '--offline-color': '#f44336',
@@ -272,6 +275,7 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
   root.style.setProperty('--surface-container-strong', theme.vars['--surface-container-strong'] || '#343434');
   root.style.setProperty('--surface-container-soft', theme.vars['--surface-container-soft'] || 'rgba(255,255,255,0.05)');
   root.style.setProperty('--surface-border', theme.vars['--surface-border'] || '#2e2e2e');
+  root.style.setProperty('--chat-list-bg', theme.vars['--chat-list-bg'] || (resolvedMode === 'light' ? '#f5f5f5' : '#1e1e1e'));
 
   root.style.setProperty('--md-bg', theme.vars['--settings-bg'] || theme.vars['--bg-secondary']);
   root.style.setProperty('--md-surface', theme.vars['--settings-surface'] || theme.vars['--surface-container']);

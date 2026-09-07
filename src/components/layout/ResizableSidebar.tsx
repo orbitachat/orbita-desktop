@@ -135,7 +135,7 @@ export const ResizableSidebar: React.FC<ResizableSidebarProps> = ({
     flexShrink: 0,
     position: 'relative',
     transition: 'none',
-    backgroundColor: 'var(--surface-container-soft, rgba(255,255,255,0.02))',
+    backgroundColor: 'var(--chat-list-bg, #1e1e1e)',
     borderRight: isMobile ? 'none' : '1px solid var(--border-color)',
   };
 
