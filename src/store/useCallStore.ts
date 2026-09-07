@@ -174,6 +174,12 @@ async function createCallMessage(chatId: string, direction: CallDirection, durat
     const myCode = useChatStore.getState().myCode;
     const isOutgoing = direction === 'outgoing';
     const senderId = isOutgoing ? myCode : (chat.peerCode || chat.name);
+    const isCompleted = endedStatus === 'completed';
+    const initialStatus = isOutgoing
+      ? (isCompleted ? 'read' : 'delivered')
+      : undefined;
+    const isRead = isOutgoing ? true : isCompleted;
+
     useChatStore.getState().addMessage(chatId, {
       id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       senderId,
@@ -181,7 +187,8 @@ async function createCallMessage(chatId: string, direction: CallDirection, durat
       isOutgoing,
       text: messageText,
       time: Date.now(),
-      read: true,
+      read: isRead,
+      status: initialStatus,
       mediaType: 'call',
       mediaUrl: '',
       mediaName: endedStatus || 'completed',

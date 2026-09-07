@@ -1886,7 +1886,7 @@ export const MainLayout = () => {
       }
       if (data.type === 'read') {
         const updatedMessages = messages.map((msg) =>
-          (data.messageId && msg.id === data.messageId) || (data.time && msg.time === data.time)
+          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing)
             ? { ...msg, read: true, status: 'read' as const }
             : msg
         );
@@ -1901,7 +1901,7 @@ export const MainLayout = () => {
 
       if (data.type === 'delivered') {
         const updatedMessages = messages.map((msg) =>
-          (data.messageId && msg.id === data.messageId) || (data.time && msg.time === data.time)
+          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing)
             ? (msg.status === 'read' ? msg : { ...msg, status: 'delivered' as const })
             : msg
         );
@@ -2111,7 +2111,7 @@ export const MainLayout = () => {
       if (data.type === 'delivered') {
         const currentMessages = useChatStore.getState().messagesByChatId[chatId] || [];
         const updatedMessages = currentMessages.map((msg) => {
-          const isTarget = (data.messageId && msg.id === data.messageId) || (data.time && msg.time === data.time);
+          const isTarget = (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing);
           if (isTarget) {
             if (msg.status === 'read') return msg;
             return { ...msg, status: 'delivered' as const, deliveredAt: data.timestamp || Date.now() };
@@ -2130,7 +2130,7 @@ export const MainLayout = () => {
       if (data.type === 'read') {
         const currentMessages = useChatStore.getState().messagesByChatId[chatId] || [];
         const updatedMessages = currentMessages.map((msg) => {
-          const isTarget = (data.messageId && msg.id === data.messageId) || (data.time && msg.time === data.time);
+          const isTarget = (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing);
           if (isTarget) {
             return { ...msg, read: true, status: 'read' as const, readAt: data.timestamp || Date.now() };
           }
