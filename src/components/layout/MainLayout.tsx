@@ -411,7 +411,7 @@ const ChatListItem = React.memo(({
   const showDraft = !!(draftText && !isActive);
 
   const ringColor = isActive
-    ? (isLightTheme ? '#eaeaea' : '#2c2c2c')
+    ? (isLightTheme ? '#e5e5e7' : '#2c2c2c')
     : (isLightTheme ? '#f5f5f5' : '#1e1e1e');
 
   return (
@@ -423,7 +423,7 @@ const ChatListItem = React.memo(({
         borderRadius: 0,
         width: '100%',
         backgroundColor: isActive
-          ? 'rgba(255, 255, 255, 0.08)'
+          ? (isLightTheme ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)')
           : 'transparent',
         border: 'none',
         padding: '8px 11px 8px 14px',
@@ -436,7 +436,9 @@ const ChatListItem = React.memo(({
       }}
       onMouseEnter={(e) => {
         if (!isActive) {
-          e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)';
+          e.currentTarget.style.backgroundColor = isLightTheme
+            ? 'rgba(0, 0, 0, 0.04)'
+            : 'rgba(255, 255, 255, 0.04)';
         }
       }}
       onMouseLeave={(e) => {
