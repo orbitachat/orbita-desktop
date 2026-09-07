@@ -3172,27 +3172,32 @@ export const MainLayout = () => {
                             }
                           }}
                           aria-label={!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
-                          className="group relative cursor-pointer"
+                          className="group relative cursor-pointer select-none"
                           style={{
                             borderRadius: 0,
                             width: '100%',
+                            height: '64px',
                             minHeight: '64px',
+                            maxHeight: '64px',
                             backgroundColor: '#F5C518',
                             color: '#000000',
                             border: 'none',
-                            padding: '10px 14px',
+                            padding: '6px 14px',
                             boxSizing: 'border-box',
                             userSelect: 'none',
                             flexShrink: 0,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
                             transition: 'background-color 0.12s ease',
                           }}
                         >
-                          <div className="flex items-center min-w-0 h-full">
+                          <div className="flex items-center min-w-0 w-full h-full">
                             <div
                               style={{
-                                width: 24,
-                                height: 24,
-                                marginRight: 12,
+                                width: 22,
+                                height: 22,
+                                marginRight: 10,
                                 flexShrink: 0,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -3200,13 +3205,13 @@ export const MainLayout = () => {
                               }}
                             >
                               {!isNetworkOnline ? (
-                                <WifiOff size={20} color="#000000" strokeWidth={2.2} />
+                                <WifiOff size={19} color="#000000" strokeWidth={2.2} />
                               ) : (
                                 <svg
                                   className="animate-spin"
                                   viewBox="0 0 24 24"
-                                  width="20"
-                                  height="20"
+                                  width="19"
+                                  height="19"
                                   fill="none"
                                   stroke="#000000"
                                   strokeWidth="2.5"
@@ -3216,27 +3221,34 @@ export const MainLayout = () => {
                                 </svg>
                               )}
                             </div>
-                            <div className="flex flex-col min-w-0 flex-1 justify-center">
+                            <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">
                               <span
                                 style={{
-                                  fontSize: '13.5px',
+                                  fontSize: '13px',
                                   fontWeight: 700,
                                   color: '#000000',
                                   fontFamily: 'inherit',
-                                  lineHeight: '1.25',
+                                  lineHeight: '15px',
                                   marginBottom: '2px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
                                 }}
                               >
                                 {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
                               </span>
                               <span
                                 style={{
-                                  fontSize: '12px',
+                                  fontSize: '11px',
                                   fontWeight: 400,
                                   color: '#1a1a1a',
-                                  lineHeight: '1.3',
+                                  lineHeight: '13px',
                                   whiteSpace: 'normal',
                                   wordBreak: 'break-word',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
                                 }}
                               >
                                 {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
