@@ -136,9 +136,7 @@
       "unmute_notifications": "Unmute notifications",
       "delete_chat": "Delete chat",
       "days": "days",
-      "loading": "Loading...",
-      "clearing": "Clearing...",
-      "clear_all": "Clear all"
+      "loading": "Loading..."
     },
     "titleBar": {
       "minimize": "Minimize",
