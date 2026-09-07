@@ -3154,94 +3154,94 @@ export const MainLayout = () => {
                     overflowX: 'hidden',
                   }}
                 >
-                  {(!isServerConnected || !isNetworkOnline) && (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={handleBannerReconnect}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleBannerReconnect();
-                        }
-                      }}
-                      aria-label={!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
-                      className="group relative cursor-pointer"
-                      style={{
-                        borderRadius: 0,
-                        width: '100%',
-                        backgroundColor: '#F5C518',
-                        color: '#000000',
-                        border: 'none',
-                        padding: '8px 11px 8px 14px',
-                        minHeight: 48,
-                        boxSizing: 'border-box',
-                        contentVisibility: 'auto',
-                        containIntrinsicSize: '64px',
-                        userSelect: 'none',
-                        flexShrink: 0,
-                        transition: 'background-color 0.12s ease',
-                      }}
-                    >
-                      <div className="flex justify-between items-center min-w-0">
-                        <div
-                          style={{
-                            width: 48,
-                            height: 48,
-                            marginRight: 10,
-                            flexShrink: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {!isNetworkOnline ? (
-                            <WifiOff size={24} color="#000000" strokeWidth={2.2} />
-                          ) : (
-                            <svg
-                              className="animate-spin"
-                              viewBox="0 0 24 24"
-                              width="24"
-                              height="24"
-                              fill="none"
-                              stroke="#000000"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                            >
-                              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
-                            <span
-                              className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
-                              style={{ color: '#000000', fontFamily: 'inherit' }}
-                            >
-                              {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
-                            </span>
-                          </div>
-                          <div className="flex items-center min-w-0 w-full overflow-hidden">
-                            <div
-                              className="text-[13px] font-normal whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0"
-                              style={{ color: '#1a1a1a', textTransform: 'none' }}
-                            >
-                              {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {isMobileView && chats.length === 0 ? (
+                  {isMobileView && chats.length === 0 && (isServerConnected && isNetworkOnline) ? (
                     <div className="h-full flex items-center justify-center">
                       <ChatPlaceholder />
                     </div>
-                  ) : searchedChats.length === 0 ? (
-                    <div className="flex-1" />
                   ) : (
                     <div className="flex flex-col w-full">
+                      {(!isServerConnected || !isNetworkOnline) && (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={handleBannerReconnect}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleBannerReconnect();
+                            }
+                          }}
+                          aria-label={!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
+                          className="group relative cursor-pointer"
+                          style={{
+                            borderRadius: 0,
+                            width: '100%',
+                            height: '64px',
+                            minHeight: '64px',
+                            maxHeight: '64px',
+                            backgroundColor: '#F5C518',
+                            color: '#000000',
+                            border: 'none',
+                            padding: '8px 11px 8px 14px',
+                            boxSizing: 'border-box',
+                            contentVisibility: 'auto',
+                            containIntrinsicSize: '64px',
+                            userSelect: 'none',
+                            flexShrink: 0,
+                            overflow: 'hidden',
+                            transition: 'background-color 0.12s ease',
+                          }}
+                        >
+                          <div className="flex justify-between items-center min-w-0 h-full">
+                            <div
+                              style={{
+                                width: 48,
+                                height: 48,
+                                marginRight: 10,
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {!isNetworkOnline ? (
+                                <WifiOff size={24} color="#000000" strokeWidth={2.2} />
+                              ) : (
+                                <svg
+                                  className="animate-spin"
+                                  viewBox="0 0 24 24"
+                                  width="24"
+                                  height="24"
+                                  fill="none"
+                                  stroke="#000000"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                >
+                                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex flex-col min-w-0 flex-1 justify-center">
+                              <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
+                                <span
+                                  className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
+                                  style={{ color: '#000000', fontFamily: 'inherit', lineHeight: '18px' }}
+                                >
+                                  {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
+                                </span>
+                              </div>
+                              <div className="flex items-center min-w-0 w-full overflow-hidden">
+                                <div
+                                  className="text-[13px] font-normal truncate whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0"
+                                  style={{ color: '#1a1a1a', textTransform: 'none', lineHeight: '16px' }}
+                                >
+                                  {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {visibleChats.map((chat) => renderChat(chat))}
                     </div>
                   )}
