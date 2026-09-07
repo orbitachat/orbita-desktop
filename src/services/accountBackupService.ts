@@ -69,7 +69,8 @@ export const createAccountBackup = async (mnemonic: string): Promise<Uint8Array>
         id: chat.id,
         type: chat.type,
         name: chat.name,
-        lastMsg: chat.lastMsg,
+        lastMsg: '',
+        unreadCount: 0,
         online: false,
         sharedSecret: chat.sharedSecret,
         ratchetState: chat.ratchetState,
@@ -284,7 +285,7 @@ export const restoreAccountBackup = async (
   const restoredNickname = payload.auth.nickname || '';
   const restoredAvatarUrl = payload.auth.avatarUrl || null;
   const restoredChats = Array.isArray(payload.chatStore.chats)
-    ? payload.chatStore.chats.map((c: any) => ({ ...c, online: false }))
+    ? payload.chatStore.chats.map((c: any) => ({ ...c, online: false, lastMsg: '', unreadCount: 0 }))
     : [];
 
   useChatStore.setState({

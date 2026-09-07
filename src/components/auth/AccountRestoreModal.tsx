@@ -64,6 +64,9 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
 
     try {
       await restoreAccountBackup(fileBytes, phrase);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('orbita:sync-now'));
+      }
       onClose();
     } catch (err: any) {
       if (err?.message === 'INVALID_MNEMONIC') {
@@ -94,8 +97,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.72)',
-          backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
           padding: '16px',
         }}
         onClick={(e) => {
@@ -111,9 +113,9 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
             width: '100%',
             maxWidth: '520px',
             backgroundColor: 'var(--bg-secondary, #1e1a2b)',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            boxShadow: '0 24px 64px rgba(0, 0, 0, 0.5)',
+            borderRadius: '16px',
+            border: 'none',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -122,7 +124,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
           <div
             style={{
               padding: '20px 24px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              borderBottom: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -223,8 +225,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: '2px dashed ' + (isDragOver ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.16)'),
-                    backgroundColor: isDragOver ? 'rgba(155, 125, 212, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                    backgroundColor: isDragOver ? 'rgba(155, 125, 212, 0.12)' : 'rgba(255, 255, 255, 0.04)',
                     borderRadius: '14px',
                     padding: '24px 16px',
                     textAlign: 'center',
@@ -261,8 +262,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '12px 16px',
-                    backgroundColor: 'rgba(155, 125, 212, 0.1)',
-                    border: '1px solid rgba(155, 125, 212, 0.3)',
+                    backgroundColor: 'rgba(155, 125, 212, 0.14)',
                     borderRadius: '12px',
                   }}
                 >
@@ -349,7 +349,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                   width: '100%',
                   padding: '12px 14px',
                   borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  border: 'none',
                   backgroundColor: 'rgba(0, 0, 0, 0.25)',
                   color: '#ffffff',
                   fontSize: '14px',
@@ -380,7 +380,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                         gap: '6px',
                         padding: '4px 8px',
                         borderRadius: '6px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.06)',
                         fontSize: '12px',
                         color: 'rgba(255, 255, 255, 0.9)',
                       }}
@@ -402,7 +402,6 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                   padding: '10px 14px',
                   borderRadius: '10px',
                   backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
                   color: '#f87171',
                   fontSize: '13px',
                 }}

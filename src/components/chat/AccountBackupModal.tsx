@@ -101,8 +101,7 @@ export const AccountBackupModal: React.FC<AccountBackupModalProps> = ({ isOpen, 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.72)',
-          backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
           padding: '16px',
         }}
         onClick={(e) => {
@@ -118,9 +117,9 @@ export const AccountBackupModal: React.FC<AccountBackupModalProps> = ({ isOpen, 
             width: '100%',
             maxWidth: '540px',
             backgroundColor: 'var(--bg-secondary, #1e1a2b)',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            boxShadow: '0 24px 64px rgba(0, 0, 0, 0.5)',
+            borderRadius: '16px',
+            border: 'none',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -129,7 +128,7 @@ export const AccountBackupModal: React.FC<AccountBackupModalProps> = ({ isOpen, 
           <div
             style={{
               padding: '20px 24px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              borderBottom: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -265,8 +264,7 @@ export const AccountBackupModal: React.FC<AccountBackupModalProps> = ({ isOpen, 
               <>
                 <div
                   style={{
-                    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                    border: '1px solid rgba(234, 179, 8, 0.25)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.04)',
                     borderRadius: '12px',
                     padding: '12px 14px',
                     display: 'flex',
@@ -274,10 +272,10 @@ export const AccountBackupModal: React.FC<AccountBackupModalProps> = ({ isOpen, 
                     alignItems: 'flex-start',
                   }}
                 >
-                  <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0, marginTop: '2px' }} />
-                  <div style={{ fontSize: '12.5px', lineHeight: 1.45, color: '#fef08a' }}>
-                    <div style={{ fontWeight: 600, marginBottom: '2px' }}>{t('backup.notice_1')}</div>
-                    <div style={{ opacity: 0.85 }}>{t('backup.notice_2')}</div>
+                  <AlertTriangle size={18} style={{ color: 'var(--accent-color, #9b7dd4)', flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ fontSize: '12.5px', lineHeight: 1.45, color: 'rgba(255, 255, 255, 0.85)' }}>
+                    <div style={{ fontWeight: 650, marginBottom: '2px', color: '#ffffff' }}>{t('backup.notice_1')}</div>
+                    <div style={{ opacity: 0.75 }}>{t('backup.notice_2')}</div>
                   </div>
                 </div>
 
@@ -348,9 +346,8 @@ export const AccountBackupModal: React.FC<AccountBackupModalProps> = ({ isOpen, 
                       gridTemplateColumns: 'repeat(3, 1fr)',
                       gap: '8px',
                       padding: '12px',
-                      backgroundColor: 'rgba(0, 0, 0, 0.28)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '14px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.24)',
+                      borderRadius: '12px',
                     }}
                   >
                     {words.map((word, idx) => (

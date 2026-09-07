@@ -72,7 +72,12 @@ interface ChatContextMenu {
 const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.ReactNode => {
   const accentStyle: React.CSSProperties = { color: 'var(--accent-color, #7C3AED)' };
 
-  if (lastMsg?.text?.startsWith('[Call]')) {
+  if (!lastMsg) {
+    if (chat.lastMsg === 'HISTORY_CLEARED') return t('common.history_cleared');
+    return t('common.no_messages');
+  }
+
+  if (lastMsg.text?.startsWith('[Call]')) {
     const parts = lastMsg.text.split(', ');
     const directionPart = parts[0].replace(/^\[Call\]\s/, '');
     const isOutgoing = directionPart.includes('Исходящий');
@@ -1540,8 +1545,7 @@ export const MainLayout = () => {
     const syncAll = async (force = false) => {
       if (isDestroyed || isSyncingRef.current) return;
       const now = Date.now();
-      const minInterval = force ? 10000 : 30000;
-      if (now - lastSyncTimeRef.current < minInterval) return;
+      if (!force && now - lastSyncTimeRef.current < 15000) return;
       lastSyncTimeRef.current = now;
       isSyncingRef.current = true;
 
@@ -1602,20 +1606,27 @@ export const MainLayout = () => {
     };
 
     const handleFocus = () => {
-      syncAll(false);
+      syncAll(true);
+    };
+
+    const handleSyncNow = () => {
+      lastSyncTimeRef.current = 0;
+      syncAll(true);
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('orbita:sync-now', handleSyncNow);
 
-    const interval = setInterval(() => syncAll(false), 300000);
+    const interval = setInterval(() => syncAll(false), 15000);
 
     return () => {
       isDestroyed = true;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('orbita:sync-now', handleSyncNow);
       clearInterval(interval);
     };
   }, [step, nickname, myCode]);
