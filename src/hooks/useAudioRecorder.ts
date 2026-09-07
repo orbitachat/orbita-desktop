@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
+import { neuralAudioProcessor, NoiseSuppressionMode } from '../services/neuralAudioProcessor';
 
 export interface RecordedAudioData {
   blob: Blob;
@@ -21,6 +22,7 @@ export function useAudioRecorder() {
   const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<number | null>(null);
+  const neuralCleanupRef = useRef<(() => void) | null>(null);
 
   // Web Audio API refs for live visualizer and waveform data
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -50,6 +52,10 @@ export function useAudioRecorder() {
   }, []);
 
   const cleanupStream = useCallback(() => {
+    if (neuralCleanupRef.current) {
+      neuralCleanupRef.current();
+      neuralCleanupRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -102,7 +108,8 @@ export function useAudioRecorder() {
       cleanupAudioContext();
       clearTimer();
 
-      const isNoiseSuppression = useChatStore.getState().noiseSuppression;
+      const noiseMode: NoiseSuppressionMode = useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'krisp' : 'none');
+      const isNoiseSuppression = noiseMode !== 'none';
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           noiseSuppression: isNoiseSuppression,
@@ -114,47 +121,22 @@ export function useAudioRecorder() {
       });
       streamRef.current = stream;
 
-      // Setup Web Audio API
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioCtx();
-      audioContextRef.current = audioCtx;
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 128;
-      analyserRef.current = analyser;
-
       let recordStream = stream;
 
       if (isNoiseSuppression) {
-        // High-pass filter removes sub-bass rumble, wind, desk thumping (< 85Hz)
-        const highPass = audioCtx.createBiquadFilter();
-        highPass.type = 'highpass';
-        highPass.frequency.setValueAtTime(85, audioCtx.currentTime);
-
-        // Low-pass filter removes high-frequency hiss, coil whine (> 7500Hz)
-        const lowPass = audioCtx.createBiquadFilter();
-        lowPass.type = 'lowpass';
-        lowPass.frequency.setValueAtTime(7500, audioCtx.currentTime);
-
-        // Dynamics Compressor smoothes voice dynamics and suppresses harsh clipping/peaks
-        const compressor = audioCtx.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
-        compressor.knee.setValueAtTime(30, audioCtx.currentTime);
-        compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
-        compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
-        compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
-
-        source.connect(highPass);
-        highPass.connect(lowPass);
-        lowPass.connect(compressor);
-        compressor.connect(analyser);
-
-        const destination = audioCtx.createMediaStreamDestination();
-        compressor.connect(destination);
-        recordStream = destination.stream;
-      } else {
-        source.connect(analyser);
+        const { stream: procStream, cleanup } = await neuralAudioProcessor.processStream(stream, noiseMode);
+        neuralCleanupRef.current = cleanup;
+        recordStream = procStream;
       }
+
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
+      const source = audioCtx.createMediaStreamSource(recordStream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128;
+      analyserRef.current = analyser;
+      source.connect(analyser);
 
       let mimeType = '';
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {

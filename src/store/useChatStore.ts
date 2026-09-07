@@ -5,6 +5,7 @@ import { RatchetState } from '../lib/double-ratchet';
 import { generateChatId as genChatId } from '../lib/crypto';
 import { mediaManager } from '../services/mediaManager';
 import { supabaseService } from '../services/supabaseService';
+import type { NoiseSuppressionMode } from '../services/neuralAudioProcessor';
 
 export type RotationSpeed = 600 | 3600 | 10800 | 18000 | 36000 | 0;
 
@@ -341,6 +342,8 @@ interface ChatState {
   useImprovedPlayer: boolean;
   noiseSuppression: boolean;
   setNoiseSuppression: (enabled: boolean) => void;
+  noiseSuppressionMode: NoiseSuppressionMode;
+  setNoiseSuppressionMode: (mode: NoiseSuppressionMode) => void;
   noiseSuppressionVoice: boolean;
   noiseSuppressionCalls: boolean;
   setNoiseSuppressionVoice: (enabled: boolean) => void;
@@ -564,6 +567,7 @@ export const useChatStore = create<ChatState>()(
       sendOnEnter: true,
       useImprovedPlayer: false,
       noiseSuppression: true,
+      noiseSuppressionMode: 'krisp',
       noiseSuppressionVoice: true,
       noiseSuppressionCalls: true,
 
@@ -1281,20 +1285,29 @@ export const useChatStore = create<ChatState>()(
       setAutoLaunch: (enabled) => set({ autoLaunch: enabled }),
       setSendOnEnter: (enabled) => set({ sendOnEnter: enabled }),
       setUseImprovedPlayer: (enabled) => set({ useImprovedPlayer: enabled }),
+      setNoiseSuppressionMode: (mode) => set({
+        noiseSuppressionMode: mode,
+        noiseSuppression: mode !== 'none',
+        noiseSuppressionVoice: mode !== 'none',
+        noiseSuppressionCalls: mode !== 'none',
+      }),
       setNoiseSuppression: (enabled) => set({
         noiseSuppression: enabled,
         noiseSuppressionVoice: enabled,
         noiseSuppressionCalls: enabled,
+        noiseSuppressionMode: enabled ? 'krisp' : 'none',
       }),
       setNoiseSuppressionVoice: (enabled) => set({
         noiseSuppression: enabled,
         noiseSuppressionVoice: enabled,
         noiseSuppressionCalls: enabled,
+        noiseSuppressionMode: enabled ? 'krisp' : 'none',
       }),
       setNoiseSuppressionCalls: (enabled) => set({
         noiseSuppression: enabled,
         noiseSuppressionVoice: enabled,
         noiseSuppressionCalls: enabled,
+        noiseSuppressionMode: enabled ? 'krisp' : 'none',
       }),
 
       setCallSoundsEnabled: (enabled) => set({ callSoundsEnabled: enabled }),
@@ -1388,6 +1401,7 @@ export const useChatStore = create<ChatState>()(
         sendOnEnter: state.sendOnEnter,
         useImprovedPlayer: state.useImprovedPlayer,
         noiseSuppression: state.noiseSuppression,
+        noiseSuppressionMode: state.noiseSuppressionMode,
         noiseSuppressionVoice: state.noiseSuppression,
         noiseSuppressionCalls: state.noiseSuppression,
         cacheSizeLimit: state.cacheSizeLimit,
@@ -1403,7 +1417,7 @@ export const useChatStore = create<ChatState>()(
         screenProtectionEnabled: state.screenProtectionEnabled,
         hideMenuBar: state.hideMenuBar,
       }),
-      version: 35,
+      version: 36,
       migrate: (persistedState: any, version: number) => {
         if (version < 33) {
           const state = persistedState;
@@ -1425,6 +1439,10 @@ export const useChatStore = create<ChatState>()(
         }
         if (version < 35) {
           persistedState.noiseSuppression = persistedState.noiseSuppression ?? persistedState.noiseSuppressionCalls ?? persistedState.noiseSuppressionVoice ?? true;
+          return persistedState;
+        }
+        if (version < 36) {
+          persistedState.noiseSuppressionMode = persistedState.noiseSuppressionMode ?? (persistedState.noiseSuppression === false ? 'none' : 'krisp');
           return persistedState;
         }
         return persistedState;

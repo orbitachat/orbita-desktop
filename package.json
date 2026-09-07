@@ -92,6 +92,7 @@
     "lucide-react": "^1.14.0",
     "music-metadata": "^10.0.0",
     "nanoid": "^5.1.11",
+    "purify-voice": "^1.0.9",
     "pusher": "^5.3.4",
     "pusher-js": "^8.5.0",
     "qrcode": "^1.5.4",

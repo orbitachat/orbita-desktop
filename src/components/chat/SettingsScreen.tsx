@@ -1933,7 +1933,8 @@ export const SettingsScreen = () => {
     mediaCacheLimit, setMediaCacheLimit,
     cacheCleanupAge, setCacheCleanupAge,
     autoLoadMedia, setAutoLoadMedia,
-    noiseSuppression, setNoiseSuppression,
+    noiseSuppression,
+    noiseSuppressionMode, setNoiseSuppressionMode,
     callSoundsEnabled, setCallSoundsEnabled,
     alwaysRelayCalls, setAlwaysRelayCalls,
     selectedCameraId, setSelectedCameraId,
@@ -3189,16 +3190,100 @@ export const SettingsScreen = () => {
             </PreferencesGroup>
 
             <PreferencesGroup title={t('settings.voice_section')}>
-              <PreferenceSwitch
-                label={t('settings.noise_suppression_title')}
-                description={t('settings.noise_suppression_desc')}
-                checked={noiseSuppression}
-                onChange={() => {
-                  const nextVal = !noiseSuppression;
-                  setNoiseSuppression(nextVal);
-                  liveKitService.updateAudioConstraints().catch(() => {});
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '16px 0',
+                  gap: 16,
                 }}
-              />
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>
+                    {t('settings.noise_suppression_title')}
+                  </div>
+                  <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2, lineHeight: 1.4 }}>
+                    {noiseSuppressionMode === 'krisp'
+                      ? t('settings.noise_suppression_krisp_desc')
+                      : noiseSuppressionMode === 'standard'
+                      ? t('settings.noise_suppression_standard_desc')
+                      : t('settings.noise_suppression_none_desc')}
+                  </div>
+                  {noiseSuppressionMode === 'krisp' && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        marginTop: 6,
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        backgroundColor: 'rgba(35, 165, 89, 0.15)',
+                        color: '#23a559',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.02em',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          backgroundColor: '#23a559',
+                          boxShadow: '0 0 6px #23a559',
+                        }}
+                      />
+                      krisp
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ position: 'relative', minWidth: 140, flexShrink: 0 }}>
+                  <select
+                    value={noiseSuppressionMode || (noiseSuppression ? 'krisp' : 'none')}
+                    onChange={(e) => {
+                      const mode = e.target.value as any;
+                      setNoiseSuppressionMode(mode);
+                      liveKitService.updateAudioConstraints().catch(() => {});
+                    }}
+                    aria-label={t('settings.noise_suppression_title')}
+                    style={{
+                      width: '100%',
+                      backgroundColor: MD3.surfaceVar,
+                      color: MD3.onSurface,
+                      border: `1px solid ${MD3.outline}`,
+                      borderRadius: 10,
+                      padding: '8px 32px 8px 12px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      outline: 'none',
+                      cursor: 'pointer',
+                      appearance: 'none',
+                    }}
+                  >
+                    <option value="krisp">{t('settings.noise_suppression_krisp')}</option>
+                    <option value="standard">{t('settings.noise_suppression_standard')}</option>
+                    <option value="none">{t('settings.noise_suppression_none')}</option>
+                  </select>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: 10,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: MD3.onSurfaceVar,
+                    }}
+                  >
+                    <ChevronRight size={16} style={{ transform: 'rotate(90deg)' }} />
+                  </div>
+                </div>
+              </div>
             </PreferencesGroup>
 
             <PreferencesGroup title={t('settings.preferences_hotkeys')}>
