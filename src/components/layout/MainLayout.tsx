@@ -3170,54 +3170,66 @@ export const MainLayout = () => {
                       style={{
                         borderRadius: 0,
                         width: '100%',
-                        minHeight: 64,
                         backgroundColor: '#F5C518',
                         color: '#000000',
                         border: 'none',
                         padding: '8px 11px 8px 14px',
+                        minHeight: 48,
                         boxSizing: 'border-box',
-                        display: 'flex',
-                        alignItems: 'center',
+                        contentVisibility: 'auto',
+                        containIntrinsicSize: '64px',
                         userSelect: 'none',
                         flexShrink: 0,
                         transition: 'background-color 0.12s ease',
                       }}
                     >
-                      <div
-                        style={{
-                          width: 48,
-                          height: 48,
-                          marginRight: 10,
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {!isNetworkOnline ? (
-                          <WifiOff size={24} color="#000000" strokeWidth={2.2} />
-                        ) : (
-                          <svg
-                            className="animate-spin"
-                            viewBox="0 0 24 24"
-                            width="24"
-                            height="24"
-                            fill="none"
-                            stroke="#000000"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                          >
-                            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                          </svg>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '14px', fontWeight: 700, lineHeight: 1.25, color: '#000000' }}>
-                          {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
-                        </span>
-                        <span style={{ fontSize: '12px', lineHeight: 1.3, color: '#1a1a1a', marginTop: '2px' }}>
-                          {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
-                        </span>
+                      <div className="flex justify-between items-center min-w-0">
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            marginRight: 10,
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {!isNetworkOnline ? (
+                            <WifiOff size={24} color="#000000" strokeWidth={2.2} />
+                          ) : (
+                            <svg
+                              className="animate-spin"
+                              viewBox="0 0 24 24"
+                              width="24"
+                              height="24"
+                              fill="none"
+                              stroke="#000000"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
+                            <span
+                              className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
+                              style={{ color: '#000000', fontFamily: 'inherit' }}
+                            >
+                              {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
+                            </span>
+                          </div>
+                          <div className="flex items-center min-w-0 w-full overflow-hidden">
+                            <div
+                              className="text-[13px] font-normal whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0"
+                              style={{ color: '#1a1a1a', textTransform: 'none' }}
+                            >
+                              {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
