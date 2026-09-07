@@ -1931,6 +1931,9 @@ const OrbitaSelect = ({
               border: 'none',
               borderRadius: 10,
               boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
               padding: 5,
               zIndex: 1000,
               boxSizing: 'border-box',
@@ -3392,39 +3395,10 @@ export const SettingsScreen = () => {
                       ? t('settings.noise_suppression_standard_desc')
                       : t('settings.noise_suppression_none_desc')}
                   </div>
-                  {noiseSuppressionMode === 'krisp' && (
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        marginTop: 6,
-                        padding: '2px 8px',
-                        borderRadius: 6,
-                        backgroundColor: 'rgba(35, 165, 89, 0.15)',
-                        color: '#23a559',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        letterSpacing: '0.02em',
-                        userSelect: 'none',
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          backgroundColor: '#23a559',
-                          boxShadow: '0 0 6px #23a559',
-                        }}
-                      />
-                      krisp
-                    </div>
-                  )}
                 </div>
 
                 <OrbitaSelect
-                  value={noiseSuppressionMode || (noiseSuppression ? 'krisp' : 'none')}
+                  value={noiseSuppressionMode || (noiseSuppression ? 'standard' : 'none')}
                   onChange={(val) => {
                     const mode = val as any;
                     setNoiseSuppressionMode(mode);

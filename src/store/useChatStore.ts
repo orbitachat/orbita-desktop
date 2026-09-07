@@ -567,7 +567,7 @@ export const useChatStore = create<ChatState>()(
       sendOnEnter: true,
       useImprovedPlayer: false,
       noiseSuppression: true,
-      noiseSuppressionMode: 'krisp',
+      noiseSuppressionMode: 'standard',
       noiseSuppressionVoice: true,
       noiseSuppressionCalls: true,
 
@@ -1295,19 +1295,17 @@ export const useChatStore = create<ChatState>()(
         noiseSuppression: enabled,
         noiseSuppressionVoice: enabled,
         noiseSuppressionCalls: enabled,
-        noiseSuppressionMode: enabled ? 'krisp' : 'none',
+        noiseSuppressionMode: enabled ? 'standard' : 'none',
       }),
       setNoiseSuppressionVoice: (enabled) => set({
-        noiseSuppression: enabled,
         noiseSuppressionVoice: enabled,
-        noiseSuppressionCalls: enabled,
-        noiseSuppressionMode: enabled ? 'krisp' : 'none',
+        noiseSuppression: enabled,
+        noiseSuppressionMode: enabled ? 'standard' : 'none',
       }),
       setNoiseSuppressionCalls: (enabled) => set({
-        noiseSuppression: enabled,
-        noiseSuppressionVoice: enabled,
         noiseSuppressionCalls: enabled,
-        noiseSuppressionMode: enabled ? 'krisp' : 'none',
+        noiseSuppression: enabled,
+        noiseSuppressionMode: enabled ? 'standard' : 'none',
       }),
 
       setCallSoundsEnabled: (enabled) => set({ callSoundsEnabled: enabled }),
@@ -1417,7 +1415,7 @@ export const useChatStore = create<ChatState>()(
         screenProtectionEnabled: state.screenProtectionEnabled,
         hideMenuBar: state.hideMenuBar,
       }),
-      version: 36,
+      version: 37,
       migrate: (persistedState: any, version: number) => {
         if (version < 33) {
           const state = persistedState;
@@ -1442,7 +1440,13 @@ export const useChatStore = create<ChatState>()(
           return persistedState;
         }
         if (version < 36) {
-          persistedState.noiseSuppressionMode = persistedState.noiseSuppressionMode ?? (persistedState.noiseSuppression === false ? 'none' : 'krisp');
+          persistedState.noiseSuppressionMode = persistedState.noiseSuppressionMode ?? (persistedState.noiseSuppression === false ? 'none' : 'standard');
+          return persistedState;
+        }
+        if (version < 37) {
+          if (!persistedState.noiseSuppressionMode || persistedState.noiseSuppressionMode === 'krisp') {
+            persistedState.noiseSuppressionMode = 'standard';
+          }
           return persistedState;
         }
         return persistedState;

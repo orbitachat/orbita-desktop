@@ -108,7 +108,7 @@ export function useAudioRecorder() {
       cleanupAudioContext();
       clearTimer();
 
-      const noiseMode: NoiseSuppressionMode = useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'krisp' : 'none');
+      const noiseMode: NoiseSuppressionMode = useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'standard' : 'none');
       const isNoiseSuppression = noiseMode !== 'none';
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
