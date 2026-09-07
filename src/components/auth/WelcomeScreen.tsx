@@ -1,12 +1,14 @@
-// src/components/auth/WelcomeScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { KeyRound } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { AccountRestoreModal } from './AccountRestoreModal';
 
 export const WelcomeScreen: React.FC = () => {
   const { t } = useTranslation();
   const setStep = useAuthStore((state) => state.setStep);
+  const [isRestoreOpen, setIsRestoreOpen] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 640 : false
@@ -297,9 +299,9 @@ export const WelcomeScreen: React.FC = () => {
             {t('welcome.title', 'Orbita Desktop')}
           </h1>
 
-          {/* Главная кнопка: Начните общаться */}
           <motion.button
             onClick={() => setStep('nickname')}
+            aria-label={t('welcome.start_messaging')}
             style={{
               width: isMobile ? '100%' : '270px',
               maxWidth: '300px',
@@ -320,8 +322,39 @@ export const WelcomeScreen: React.FC = () => {
           >
             {t('welcome.start_messaging', 'Начните общаться')}
           </motion.button>
+
+          <motion.button
+            onClick={() => setIsRestoreOpen(true)}
+            aria-label={t('welcome.restore_account')}
+            style={{
+              marginTop: '12px',
+              width: isMobile ? '100%' : '270px',
+              maxWidth: '300px',
+              height: '46px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              backgroundColor: 'transparent',
+              color: 'rgba(255, 255, 255, 0.75)',
+              fontSize: '14.5px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <KeyRound size={16} color="rgba(255, 255, 255, 0.75)" />
+            {t('welcome.restore_account', 'Восстановить аккаунт')}
+          </motion.button>
         </motion.div>
       </div>
+
+      <AccountRestoreModal
+        isOpen={isRestoreOpen}
+        onClose={() => setIsRestoreOpen(false)}
+      />
     </div>
   );
 };

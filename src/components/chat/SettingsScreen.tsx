@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download } from 'lucide-react';
+import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download, ShieldCheck } from 'lucide-react';
 import { securityService } from '../../services/securityService';
 import { useState, useRef, type ReactNode, useEffect, useCallback, memo } from 'react';
 import {
@@ -20,6 +20,7 @@ import { ablyService } from '../../services/ablyService';
 import { liveKitService } from '../../services/livekitService';
 import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 import { DeleteAccountModal } from '../common/DeleteAccountModal';
+import { AccountBackupModal } from './AccountBackupModal';
 import { ConnectionSettingsScreen } from '../settings/ConnectionSettingsScreen';
 import { useConnectionStore } from '../../store/useConnectionStore';
 import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
@@ -520,7 +521,7 @@ export const NicknameEditModal = ({ open, onClose, currentNickname, onSave }: Ni
   );
 };
 
-const PrivacySettingsScreen = ({ onOpenPassword }: { onOpenPassword: () => void }) => {
+const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPassword: () => void; onOpenBackup?: () => void }) => {
   const { t } = useTranslation();
   const {
     voiceCallsEnabled,
@@ -700,6 +701,42 @@ const PrivacySettingsScreen = ({ onOpenPassword }: { onOpenPassword: () => void 
             </div>
             <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>
               {t('security.password_subtitle', 'Поставить пароль для разблокировки Orbita.')}
+            </div>
+          </div>
+          <ChevronRight size={20} style={{ color: MD3.onSurfaceVar }} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: MD3.onSurfaceVar,
+          letterSpacing: '0.05em',
+          padding: '0 20px',
+          marginBottom: 8,
+        }}>
+          {t('backup.group_title', 'РЕЗЕРВНОЕ КОПИРОВАНИЕ')}
+        </div>
+        <div
+          onClick={onOpenBackup}
+          className="cursor-pointer transition-colors hover:brightness-110"
+          style={{
+            backgroundColor: MD3.surface,
+            borderRadius: 0,
+            padding: '16px 20px',
+            margin: '0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>
+              {t('backup.create_title', 'Создать резервную копию')}
+            </div>
+            <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>
+              {t('backup.create_desc', 'Зашифровать аккаунт, настройки и список чатов секретной фразой из 12 слов.')}
             </div>
           </div>
           <ChevronRight size={20} style={{ color: MD3.onSurfaceVar }} />
@@ -2139,6 +2176,7 @@ export const SettingsScreen = () => {
   const initialSettingsTab = useChatStore((s) => s.initialSettingsTab) as TabId | undefined;
   const [tabStack, setTabStack] = useState<TabId[]>(() => [initialSettingsTab || 'main']);
   const activeTab = tabStack[tabStack.length - 1];
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoInputDevices, setVideoInputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -3053,6 +3091,12 @@ export const SettingsScreen = () => {
         />
 
         <MenuItem
+          icon={<ShieldCheck size={20} color={MD3.onSurface} />}
+          label={t('backup.menu_item')}
+          onClick={() => setIsBackupModalOpen(true)}
+        />
+
+        <MenuItem
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12.55a11 11 0 0 1 14.08 0" />
@@ -3172,7 +3216,7 @@ export const SettingsScreen = () => {
       case 'main':
         return renderMain();
       case 'security':
-        return <PrivacySettingsScreen onOpenPassword={() => pushTab('password')} />;
+        return <PrivacySettingsScreen onOpenPassword={() => pushTab('password')} onOpenBackup={() => setIsBackupModalOpen(true)} />;
       case 'password':
         return <PasswordSettingsScreen onSaved={() => pushTab('security')} />;
       case 'connection':
@@ -3899,6 +3943,10 @@ export const SettingsScreen = () => {
           setCurrentView('chats');
           setDeleteModalOpen(false);
         }}
+      />
+      <AccountBackupModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
       />
   </>
 );

@@ -938,6 +938,45 @@
       "err_host_port": "Specify valid host and port",
       "err_host": "Enter host address or IP",
       "err_port": "Enter valid port number (1-65535)"
+    },
+    "welcome": {
+      "title": "Orbita Desktop",
+      "start_messaging": "Start messaging",
+      "restore_account": "Restore account",
+      "restore_title": "Account Recovery",
+      "restore_desc": "Select your .orbita backup file and enter your 12-word recovery phrase.",
+      "select_file": "Select .orbita file",
+      "file_selected": "File selected",
+      "change_file": "Change",
+      "drop_file_here": "Drop .orbita file here or click to browse",
+      "phrase_label": "Recovery phrase (12 words)",
+      "phrase_placeholder": "Type or paste 12 English words separated by spaces...",
+      "words_count": "Words: {{count}} / 12",
+      "restore_button": "Restore Account",
+      "restoring": "Restoring...",
+      "restore_success": "Account restored successfully!",
+      "err_select_file": "Please select a .orbita backup file",
+      "err_invalid_phrase": "Please enter a valid 12-word recovery phrase",
+      "err_restore_failed": "Invalid 12-word phrase or corrupted backup file",
+      "err_corrupted": "The file is corrupted or not an Orbita backup"
+    },
+    "backup": {
+      "title": "Account Backup",
+      "subtitle": "Encrypted export of account, settings, and chats",
+      "menu_item": "Account Backup",
+      "group_title": "ACCOUNT BACKUP",
+      "create_title": "Create Account Backup",
+      "create_desc": "Encrypt account, preferences, and chats list with a 12-word recovery phrase.",
+      "notice_1": "Keep these 12 words in a safe place. Without them, decrypting your .orbita file is impossible.",
+      "notice_2": "Chat messages are not stored, but upon account restoration, all pending messages from contacts will be delivered automatically.",
+      "copy_words": "Copy words",
+      "copied": "Copied to clipboard!",
+      "regenerate": "Generate new words",
+      "checkbox_confirm": "I have saved these 12 words in a safe place",
+      "download_file": "Save .orbita file",
+      "creating": "Encrypting...",
+      "success_created": "Backup created and saved successfully!",
+      "err_generate": "Failed to create backup"
     }
   }
 }
