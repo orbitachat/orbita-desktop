@@ -131,6 +131,21 @@ declare global {
       rustResizeImage?: (data: Uint8Array | ArrayBuffer, maxWidth: number, maxHeight: number, quality?: number) => Promise<Uint8Array | null>;
       rustFastTextSearch?: (haystack: string[], query: string) => Promise<number[] | null>;
       rustReadFileFast?: (filePath: string) => Promise<Uint8Array | null>;
+      checkForUpdates?: () => Promise<any>;
+      downloadUpdate?: () => Promise<any>;
+      quitAndInstallUpdate?: () => Promise<void>;
+      getAppVersion?: () => Promise<string>;
+      setAutoDownloadUpdates?: (autoDownload: boolean) => Promise<boolean>;
+      onUpdateStatus?: (callback: (data: {
+        status: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error' | 'dev-mode';
+        version?: string;
+        percent?: number;
+        transferred?: number;
+        total?: number;
+        bytesPerSecond?: number;
+        error?: string;
+        releaseNotes?: string;
+      }) => void) => () => void;
     };
   }
 

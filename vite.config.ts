@@ -24,7 +24,8 @@ export default defineConfig({
                 'readline', 'repl', 'tty', 'vm', 'worker_threads', 'perf_hooks',
                 'async_hooks', 'diagnostics_channel', 'cluster', 'dgram',
                 'module', 'process', 'inspector', 'v8', 'wasi',
-                'sqlite3', // добавляем sqlite3 в external
+                'sqlite3',
+                'electron-updater',
               ],
               output: {
                 format: 'cjs',

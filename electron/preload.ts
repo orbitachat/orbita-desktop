@@ -311,6 +311,16 @@ contextBridge.exposeInMainWorld('orbita', {
     ipcRenderer.invoke('orbita:rustReadFileFast', filePath),
   getDesktopSources: (opts?: { types?: Array<'screen' | 'window'>; thumbnailWidth?: number; thumbnailHeight?: number; fetchWindowIcons?: boolean }) =>
     ipcRenderer.invoke('orbita:get-desktop-sources', opts),
+  checkForUpdates: () => ipcRenderer.invoke('orbita:checkForUpdates'),
+  downloadUpdate: () => ipcRenderer.invoke('orbita:downloadUpdate'),
+  quitAndInstallUpdate: () => ipcRenderer.invoke('orbita:quitAndInstallUpdate'),
+  setAutoDownloadUpdates: (autoDownload: boolean) =>
+    ipcRenderer.invoke('orbita:setAutoDownloadUpdates', autoDownload),
+  onUpdateStatus: (callback: (data: any) => void) => {
+    const handler = (_event: unknown, data: any) => callback(data);
+    ipcRenderer.on('orbita:updateStatus', handler);
+    return () => ipcRenderer.removeListener('orbita:updateStatus', handler);
+  },
 });
 
 Object.defineProperty(window, '__ELECTRON_RENDERER__', {

@@ -25,6 +25,7 @@ import { URL } from 'url';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import * as sqlite3 from 'sqlite3';
+import { autoUpdater } from 'electron-updater';
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -2711,9 +2712,122 @@ function createMainWindow() {
   });
 }
 
-// -----------------------------------------------------------------------------
-// 12. App Lifecycle
-// -----------------------------------------------------------------------------
+let autoDownloadEnabled = true;
+
+function sendUpdaterStatus(payload: {
+  status: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error' | 'dev-mode';
+  version?: string;
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  bytesPerSecond?: number;
+  error?: string;
+  releaseNotes?: string;
+}) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('orbita:updateStatus', payload);
+  }
+}
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    sendUpdaterStatus({ status: 'checking' });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    sendUpdaterStatus({
+      status: 'available',
+      version: info?.version,
+      releaseNotes: typeof info?.releaseNotes === 'string' ? info.releaseNotes : undefined,
+    });
+    if (autoDownloadEnabled) {
+      autoUpdater.downloadUpdate().catch((err: any) => {
+        sendUpdaterStatus({ status: 'error', error: err?.message || String(err) });
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    sendUpdaterStatus({
+      status: 'not-available',
+      version: info?.version || app.getVersion(),
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    sendUpdaterStatus({
+      status: 'error',
+      error: err?.message || String(err),
+    });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    sendUpdaterStatus({
+      status: 'downloading',
+      percent: Math.round(progress.percent || 0),
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond,
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdaterStatus({
+      status: 'downloaded',
+      version: info?.version,
+    });
+  });
+
+  ipcMain.handle('orbita:checkForUpdates', async () => {
+    try {
+      if (!app.isPackaged) {
+        sendUpdaterStatus({ status: 'dev-mode', version: app.getVersion() });
+        return { status: 'dev-mode', currentVersion: app.getVersion() };
+      }
+      const result = await autoUpdater.checkForUpdates();
+      return { status: 'ok', updateInfo: result?.updateInfo };
+    } catch (err: any) {
+      sendUpdaterStatus({ status: 'error', error: err?.message || String(err) });
+      return { status: 'error', error: err?.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('orbita:downloadUpdate', async () => {
+    try {
+      if (!app.isPackaged) {
+        return { status: 'dev-mode' };
+      }
+      await autoUpdater.downloadUpdate();
+      return { status: 'ok' };
+    } catch (err: any) {
+      sendUpdaterStatus({ status: 'error', error: err?.message || String(err) });
+      return { status: 'error', error: err?.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('orbita:quitAndInstallUpdate', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
+
+  ipcMain.handle('orbita:setAutoDownloadUpdates', (_event, enabled: boolean) => {
+    autoDownloadEnabled = enabled;
+    return true;
+  });
+
+  ipcMain.handle('orbita:getAppVersion', () => {
+    return app.getVersion();
+  });
+
+  if (app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(() => {});
+    }, 7000);
+  }
+}
+
 app.whenReady().then(async () => {
   if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -2770,6 +2884,7 @@ app.whenReady().then(async () => {
 
   createMainWindow();
   setupTray();
+  setupAutoUpdater();
 
   setInterval(() => {
     if (global.gc) {
