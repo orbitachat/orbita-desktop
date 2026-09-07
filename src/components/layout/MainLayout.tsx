@@ -4,7 +4,7 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash } from 'lucide-react';
+import { X, Trash, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher } from '../../utils/pusher';
@@ -585,7 +585,6 @@ export const MainLayout = () => {
     incomingFriendRequests,
     addIncomingFriendRequest,
     removeIncomingFriendRequest,
-    openSettings,
     inChatSearch,
     closeInChatSearch,
   } = useChatStore(useShallow(state => ({
@@ -609,11 +608,13 @@ export const MainLayout = () => {
     incomingFriendRequests: state.incomingFriendRequests,
     addIncomingFriendRequest: state.addIncomingFriendRequest,
     removeIncomingFriendRequest: state.removeIncomingFriendRequest,
-    openSettings: state.openSettings,
     inChatSearch: state.inChatSearch,
     closeInChatSearch: state.closeInChatSearch,
   })));
   const isServerConnected = useConnectionStore((state) => state.isServerConnected);
+  const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  });
   const { nickname, avatarUrl, step, deleteAccount } = useAuthStore(useShallow(state => ({
     nickname: state.nickname,
     avatarUrl: state.avatarUrl,
@@ -1596,12 +1597,14 @@ export const MainLayout = () => {
 
     const handleOnline = () => {
       console.log('[SyncManager] Network online event received! Instantly restoring connections...');
+      setIsNetworkOnline(true);
       useConnectionStore.getState().setServerConnected(true);
       syncAll(true);
     };
 
     const handleOffline = () => {
       console.log('[SyncManager] Network offline event received!');
+      setIsNetworkOnline(false);
       useConnectionStore.getState().setServerConnected(false);
     };
 
@@ -2901,6 +2904,12 @@ export const MainLayout = () => {
     return undefined;
   }, []);
 
+  const handleBannerReconnect = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('orbita:sync-now'));
+    }
+  }, []);
+
   const handleSelectChat = useCallback((chatId: string) => {
     if (chatId === activeChatId) return;
     if (useChatStore.getState().isRecordingVoice) {
@@ -3134,12 +3143,67 @@ export const MainLayout = () => {
                 onMouseEnter={showChatScrollbar}
                 onMouseLeave={handleChatListMouseLeave}
               >
+                {(!isServerConnected || !isNetworkOnline) && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={handleBannerReconnect}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleBannerReconnect();
+                      }
+                    }}
+                    aria-label={!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#F5C518',
+                      color: '#000000',
+                      padding: '10px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      boxSizing: 'border-box',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: '22px', height: '22px' }}>
+                      {!isNetworkOnline ? (
+                        <WifiOff size={20} color="#000000" strokeWidth={2.2} />
+                      ) : (
+                        <svg
+                          className="animate-spin"
+                          viewBox="0 0 24 24"
+                          width="20"
+                          height="20"
+                          fill="none"
+                          stroke="#000000"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        >
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                        </svg>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, lineHeight: 1.2, color: '#000000' }}>
+                        {!isNetworkOnline ? t('common.network_offline_title') : t('common.network_connecting_title')}
+                      </span>
+                      <span style={{ fontSize: '11.5px', lineHeight: 1.35, color: '#1a1a1a', marginTop: '2px' }}>
+                        {!isNetworkOnline ? t('common.network_offline_desc') : t('common.network_connecting_desc')}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div
                   ref={chatListScrollRef}
                   onScroll={handleChatListScroll}
                   className="flex-1 chat-list-scrollbar select-none"
                   style={{
-                    marginTop: '9px',
+                    marginTop: (!isServerConnected || !isNetworkOnline) ? '0px' : '9px',
                     paddingTop: '0px',
                     overflowY: 'scroll',
                     overflowX: 'hidden',
@@ -3222,54 +3286,6 @@ export const MainLayout = () => {
           </main>
         )}
       </div>
-
-      {/* 30px круг со спиннером в левом нижнем углу при отсутствии связи с серверами */}
-      {!isServerConnected && (
-        <button
-          type="button"
-          onClick={() => openSettings('connection')}
-          title="Соединение... Нажмите для настройки прокси"
-          aria-label="Прокси / Соединение"
-          className="fixed bottom-3 left-3 z-[9999] flex items-center justify-center p-0 cursor-pointer bg-transparent border-0 outline-none select-none transition-transform hover:scale-110 active:scale-95"
-        >
-          <div
-            style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(27, 23, 38, 0.95)',
-              border: '1.5px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4), 0 0 10px rgba(124, 58, 237, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxSizing: 'border-box',
-              color: 'var(--accent-color, #9b7dd4)',
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              style={{ color: 'var(--accent-color, #9b7dd4)' }}
-            >
-              <path
-                fill="currentColor"
-                d="M10.72,19.9a8,8,0,0,1-6.5-9.79A7.77,7.77,0,0,1,10.4,4.16a8,8,0,0,1,9.49,6.52A1.54,1.54,0,0,0,21.38,12h.13a1.37,1.37,0,0,0,1.38-1.54,11,11,0,1,0-12.7,12.39A1.54,1.54,0,0,0,12,21.34h0A1.47,1.47,0,0,0,10.72,19.9Z"
-              >
-                <animateTransform
-                  attributeName="transform"
-                  dur="0.75s"
-                  repeatCount="indefinite"
-                  type="rotate"
-                  values="0 12 12;360 12 12"
-                />
-              </path>
-            </svg>
-          </div>
-        </button>
-      )}
 
         <AnimatePresence>
           {currentView === 'settings' && (
