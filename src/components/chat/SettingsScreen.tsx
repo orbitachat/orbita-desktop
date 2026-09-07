@@ -1933,8 +1933,7 @@ export const SettingsScreen = () => {
     mediaCacheLimit, setMediaCacheLimit,
     cacheCleanupAge, setCacheCleanupAge,
     autoLoadMedia, setAutoLoadMedia,
-    noiseSuppressionVoice, setNoiseSuppressionVoice,
-    noiseSuppressionCalls, setNoiseSuppressionCalls,
+    noiseSuppression, setNoiseSuppression,
     callSoundsEnabled, setCallSoundsEnabled,
     alwaysRelayCalls, setAlwaysRelayCalls,
     selectedCameraId, setSelectedCameraId,
@@ -3189,20 +3188,14 @@ export const SettingsScreen = () => {
               />
             </PreferencesGroup>
 
-            <PreferencesGroup title={t('settings.preferences_noise_suppression')}>
+            <PreferencesGroup title={t('settings.voice_section')}>
               <PreferenceSwitch
-                label={t('settings.noise_suppression_voice_title')}
-                description={t('settings.noise_suppression_voice_desc')}
-                checked={noiseSuppressionVoice}
-                onChange={() => setNoiseSuppressionVoice(!noiseSuppressionVoice)}
-              />
-              <PreferenceSwitch
-                label={t('settings.noise_suppression_calls_title')}
-                description={t('settings.noise_suppression_calls_desc')}
-                checked={noiseSuppressionCalls}
+                label={t('settings.noise_suppression_title')}
+                description={t('settings.noise_suppression_desc')}
+                checked={noiseSuppression}
                 onChange={() => {
-                  const nextVal = !noiseSuppressionCalls;
-                  setNoiseSuppressionCalls(nextVal);
+                  const nextVal = !noiseSuppression;
+                  setNoiseSuppression(nextVal);
                   liveKitService.updateAudioConstraints().catch(() => {});
                 }}
               />

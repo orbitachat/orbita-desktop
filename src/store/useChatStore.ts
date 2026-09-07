@@ -339,6 +339,8 @@ interface ChatState {
   autoLaunch: boolean;
   sendOnEnter: boolean;
   useImprovedPlayer: boolean;
+  noiseSuppression: boolean;
+  setNoiseSuppression: (enabled: boolean) => void;
   noiseSuppressionVoice: boolean;
   noiseSuppressionCalls: boolean;
   setNoiseSuppressionVoice: (enabled: boolean) => void;
@@ -561,6 +563,7 @@ export const useChatStore = create<ChatState>()(
       autoLaunch: false,
       sendOnEnter: true,
       useImprovedPlayer: false,
+      noiseSuppression: true,
       noiseSuppressionVoice: true,
       noiseSuppressionCalls: true,
 
@@ -1278,8 +1281,21 @@ export const useChatStore = create<ChatState>()(
       setAutoLaunch: (enabled) => set({ autoLaunch: enabled }),
       setSendOnEnter: (enabled) => set({ sendOnEnter: enabled }),
       setUseImprovedPlayer: (enabled) => set({ useImprovedPlayer: enabled }),
-      setNoiseSuppressionVoice: (enabled) => set({ noiseSuppressionVoice: enabled }),
-      setNoiseSuppressionCalls: (enabled) => set({ noiseSuppressionCalls: enabled }),
+      setNoiseSuppression: (enabled) => set({
+        noiseSuppression: enabled,
+        noiseSuppressionVoice: enabled,
+        noiseSuppressionCalls: enabled,
+      }),
+      setNoiseSuppressionVoice: (enabled) => set({
+        noiseSuppression: enabled,
+        noiseSuppressionVoice: enabled,
+        noiseSuppressionCalls: enabled,
+      }),
+      setNoiseSuppressionCalls: (enabled) => set({
+        noiseSuppression: enabled,
+        noiseSuppressionVoice: enabled,
+        noiseSuppressionCalls: enabled,
+      }),
 
       setCallSoundsEnabled: (enabled) => set({ callSoundsEnabled: enabled }),
       setAlwaysRelayCalls: (enabled) => set({ alwaysRelayCalls: enabled }),
@@ -1371,8 +1387,9 @@ export const useChatStore = create<ChatState>()(
         autoLaunch: state.autoLaunch,
         sendOnEnter: state.sendOnEnter,
         useImprovedPlayer: state.useImprovedPlayer,
-        noiseSuppressionVoice: state.noiseSuppressionVoice,
-        noiseSuppressionCalls: state.noiseSuppressionCalls,
+        noiseSuppression: state.noiseSuppression,
+        noiseSuppressionVoice: state.noiseSuppression,
+        noiseSuppressionCalls: state.noiseSuppression,
         cacheSizeLimit: state.cacheSizeLimit,
         mediaCacheLimit: state.mediaCacheLimit,
         cacheCleanupAge: state.cacheCleanupAge,
@@ -1386,7 +1403,7 @@ export const useChatStore = create<ChatState>()(
         screenProtectionEnabled: state.screenProtectionEnabled,
         hideMenuBar: state.hideMenuBar,
       }),
-      version: 34,
+      version: 35,
       migrate: (persistedState: any, version: number) => {
         if (version < 33) {
           const state = persistedState;
@@ -1404,6 +1421,10 @@ export const useChatStore = create<ChatState>()(
         }
         if (version < 34) {
           persistedState.autoLoadMedia = false;
+          return persistedState;
+        }
+        if (version < 35) {
+          persistedState.noiseSuppression = persistedState.noiseSuppression ?? persistedState.noiseSuppressionCalls ?? persistedState.noiseSuppressionVoice ?? true;
           return persistedState;
         }
         return persistedState;

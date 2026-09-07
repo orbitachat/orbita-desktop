@@ -158,7 +158,7 @@ class LiveKitService extends EventEmitter {
       }
     }
 
-    const isNoiseSuppression = useChatStore.getState().noiseSuppressionCalls;
+    const isNoiseSuppression = useChatStore.getState().noiseSuppression;
     const alwaysRelay = useChatStore.getState().alwaysRelayCalls;
     const selectedMicId = useChatStore.getState().selectedMicrophoneId;
     const selectedCamId = useChatStore.getState().selectedCameraId;
@@ -321,7 +321,7 @@ class LiveKitService extends EventEmitter {
     }
 
     try {
-      const isNoiseSuppression = useChatStore.getState().noiseSuppressionCalls;
+      const isNoiseSuppression = useChatStore.getState().noiseSuppression;
       const selectedMicId = useChatStore.getState().selectedMicrophoneId;
       await this.localParticipant.setMicrophoneEnabled(true, {
         deviceId: selectedMicId || undefined,
@@ -369,7 +369,7 @@ class LiveKitService extends EventEmitter {
 
   public async updateAudioConstraints(): Promise<void> {
     if (this.localAudioTrack && this.localAudioTrack.mediaStreamTrack) {
-      const isNoiseSuppression = useChatStore.getState().noiseSuppressionCalls;
+      const isNoiseSuppression = useChatStore.getState().noiseSuppression;
       try {
         await this.localAudioTrack.mediaStreamTrack.applyConstraints({
           noiseSuppression: isNoiseSuppression,
