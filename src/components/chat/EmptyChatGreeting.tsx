@@ -35,19 +35,28 @@ export const EmptyChatGreeting: React.FC<EmptyChatGreetingProps> = ({
           boxShadow: 'none',
         }}
       >
-        <h3 className="text-[15px] font-semibold text-[var(--text-main, #ffffff)] mb-2 leading-snug">
+        <h3
+          className="text-[15px] font-semibold mb-2 leading-snug"
+          style={{ color: 'var(--text-main, #ffffff)' }}
+        >
           {t('chatWindow.empty_chat_title')}
         </h3>
 
         {isOfflineWaiting ? (
-          <div className="flex flex-col gap-1.5 text-[13px] text-[var(--text-dim, rgba(255,255,255,0.6))] leading-relaxed">
+          <div
+            className="flex flex-col gap-1.5 text-[13px] leading-relaxed"
+            style={{ color: 'var(--text-dim, #8e8e93)' }}
+          >
             <p>{t('chatWindow.empty_chat_offline_desc_1')}</p>
             <p>{t('chatWindow.empty_chat_offline_desc_2')}</p>
             <p className="text-[12px] opacity-80">{t('chatWindow.empty_chat_offline_desc_3')}</p>
           </div>
         ) : (
           <>
-            <p className="text-[13px] text-[var(--text-dim, rgba(255,255,255,0.6))] leading-relaxed mb-3">
+            <p
+              className="text-[13px] leading-relaxed mb-3"
+              style={{ color: 'var(--text-dim, #8e8e93)' }}
+            >
               {t('chatWindow.empty_chat_description')}
             </p>
 

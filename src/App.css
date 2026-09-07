@@ -40,6 +40,8 @@
   --scroll-thumb-color: rgba(255, 255, 255, 0.45);
   --online-color: #4caf50;
   --offline-color: #f44336;
+  --switch-bg: rgba(255, 255, 255, 0.16);
+  --switch-border: rgba(255, 255, 255, 0.22);
 
   /* Цвета для интерфейса ввода кода */
   --color-background-primary: var(--bg-secondary);
@@ -239,11 +241,15 @@ blockquote {
 [data-theme-light="true"] {
   --md-on-surface: #49454f;
   --chat-list-bg: #f5f5f5;
+  --switch-bg: rgba(0, 0, 0, 0.12);
+  --switch-border: rgba(0, 0, 0, 0.18);
 }
 
 [data-theme-light="false"] {
   --md-on-surface: #ffffff;
   --chat-list-bg: #1e1e1e;
+  --switch-bg: rgba(255, 255, 255, 0.16);
+  --switch-border: rgba(255, 255, 255, 0.22);
 }
 
 /* =============================================== */

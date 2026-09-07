@@ -1016,15 +1016,18 @@ export const MainLayout = () => {
         const targetIds = Array.from(
           new Set([chat.peerCode, chat.name].filter((id): id is string => Boolean(id && id.trim() && id !== 'Unknown' && id !== 'notes')))
         );
+        const presenceStates = new Map<string, boolean>();
 
         targetIds.forEach((targetId) => {
           const unsubscribe = ablyService.subscribeToUserPresence(
             targetId,
             (isOnline, lastSeen) => {
+              presenceStates.set(targetId, isOnline);
+              const anyOnline = Array.from(presenceStates.values()).some(Boolean);
               const current = useChatStore.getState().chats.find(c => c.id === chat.id);
-              if (current && current.online === isOnline && (lastSeen ? current.lastSeen === lastSeen : true)) return;
+              if (current && current.online === anyOnline && (lastSeen ? current.lastSeen === lastSeen : true)) return;
               updateChat(chat.id, {
-                online: isOnline,
+                online: anyOnline,
                 ...(lastSeen ? { lastSeen } : {}),
               });
             }

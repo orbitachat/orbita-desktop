@@ -97,6 +97,7 @@ export const themePalettes: Record<ThemeId, ThemeDefinition> = {
       '--online-color': '#4caf50',
       '--offline-color': '#f44336',
       '--switch-bg': 'rgba(255,255,255,0.16)',
+      '--switch-border': 'rgba(255,255,255,0.22)',
       '--selection-bg': 'rgba(92,84,229,0.28)',
       '--logo-type': 'classic',
       '--settings-bg': '#1b1b1b',
@@ -147,7 +148,8 @@ export const themePalettes: Record<ThemeId, ThemeDefinition> = {
       '--surface-border': '#e0e0e0',
       '--online-color': '#4caf50',
       '--offline-color': '#f44336',
-      '--switch-bg': 'rgba(0,0,0,0.16)',
+      '--switch-bg': 'rgba(0,0,0,0.12)',
+      '--switch-border': 'rgba(0,0,0,0.18)',
       '--selection-bg': 'rgba(44,107,237,0.20)',
       '--logo-type': 'classic',
       '--settings-bg': '#f7f7f8',
@@ -199,6 +201,7 @@ export const themePalettes: Record<ThemeId, ThemeDefinition> = {
       '--online-color': '#4caf50',
       '--offline-color': '#f44336',
       '--switch-bg': 'rgba(255,255,255,0.16)',
+      '--switch-border': 'rgba(255,255,255,0.22)',
       '--selection-bg': 'rgba(92,84,229,0.28)',
       '--logo-type': 'classic',
       '--settings-bg': '#1b1b1b',
@@ -276,6 +279,8 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
   root.style.setProperty('--surface-container-soft', theme.vars['--surface-container-soft'] || 'rgba(255,255,255,0.05)');
   root.style.setProperty('--surface-border', theme.vars['--surface-border'] || '#2e2e2e');
   root.style.setProperty('--chat-list-bg', theme.vars['--chat-list-bg'] || (resolvedMode === 'light' ? '#f5f5f5' : '#1e1e1e'));
+  root.style.setProperty('--switch-bg', theme.vars['--switch-bg'] || (resolvedMode === 'light' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.16)'));
+  root.style.setProperty('--switch-border', theme.vars['--switch-border'] || (resolvedMode === 'light' ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.22)'));
 
   root.style.setProperty('--md-bg', theme.vars['--settings-bg'] || theme.vars['--bg-secondary']);
   root.style.setProperty('--md-surface', theme.vars['--settings-surface'] || theme.vars['--surface-container']);

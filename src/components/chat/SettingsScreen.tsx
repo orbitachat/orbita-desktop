@@ -66,8 +66,8 @@ const GLOBAL_CSS = `
 
   .m3-track {
     position: absolute; inset: 0; border-radius: 16px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 2px solid rgba(255, 255, 255, 0.25);
+    background: var(--switch-bg, rgba(255, 255, 255, 0.12));
+    border: 2px solid var(--switch-border, rgba(255, 255, 255, 0.25));
     transition: background 200ms cubic-bezier(0.2, 0, 0, 1), border-color 200ms cubic-bezier(0.2, 0, 0, 1);
     box-sizing: border-box; will-change: background, border-color;
   }
@@ -332,8 +332,8 @@ export const M3Switch = memo(({
       width: '42px',
       height: '24px',
       borderRadius: '12px',
-      backgroundColor: checked ? 'var(--accent-color, #7C3AED)' : 'rgba(255,255,255,0.12)',
-      boxShadow: checked ? 'none' : 'inset 0 0 0 1.5px rgba(255,255,255,0.25)',
+      backgroundColor: checked ? 'var(--accent-color, #7C3AED)' : 'var(--switch-bg, rgba(255,255,255,0.14))',
+      boxShadow: checked ? 'none' : 'inset 0 0 0 1.5px var(--switch-border, rgba(255,255,255,0.22))',
       position: 'relative',
       cursor: disabled ? 'not-allowed' : 'pointer',
       transition: 'background-color 200ms ease, box-shadow 200ms ease',
@@ -350,7 +350,7 @@ export const M3Switch = memo(({
         width: '18px',
         height: '18px',
         borderRadius: '50%',
-        backgroundColor: 'var(--bg-primary, #14111d)',
+        backgroundColor: '#ffffff',
         transition: 'left 200ms cubic-bezier(0.2,0,0,1)',
         boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
       }}
