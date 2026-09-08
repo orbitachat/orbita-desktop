@@ -62,6 +62,7 @@ export const createAccountBackup = async (mnemonic: string): Promise<Uint8Array>
     auth: {
       nickname: authState.nickname,
       avatarUrl: authState.avatarUrl,
+      recoveryKey: mnemonic.trim().toLowerCase(),
     },
     chatStore: {
       myCode: chatState.myCode,
@@ -300,6 +301,7 @@ export const restoreAccountBackup = async (
   useAuthStore.setState({
     nickname: restoredNickname,
     avatarUrl: restoredAvatarUrl,
+    recoveryKey: mnemonic.trim().toLowerCase(),
     step: 'main',
   });
 

@@ -230,6 +230,11 @@ contextBridge.exposeInMainWorld('orbita', {
   saveFileAs: (data: string | Uint8Array | ArrayBuffer, fileName: string, filters?: Array<{ name: string; extensions: string[] }>) =>
     ipcRenderer.invoke('downloads:save-as', data, fileName, filters),
 
+  selectDirectory: () => ipcRenderer.invoke('orbita:selectDirectory'),
+  openFolder: (folderPath: string) => ipcRenderer.invoke('orbita:openFolder', folderPath),
+  saveBackupFile: (folderPath: string, fileName: string, data: Uint8Array | ArrayBuffer) =>
+    ipcRenderer.invoke('orbita:saveBackupFile', folderPath, fileName, data),
+
   copyImage: (dataBase64: string) =>
     ipcRenderer.invoke('orbita:copy-image', dataBase64),
 

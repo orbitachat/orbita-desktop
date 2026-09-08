@@ -9,13 +9,18 @@ interface AuthState {
   nickname: string;
   avatarUrl: string | null;
   step: AuthStep;
+  recoveryKey: string | null;
+  backupEnabled: boolean;
+  backupFolder: string | null;
+  lastBackupTime: number | null;
   setStep: (step: AuthStep) => void;
   setNickname: (name: string) => void;
   setAvatarUrl: (url: string | null) => void;
+  setRecoveryKey: (key: string) => void;
+  setBackupConfig: (config: { enabled?: boolean; folder?: string | null; lastBackupTime?: number | null }) => void;
   deleteAccount: () => void;
 }
 
-// Кастомный storage через IPC с fallback на localStorage
 const ipcStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
@@ -48,15 +53,34 @@ export const useAuthStore = create<AuthState>()(
       nickname: '',
       avatarUrl: null,
       step: 'welcome',
+      recoveryKey: null,
+      backupEnabled: false,
+      backupFolder: null,
+      lastBackupTime: null,
       setStep: (step) => set({ step }),
       setNickname: (nickname) => set({ nickname }),
       setAvatarUrl: (avatarUrl) => set({ avatarUrl }),
+      setRecoveryKey: (recoveryKey) => set({ recoveryKey }),
+      setBackupConfig: (config) =>
+        set((prev) => ({
+          backupEnabled: config.enabled !== undefined ? config.enabled : prev.backupEnabled,
+          backupFolder: config.folder !== undefined ? config.folder : prev.backupFolder,
+          lastBackupTime: config.lastBackupTime !== undefined ? config.lastBackupTime : prev.lastBackupTime,
+        })),
       deleteAccount: () => {
         document.documentElement.removeAttribute('data-theme');
         localStorage.removeItem('orbita-auth-storage');
         localStorage.removeItem('orbita-chat-storage');
         useChatStore.getState().resetChats();
-        set({ nickname: '', avatarUrl: null, step: 'welcome' });
+        set({
+          nickname: '',
+          avatarUrl: null,
+          step: 'welcome',
+          recoveryKey: null,
+          backupEnabled: false,
+          backupFolder: null,
+          lastBackupTime: null,
+        });
       },
     }),
     {
@@ -66,6 +90,10 @@ export const useAuthStore = create<AuthState>()(
         nickname: state.nickname,
         avatarUrl: state.avatarUrl,
         step: state.step,
+        recoveryKey: state.recoveryKey,
+        backupEnabled: state.backupEnabled,
+        backupFolder: state.backupFolder,
+        lastBackupTime: state.lastBackupTime,
       }),
     }
   )

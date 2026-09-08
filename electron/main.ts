@@ -1467,6 +1467,38 @@ ipcMain.handle('orbita:pickFile', async (_event, extensions?: string[]) => {
   }
 });
 
+ipcMain.handle('orbita:selectDirectory', async () => {
+  try {
+    const res = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    return res.canceled || !res.filePaths || res.filePaths.length === 0 ? null : res.filePaths[0];
+  } catch (err) {
+    return null;
+  }
+});
+
+ipcMain.handle('orbita:openFolder', async (_event, folderPath: string) => {
+  try {
+    if (folderPath && typeof folderPath === 'string') {
+      await shell.openPath(folderPath);
+      return true;
+    }
+  } catch (err) {}
+  return false;
+});
+
+ipcMain.handle('orbita:saveBackupFile', async (_event, folderPath: string, fileName: string, data: Uint8Array | ArrayBuffer) => {
+  try {
+    const fullPath = path.join(folderPath, fileName);
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as any);
+    await fs.promises.writeFile(fullPath, buf);
+    return { success: true, fullPath };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed' };
+  }
+});
+
 // -----------------------------------------------------------------------------
 // 7.1 Native Rust Cryptography Handlers (Hardware-Accelerated)
 // -----------------------------------------------------------------------------
