@@ -1,4 +1,3 @@
-// src/App.tsx
 import { useState, useEffect, Component, ReactNode } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -37,6 +36,15 @@ const pageVariants = {
 };
 
 function App() {
+  const [isHydrated, setIsHydrated] = useState(() => useAuthStore.persist.hasHydrated());
+
+  useEffect(() => {
+    if (isHydrated) return;
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
+      setIsHydrated(true);
+    });
+    return unsub;
+  }, [isHydrated]);
 
   const step = useAuthStore((state) => state.step);
   const nickname = useAuthStore((state) => state.nickname);
@@ -246,6 +254,19 @@ function App() {
       window.removeEventListener('pagehide', handleUnload);
     };
   }, [myCode, nickname]);
+
+  if (!isHydrated) {
+    return (
+      <ThemeProvider theme={md3Theme}>
+        <CssBaseline />
+        <div className="h-screen w-screen bg-[var(--bg-primary)]" style={{ paddingTop: '30px', boxSizing: 'border-box' }}>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999999 }}>
+            <TitleBar />
+          </div>
+        </div>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={md3Theme}>

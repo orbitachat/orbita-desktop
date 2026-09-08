@@ -1,4 +1,3 @@
-// src/store/useAuthStore.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { useChatStore } from './useChatStore';
@@ -85,6 +84,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'orbita-auth-storage',
+      version: 0,
+      migrate: (persistedState: any) => persistedState,
       storage: createJSONStorage(() => ipcStorage),
       partialize: (state) => ({
         nickname: state.nickname,
