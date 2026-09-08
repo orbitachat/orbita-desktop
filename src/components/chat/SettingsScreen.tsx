@@ -249,7 +249,7 @@ export const Block = ({ children, style }: { children: ReactNode; style?: React.
       margin: '0 10px 12px 10px',
       display: 'flex',
       flexDirection: 'column',
-      borderRadius: 30,
+      borderRadius: 15,
       padding: '4px 0',
       boxSizing: 'border-box',
       overflow: 'hidden',
@@ -263,7 +263,7 @@ export const Block = ({ children, style }: { children: ReactNode; style?: React.
 const Surface = ({ children, style }: { children: ReactNode; style?: React.CSSProperties }) => (
   <div style={{
     backgroundColor: MD3.surface,
-    borderRadius: 30,
+    borderRadius: 15,
     margin: '0 10px 12px 10px',
     width: 'calc(100% - 20px)',
     boxSizing: 'border-box',
@@ -575,7 +575,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 30,
+          borderRadius: 15,
           padding: '16px 20px',
           margin: '0 10px',
           width: 'calc(100% - 20px)',
@@ -606,7 +606,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 30,
+          borderRadius: 15,
           padding: '16px 20px',
           margin: '0 10px',
           width: 'calc(100% - 20px)',
@@ -637,7 +637,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 30,
+          borderRadius: 15,
           padding: '16px 20px',
           margin: '0 10px',
           width: 'calc(100% - 20px)',
@@ -668,7 +668,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 30,
+          borderRadius: 15,
           padding: '16px 20px',
           margin: '0 10px',
           width: 'calc(100% - 20px)',
@@ -702,7 +702,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
           className="cursor-pointer transition-colors hover:brightness-110"
           style={{
             backgroundColor: MD3.surface,
-            borderRadius: 30,
+            borderRadius: 15,
             padding: '16px 20px',
             margin: '0 10px',
             width: 'calc(100% - 20px)',
@@ -741,7 +741,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
           className="cursor-pointer transition-colors hover:brightness-110"
           style={{
             backgroundColor: MD3.surface,
-            borderRadius: 30,
+            borderRadius: 15,
             padding: '16px 20px',
             margin: '0 10px',
             width: 'calc(100% - 20px)',
@@ -777,7 +777,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 30,
+          borderRadius: 15,
           padding: '16px 20px',
           margin: '0 10px',
           width: 'calc(100% - 20px)',
@@ -914,7 +914,7 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
 
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 30,
+            borderRadius: 15,
             padding: '20px',
             margin: '0 10px',
             width: 'calc(100% - 20px)',
@@ -1031,7 +1031,7 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
 
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 30,
+            borderRadius: 15,
             padding: '20px',
             margin: '0 10px',
             width: 'calc(100% - 20px)',
@@ -1825,7 +1825,7 @@ const PreferencesGroup = ({
     </div>
     <div style={{
       backgroundColor: MD3.surface,
-      borderRadius: 30,
+      borderRadius: 15,
       padding: '4px 20px',
       margin: '0 10px',
       width: 'calc(100% - 20px)',
@@ -2655,7 +2655,7 @@ export const SettingsScreen = () => {
           </div>
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 30,
+            borderRadius: 15,
             padding: '16px 20px',
             margin: '0 10px',
             width: 'calc(100% - 20px)',
@@ -2708,7 +2708,7 @@ export const SettingsScreen = () => {
             </div>
             <div style={{
               backgroundColor: MD3.surface,
-              borderRadius: 30,
+              borderRadius: 15,
               padding: '16px 20px',
               margin: '0 10px',
               width: 'calc(100% - 20px)',
@@ -2748,7 +2748,7 @@ export const SettingsScreen = () => {
           </div>
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 30,
+            borderRadius: 15,
             padding: '16px 0',
             margin: '0 10px',
             width: 'calc(100% - 20px)',
@@ -2789,7 +2789,7 @@ export const SettingsScreen = () => {
           </div>
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 30,
+            borderRadius: 15,
             padding: '16px 0',
             margin: '0 10px',
             width: 'calc(100% - 20px)',
