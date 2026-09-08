@@ -20,7 +20,7 @@ import { ablyService } from '../../services/ablyService';
 import { liveKitService } from '../../services/livekitService';
 import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 import { DeleteAccountModal } from '../common/DeleteAccountModal';
-import { AccountBackupModal } from './AccountBackupModal';
+import { AccountBackupScreen } from '../settings/AccountBackupScreen';
 import { ConnectionSettingsScreen } from '../settings/ConnectionSettingsScreen';
 import { useConnectionStore } from '../../store/useConnectionStore';
 import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
@@ -2127,7 +2127,7 @@ const HotkeySwitch = ({
   );
 };
 
-type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode';
+type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode' | 'backup';
 
 export const SettingsScreen = () => {
   const { t } = useTranslation();
@@ -2176,7 +2176,6 @@ export const SettingsScreen = () => {
   const initialSettingsTab = useChatStore((s) => s.initialSettingsTab) as TabId | undefined;
   const [tabStack, setTabStack] = useState<TabId[]>(() => [initialSettingsTab || 'main']);
   const activeTab = tabStack[tabStack.length - 1];
-  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoInputDevices, setVideoInputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -2471,6 +2470,7 @@ export const SettingsScreen = () => {
     language:      t('settings.language'),
     preferences:   t('settings.preferences'),
     qrCode:        t('qrModal.title', 'Получить QR-код'),
+    backup:        t('backup.menu_item', 'Резервная копия'),
   };
 
   const languageDisplayOptions = [
@@ -3090,11 +3090,6 @@ export const SettingsScreen = () => {
           onClick={() => pushTab('security')}
         />
 
-        <MenuItem
-          icon={<ShieldCheck size={20} color={MD3.onSurface} />}
-          label={t('backup.menu_item')}
-          onClick={() => setIsBackupModalOpen(true)}
-        />
 
         <MenuItem
           icon={
@@ -3181,6 +3176,12 @@ export const SettingsScreen = () => {
           label={t('settings.preferences')}
           onClick={() => pushTab('preferences')}
         />
+
+        <MenuItem
+          icon={<ShieldCheck size={20} color={MD3.onSurface} />}
+          label={t('backup.menu_item')}
+          onClick={() => pushTab('backup')}
+        />
       </Block>
 
       <Block>
@@ -3216,7 +3217,9 @@ export const SettingsScreen = () => {
       case 'main':
         return renderMain();
       case 'security':
-        return <PrivacySettingsScreen onOpenPassword={() => pushTab('password')} onOpenBackup={() => setIsBackupModalOpen(true)} />;
+        return <PrivacySettingsScreen onOpenPassword={() => pushTab('password')} onOpenBackup={() => pushTab('backup')} />;
+      case 'backup':
+        return <AccountBackupScreen onBack={handleBack} />;
       case 'password':
         return <PasswordSettingsScreen onSaved={() => pushTab('security')} />;
       case 'connection':
@@ -3943,10 +3946,6 @@ export const SettingsScreen = () => {
           setCurrentView('chats');
           setDeleteModalOpen(false);
         }}
-      />
-      <AccountBackupModal
-        isOpen={isBackupModalOpen}
-        onClose={() => setIsBackupModalOpen(false)}
       />
   </>
 );

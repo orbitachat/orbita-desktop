@@ -976,7 +976,8 @@
       "download_file": "Save .orbita file",
       "creating": "Encrypting...",
       "success_created": "Backup created and saved successfully!",
-      "err_generate": "Failed to create backup"
+      "err_generate": "Failed to create backup",
+      "create_another": "Create another backup"
     }
   }
 }
