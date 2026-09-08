@@ -96,7 +96,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
           [{ name: 'Orbita Backup', extensions: ['orbita'] }]
         );
       } else {
-        const blob = new Blob([backupBytes], { type: 'application/octet-stream' });
+        const blob = new Blob([backupBytes as unknown as BlobPart], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
