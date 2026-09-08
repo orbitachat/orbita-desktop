@@ -352,56 +352,43 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
         {!backupEnabled ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '16px',
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div>
               <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
                 {t('backup.desktop_backup_title')}
               </div>
-              <div style={{ fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '2px' }}>
+              <div style={{ fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '2px', lineHeight: 1.45 }}>
                 {t('backup.enable_backup_desc')}
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleEnableBackup}
-              aria-label={t('backup.enable_backup')}
-              style={{
-                padding: '7px 22px',
-                borderRadius: '20px',
-                border: 'none',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                flexShrink: 0,
-                transition: 'background-color 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
-            >
-              {t('backup.enable_backup')}
-            </button>
+            <div>
+              <button
+                type="button"
+                onClick={handleEnableBackup}
+                aria-label={t('backup.enable_backup')}
+                style={{
+                  padding: '7px 22px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
+              >
+                {t('backup.enable_backup')}
+              </button>
+            </div>
           </div>
         ) : (
           <>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '16px',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div>
                 <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
                   {t('backup.last_backup')}
                 </div>
@@ -410,87 +397,43 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={triggerBackup}
-                disabled={isBackingUp}
-                aria-label={t('backup.create_backup_btn')}
-                style={{
-                  padding: '7px 18px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: isBackingUp ? 'default' : 'pointer',
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  opacity: isBackingUp ? 0.6 : 1,
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isBackingUp) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                }}
-              >
-                {isBackingUp && <Loader2 size={14} className="spin" />}
-                <span>{t('backup.create_backup_btn')}</span>
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={triggerBackup}
+                  disabled={isBackingUp}
+                  aria-label={t('backup.create_backup_btn')}
+                  style={{
+                    padding: '7px 18px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: isBackingUp ? 'default' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: isBackingUp ? 0.6 : 1,
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isBackingUp) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                  }}
+                >
+                  {isBackingUp && <Loader2 size={14} className="spin" />}
+                  <span>{t('backup.create_backup_btn')}</span>
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
-                  {t('backup.backup_folder')}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    onClick={handleShowInFolder}
-                    aria-label={t('backup.show_in_folder')}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '16px',
-                      border: 'none',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      color: '#ffffff',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
-                  >
-                    {t('backup.show_in_folder')}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleChangeFolder}
-                    aria-label={t('backup.change_folder')}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '16px',
-                      border: 'none',
-                      backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                      color: 'rgba(255, 255, 255, 0.85)',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)')}
-                  >
-                    {t('backup.change_folder')}
-                  </button>
-                </div>
+              <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
+                {t('backup.backup_folder')}
               </div>
 
               <div
@@ -508,86 +451,116 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
               >
                 {backupFolder || '---'}
               </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
+                <button
+                  type="button"
+                  onClick={handleShowInFolder}
+                  aria-label={t('backup.show_in_folder')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
+                >
+                  {t('backup.show_in_folder')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleChangeFolder}
+                  aria-label={t('backup.change_folder')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                    color: 'rgba(255, 255, 255, 0.85)',
+                    fontSize: '12.5px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)')}
+                >
+                  {t('backup.change_folder')}
+                </button>
+              </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '16px',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div>
                 <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
                   {t('backup.recovery_key_row')}
                 </div>
-                <div style={{ fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '2px', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '2px', lineHeight: 1.45 }}>
                   {t('backup.recovery_key_desc')}
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsInitialSetup(false);
-                  setIsKeyModalOpen(true);
-                }}
-                aria-label={t('backup.view_key')}
-                style={{
-                  padding: '7px 18px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
-              >
-                {t('backup.view_key')}
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsInitialSetup(false);
+                    setIsKeyModalOpen(true);
+                  }}
+                  aria-label={t('backup.view_key')}
+                  style={{
+                    padding: '7px 18px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
+                >
+                  {t('backup.view_key')}
+                </button>
+              </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '16px',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
-                  {t('backup.disable_backup')}
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
+                {t('backup.disable_backup')}
               </div>
 
-              <button
-                type="button"
-                onClick={handleDisableBackup}
-                aria-label={t('backup.disable_btn')}
-                style={{
-                  padding: '7px 18px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                  color: '#ef4444',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)')}
-              >
-                {t('backup.disable_btn')}
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={handleDisableBackup}
+                  aria-label={t('backup.disable_btn')}
+                  style={{
+                    padding: '7px 18px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                    color: '#ef4444',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)')}
+                >
+                  {t('backup.disable_btn')}
+                </button>
+              </div>
             </div>
           </>
         )}
