@@ -574,23 +574,48 @@ async function deleteMediaByChat(chatId: string): Promise<number> {
   });
 }
 
-async function clearAllMediaCache(): Promise<number> {
+async function clearAllMediaCache(categories?: string[]): Promise<number> {
   const db = await initMediaDb();
+  let whereClause = '';
+  if (categories && categories.length > 0 && categories.length < 5) {
+    const conditions: string[] = [];
+    if (categories.includes('photos')) {
+      conditions.push("(mime_type LIKE 'image/%' AND mime_type NOT LIKE '%gif%')");
+    }
+    if (categories.includes('videos')) {
+      conditions.push("mime_type LIKE 'video/%'");
+    }
+    if (categories.includes('voice') || categories.includes('audio')) {
+      conditions.push("mime_type LIKE 'audio/%'");
+    }
+    if (categories.includes('gifs')) {
+      conditions.push("mime_type LIKE '%gif%'");
+    }
+    if (categories.includes('other')) {
+      conditions.push("(mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%')");
+    }
+    if (conditions.length > 0) {
+      whereClause = ' WHERE ' + conditions.join(' OR ');
+    }
+  }
+
   const rows: any[] = await new Promise((resolve, reject) => {
-    db.all('SELECT local_path FROM media_cache', (err, res) => {
+    db.all('SELECT local_path FROM media_cache' + whereClause, (err, res) => {
       if (err) reject(err);
-      else resolve(res);
+      else resolve(res || []);
     });
   });
 
   for (const row of rows) {
     try {
-      fs.unlinkSync(row.local_path);
+      if (row.local_path && fs.existsSync(row.local_path)) {
+        fs.unlinkSync(row.local_path);
+      }
     } catch { }
   }
 
   return await new Promise((resolve, reject) => {
-    db.run('DELETE FROM media_cache', function (err) {
+    db.run('DELETE FROM media_cache' + whereClause, function (err) {
       if (err) reject(err);
       else resolve(this.changes);
     });
@@ -686,6 +711,8 @@ function registerMediaIpcHandlers() {
   try { ipcMain.removeHandler('media:set-limit'); } catch { }
   try { ipcMain.removeHandler('media:get-batch'); } catch { }
   try { ipcMain.removeHandler('media:delete-by-chat'); } catch { }
+  try { ipcMain.removeHandler('media:chat-stats'); } catch { }
+  try { ipcMain.removeHandler('system:disk-space'); } catch { }
 
   ipcMain.handle('media:exists', async (_event, cacheKey: string) => {
     const db = await initMediaDb();
@@ -717,7 +744,7 @@ function registerMediaIpcHandlers() {
     return !!pathSaved;
   });
 
-  ipcMain.handle('media:clear', async () => ({ deleted: await clearAllMediaCache() }));
+  ipcMain.handle('media:clear', async (_event, categories?: string[]) => ({ deleted: await clearAllMediaCache(categories) }));
   ipcMain.handle('media:stats', async () => await getMediaStats());
   ipcMain.handle('media:evict', async (_event, maxBytes?: number) => ({ deleted: await evictMediaToSizeLimit(maxBytes || MAX_CACHE_SIZE) }));
   ipcMain.handle('media:evict-by-age', async (_event, maxAgeMs: number) => ({ deleted: await evictMediaByAge(maxAgeMs) }));
@@ -744,6 +771,36 @@ function registerMediaIpcHandlers() {
       };
     }
     return { rows, totalCount, totalSize, byType };
+  });
+
+  ipcMain.handle('media:chat-stats', async () => {
+    const db = await initMediaDb();
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT chat_id, COUNT(*) as count, SUM(file_size) as size
+         FROM media_cache
+         WHERE download_status = 'downloaded' AND chat_id IS NOT NULL AND chat_id != ''
+         GROUP BY chat_id
+         ORDER BY size DESC`,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+  });
+
+  ipcMain.handle('system:disk-space', async () => {
+    try {
+      const mediaDir = getMediaDir();
+      const root = path.parse(mediaDir).root || 'C:\\';
+      const stats = fs.statfsSync(root);
+      const total = stats.blocks * stats.bsize;
+      const free = stats.bfree * stats.bsize;
+      return { total, free, used: total - free };
+    } catch {
+      return { total: 0, free: 0, used: 0 };
+    }
   });
 
   ipcMain.handle('media:set-limit', async (_event, { size }: { type?: string; size: number }) => {

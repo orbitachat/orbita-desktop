@@ -250,14 +250,23 @@ contextBridge.exposeInMainWorld('orbita', {
   mediaSave: (originalUrl: string, dataBase64: string, mimeType: string, chatId: string, messageId: string) =>
     ipcRenderer.invoke('media:save', originalUrl, dataBase64, mimeType, chatId, messageId),
 
-  mediaClear: () =>
-    ipcRenderer.invoke('media:clear'),
+  mediaClear: (categories?: string[]) =>
+    ipcRenderer.invoke('media:clear', categories),
 
   mediaStats: () =>
     ipcRenderer.invoke('media:stats'),
 
   mediaDetailedStats: () =>
     ipcRenderer.invoke('media:detailed-stats'),
+
+  mediaChatStats: () =>
+    ipcRenderer.invoke('media:chat-stats'),
+
+  mediaDeleteByChatId: (chatId: string) =>
+    ipcRenderer.invoke('media:delete-by-chat', chatId),
+
+  getDiskSpace: () =>
+    ipcRenderer.invoke('system:disk-space'),
 
   mediaEvictByAge: (ageMs: number) =>
     ipcRenderer.invoke('media:evict-by-age', ageMs),

@@ -100,13 +100,15 @@ declare global {
       openFile: (data: string | Uint8Array | ArrayBuffer, fileName: string) => Promise<{ success: boolean; path?: string; error?: string }>;
       mediaGet: (originalUrl: string) => Promise<{ data: string | Uint8Array | ArrayBuffer; mime: string } | null>;
       mediaSave: (originalUrl: string, dataBase64: string, mimeType: string, chatId: string, messageId: string) => Promise<void>;
-      mediaClear: () => Promise<{ deleted: number }>;
+      mediaClear: (categories?: string[]) => Promise<{ deleted: number }>;
       mediaStats: () => Promise<{ count: number; totalSize: number }>;
       mediaDetailedStats: () => Promise<{
         totalCount: number;
         totalSize: number;
         byType: Record<string, { count: number; size: number }>;
       }>;
+      mediaChatStats: () => Promise<Array<{ chat_id: string; count: number; size: number }>>;
+      getDiskSpace: () => Promise<{ total: number; free: number; used: number }>;
       mediaEvictByAge: (ageMs: number) => Promise<{ deleted: number }>;
       mediaEvictBySize: (targetSize: number) => Promise<{ deleted: number }>;
       mediaSetLimit: (type: 'total' | 'media', size: number) => Promise<{ deleted: number }>;

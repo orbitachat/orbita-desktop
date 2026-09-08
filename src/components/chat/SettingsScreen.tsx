@@ -22,6 +22,7 @@ import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '..
 import { DeleteAccountModal } from '../common/DeleteAccountModal';
 import { AccountBackupScreen } from '../settings/AccountBackupScreen';
 import { ConnectionSettingsScreen } from '../settings/ConnectionSettingsScreen';
+import { DataMemorySettings } from '../settings/DataMemorySettings';
 import { useConnectionStore } from '../../store/useConnectionStore';
 import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
@@ -36,7 +37,7 @@ const QrCodeMiniIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20
   </svg>
 );
 
-const MD3 = {
+export const MD3 = {
   bg:            'var(--md-bg,            #211d2f)',
   surface:       'var(--md-surface,       #2a253b)',
   surfaceVar:    'var(--md-surface-var,   #342e47)',
@@ -1508,7 +1509,7 @@ const SignalChatColorPicker: React.FC = () => {
 };
 
 
-const BubbleSlider = ({
+export const BubbleSlider = ({
   value,
   onChange,
   onChangeCommitted,
@@ -2393,51 +2394,10 @@ export const SettingsScreen = () => {
     }
   };
 
-  const [cacheStats, setCacheStats] = useState<{
-    totalCount: number;
-    totalSize: number;
-    byType: Record<string, { count: number; size: number }>;
-  } | null>(null);
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
-
-  const loadCacheStats = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.orbita?.mediaDetailedStats) return;
-    setIsLoadingStats(true);
-    try {
-      const stats = await window.orbita.mediaDetailedStats();
-      setCacheStats(stats);
-    } catch (err) {
-      console.error('Failed to load cache stats:', err);
-    } finally {
-      setIsLoadingStats(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'dataMemory') {
-      loadCacheStats();
-    }
-  }, [activeTab, loadCacheStats]);
-
-  const handleClearAll = async () => {
-    if (typeof window === 'undefined' || !window.orbita?.mediaClear) return;
-    setIsClearing(true);
-    try {
-      await window.orbita.mediaClear();
-      await loadCacheStats();
-    } catch (err) {
-      console.error('Failed to clear cache:', err);
-    } finally {
-      setIsClearing(false);
-    }
-  };
-
   const handleCacheSizeLimitChange = async (value: number) => {
     setCacheSizeLimit(value);
     if (typeof window !== 'undefined' && window.orbita?.mediaSetLimit) {
       await window.orbita.mediaSetLimit('total', value);
-      await loadCacheStats();
     }
   };
 
@@ -2445,7 +2405,6 @@ export const SettingsScreen = () => {
     setMediaCacheLimit(value);
     if (typeof window !== 'undefined' && window.orbita?.mediaSetLimit) {
       await window.orbita.mediaSetLimit('media', value);
-      await loadCacheStats();
     }
   };
 
@@ -2453,7 +2412,6 @@ export const SettingsScreen = () => {
     setCacheCleanupAge(value);
     if (typeof window !== 'undefined' && window.orbita?.mediaEvictByAge) {
       await window.orbita.mediaEvictByAge(value);
-      await loadCacheStats();
     }
   };
 
@@ -2572,208 +2530,17 @@ export const SettingsScreen = () => {
 
 
   const renderDataMemory = () => {
-    const totalSizeMB = cacheStats ? (cacheStats.totalSize / (1024 * 1024)) : 0;
-    const totalSizeDisplay = totalSizeMB >= 1024 ? `${(totalSizeMB / 1024).toFixed(1)} GB` : `${totalSizeMB.toFixed(1)} MB`;
-
-    const totalDisplay = (v: number) => {
-      if (v >= 1024) {
-        const gb = +(v / 1024).toFixed(1);
-        return `${gb} GB`;
-      }
-      return `${Math.round(v)} MB`;
-    };
-    const mediaDisplay = (v: number) => {
-      if (v >= 1024) {
-        const gb = +(v / 1024).toFixed(1);
-        return `${gb} GB`;
-      }
-      return `${Math.round(v)} MB`;
-    };
-    const ageDisplay = (v: number) => {
-      if (v === 0) return t('settings.never');
-      const days = Math.round(v / (24 * 60 * 60 * 1000));
-      if (days === 0) return t('settings.never');
-      if (days === 7) return t('settings.one_week');
-      if (days === 14) return t('settings.two_weeks');
-      if (days === 30) return t('settings.one_month');
-      if (days === 60) return t('settings.two_months');
-      if (days === 90) return t('settings.three_months');
-      return `${days} ${t('common.days')}`;
-    };
-
-    const formatSize = (bytes: number) => {
-      if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-      if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-      return `${bytes} B`;
-    };
-
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.18 }}
-        style={{ padding: '0 0 32px' }}
-      >
-        <div style={{ marginBottom: 24 }}>
-          <div style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: MD3.onSurfaceVar,
-            letterSpacing: '0.05em',
-            padding: '0 20px',
-            marginBottom: 8,
-          }}>
-            {t('settings.storage_used')}
-          </div>
-          <div style={{
-            backgroundColor: MD3.surface,
-            borderRadius: 0,
-            padding: '16px 20px',
-            margin: '0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: MD3.onSurface }}>
-                {isLoadingStats ? t('common.loading') : totalSizeDisplay}
-              </div>
-              <div style={{ fontSize: 12, color: MD3.onSurfaceVar }}>
-                {t('settings.total_cache', { count: cacheStats?.totalCount || 0 })}
-              </div>
-            </div>
-            <button
-              onClick={handleClearAll}
-              disabled={isClearing || isLoadingStats}
-              style={{
-                padding: '8px 16px',
-                borderRadius: 20,
-                border: 'none',
-                backgroundColor: 'rgba(242,184,181,.12)',
-                color: MD3.error,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: isClearing ? 'not-allowed' : 'pointer',
-                opacity: isClearing ? 0.6 : 1,
-                transition: 'opacity 0.2s',
-              }}
-            >
-              {isClearing ? t('common.clearing') : t('common.clear_all')}
-            </button>
-          </div>
-        </div>
-
-        {cacheStats?.byType && Object.keys(cacheStats.byType).length > 0 && (
-          <div style={{ marginBottom: 24, padding: '0 20px' }}>
-            <div style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: MD3.onSurfaceVar,
-              letterSpacing: '0.05em',
-              marginBottom: 8,
-            }}>
-              {t('settings.breakdown')}
-            </div>
-            <div style={{
-              backgroundColor: MD3.surface,
-              borderRadius: 0,
-              padding: '12px 20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}>
-              {Object.entries(cacheStats.byType || {}).map(([mime, { count, size }]) => {
-                let label = mime;
-                if (mime.startsWith('image/')) label = t('settings.photos');
-                else if (mime.startsWith('video/')) label = t('settings.videos');
-                else if (mime.startsWith('audio/')) label = t('settings.audio');
-                else label = t('settings.other');
-                return (
-                  <div key={mime} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: MD3.onSurface }}>
-                    <span>{label} ({count})</span>
-                    <span>{formatSize(size)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginBottom: 24 }}>
-          <div style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: MD3.onSurfaceVar,
-            letterSpacing: '0.05em',
-            padding: '0 20px',
-            marginBottom: 8,
-          }}>
-            {t('settings.cache_limits')}
-          </div>
-          <div style={{
-            backgroundColor: MD3.surface,
-            borderRadius: 0,
-            padding: '16px 0',
-            margin: '0',
-          }}>
-            <BubbleSlider
-              value={cacheSizeLimit}
-              onChangeCommitted={handleCacheSizeLimitChange}
-              min={100 * 1024 * 1024}
-              max={10 * 1024 * 1024 * 1024}
-              step={100 * 1024 * 1024}
-              label={t('settings.total_cache_limit')}
-              formatValue={(v) => totalDisplay(v / (1024 * 1024))}
-            />
-            <BubbleSlider
-              value={mediaCacheLimit}
-              onChangeCommitted={handleMediaCacheLimitChange}
-              min={100 * 1024 * 1024}
-              max={8 * 1024 * 1024 * 1024}
-              step={100 * 1024 * 1024}
-              label={t('settings.media_cache_limit')}
-              formatValue={(v) => mediaDisplay(v / (1024 * 1024))}
-            />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 24 }}>
-          <div style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: MD3.onSurfaceVar,
-            letterSpacing: '0.05em',
-            padding: '0 20px',
-            marginBottom: 8,
-          }}>
-            {t('settings.cache_cleanup')}
-          </div>
-          <div style={{
-            backgroundColor: MD3.surface,
-            borderRadius: 0,
-            padding: '16px 0',
-            margin: '0',
-          }}>
-            <BubbleSlider
-              value={cacheCleanupAge}
-              onChangeCommitted={handleCacheCleanupAgeChange}
-              min={0}
-              max={90 * 24 * 60 * 60 * 1000}
-              step={7 * 24 * 60 * 60 * 1000}
-              label={t('settings.cache_cleanup_age')}
-              formatValue={(v) => ageDisplay(v)}
-            />
-            <div style={{ padding: '8px 20px 0' }}>
-              <PreferenceSwitch
-                label={t('settings.auto_load_media') || 'Загружать медиафайлы автоматически'}
-                description={t('settings.auto_load_media_desc') || 'Автоматически загружать медиафайлы при открытии чата. Если выключено, файлы загружаются только по клику.'}
-                checked={autoLoadMedia}
-                onChange={() => setAutoLoadMedia(!autoLoadMedia)}
-              />
-            </div>
-          </div>
-        </div>
-      </motion.div>
+      <DataMemorySettings
+        cacheSizeLimit={cacheSizeLimit}
+        mediaCacheLimit={mediaCacheLimit}
+        cacheCleanupAge={cacheCleanupAge}
+        autoLoadMedia={autoLoadMedia}
+        onCacheSizeLimitChange={handleCacheSizeLimitChange}
+        onMediaCacheLimitChange={handleMediaCacheLimitChange}
+        onCacheCleanupAgeChange={handleCacheCleanupAgeChange}
+        onAutoLoadMediaChange={() => setAutoLoadMedia(!autoLoadMedia)}
+      />
     );
   };
 

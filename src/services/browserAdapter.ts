@@ -88,6 +88,8 @@ class BrowserOrbitaAdapter {
       mediaClear: async () => ({ deleted: 0 }),
       mediaStats: async () => ({ count: 0, totalSize: 0 }),
       mediaDetailedStats: async () => ({ totalCount: 0, totalSize: 0, byType: {} }),
+      mediaChatStats: async () => [],
+      getDiskSpace: async () => ({ total: 1000000000000, free: 500000000000, used: 500000000000 }),
       mediaEvictByAge: async () => ({ deleted: 0 }),
       mediaEvictBySize: async () => ({ deleted: 0 }),
       mediaSetLimit: async () => ({ deleted: 0 }),
