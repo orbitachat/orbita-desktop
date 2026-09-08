@@ -245,13 +245,14 @@ export const Block = ({ children, style }: { children: ReactNode; style?: React.
   <div
     style={{
       backgroundColor: MD3.surface,
-      width: '100%',
+      width: 'calc(100% - 20px)',
+      margin: '0 10px 12px 10px',
       display: 'flex',
       flexDirection: 'column',
-      borderRadius: 0,
-      margin: 0,
+      borderRadius: 30,
       padding: '4px 0',
       boxSizing: 'border-box',
+      overflow: 'hidden',
       ...style,
     }}
   >
@@ -261,11 +262,15 @@ export const Block = ({ children, style }: { children: ReactNode; style?: React.
 
 const Surface = ({ children, style }: { children: ReactNode; style?: React.CSSProperties }) => (
   <div style={{
-    backgroundColor: 'transparent',
-    padding: '0',
+    backgroundColor: MD3.surface,
+    borderRadius: 30,
+    margin: '0 10px 12px 10px',
+    width: 'calc(100% - 20px)',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+    padding: '4px 0',
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
     ...style,
   }}>
     {children}
@@ -557,22 +562,25 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
       transition={{ duration: 0.18 }}
       style={{ padding: '0 0 32px' }}
     >
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           fontSize: 12,
           fontWeight: 600,
           color: MD3.onSurfaceVar,
           letterSpacing: '0.05em',
-          padding: '0 20px',
+          padding: '0 24px',
           marginBottom: 8,
         }}>
           {t('settings.voice_calls_beta')}
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 0,
+          borderRadius: 30,
           padding: '16px 20px',
-          margin: '0',
+          margin: '0 10px',
+          width: 'calc(100% - 20px)',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -585,22 +593,25 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
       </div>
 
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           fontSize: 12,
           fontWeight: 600,
           color: MD3.onSurfaceVar,
           letterSpacing: '0.05em',
-          padding: '0 20px',
+          padding: '0 24px',
           marginBottom: 8,
         }}>
           {t('settings.read_receipts_group')}
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 0,
+          borderRadius: 30,
           padding: '16px 20px',
-          margin: '0',
+          margin: '0 10px',
+          width: 'calc(100% - 20px)',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -613,22 +624,25 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
       </div>
 
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           fontSize: 12,
           fontWeight: 600,
           color: MD3.onSurfaceVar,
           letterSpacing: '0.05em',
-          padding: '0 20px',
+          padding: '0 24px',
           marginBottom: 8,
         }}>
           {t('settings.typing_indicators_group')}
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 0,
+          borderRadius: 30,
           padding: '16px 20px',
-          margin: '0',
+          margin: '0 10px',
+          width: 'calc(100% - 20px)',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -641,23 +655,25 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
       </div>
 
-      {/* Link Previews */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           fontSize: 12,
           fontWeight: 600,
           color: MD3.onSurfaceVar,
           letterSpacing: '0.05em',
-          padding: '0 20px',
+          padding: '0 24px',
           marginBottom: 8,
         }}>
           {t('settings.link_previews_group', 'ПРЕДПРОСМОТР ССЫЛОК')}
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 0,
+          borderRadius: 30,
           padding: '16px 20px',
-          margin: '0',
+          margin: '0 10px',
+          width: 'calc(100% - 20px)',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -670,14 +686,13 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
       </div>
 
-      {/* Security Block / "Безопасность" */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           fontSize: 12,
           fontWeight: 600,
           color: MD3.onSurfaceVar,
           letterSpacing: '0.05em',
-          padding: '0 20px',
+          padding: '0 24px',
           marginBottom: 8,
         }}>
           {t('security.group_title', 'Безопасность')}
@@ -687,9 +702,12 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
           className="cursor-pointer transition-colors hover:brightness-110"
           style={{
             backgroundColor: MD3.surface,
-            borderRadius: 0,
+            borderRadius: 30,
             padding: '16px 20px',
-            margin: '0',
+            margin: '0 10px',
+            width: 'calc(100% - 20px)',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -707,13 +725,13 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
       </div>
 
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           fontSize: 12,
           fontWeight: 600,
           color: MD3.onSurfaceVar,
           letterSpacing: '0.05em',
-          padding: '0 20px',
+          padding: '0 24px',
           marginBottom: 8,
         }}>
           {t('backup.group_title', 'РЕЗЕРВНОЕ КОПИРОВАНИЕ')}
@@ -723,9 +741,12 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
           className="cursor-pointer transition-colors hover:brightness-110"
           style={{
             backgroundColor: MD3.surface,
-            borderRadius: 0,
+            borderRadius: 30,
             padding: '16px 20px',
-            margin: '0',
+            margin: '0 10px',
+            width: 'calc(100% - 20px)',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -743,22 +764,25 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         </div>
       </div>
 
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{
           fontSize: 12,
           fontWeight: 600,
           color: MD3.onSurfaceVar,
           letterSpacing: '0.05em',
-          padding: '0 20px',
+          padding: '0 24px',
           marginBottom: 8,
         }}>
           {t('settings.app_section')}
         </div>
         <div style={{
           backgroundColor: MD3.surface,
-          borderRadius: 0,
+          borderRadius: 30,
           padding: '16px 20px',
-          margin: '0',
+          margin: '0 10px',
+          width: 'calc(100% - 20px)',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -876,14 +900,13 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
       style={{ padding: '0 0 32px' }}
     >
       <form onSubmit={handleSubmit}>
-        {/* Block 1: Password Group */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{
             fontSize: 12,
             fontWeight: 600,
             color: MD3.onSurfaceVar,
             letterSpacing: '0.05em',
-            padding: '0 20px',
+            padding: '0 24px',
             marginBottom: 8,
           }}>
             {t('security.password_group', 'Пароль')}
@@ -891,9 +914,12 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
 
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 0,
+            borderRadius: 30,
             padding: '20px',
-            margin: '0',
+            margin: '0 10px',
+            width: 'calc(100% - 20px)',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
             gap: '14px',
@@ -907,7 +933,6 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
                 : t('security.modal_desc_set', 'Поставьте пароль для Orbita. Локально сохранённые данные будут зашифрованы с использованием пароля. Если вы забудете пароль, то восстановить аккаунт не получится.')}
             </p>
 
-            {/* Inputs Container */}
             <div className="flex flex-col gap-3 mt-1">
               {isAlreadySet && (
                 <div className="relative flex items-center">
@@ -992,14 +1017,13 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
           </div>
         </div>
 
-        {/* Block 2: Strength Indicator */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{
             fontSize: 12,
             fontWeight: 600,
             color: MD3.onSurfaceVar,
             letterSpacing: '0.05em',
-            padding: '0 20px',
+            padding: '0 24px',
             marginBottom: 8,
           }}>
             {t('security.strength_group', 'Надёжность')}
@@ -1007,9 +1031,12 @@ const PasswordSettingsScreen = ({ onSaved }: { onSaved?: () => void }) => {
 
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 0,
+            borderRadius: 30,
             padding: '20px',
-            margin: '0',
+            margin: '0 10px',
+            width: 'calc(100% - 20px)',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
             gap: '14px',
@@ -1785,24 +1812,25 @@ const PreferencesGroup = ({
   title: string;
   children: ReactNode;
 }) => (
-  <div style={{ marginBottom: 24, width: '100%' }}>
+  <div style={{ marginBottom: 20, width: '100%' }}>
     <div style={{
       fontSize: 12,
       fontWeight: 600,
       color: MD3.onSurfaceVar,
       letterSpacing: '0.05em',
-      padding: '0 20px',
+      padding: '0 24px',
       marginBottom: 8,
     }}>
       {title}
     </div>
     <div style={{
       backgroundColor: MD3.surface,
-      borderRadius: 0,
-      padding: '0 20px',
-      margin: 0,
-      width: '100%',
+      borderRadius: 30,
+      padding: '4px 20px',
+      margin: '0 10px',
+      width: 'calc(100% - 20px)',
       boxSizing: 'border-box',
+      overflow: 'hidden',
     }}>
       {children}
     </div>
@@ -2614,22 +2642,25 @@ export const SettingsScreen = () => {
         transition={{ duration: 0.18 }}
         style={{ padding: '0 0 32px' }}
       >
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{
             fontSize: 12,
             fontWeight: 600,
             color: MD3.onSurfaceVar,
             letterSpacing: '0.05em',
-            padding: '0 20px',
+            padding: '0 24px',
             marginBottom: 8,
           }}>
             {t('settings.storage_used')}
           </div>
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 0,
+            borderRadius: 30,
             padding: '16px 20px',
-            margin: '0',
+            margin: '0 10px',
+            width: 'calc(100% - 20px)',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -2664,20 +2695,25 @@ export const SettingsScreen = () => {
         </div>
 
         {cacheStats?.byType && Object.keys(cacheStats.byType).length > 0 && (
-          <div style={{ marginBottom: 24, padding: '0 20px' }}>
+          <div style={{ marginBottom: 20 }}>
             <div style={{
               fontSize: 12,
               fontWeight: 600,
               color: MD3.onSurfaceVar,
               letterSpacing: '0.05em',
+              padding: '0 24px',
               marginBottom: 8,
             }}>
               {t('settings.breakdown')}
             </div>
             <div style={{
               backgroundColor: MD3.surface,
-              borderRadius: 0,
-              padding: '12px 20px',
+              borderRadius: 30,
+              padding: '16px 20px',
+              margin: '0 10px',
+              width: 'calc(100% - 20px)',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
@@ -2699,22 +2735,25 @@ export const SettingsScreen = () => {
           </div>
         )}
 
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{
             fontSize: 12,
             fontWeight: 600,
             color: MD3.onSurfaceVar,
             letterSpacing: '0.05em',
-            padding: '0 20px',
+            padding: '0 24px',
             marginBottom: 8,
           }}>
             {t('settings.cache_limits')}
           </div>
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 0,
+            borderRadius: 30,
             padding: '16px 0',
-            margin: '0',
+            margin: '0 10px',
+            width: 'calc(100% - 20px)',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
           }}>
             <BubbleSlider
               value={cacheSizeLimit}
@@ -2737,22 +2776,25 @@ export const SettingsScreen = () => {
           </div>
         </div>
 
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <div style={{
             fontSize: 12,
             fontWeight: 600,
             color: MD3.onSurfaceVar,
             letterSpacing: '0.05em',
-            padding: '0 20px',
+            padding: '0 24px',
             marginBottom: 8,
           }}>
             {t('settings.cache_cleanup')}
           </div>
           <div style={{
             backgroundColor: MD3.surface,
-            borderRadius: 0,
+            borderRadius: 30,
             padding: '16px 0',
-            margin: '0',
+            margin: '0 10px',
+            width: 'calc(100% - 20px)',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
           }}>
             <BubbleSlider
               value={cacheCleanupAge}
