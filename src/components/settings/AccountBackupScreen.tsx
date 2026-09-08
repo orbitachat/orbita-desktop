@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Lock, Copy, Check, X, Loader2 } from 'lucide-react';
+import { Lock, Copy, Check, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { generateMnemonic, createAccountBackup } from '../../services/accountBackupService';
 
@@ -155,6 +155,164 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
     }
   };
 
+  if (isKeyModalOpen) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.18 }}
+        style={{
+          padding: '16px 20px 32px',
+          color: '#ffffff',
+          fontFamily: 'inherit',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(155, 125, 212, 0.2)',
+            color: 'var(--accent-color, #9b7dd4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '14px',
+          }}
+        >
+          <Lock size={22} />
+        </div>
+
+        <h3 style={{ fontSize: '17px', fontWeight: 700, margin: '0 0 10px', color: '#ffffff' }}>
+          {t('backup.your_recovery_key')}
+        </h3>
+
+        <p
+          style={{
+            fontSize: '12.5px',
+            lineHeight: 1.5,
+            color: 'rgba(255, 255, 255, 0.7)',
+            margin: '0 0 18px',
+            maxWidth: '340px',
+          }}
+        >
+          {t('backup.key_notice')}
+        </p>
+
+        <div
+          style={{
+            width: '100%',
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            padding: '14px 16px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '8px 14px',
+            marginBottom: '16px',
+            boxSizing: 'border-box',
+          }}
+        >
+          {words.map((word, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                color: '#1a1a1a',
+                fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                fontWeight: 650,
+              }}
+            >
+              <span style={{ fontSize: '11px', color: '#888888', minWidth: '18px' }}>
+                {idx + 1}.
+              </span>
+              <span>{word}</span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleCopyKey}
+          aria-label={t('backup.copy_to_clipboard')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'none',
+            border: 'none',
+            color: hasCopied ? '#22c55e' : 'var(--accent-color, #9b7dd4)',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            transition: 'color 0.15s ease',
+          }}
+        >
+          {hasCopied ? <Check size={16} /> : <Copy size={16} />}
+          <span>{hasCopied ? t('backup.copied') : t('backup.copy_to_clipboard')}</span>
+        </button>
+
+        <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+          {!isInitialSetup && (
+            <button
+              type="button"
+              onClick={() => setIsKeyModalOpen(false)}
+              aria-label={t('common.back', 'Назад')}
+              style={{
+                flex: 1,
+                padding: '10px 16px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                color: '#ffffff',
+                fontSize: '13.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background-color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)')}
+            >
+              {t('common.back', 'Назад')}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleKeyModalConfirm}
+            aria-label={t('backup.continue')}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              borderRadius: '10px',
+              border: 'none',
+              backgroundColor: 'var(--accent-color, #6366f1)',
+              color: '#ffffff',
+              fontSize: '13.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'opacity 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          >
+            {t('backup.continue')}
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -285,72 +443,70 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
               </button>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '16px',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                 <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff' }}>
                   {t('backup.backup_folder')}
                 </div>
-                <div
-                  style={{
-                    fontSize: '12.5px',
-                    color: 'rgba(255, 255, 255, 0.5)',
-                    marginTop: '2px',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {backupFolder || '---'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={handleShowInFolder}
+                    aria-label={t('backup.show_in_folder')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '16px',
+                      border: 'none',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
+                  >
+                    {t('backup.show_in_folder')}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleChangeFolder}
+                    aria-label={t('backup.change_folder')}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '16px',
+                      border: 'none',
+                      backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)')}
+                  >
+                    {t('backup.change_folder')}
+                  </button>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={handleShowInFolder}
-                  aria-label={t('backup.show_in_folder')}
-                  style={{
-                    padding: '7px 18px',
-                    borderRadius: '20px',
-                    border: 'none',
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    color: '#ffffff',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)')}
-                >
-                  {t('backup.show_in_folder')}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleChangeFolder}
-                  aria-label={t('backup.change_folder')}
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: '20px',
-                    border: 'none',
-                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)')}
-                >
-                  {t('backup.change_folder')}
-                </button>
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  wordBreak: 'break-all',
+                  userSelect: 'text',
+                  lineHeight: 1.45,
+                }}
+              >
+                {backupFolder || '---'}
               </div>
             </div>
 
@@ -457,180 +613,6 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
           {t('backup.local_storage_notice')}
         </p>
       </div>
-
-      <AnimatePresence>
-        {isKeyModalOpen && (
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 300,
-              backgroundColor: 'rgba(0, 0, 0, 0.72)',
-              backdropFilter: 'blur(3px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px',
-            }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget && !isInitialSetup) {
-                setIsKeyModalOpen(false);
-              }
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.18 }}
-              style={{
-                width: '100%',
-                maxWidth: '520px',
-                backgroundColor: 'var(--bg-secondary, #1b1728)',
-                borderRadius: '16px',
-                padding: '28px 24px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
-                position: 'relative',
-              }}
-            >
-              {!isInitialSetup && (
-                <button
-                  type="button"
-                  onClick={() => setIsKeyModalOpen(false)}
-                  aria-label={t('common.close')}
-                  style={{
-                    position: 'absolute',
-                    top: '16px',
-                    right: '16px',
-                    background: 'none',
-                    border: 'none',
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    cursor: 'pointer',
-                    padding: '4px',
-                  }}
-                >
-                  <X size={18} />
-                </button>
-              )}
-
-              <div
-                style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(155, 125, 212, 0.2)',
-                  color: 'var(--accent-color, #9b7dd4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '16px',
-                }}
-              >
-                <Lock size={24} />
-              </div>
-
-              <h3 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 10px', color: '#ffffff' }}>
-                {t('backup.your_recovery_key')}
-              </h3>
-
-              <p
-                style={{
-                  fontSize: '13px',
-                  lineHeight: 1.5,
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  margin: '0 0 20px',
-                  maxWidth: '440px',
-                }}
-              >
-                {t('backup.key_notice')}
-              </p>
-
-              <div
-                style={{
-                  width: '100%',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '12px',
-                  padding: '16px 20px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '10px 16px',
-                  marginBottom: '18px',
-                }}
-              >
-                {words.map((word, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '13.5px',
-                      color: '#1a1a1a',
-                      fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
-                      fontWeight: 650,
-                    }}
-                  >
-                    <span style={{ fontSize: '11px', color: '#888888', minWidth: '18px' }}>
-                      {idx + 1}.
-                    </span>
-                    <span>{word}</span>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCopyKey}
-                aria-label={t('backup.copy_to_clipboard')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'none',
-                  border: 'none',
-                  color: hasCopied ? '#22c55e' : 'var(--accent-color, #9b7dd4)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                }}
-              >
-                {hasCopied ? <Check size={14} /> : <Copy size={14} />}
-                <span>{hasCopied ? t('backup.copied') : t('backup.copy_to_clipboard')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleKeyModalConfirm}
-                aria-label={t('backup.continue')}
-                style={{
-                  width: '100%',
-                  maxWidth: '220px',
-                  height: '40px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  backgroundColor: 'var(--accent-color, #9b7dd4)',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  fontWeight: 650,
-                  cursor: 'pointer',
-                  transition: 'opacity 0.15s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-              >
-                {t('backup.continue')}
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 };
