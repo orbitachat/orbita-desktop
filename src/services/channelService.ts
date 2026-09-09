@@ -221,7 +221,20 @@ class ChannelService {
 
       if (res.ok) {
         const data = (await res.json()) as { reactions: Record<string, string[]> };
-        return data.reactions || null;
+        const reactions = data.reactions || null;
+        if (reactions) {
+          try {
+            ablyService.sendMessage(`public-channel-${channelId.trim()}`, {
+              type: 'reaction-updated',
+              postId,
+              emoji,
+              userId,
+              action: action || 'toggle',
+              reactions,
+            }).catch(() => {});
+          } catch {}
+        }
+        return reactions;
       }
     } catch (err) {
       console.error('[ChannelService] Failed to toggle reaction:', err);

@@ -2144,6 +2144,8 @@ export const MainLayout = () => {
       const unsub = ablyService.subscribeToChatMessages(`public-channel-${channelId}`, (data: any) => {
         if (data?.type === 'channel-post' && data?.post) {
           handleNewPost(data.post);
+        } else if (data?.type === 'reaction-updated') {
+          handleReaction(data);
         } else if (data?.id) {
           handleNewPost(data);
         }

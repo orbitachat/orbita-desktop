@@ -134,8 +134,9 @@ async function triggerPusherEventOnServer(server, channel, event, data) {
       data: typeof data === 'string' ? data : JSON.stringify(data),
     });
     const timestamp = Math.floor(Date.now() / 1000).toString();
+    const bodyMd5 = crypto.createHash('md5').update(bodyStr).digest('hex');
     const path = `/apps/${server.appId}/events`;
-    const queryParams = `auth_key=${server.key}&auth_timestamp=${timestamp}&auth_version=1.0`;
+    const queryParams = `auth_key=${server.key}&auth_timestamp=${timestamp}&auth_version=1.0&body_md5=${bodyMd5}`;
     const stringToSign = `POST\n${path}\n${queryParams}`;
     const authSignature = crypto.createHmac('sha256', server.secret).update(stringToSign).digest('hex');
     const url = `https://api-${server.cluster}.pusher.com${path}?${queryParams}&auth_signature=${authSignature}`;

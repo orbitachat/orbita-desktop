@@ -3546,26 +3546,74 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     // Sync persisted reactions from Supabase on chat open
     useChatStore.getState().syncReactionsFromSupabase(activeChatId);
 
+    const ablyTopic = activeChat?.type === 'channel' ? `public-channel-${activeChatId}` : activeChatId;
+    const unsubAbly = ablyService.subscribeToChatMessages(ablyTopic, (data: any) => {
+      if (data?.type === 'channel-post' && data?.post) {
+        const post = data.post;
+        if (post && post.id) {
+          const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+          if (!currentMsgs.some((m) => m.id === post.id)) {
+            useChatStore.getState().addMessage(activeChatId, {
+              id: post.id,
+              sender: post.sender || post.senderNickname || 'Channel',
+              text: post.text || '',
+              time: post.time || Date.now(),
+              read: true,
+              status: 'sent',
+              mediaType: post.mediaType || undefined,
+              mediaUrl: post.mediaUrl || undefined,
+              mediaName: post.mediaName || undefined,
+              mime: post.mime || undefined,
+              duration: post.duration || undefined,
+              width: post.width || undefined,
+              height: post.height || undefined,
+              waveform: post.waveform || undefined,
+              audioMetadata: post.audioMetadata || undefined,
+              linkPreview: post.linkPreview || undefined,
+              reactions: post.reactions || undefined,
+            });
+          }
+        }
+      } else if (data?.type === 'reaction-updated' && data?.postId && data?.reactions) {
+        useChatStore.setState((state) => {
+          const currentMsgs = state.messagesByChatId[activeChatId] || [];
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: currentMsgs.map((m) =>
+                m.id === data.postId ? { ...m, reactions: data.reactions } : m
+              ),
+            },
+          };
+        });
+      } else if (data?.type === 'reaction' && data?.emoji && data?.sender) {
+        if (data.sender === myNickname) return;
+        const targetId = data.messageId || data.id;
+        if (targetId) {
+          useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
+        }
+      }
+    });
+
     const pusher = getPusher();
-    const channelName = activeChat?.type === 'group' ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+    const channelName = activeChat?.type === 'channel'
+      ? `public-channel-${activeChatId}`
+      : activeChat?.type === 'group'
+      ? `presence-group-${activeChatId}`
+      : `private-chat-${activeChatId}`;
     const channel = pusher.subscribe(channelName);
 
     const handleReaction = (data: { chatId?: string; messageIndex?: number; messageId?: string; id?: string; emoji?: string; sender?: string; action?: 'add' | 'remove' | 'toggle'; type?: string }) => {
-      // Ignore echoed event from self
       if (data.sender === myNickname) return;
-
       const targetId = data.messageId || data.id;
       if (targetId && data.emoji && data.sender) {
         useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
       }
     };
 
-    channel.bind('reaction', handleReaction);
-
     const handleClientMessage = (data: any) => {
       if (data.type === 'reaction' && data.emoji && data.sender) {
         if (data.sender === myNickname) return;
-
         const targetId = data.messageId || data.id;
         if (targetId) {
           useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
@@ -3573,11 +3621,59 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
     };
 
+    const handleChannelPost = (post: any) => {
+      if (!post || !post.id) return;
+      const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+      if (!currentMsgs.some((m) => m.id === post.id)) {
+        useChatStore.getState().addMessage(activeChatId, {
+          id: post.id,
+          sender: post.sender || post.senderNickname || 'Channel',
+          text: post.text || '',
+          time: post.time || Date.now(),
+          read: true,
+          status: 'sent',
+          mediaType: post.mediaType || undefined,
+          mediaUrl: post.mediaUrl || undefined,
+          mediaName: post.mediaName || undefined,
+          mime: post.mime || undefined,
+          duration: post.duration || undefined,
+          width: post.width || undefined,
+          height: post.height || undefined,
+          waveform: post.waveform || undefined,
+          audioMetadata: post.audioMetadata || undefined,
+          linkPreview: post.linkPreview || undefined,
+          reactions: post.reactions || undefined,
+        });
+      }
+    };
+
+    const handleChannelReaction = (data: any) => {
+      if (data?.postId && data?.reactions) {
+        useChatStore.setState((state) => {
+          const currentMsgs = state.messagesByChatId[activeChatId] || [];
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: currentMsgs.map((m) =>
+                m.id === data.postId ? { ...m, reactions: data.reactions } : m
+              ),
+            },
+          };
+        });
+      }
+    };
+
+    channel.bind('reaction', handleReaction);
     channel.bind('client-message', handleClientMessage);
+    channel.bind('new-post', handleChannelPost);
+    channel.bind('reaction-updated', handleChannelReaction);
 
     return () => {
+      unsubAbly();
       channel.unbind('reaction', handleReaction);
       channel.unbind('client-message', handleClientMessage);
+      channel.unbind('new-post', handleChannelPost);
+      channel.unbind('reaction-updated', handleChannelReaction);
     };
   }, [activeChatId, activeChat?.type, myNickname]);
 

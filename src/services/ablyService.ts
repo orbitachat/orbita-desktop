@@ -23,6 +23,9 @@ class AblyService {
   private deliveryCallbacks: Map<string, DeliveryCallback> = new Map();
   private presenceCallbacks: Map<string, UserStatusCallback> = new Map();
   private handshakeCallbacks: Map<string, HandshakeCallback> = new Map();
+  private chatMessageCallbacks: Map<string, Set<(data: any) => void>> = new Map();
+
+  private chatMessageSubscriptions: Map<string, Ably.RealtimeChannel> = new Map();
 
   private typingHandlers: Map<string, (message: Ably.Message) => void> = new Map();
   private deliveredHandlers: Map<string, (message: Ably.Message) => void> = new Map();
@@ -30,6 +33,7 @@ class AblyService {
   private presenceHandlers: Map<string, (member: PresenceMessage) => void> = new Map();
   private handshakeReqHandlers: Map<string, (message: Ably.Message) => void> = new Map();
   private handshakeConfHandlers: Map<string, (message: Ably.Message) => void> = new Map();
+  private chatMessageHandlers: Map<string, (message: Ably.Message) => void> = new Map();
 
   private readonly ABLY_KEYS: string[] = [];
   private activeKeyIndex = 0;
@@ -193,6 +197,14 @@ class AblyService {
       });
       this.deliverySubscriptions.clear();
 
+      this.chatMessageSubscriptions.forEach((channel) => {
+        try {
+          channel.unsubscribe();
+          channel.detach();
+        } catch {}
+      });
+      this.chatMessageSubscriptions.clear();
+
       this.lastSeenTimers.forEach((timer) => clearTimeout(timer));
       this.lastSeenTimers.clear();
 
@@ -206,6 +218,7 @@ class AblyService {
       this.deliveredHandlers.clear();
       this.readHandlers.clear();
       this.presenceHandlers.clear();
+      this.chatMessageHandlers.clear();
 
       this.client.close();
       this.client = null;
@@ -231,6 +244,10 @@ class AblyService {
 
     this.presenceCallbacks.forEach((callback, userId) => {
       this._attachPresenceChannel(userId, callback);
+    });
+
+    this.chatMessageCallbacks.forEach((_cbs, chatId) => {
+      this._attachChatMessageChannel(chatId);
     });
   }
 
@@ -600,10 +617,41 @@ class AblyService {
     await channel.publish('identity-confirmed', data);
   }
 
+  private _attachChatMessageChannel(chatId: string): void {
+    if (!this.client || !chatId) return;
+    const channel = this.client.channels.get(`chat:${chatId}`);
+    this.chatMessageSubscriptions.set(chatId, channel);
+
+    const handler = (msg: Ably.Message) => {
+      if (msg.data) {
+        const cbs = this.chatMessageCallbacks.get(chatId);
+        if (cbs) {
+          cbs.forEach((cb) => {
+            try { cb(msg.data); } catch (e) { console.error('[Ably] Callback error:', e); }
+          });
+        }
+      }
+    };
+
+    const oldHandler = this.chatMessageHandlers.get(chatId);
+    if (oldHandler) {
+      try { channel.unsubscribe('client-message', oldHandler); } catch {}
+    }
+
+    this.chatMessageHandlers.set(chatId, handler);
+    channel.subscribe('client-message', handler);
+  }
+
   async sendMessage(chatId: string, payload: any): Promise<void> {
-    if (!this.client || !chatId || typeof chatId !== 'string' || chatId === 'undefined' || chatId === 'null' || !chatId.trim()) return;
+    if (!chatId || typeof chatId !== 'string' || chatId === 'undefined' || chatId === 'null' || !chatId.trim()) return;
+    const cleanId = chatId.trim();
+    if (!this.client || !this.isConnected) {
+      if (this.userId) {
+        try { await this.connect(this.userId); } catch {}
+      }
+    }
+    if (!this.client) return;
     try {
-      const cleanId = chatId.trim();
       const channel = this.client.channels.get(`chat:${cleanId}`);
       await channel.publish('client-message', payload);
     } catch (err) {
@@ -612,17 +660,32 @@ class AblyService {
   }
 
   subscribeToChatMessages(chatId: string, onMessage: (data: any) => void): () => void {
-    if (!this.client || !chatId || typeof chatId !== 'string' || chatId === 'undefined' || chatId === 'null' || !chatId.trim()) return () => {};
+    if (!chatId || typeof chatId !== 'string' || chatId === 'undefined' || chatId === 'null' || !chatId.trim()) return () => {};
     const cleanId = chatId.trim();
-    const channel = this.client.channels.get(`chat:${cleanId}`);
-    const handler = (msg: Ably.Message) => {
-      if (msg.data) {
-        onMessage(msg.data);
-      }
-    };
-    channel.subscribe('client-message', handler);
+    if (!this.chatMessageCallbacks.has(cleanId)) {
+      this.chatMessageCallbacks.set(cleanId, new Set());
+    }
+    this.chatMessageCallbacks.get(cleanId)!.add(onMessage);
+
+    if (this.client && this.isConnected) {
+      this._attachChatMessageChannel(cleanId);
+    }
+
     return () => {
-      channel.unsubscribe('client-message', handler);
+      const cbs = this.chatMessageCallbacks.get(cleanId);
+      if (cbs) {
+        cbs.delete(onMessage);
+        if (cbs.size === 0) {
+          this.chatMessageCallbacks.delete(cleanId);
+          const channel = this.chatMessageSubscriptions.get(cleanId);
+          const handler = this.chatMessageHandlers.get(cleanId);
+          if (channel && handler) {
+            try { channel.unsubscribe('client-message', handler); } catch {}
+          }
+          this.chatMessageSubscriptions.delete(cleanId);
+          this.chatMessageHandlers.delete(cleanId);
+        }
+      }
     };
   }
 
