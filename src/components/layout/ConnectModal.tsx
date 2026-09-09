@@ -43,6 +43,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
       clearTimeout(tempWarningTimerRef.current);
     }
     setTempWarning(msg);
+    inputRef.current?.focus();
     tempWarningTimerRef.current = setTimeout(() => {
       setTempWarning(null);
       tempWarningTimerRef.current = null;
@@ -260,7 +261,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                 style={{
                   bottom: '8px',
                   transformOrigin: 'left bottom',
-                  transform: isFloating && !tempWarning ? 'translateY(-20px) scale(0.78)' : 'translateY(0) scale(1)',
+                  transform: (isFloating || Boolean(tempWarning)) ? 'translateY(-20px) scale(0.78)' : 'translateY(0) scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease',
                   color: tempWarning
                     ? '#ef4444'
@@ -335,6 +336,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
 
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleSubmit}
               disabled={isLoading}
               aria-label={t('common.next', 'Далее')}
