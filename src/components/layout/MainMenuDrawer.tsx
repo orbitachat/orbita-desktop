@@ -212,7 +212,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               <button
                 type="button"
                 onClick={onOpenCreateChat}
-                aria-label={t('mainMenu.create_chat', 'Создать чат')}
+                aria-label={t('mainMenu.add_friend', 'Добавить друга')}
                 className="w-full flex items-center gap-4 px-5 py-3 text-left transition-colors cursor-pointer text-[var(--text-main)]"
                 style={{
                   border: 'none',
@@ -225,7 +225,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               >
                 <UserPlus size={20} className="text-[var(--text-dim)] shrink-0" />
                 <span className="text-[14px] font-medium truncate">
-                  {t('mainMenu.create_chat', 'Создать чат')}
+                  {t('mainMenu.add_friend', 'Добавить друга')}
                 </span>
               </button>
 

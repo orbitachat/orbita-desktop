@@ -32,7 +32,7 @@ import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '..
 import { DoubleRatchet } from '../../lib/double-ratchet';
 import { useTranslation } from 'react-i18next';
 import { showNotification } from '../../utils/notification';
-import { channelService } from '../../services/channelService';
+import { channelService, type ChannelInfo } from '../../services/channelService';
 import { useCallStore } from '../../store/useCallStore';
 import { MessageStatus } from '../../components/MessageStatus';
 import { ResizableSidebar } from './ResizableSidebar';
@@ -595,6 +595,7 @@ export const MainLayout = () => {
     removeIncomingFriendRequest,
     inChatSearch,
     closeInChatSearch,
+    addChannelChat,
   } = useChatStore(useShallow(state => ({
     chats: state.chats,
     activeChatId: state.activeChatId,
@@ -618,6 +619,7 @@ export const MainLayout = () => {
     removeIncomingFriendRequest: state.removeIncomingFriendRequest,
     inChatSearch: state.inChatSearch,
     closeInChatSearch: state.closeInChatSearch,
+    addChannelChat: state.addChannelChat,
   })));
   const isServerConnected = useConnectionStore((state) => state.isServerConnected);
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
@@ -632,9 +634,10 @@ export const MainLayout = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [connectModalConfig, setConnectModalConfig] = useState<{
     isOpen: boolean;
-    section?: 'main' | 'newMessage' | 'invite' | 'createGroup' | 'joinCommunity';
-    isCreatingChannel?: boolean;
-  }>({ isOpen: false });
+    type: 'group' | 'channel' | 'friend';
+  }>({ isOpen: false, type: 'friend' });
+  const [searchChannelResult, setSearchChannelResult] = useState<ChannelInfo | null>(null);
+  const [isSearchingChannel, setIsSearchingChannel] = useState(false);
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
   const [isMyProfileOpen, setIsMyProfileOpen] = useState(false);
   const [showCallsModal, setShowCallsModal] = useState(false);
@@ -2843,10 +2846,61 @@ export const MainLayout = () => {
   const CHAT_BATCH_SIZE = 25;
   const [renderedChatCount, setRenderedChatCount] = useState<number>(CHAT_BATCH_SIZE);
 
-  // Сбрасываем пагинацию при изменении поискового запроса
   useEffect(() => {
     setRenderedChatCount(CHAT_BATCH_SIZE);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const trimmed = extractCodeFromInput(searchQuery).trim();
+    if (trimmed.length === 36) {
+      let cancelled = false;
+      setIsSearchingChannel(true);
+      channelService.getChannel(trimmed).then((channel) => {
+        if (!cancelled) {
+          setSearchChannelResult(channel);
+          setIsSearchingChannel(false);
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setSearchChannelResult(null);
+          setIsSearchingChannel(false);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setSearchChannelResult(null);
+      setIsSearchingChannel(false);
+    }
+  }, [searchQuery]);
+
+  const handleSelectFoundChannel = useCallback(async (channel: ChannelInfo) => {
+    const exists = chats.some(c => c.id === channel.id);
+    if (!exists) {
+      if (channel.creatorNickname !== nickname && !channel.isOfficial) {
+        try {
+          const newCount = await channelService.joinChannel(channel.id, nickname || 'User');
+          if (newCount !== null) {
+            channel.subscribersCount = newCount;
+          }
+        } catch {}
+      }
+      addChannelChat({
+        id: channel.id,
+        name: channel.name,
+        description: channel.description,
+        avatarUrl: channel.avatarUrl,
+        creatorNickname: channel.creatorNickname,
+        subscribersCount: channel.subscribersCount,
+        isOfficial: channel.isOfficial,
+        isOwner: channel.creatorNickname === nickname,
+      });
+    }
+    setActiveChat(channel.id);
+    setSearchQuery('');
+    setSearchChannelResult(null);
+  }, [chats, nickname, addChannelChat, setActiveChat]);
 
   const visibleChats = useMemo(() => {
     return searchedChats.slice(0, renderedChatCount);
@@ -3286,6 +3340,65 @@ export const MainLayout = () => {
                           </div>
                         </div>
                       )}
+                      {isSearchingChannel && (
+                        <div className="flex items-center justify-center py-4">
+                          <div
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: '50%',
+                              border: '2px solid rgba(255,255,255,0.2)',
+                              borderTopColor: 'var(--accent-color, #7C3AED)',
+                              animation: 'spin 0.8s linear infinite',
+                            }}
+                          />
+                        </div>
+                      )}
+                      {searchChannelResult && (
+                        <div className="px-2 py-1">
+                          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
+                            {t('createModal.found_community', 'Найдено сообщество')}
+                          </div>
+                          <div
+                            onClick={() => handleSelectFoundChannel(searchChannelResult)}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer"
+                          >
+                            <Avatar
+                              src={searchChannelResult.avatarUrl}
+                              alt={searchChannelResult.name}
+                              className="w-11 h-11 rounded-full flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-sm text-[var(--text-main)] truncate">
+                                  {searchChannelResult.name}
+                                </span>
+                                {searchChannelResult.isOfficial && (
+                                  <span className="px-1.5 py-0.5 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[10px] font-bold">
+                                    Orbita
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-[var(--text-dim)] truncate mt-0.5">
+                                {searchChannelResult.description || `${searchChannelResult.subscribersCount || 1} ${t('createModal.subscribers', 'подписчиков')}`}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectFoundChannel(searchChannelResult);
+                              }}
+                              aria-label={chats.some(c => c.id === searchChannelResult.id) ? t('common.open', 'Открыть') : t('common.join', 'Вступить')}
+                              className="px-3 py-1.5 rounded-lg bg-[var(--accent-color)] text-white text-xs font-semibold hover:opacity-90 transition-opacity border-none outline-none cursor-pointer flex-shrink-0"
+                            >
+                              {chats.some(c => c.id === searchChannelResult.id)
+                                ? t('common.open', 'Открыть')
+                                : t('common.join', 'Вступить')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {visibleChats.map((chat) => renderChat(chat))}
                     </div>
                   )}
@@ -3393,10 +3506,9 @@ export const MainLayout = () => {
 
         {connectModalConfig.isOpen && (
           <ConnectModal
-            onClose={() => setConnectModalConfig({ isOpen: false })}
+            type={connectModalConfig.type}
+            onClose={() => setConnectModalConfig(prev => ({ ...prev, isOpen: false }))}
             onConnectRequest={handleConnectRequest}
-            initialSection={connectModalConfig.section}
-            initialCreatingChannel={connectModalConfig.isCreatingChannel}
           />
         )}
 
@@ -3409,15 +3521,15 @@ export const MainLayout = () => {
           }}
           onOpenCreateGroup={() => {
             setIsMainMenuOpen(false);
-            setConnectModalConfig({ isOpen: true, section: 'createGroup' });
+            setConnectModalConfig({ isOpen: true, type: 'group' });
           }}
           onOpenCreateChannel={() => {
             setIsMainMenuOpen(false);
-            setConnectModalConfig({ isOpen: true, section: 'joinCommunity', isCreatingChannel: true });
+            setConnectModalConfig({ isOpen: true, type: 'channel' });
           }}
           onOpenCreateChat={() => {
             setIsMainMenuOpen(false);
-            setConnectModalConfig({ isOpen: true, section: 'newMessage' });
+            setConnectModalConfig({ isOpen: true, type: 'friend' });
           }}
           onOpenCalls={() => {
             setIsMainMenuOpen(false);

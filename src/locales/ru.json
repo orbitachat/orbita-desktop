@@ -93,6 +93,8 @@
       "history_cleared": "История очищена",
       "clear_history": "Очистить историю",
       "search": "Поиск",
+      "next": "Далее",
+      "join": "Вступить",
       "cancel": "Отмена",
       "back": "Назад",
       "save": "Сохранить",
@@ -925,11 +927,19 @@
       "my_profile": "Мой профиль",
       "create_group": "Создать группу",
       "create_channel": "Создать канал",
-      "create_chat": "Создать чат",
+      "create_chat": "Добавить друга",
+      "add_friend": "Добавить друга",
       "calls": "Звонки",
       "saved_messages": "Заметки для себя",
       "settings": "Настройки",
       "night_mode": "Ночной режим"
+    },
+    "createModal": {
+      "group_name": "Название группы",
+      "channel_name": "Название канала",
+      "friend_id": "ID аккаунта друга",
+      "found_community": "Найдено сообщество",
+      "subscribers": "подписчиков"
     },
     "callsModal": {
       "title": "Звонки",

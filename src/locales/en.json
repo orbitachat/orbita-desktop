@@ -93,6 +93,8 @@
       "history_cleared": "History cleared",
       "clear_history": "Clear history",
       "search": "Search",
+      "next": "Next",
+      "join": "Join",
       "cancel": "Cancel",
       "back": "Back",
       "save": "Save",
@@ -914,11 +916,19 @@
       "my_profile": "My profile",
       "create_group": "New Group",
       "create_channel": "New Channel",
-      "create_chat": "New Chat",
+      "create_chat": "Add Friend",
+      "add_friend": "Add Friend",
       "calls": "Calls",
       "saved_messages": "Saved Messages",
       "settings": "Settings",
       "night_mode": "Night Mode"
+    },
+    "createModal": {
+      "group_name": "Group name",
+      "channel_name": "Channel name",
+      "friend_id": "Friend's account ID",
+      "found_community": "Community found",
+      "subscribers": "subscribers"
     },
     "callsModal": {
       "title": "Calls",
