@@ -938,6 +938,10 @@
       "group_name": "Название группы",
       "channel_name": "Название канала",
       "friend_id": "ID аккаунта друга",
+      "specify_group_name": "Укажите название группы",
+      "specify_channel_name": "Укажите название канала",
+      "specify_friend_id": "Укажите ID вашего друга",
+      "invalid_content": "Неверное содержимое",
       "found_community": "Найдено сообщество",
       "subscribers": "подписчиков"
     },

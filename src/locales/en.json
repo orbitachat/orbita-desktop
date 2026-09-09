@@ -927,6 +927,10 @@
       "group_name": "Group name",
       "channel_name": "Channel name",
       "friend_id": "Friend's account ID",
+      "specify_group_name": "Enter group name",
+      "specify_channel_name": "Enter channel name",
+      "specify_friend_id": "Enter friend's account ID",
+      "invalid_content": "Invalid content",
       "found_community": "Community found",
       "subscribers": "subscribers"
     },

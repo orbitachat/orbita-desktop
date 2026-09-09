@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, MoreVertical } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore, type Chat } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -27,6 +27,8 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tempWarning, setTempWarning] = useState<string | null>(null);
+  const tempWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +37,25 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   const myCode = useChatStore((s) => s.myCode);
   const addChannelChat = useChatStore((s) => s.addChannelChat);
   const setActiveChat = useChatStore((s) => s.setActiveChat);
+
+  const showTempWarning = useCallback((msg: string) => {
+    if (tempWarningTimerRef.current) {
+      clearTimeout(tempWarningTimerRef.current);
+    }
+    setTempWarning(msg);
+    tempWarningTimerRef.current = setTimeout(() => {
+      setTempWarning(null);
+      tempWarningTimerRef.current = null;
+    }, 2000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (tempWarningTimerRef.current) {
+        clearTimeout(tempWarningTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,21 +83,35 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   }, []);
 
   const handleSubmit = useCallback(async () => {
+    if (isLoading) return;
     const trimmed = inputValue.trim();
-    if (!trimmed || isLoading) return;
 
-    setIsLoading(true);
-    setError(null);
+    if (!trimmed) {
+      if (type === 'friend') {
+        showTempWarning(t('createModal.specify_friend_id', 'Укажите ID вашего друга'));
+      } else if (type === 'channel') {
+        showTempWarning(t('createModal.specify_channel_name', 'Укажите название канала'));
+      } else {
+        showTempWarning(t('createModal.specify_group_name', 'Укажите название группы'));
+      }
+      return;
+    }
 
     if (type === 'friend') {
       const cleanInput = extractCodeFromInput(trimmed).trim();
+      if (!cleanInput || !/^[a-zA-Z0-9_-]{6,64}$/.test(cleanInput)) {
+        showTempWarning(t('createModal.invalid_content', 'Неверное содержимое'));
+        return;
+      }
+      setIsLoading(true);
+      setError(null);
       const targetCode = cleanInput.length === 36 && !cleanInput.includes(' ') ? cleanInput.toUpperCase() : cleanInput;
       onConnectRequest(targetCode, (ok, msg) => {
         setIsLoading(false);
         if (ok) {
           onClose();
         } else {
-          setError(msg || t('common.error', 'Ошибка'));
+          showTempWarning(msg || t('createModal.invalid_content', 'Неверное содержимое'));
         }
       });
       return;
@@ -193,17 +228,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="absolute top-4 right-4">
-            <button
-              type="button"
-              aria-label={t('createModal.more_options', 'Дополнительно')}
-              className="p-1 text-[var(--text-dim, #9ca3af)] hover:text-[var(--text-main)] transition-colors cursor-pointer bg-transparent border-none outline-none"
-            >
-              <MoreVertical size={18} />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4 mt-2 pr-6">
+          <div className="flex items-center gap-4 mt-2">
             {type !== 'friend' && (
               <div className="flex-shrink-0">
                 <button
@@ -231,18 +256,20 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
 
             <div className="relative flex-1 flex flex-col justify-end min-w-0 pt-4">
               <span
-                className="absolute left-0 pointer-events-none select-none text-[15px] leading-normal"
+                className="absolute left-0 pointer-events-none select-none text-[15px] leading-normal truncate max-w-full"
                 style={{
                   bottom: '8px',
                   transformOrigin: 'left bottom',
-                  transform: isFloating ? 'translateY(-20px) scale(0.78)' : 'translateY(0) scale(1)',
+                  transform: isFloating && !tempWarning ? 'translateY(-20px) scale(0.78)' : 'translateY(0) scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease',
-                  color: isFocused
+                  color: tempWarning
+                    ? '#ef4444'
+                    : isFocused
                     ? 'var(--accent-color, #7C3AED)'
                     : 'var(--text-dim, #9ca3af)',
                 }}
               >
-                {label}
+                {tempWarning || label}
               </span>
               <input
                 ref={inputRef}
@@ -250,6 +277,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                 value={inputValue}
                 onChange={(e) => {
                   setInputValue(e.target.value);
+                  if (tempWarning) setTempWarning(null);
                   if (error) setError(null);
                 }}
                 onFocus={() => setIsFocused(true)}
@@ -267,7 +295,9 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                   borderRadius: 0,
                   boxSizing: 'border-box',
                   borderBottom: '2px solid',
-                  borderBottomColor: isFocused
+                  borderBottomColor: tempWarning
+                    ? '#ef4444'
+                    : isFocused
                     ? 'var(--accent-color, #7C3AED)'
                     : 'var(--border-color, rgba(255, 255, 255, 0.15))',
                 }}
@@ -306,7 +336,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!inputValue.trim() || isLoading}
+              disabled={isLoading}
               aria-label={t('common.next', 'Далее')}
               className="px-3.5 py-1.5 rounded-lg text-[14px] font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
               style={{
@@ -316,7 +346,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                 outline: 'none',
               }}
               onMouseEnter={(e) => {
-                if (inputValue.trim() && !isLoading) {
+                if (!isLoading) {
                   e.currentTarget.style.backgroundColor =
                     'color-mix(in srgb, var(--accent-color, #7C3AED) 12%, transparent)';
                 }
