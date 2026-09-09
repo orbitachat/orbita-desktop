@@ -1,6 +1,7 @@
 import { getPusher } from '../utils/pusher';
 import { type LinkPreviewData } from '../store/useChatStore';
 import { getVercelBaseUrl } from './gatewayManager';
+import { ablyService } from './ablyService';
 
 export interface ChannelInfo {
   id: string;
@@ -153,7 +154,16 @@ class ChannelService {
 
       if (res.ok) {
         const data = (await res.json()) as { post: ChannelPost };
-        return data.post || null;
+        if (data.post) {
+          try {
+            ablyService.sendMessage(`public-channel-${channelId.trim()}`, {
+              type: 'channel-post',
+              post: data.post,
+            }).catch(() => {});
+          } catch {}
+          return data.post;
+        }
+        return null;
       }
     } catch (err) {
       console.error('[ChannelService] Failed to publish post:', err);

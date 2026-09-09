@@ -2035,7 +2035,7 @@ export const MainLayout = () => {
     const channel = pusher.subscribe(channelName);
 
     const handleNewPost = (post: any) => {
-      console.log('[MainLayout] Received new channel post via Pusher:', post);
+      console.log('[MainLayout] Received new channel post:', post);
       if (!post || !post.id) return;
 
       const currentChat = useChatStore.getState().chats.find((c) => c.id === channelId);
@@ -2044,7 +2044,7 @@ export const MainLayout = () => {
 
       const newMsg: Message = {
         id: post.id,
-        sender: post.sender,
+        sender: post.sender || post.senderNickname || 'Channel',
         text: post.text || '',
         time: post.time || Date.now(),
         read: isViewingThisChannel,
@@ -2062,7 +2062,6 @@ export const MainLayout = () => {
         reactions: post.reactions || undefined,
       };
 
-      // Проверяем, есть ли уже сообщение с таким id
       const currentMsgs = useChatStore.getState().messagesByChatId[channelId] || [];
       const exists = currentMsgs.some((m) => m.id === post.id);
       if (!exists) {
@@ -2084,7 +2083,7 @@ export const MainLayout = () => {
     };
 
     const handleReaction = (data: any) => {
-      console.log('[MainLayout] Received channel reaction update via Pusher:', data);
+      console.log('[MainLayout] Received channel reaction update:', data);
       if (data?.postId && data?.reactions) {
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[channelId] || [];
@@ -2101,7 +2100,7 @@ export const MainLayout = () => {
     };
 
     const handleSubscribers = (data: any) => {
-      console.log('[MainLayout] Received channel subscribers update via Pusher:', data);
+      console.log('[MainLayout] Received channel subscribers update:', data);
       if (typeof data?.subscribersCount === 'number') {
         useChatStore.getState().updateChat(channelId, {
           subscribersCount: data.subscribersCount,
@@ -2113,10 +2112,71 @@ export const MainLayout = () => {
     channel.bind('reaction-updated', handleReaction);
     channel.bind('subscribers-updated', handleSubscribers);
 
+    if (!ablyMessageUnsubscribes.current.has(channelId)) {
+      const unsub = ablyService.subscribeToChatMessages(`public-channel-${channelId}`, (data: any) => {
+        if (data?.type === 'channel-post' && data?.post) {
+          handleNewPost(data.post);
+        } else if (data?.id) {
+          handleNewPost(data);
+        }
+      });
+      ablyMessageUnsubscribes.current.set(channelId, unsub);
+    }
+
     activeSubscriptions.current.set(channelId, {
       channel,
       handler: handleNewPost,
     });
+
+    channelService.getChannelPosts(channelId).then((posts) => {
+      if (posts && posts.length > 0) {
+        useChatStore.setState((state) => {
+          const currentMsgs = state.messagesByChatId[channelId] || [];
+          const existingIds = new Set(currentMsgs.map((m) => m.id).filter(Boolean));
+          const newItems: Message[] = [];
+          posts.forEach((post) => {
+            if (!existingIds.has(post.id)) {
+              newItems.push({
+                id: post.id,
+                sender: post.sender,
+                text: post.text,
+                time: post.time,
+                read: state.activeChatId === channelId,
+                status: 'sent',
+                mediaType: post.mediaType || undefined,
+                mediaUrl: post.mediaUrl || undefined,
+                mediaName: post.mediaName || undefined,
+                mime: post.mime || undefined,
+                duration: post.duration || undefined,
+                width: post.width || undefined,
+                height: post.height || undefined,
+                waveform: post.waveform || undefined,
+                audioMetadata: post.audioMetadata || undefined,
+                linkPreview: post.linkPreview || undefined,
+                reactions: post.reactions || undefined,
+              });
+            }
+          });
+          if (newItems.length === 0) return state;
+          const merged = [...currentMsgs, ...newItems].sort((a, b) => a.time - b.time);
+          const latest = merged[merged.length - 1];
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [channelId]: merged,
+            },
+            chats: state.chats.map((c) =>
+              c.id === channelId
+                ? {
+                    ...c,
+                    lastMsg: latest.text || (latest.mediaType ? `[${latest.mediaType}]` : c.lastMsg),
+                  }
+                : c
+            ),
+          };
+        });
+      }
+    }).catch(() => {});
 
     return channel;
   }, [addMessage, t]);
@@ -2673,6 +2733,10 @@ export const MainLayout = () => {
       messageQueue.destroy();
       deliveryUnsubscribes.current.forEach((unsubscribe) => unsubscribe());
       deliveryUnsubscribes.current.clear();
+      ablyMessageUnsubscribes.current.forEach((unsubscribe) => {
+        try { unsubscribe(); } catch {}
+      });
+      ablyMessageUnsubscribes.current.clear();
     };
   }, []);
 
@@ -2767,6 +2831,11 @@ export const MainLayout = () => {
         getPusher().unsubscribe(`public-channel-${chatId}`);
         activeSubscriptions.current.delete(chatId);
       }
+      if (ablyMessageUnsubscribes.current.has(chatId)) {
+        const unsub = ablyMessageUnsubscribes.current.get(chatId)!;
+        unsub();
+        ablyMessageUnsubscribes.current.delete(chatId);
+      }
     } else if (chat.sharedSecret && chat.id !== 'notes') {
       ablyService.sendMessage(chatId, { sender: nickname, type: 'system', action: 'delete-chat', text: '' }).catch(() => {});
       const pusher = getPusher();
@@ -2834,7 +2903,11 @@ export const MainLayout = () => {
 
   const searchedChats = useMemo(() => {
     if (!searchQuery.trim()) return sortedChats;
-    return sortedChats.filter(chat => chat.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const q = searchQuery.toLowerCase().trim();
+    return sortedChats.filter(chat =>
+      chat.name.toLowerCase().includes(q) ||
+      (chat.id && chat.id.toLowerCase().includes(q))
+    );
   }, [sortedChats, searchQuery]);
 
   const isLightTheme = document.documentElement.getAttribute('data-theme-light') === 'true';
@@ -2852,8 +2925,14 @@ export const MainLayout = () => {
 
   useEffect(() => {
     const trimmed = extractCodeFromInput(searchQuery).trim();
-    if (trimmed.length === 36) {
-      let cancelled = false;
+    if (trimmed.length < 3) {
+      setSearchChannelResult(null);
+      setIsSearchingChannel(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
       setIsSearchingChannel(true);
       channelService.getChannel(trimmed).then((channel) => {
         if (!cancelled) {
@@ -2866,13 +2945,12 @@ export const MainLayout = () => {
           setIsSearchingChannel(false);
         }
       });
-      return () => {
-        cancelled = true;
-      };
-    } else {
-      setSearchChannelResult(null);
-      setIsSearchingChannel(false);
-    }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [searchQuery]);
 
   const handleSelectFoundChannel = useCallback(async (channel: ChannelInfo) => {

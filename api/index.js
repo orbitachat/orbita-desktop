@@ -159,6 +159,27 @@ async function triggerPusherEvent(channel, event, data) {
   return results.some((r) => r.status === 'fulfilled' && r.value === true);
 }
 
+async function triggerAblyEvent(channel, name, data) {
+  const keys = [ENV.ABLY_API_KEY, ENV.ABLY_API_KEY_2].filter(Boolean);
+  if (keys.length === 0) return false;
+  for (const key of keys) {
+    try {
+      const basicAuth = Buffer.from(key).toString('base64');
+      const url = `https://rest.ably.io/channels/${encodeURIComponent(channel)}/messages`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, data }),
+      });
+      if (res.ok) return true;
+    } catch {}
+  }
+  return false;
+}
+
 async function getParsedBody(req) {
   if (req.body !== undefined && req.body !== null) {
     if (typeof req.body === 'object') return req.body;
@@ -463,13 +484,20 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/channels/get' && req.method === 'GET') {
-      const channelId = query.channelId;
+      const channelId = query.channelId ? query.channelId.trim() : '';
       if (!channelId) return sendError(res, 'Missing channelId parameter', 400);
       if (channelId === OFFICIAL_CHANNEL_ID) return sendJson(res, { channel: OFFICIAL_CHANNEL_DATA });
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
-          const { data, error } = await supabase.from('public_channels').select('*').eq('id', channelId).maybeSingle();
+          let { data, error } = await supabase.from('public_channels').select('*').eq('id', channelId).maybeSingle();
+          if (!data) {
+            const byName = await supabase.from('public_channels').select('*').ilike('name', channelId).limit(1).maybeSingle();
+            if (byName.data) {
+              data = byName.data;
+              error = null;
+            }
+          }
           if (data && !error) {
             return sendJson(res, {
               channel: {
@@ -585,6 +613,18 @@ module.exports = async function handler(req, res) {
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
+          const { data: chanCheck } = await supabase.from('public_channels').select('id').eq('id', body.channelId).maybeSingle();
+          if (!chanCheck) {
+            await supabase.from('public_channels').upsert({
+              id: body.channelId,
+              name: body.channelName || body.channelId,
+              description: '',
+              creator_nickname: body.senderNickname,
+              subscribers_count: 1,
+              is_official: false,
+              created_at: createdAt,
+            });
+          }
           await supabase.from('channel_posts').insert({
             id: postId,
             channel_id: body.channelId,
@@ -606,6 +646,7 @@ module.exports = async function handler(req, res) {
         } catch {}
       }
       await triggerPusherEvent(`public-channel-${body.channelId}`, 'new-post', postRecord);
+      await triggerAblyEvent(`chat:public-channel-${body.channelId}`, 'client-message', { type: 'channel-post', post: postRecord });
       return sendJson(res, { status: 'ok', post: postRecord });
     }
 
