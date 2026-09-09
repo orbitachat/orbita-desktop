@@ -229,14 +229,14 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
               </div>
             )}
 
-            <div className="relative flex-1 flex flex-col justify-end pt-3 min-w-0">
+            <div className="relative flex-1 flex flex-col justify-end min-w-0 pt-4">
               <span
-                className={`absolute left-0 pointer-events-none transition-all duration-200 ease-out origin-left select-none ${
-                  isFloating
-                    ? 'text-[11px] -top-0.5'
-                    : 'text-[15px] top-3.5'
-                }`}
+                className="absolute left-0 pointer-events-none select-none text-[15px] leading-normal"
                 style={{
+                  bottom: '4px',
+                  transformOrigin: 'left bottom',
+                  transform: isFloating ? 'translateY(-22px) scale(0.78)' : 'translateY(0) scale(1)',
+                  transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease',
                   color: isFocused
                     ? 'var(--accent-color, #7C3AED)'
                     : 'var(--text-dim, #9ca3af)',
@@ -261,13 +261,15 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                     onClose();
                   }
                 }}
-                className="w-full bg-transparent outline-none text-[15px] text-[var(--text-main, #ffffff)] pb-1.5 pt-3 transition-colors"
+                className="w-full bg-transparent outline-none text-[15px] text-[var(--text-main, #ffffff)] pt-4 pb-1 transition-colors"
                 style={{
                   border: 'none',
                   borderRadius: 0,
-                  borderBottom: isFocused
-                    ? '2px solid var(--accent-color, #7C3AED)'
-                    : '1px solid var(--border-color, rgba(255, 255, 255, 0.15))',
+                  boxSizing: 'border-box',
+                  borderBottom: '2px solid',
+                  borderBottomColor: isFocused
+                    ? 'var(--accent-color, #7C3AED)'
+                    : 'var(--border-color, rgba(255, 255, 255, 0.15))',
                 }}
                 autoFocus
               />
