@@ -233,9 +233,9 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
               <span
                 className="absolute left-0 pointer-events-none select-none text-[15px] leading-normal"
                 style={{
-                  bottom: '4px',
+                  bottom: '8px',
                   transformOrigin: 'left bottom',
-                  transform: isFloating ? 'translateY(-22px) scale(0.78)' : 'translateY(0) scale(1)',
+                  transform: isFloating ? 'translateY(-20px) scale(0.78)' : 'translateY(0) scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease',
                   color: isFocused
                     ? 'var(--accent-color, #7C3AED)'
