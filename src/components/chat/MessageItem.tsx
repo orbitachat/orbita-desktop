@@ -8,6 +8,7 @@ import { parseReplyChain, countEmojis, formatTimeOfDay, markdownToHtml, formatPr
 import { isEmojiOnly } from '../../lib/emoji-data';
 import { MessageStatus } from '../MessageStatus';
 import { MessageReactions } from './ReactionBadge';
+import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
 
 interface MessageItemProps {
   msg: Message;
@@ -265,6 +266,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
+                        {isChannel && <ChannelMegaphoneIcon size={12} className="flex-shrink-0" />}
                         <p
                           className="truncate font-semibold"
                           style={{

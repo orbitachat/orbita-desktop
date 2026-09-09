@@ -48,6 +48,7 @@ import { parseReplyChain, countEmojis, formatTimeOfDay, markdownToHtml, arrayBuf
 import { useToastStore } from '../../store/useToastStore';
 import { MessageItem } from './MessageItem';
 import { MessageReactions } from './ReactionBadge';
+import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
 import { type ConfirmActionType } from '../common/ActionConfirmModal';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useAudioStore } from '../../store/useAudioStore';
@@ -5274,7 +5275,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                         }}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="truncate font-semibold" style={{ color: isOwn ? '#ffffff' : 'var(--accent-color)', fontSize: '12.5px', lineHeight: '1.2' }}>{q.sender}</p>
+                          <p className="truncate font-semibold flex items-center gap-1" style={{ color: isOwn ? '#ffffff' : 'var(--accent-color)', fontSize: '12.5px', lineHeight: '1.2' }}>
+                            {activeChat?.type === 'channel' && <ChannelMegaphoneIcon size={12} className="flex-shrink-0" />}
+                            <span>{q.sender}</span>
+                          </p>
                           <p className="truncate" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-main)', fontSize: '13px', lineHeight: '1.35', marginTop: '2px' }}>{q.text}</p>
                         </div>
                       </div>
@@ -5406,6 +5410,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               )}
               <div className="flex flex-col min-w-0 flex-1" style={{ gap: 0 }}>
                 <div className="flex items-center gap-1.5 min-w-0">
+                  {activeChat?.type === 'channel' && (
+                    <ChannelMegaphoneIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
+                  )}
                   <h2 className="font-bold text-[14px] truncate" style={{ color: 'var(--text-main)' }}>
                     {activeChatId === 'notes' ? t('connectModal.notes') : activeChat?.name}
                   </h2>
@@ -5414,9 +5421,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     nickname={activeChat?.name}
                     size={20}
                   />
-                  {activeChat?.type === 'channel' && (
+                  {activeChat?.type === 'channel' && activeChat.isOfficial && (
                     <span className="px-1.5 py-0.5 rounded-md bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
-                      {activeChat.isOfficial ? 'Официальный' : 'Канал'}
+                      {t('channel.official')}
                     </span>
                   )}
                 </div>
@@ -5728,6 +5735,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           canSend={canSend}
           isRatchetReady={isRatchetReady}
           isPrivateChat={isPrivateChat}
+          isChannel={activeChat?.type === 'channel'}
           emojiButtonRef={emojiButtonRef}
           inputRef={inputRef}
           onOpenTxtModal={() => setIsSendAsTxtModalOpen(true)}
