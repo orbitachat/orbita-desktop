@@ -3044,6 +3044,30 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       setReplyingTo(null);
       requestAnimationFrame(() => scrollToBottom(false));
 
+      const optimisticId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const optimisticMessage: Message = {
+        id: optimisticId,
+        senderId: myCode,
+        sender: myNickname,
+        isOutgoing: true,
+        text: sentText,
+        time: Date.now(),
+        read: true,
+        status: 'sent',
+        mediaType: (sentMedia?.type as Message['mediaType']) || undefined,
+        mediaUrl: sentMedia?.url || undefined,
+        mediaName: sentMedia?.name || undefined,
+        mediaKey: sentMedia?.key,
+        mime: sentMedia?.mime || undefined,
+        audioMetadata: sentMedia?.audioMetadata || undefined,
+        duration: sentMedia?.duration || undefined,
+        waveform: sentMedia?.waveform || undefined,
+        linkPreview: sentPreview || undefined,
+      };
+
+      addMessage(activeChatId, optimisticMessage);
+      updateChat(activeChatId, { lastMsg: sentText || sentMedia?.name || 'Новый пост' });
+
       channelService.publishPost(
         activeChatId,
         myNickname,
@@ -3059,31 +3083,18 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         } : undefined,
         sentPreview
       ).then((post) => {
-        if (post) {
-          const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-          if (!currentMsgs.some((m) => m.id === post.id)) {
-            const localMessage: Message = {
-              id: post.id,
-              senderId: myCode,
-              sender: myNickname,
-              isOutgoing: true,
-              text: post.text,
-              time: post.time || Date.now(),
-              read: true,
-              status: 'sent',
-              mediaType: post.mediaType || undefined,
-              mediaUrl: post.mediaUrl || undefined,
-              mediaName: post.mediaName || undefined,
-              mediaKey: sentMedia?.key,
-              mime: post.mime || undefined,
-              audioMetadata: post.audioMetadata || undefined,
-              duration: post.duration || undefined,
-              waveform: post.waveform || undefined,
-              linkPreview: post.linkPreview || undefined,
+        if (post && post.id !== optimisticId) {
+          useChatStore.setState((state) => {
+            const currentMsgs = state.messagesByChatId[activeChatId] || [];
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [activeChatId]: currentMsgs.map((m) =>
+                  m.id === optimisticId ? { ...m, id: post.id, time: post.time || m.time } : m
+                ),
+              },
             };
-            addMessage(activeChatId, localMessage);
-            updateChat(activeChatId, { lastMsg: post.text || post.mediaName || 'Новый пост' });
-          }
+          });
         }
       });
       return;
@@ -4337,7 +4348,30 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
 
       for (const file of uploadedFiles) {
-        const post = await channelService.publishPost(
+        const optimisticId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const localMessage: Message = {
+          id: optimisticId,
+          senderId: myCode,
+          sender: myNickname,
+          isOutgoing: true,
+          text: caption || '',
+          time: Date.now(),
+          read: true,
+          status: 'sent',
+          mediaType: file.type,
+          mediaUrl: file.url,
+          mediaName: file.name,
+          mediaKey: file.key,
+          mime: file.mime,
+          audioMetadata: file.audioMetadata,
+          width: file.width,
+          height: file.height,
+          duration: file.duration,
+        };
+        addMessage(activeChatId, localMessage);
+        updateChat(activeChatId, { lastMsg: caption || file.name || 'Новый медиа-пост' });
+
+        channelService.publishPost(
           activeChatId,
           myNickname,
           caption || '',
@@ -4351,34 +4385,21 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             height: file.height,
             audioMetadata: file.audioMetadata,
           }
-        );
-
-        if (post) {
-          const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-          if (!currentMsgs.some((m) => m.id === post.id)) {
-            const localMessage: Message = {
-              id: post.id,
-              senderId: myCode,
-              sender: myNickname,
-              isOutgoing: true,
-              text: post.text,
-              time: post.time || Date.now(),
-              read: true,
-              status: 'sent',
-              mediaType: post.mediaType || file.type,
-              mediaUrl: post.mediaUrl || file.url,
-              mediaName: post.mediaName || file.name,
-              mediaKey: file.key,
-              mime: post.mime || file.mime,
-              audioMetadata: post.audioMetadata || file.audioMetadata,
-              width: post.width || file.width,
-              height: post.height || file.height,
-              duration: post.duration || file.duration,
-            };
-            addMessage(activeChatId, localMessage);
-            updateChat(activeChatId, { lastMsg: caption || file.name || 'Новый медиа-пост' });
+        ).then((post) => {
+          if (post && post.id !== optimisticId) {
+            useChatStore.setState((state) => {
+              const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: currentMsgs.map((m) =>
+                    m.id === optimisticId ? { ...m, id: post.id, time: post.time || m.time } : m
+                  ),
+                },
+              };
+            });
           }
-        }
+        });
       }
 
       setAttachedFiles([]);
