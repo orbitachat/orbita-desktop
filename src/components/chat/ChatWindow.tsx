@@ -3033,7 +3033,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const chat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
 
     if (chat?.type === 'channel') {
-      const isOwner = chat.isOwner || chat.creatorNickname === myNickname;
+      const isOwner = Boolean(chat.isOwner);
       if (!isOwner) return;
 
       const sentText = text;
@@ -4238,7 +4238,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     if (chat.type === 'channel') {
-      const isOwner = chat.isOwner || chat.creatorNickname === myNickname;
+      const isOwner = Boolean(chat.isOwner);
       if (!isOwner) {
         setIsSendingFiles(false);
         return;
@@ -5584,28 +5584,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         </button>
       </div>
 
-      {activeChat?.type === 'channel' && !activeChat.isOwner && activeChat.creatorNickname !== myNickname ? (
-        <div
-          className="flex items-center justify-between px-6 py-3.5 border-t border-[var(--surface-border)] select-none"
-          style={{
-            backgroundColor: 'var(--surface-container, rgba(255,255,255,0.03))',
-          }}
-        >
-          <div className="flex items-center gap-2.5 text-[var(--text-dim)] text-xs font-medium">
-            <span className="w-2 h-2 rounded-full bg-[var(--accent-color)] animate-ping" />
-            <span>{t('chatWindow.channel_read_only', 'Только администраторы могут публиковать записи')}</span>
-          </div>
-
-          <button
-            onClick={() => {
-              if (activeChatId) useChatStore.getState().toggleChatMuted(activeChatId);
-            }}
-            className="px-4 py-1.5 rounded-xl bg-[var(--surface-container-strong)] hover:bg-[var(--accent-color)] hover:text-white text-[var(--text-main)] text-xs font-semibold transition-all duration-150 flex items-center gap-1.5"
-          >
-            {activeChat?.muted ? 'Включить звук' : 'Без звука'}
-          </button>
-        </div>
-      ) : (
+      {activeChat?.type === 'channel' && !activeChat.isOwner ? null : (
         <MessageInput
           inputText={inputText}
           setInputText={handleSetInputText}

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, memo, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { channelService } from '../../services/channelService';
-import { Search, MoreVertical, Copy, Check, Key } from 'lucide-react';
+import { Search, MoreVertical, Copy, Check } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
 import {
@@ -908,9 +908,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   });
 
   const [copiedKey, setCopiedKey] = useState(false);
-  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
-  const [adminKeyInput, setAdminKeyInput] = useState('');
-  const [adminKeyError, setAdminKeyError] = useState('');
   const [devToastOpen, setDevToastOpen] = useState(false);
 
   const triggerDevToast = useCallback(() => {
@@ -1033,7 +1030,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const voiceCallsEnabled = useChatStore((state) => state.voiceCallsEnabled);
 
   const isChannel = chat?.type === 'channel';
-  const isChannelOwner = isChannel && (chat.isOwner || chat.creatorNickname === myNickname);
+  const isChannelOwner = isChannel && Boolean(chat.isOwner);
 
   const handleCopyChannelKey = useCallback(() => {
     if (!chat) return;
@@ -1041,19 +1038,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
   }, [chat]);
-
-  const handleAdminAuth = useCallback(() => {
-    if (!adminKeyInput.trim() || !chat) return;
-    const cleanKey = adminKeyInput.trim();
-    if (cleanKey.length >= 6) {
-      updateChat(chat.id, { isOwner: true });
-      setIsAdminAuthModalOpen(false);
-      setAdminKeyInput('');
-      setAdminKeyError('');
-    } else {
-      setAdminKeyError('Неверный ключ администратора');
-    }
-  }, [adminKeyInput, chat, updateChat]);
 
   useEffect(() => {
     if (!chat || chat.type !== 'channel') return;
@@ -1935,31 +1919,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             {isChannelOwner ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, color: '#4ade80' }}>
                 <span>👑</span>
-                <span>Вы создатель этого канала (полный доступ к публикациям)</span>
+                <span>{t('channel.creator_full_access', 'Вы создатель этого канала (полный доступ к публикациям)')}</span>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '10px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Вы подписчик</span>
-                <button
-                  onClick={() => setIsAdminAuthModalOpen(true)}
-                  aria-label="Войти как создатель"
-                  style={{
-                    background: 'var(--surface-container-strong, rgba(255,255,255,0.1))',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    color: 'var(--text-main)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  <Key size={14} style={{ color: 'var(--accent-color)' }} />
-                  <span>Войти как создатель</span>
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-dim)' }}>
+                <span>{t('channel.subscriber', 'Вы подписчик')}</span>
               </div>
             )}
           </div>
@@ -2356,109 +2320,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
           <DeveloperToast isOpen={devToastOpen} nickname={chat?.name} />
         </motion.div>
-
-        {isAdminAuthModalOpen && (
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0,0,0,0.65)',
-              backdropFilter: 'blur(6px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 100,
-              padding: '16px',
-            }}
-            onClick={() => {
-              setIsAdminAuthModalOpen(false);
-              setAdminKeyError('');
-            }}
-          >
-            <div
-              style={{
-                background: 'var(--bg-primary, #1e1e2e)',
-                borderRadius: '20px',
-                padding: '24px',
-                width: '100%',
-                maxWidth: '380px',
-                border: '1px solid var(--surface-border, rgba(255,255,255,0.15))',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>
-                Вход создателя канала
-              </h3>
-              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-dim)', lineHeight: '1.4' }}>
-                Введите ключ создателя или мастер-пароль, чтобы активировать права публикации в этом канале.
-              </p>
-              <input
-                type="password"
-                placeholder="Секретный ключ создателя..."
-                value={adminKeyInput}
-                onChange={(e) => setAdminKeyInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAdminAuth();
-                }}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.15))',
-                  borderRadius: '0px',
-                  padding: '8px 4px',
-                  color: 'var(--text-main, #ffffff)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)')}
-                onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))')}
-                autoFocus
-              />
-              {adminKeyError && (
-                <div style={{ fontSize: '11px', color: '#f87171' }}>{adminKeyError}</div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button
-                  onClick={() => {
-                    setIsAdminAuthModalOpen(false);
-                    setAdminKeyError('');
-                  }}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    color: 'var(--text-dim)',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleAdminAuth}
-                  style={{
-                    background: 'var(--accent-color)',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '10px',
-                    color: '#ffffff',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Подтвердить
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Fullscreen Telegram-style Media Viewer for Photos, Videos, GIFs */}

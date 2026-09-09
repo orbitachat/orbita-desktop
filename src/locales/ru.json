@@ -945,6 +945,12 @@
       "found_community": "Найдено сообщество",
       "subscribers": "подписчиков"
     },
+    "channel": {
+      "creator_full_access": "Вы создатель этого канала (полный доступ к публикациям)",
+      "subscriber": "Вы подписчик",
+      "official": "Официальный",
+      "community": "Канал"
+    },
     "callsModal": {
       "title": "Звонки",
       "search_placeholder": "Поиск контактов...",

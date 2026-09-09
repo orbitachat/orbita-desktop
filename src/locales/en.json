@@ -934,6 +934,12 @@
       "found_community": "Community found",
       "subscribers": "subscribers"
     },
+    "channel": {
+      "creator_full_access": "You are the creator of this channel (full access to posting)",
+      "subscriber": "You are a subscriber",
+      "official": "Official",
+      "community": "Channel"
+    },
     "callsModal": {
       "title": "Calls",
       "search_placeholder": "Search contacts...",

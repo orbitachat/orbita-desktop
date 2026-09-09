@@ -4,7 +4,7 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash, WifiOff } from 'lucide-react';
+import { X, Trash, WifiOff, Megaphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher } from '../../utils/pusher';
@@ -477,6 +477,16 @@ const ChatListItem = React.memo(({
         <div className="flex flex-col min-w-0 flex-1">
           <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
             <div className="flex items-center gap-1 min-w-0 flex-1">
+              {chat.type === 'channel' && (
+                <Megaphone
+                  size={15}
+                  className="flex-shrink-0"
+                  style={{
+                    color: isLightTheme ? '#555555' : 'rgba(255, 255, 255, 0.85)',
+                    marginRight: 2,
+                  }}
+                />
+              )}
               <span
                 className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
                 style={{
@@ -490,9 +500,9 @@ const ChatListItem = React.memo(({
                 userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined)}
                 size={18}
               />
-              {chat.type === 'channel' && (
+              {chat.type === 'channel' && chat.isOfficial && (
                 <span className="px-1 py-0.2 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[9px] font-extrabold uppercase flex-shrink-0">
-                  {chat.isOfficial ? 'ОФИЦ' : 'КАНАЛ'}
+                  {t('channel.official', 'ОФИЦ')}
                 </span>
               )}
             </div>
@@ -2972,7 +2982,7 @@ export const MainLayout = () => {
         creatorNickname: channel.creatorNickname,
         subscribersCount: channel.subscribersCount,
         isOfficial: channel.isOfficial,
-        isOwner: channel.creatorNickname === nickname,
+        isOwner: false,
       });
     }
     setActiveChat(channel.id);
