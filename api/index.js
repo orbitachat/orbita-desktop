@@ -731,6 +731,14 @@ module.exports = async function handler(req, res) {
         action: body.action || 'toggle',
         reactions: updatedReactions,
       });
+      await triggerAblyEvent(`chat:public-channel-${body.channelId}`, 'client-message', {
+        type: 'reaction-updated',
+        postId: body.postId,
+        emoji: body.emoji,
+        userId: body.userId,
+        action: body.action || 'toggle',
+        reactions: updatedReactions,
+      });
       return sendJson(res, { status: 'ok', reactions: updatedReactions });
     }
 

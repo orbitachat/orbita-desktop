@@ -3519,29 +3519,25 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     // Save to Supabase DB for offline persistence
     supabaseService.saveReaction(activeChatId, undefined, msgId, emoji, myNickname, action);
 
-    // Send HTTP POST to server.js /react-message
-    const authServerUrl = import.meta.env.VITE_AUTH_SERVER_URL || 'http://localhost:3001';
-    fetch(`${authServerUrl}/react-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).catch(() => {
-      // Fallback to Pusher client trigger if HTTP fetch fails
-      try {
-        const pusher = getPusher();
-        const channelName = activeChat?.type === 'group' ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
-        const channel = pusher.subscribe(channelName);
-        const send = () => {
-          channel.trigger('client-message', {
-            ...payload,
-            type: 'reaction',
-          });
-        };
-        if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
-      } catch (err) {
-        console.error('Failed to broadcast reaction:', err);
-      }
+    ablyService.sendMessage(activeChatId, {
+      ...payload,
+      type: 'reaction',
     });
+
+    try {
+      const pusher = getPusher();
+      const channelName = activeChat?.type === 'group' ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+      const channel = pusher.subscribe(channelName);
+      const send = () => {
+        channel.trigger('client-message', {
+          ...payload,
+          type: 'reaction',
+        });
+      };
+      if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+    } catch (err) {
+      console.error('Failed to broadcast reaction:', err);
+    }
   };
 
   useEffect(() => {

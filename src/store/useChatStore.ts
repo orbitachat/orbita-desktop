@@ -958,6 +958,11 @@ export const useChatStore = create<ChatState>()(
               },
             });
           }
+
+          const chat = state.chats.find((c) => c.id === chatId);
+          if (chat && chat.type !== 'channel' && chatId !== 'notes') {
+            await supabaseService.deleteReactionsForChat(chatId);
+          }
         } catch (err) {
           console.error('Failed to sync reactions from Supabase:', err);
         }

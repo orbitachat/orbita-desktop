@@ -4,7 +4,7 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash, WifiOff, Megaphone } from 'lucide-react';
+import { X, Trash, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher } from '../../utils/pusher';
@@ -61,6 +61,24 @@ import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { DevicePermissionModal } from '../common/DevicePermissionModal';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
+
+const ChannelMegaphoneIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({
+  size = 15,
+  className = '',
+  style = {},
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    style={style}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M19.5 4.5c-.28 0-.55.07-.79.22L12 8.63V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1.5v3.5a1.5 1.5 0 0 0 2.45 1.16L12 17.37v-2.01l6.71 3.91c.24.15.51.23.79.23.83 0 1.5-.67 1.5-1.5V6c0-.83-.67-1.5-1.5-1.5z" />
+  </svg>
+);
 
 interface ChatContextMenu {
   visible: boolean;
@@ -478,7 +496,7 @@ const ChatListItem = React.memo(({
           <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               {chat.type === 'channel' && (
-                <Megaphone
+                <ChannelMegaphoneIcon
                   size={15}
                   className="flex-shrink-0"
                   style={{

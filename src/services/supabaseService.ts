@@ -603,6 +603,35 @@ class SupabaseService {
     }
   }
 
+  async deleteReaction(chatId: string, messageId: string, emoji?: string): Promise<void> {
+    if (!this.client || !chatId || !messageId) return;
+    try {
+      let query = this.client
+        .from('message_reactions')
+        .delete()
+        .eq('chat_id', chatId)
+        .eq('message_id', messageId);
+      if (emoji) {
+        query = query.eq('emoji', emoji);
+      }
+      await query;
+    } catch (err) {
+      console.error('[Supabase] deleteReaction failed:', err);
+    }
+  }
+
+  async deleteReactionsForChat(chatId: string): Promise<void> {
+    if (!this.client || !chatId) return;
+    try {
+      await this.client
+        .from('message_reactions')
+        .delete()
+        .eq('chat_id', chatId);
+    } catch (err) {
+      console.error('[Supabase] deleteReactionsForChat failed:', err);
+    }
+  }
+
   // --- Разработчики Orbita ---
   async getDeveloperCodes(): Promise<string[]> {
     const allCodes = new Set<string>();
