@@ -126,6 +126,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
       return 'inherit';
     }, [isEmoji, emojiCount]);
 
+    const isChannel = useChatStore((s) => s.chats.find((c) => c.id === s.activeChatId)?.type === 'channel');
+
     const timeBadge = (
       <span
         className="tabular-nums select-none"
@@ -138,7 +140,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
         }}
       >
         {timeStr}
-        {isOwn && msg.status && (
+        {isOwn && msg.status && !isChannel && (
           <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
             <MessageStatus status={msg.status} isOwn={isOwn} />
           </span>
@@ -196,7 +198,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               }}
             >
               <span>{timeStr}</span>
-              {isOwn && msg.status && (
+              {isOwn && msg.status && !isChannel && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0 }}>
                   <MessageStatus status={msg.status} isOwn={isOwn} />
                 </span>

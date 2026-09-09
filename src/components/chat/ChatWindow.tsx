@@ -4580,7 +4580,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           <CustomPinIcon size={12} style={{ color: isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--accent-color, #7C3AED)' }} className="flex-shrink-0" />
         )}
         {formatTime(msg.time)}
-        {isOwn && msg.status && (
+        {isOwn && msg.status && activeChat?.type !== 'channel' && (
           <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
             <MessageStatus status={msg.status} isOwn={isOwn} />
           </span>
@@ -5173,7 +5173,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     }}
                   >
                     <span>{formatTimeOfDay(msg.time)}</span>
-                    {isOwn && msg.status && (
+                    {isOwn && msg.status && activeChat?.type !== 'channel' && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0 }}>
                         <MessageStatus status={msg.status} isOwn={isOwn} />
                       </span>

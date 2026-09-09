@@ -420,7 +420,7 @@ const ChatListItem = React.memo(({
     ? `${lastMsgTime.getHours().toString().padStart(2, '0')}:${lastMsgTime.getMinutes().toString().padStart(2, '0')}`
     : '';
   const isOwn = isMessageOutgoing(lastMsg, myCode, nickname, chat);
-  const status = isOwn && lastMsg?.status ? lastMsg.status : undefined;
+  const status = isOwn && lastMsg?.status && chat.type !== 'channel' ? lastMsg.status : undefined;
 
   const rawDraft = useChatStore(
     useCallback((s) => s.draftsByChatId[chat.id], [chat.id])
