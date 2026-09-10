@@ -3362,7 +3362,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   const triggerDeleteMessage = (index: number) => {
-    if (!activeChatId || !sharedSecret) return;
+    if (!activeChatId) return;
+    const targetMsg = messages[index];
+    const targetMsgId = targetMsg?.id;
     if (activeChatId === 'notes') {
       const updatedMessages = messages.filter((_, i) => i !== index);
       useChatStore.setState((state) => ({
@@ -3375,10 +3377,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return;
     }
 
-    const pusher = getPusher();
-    const channel = pusher.subscribe(`private-chat-${activeChatId}`);
-    const send = () => {
-      channel.trigger('client-message', { sender: myNickname, text: '', type: 'delete', deleteIndex: index });
+    if (targetMsgId) {
+      useChatStore.getState().deleteMessage(activeChatId, targetMsgId);
+    } else {
       const updatedMessages = messages.filter((_, i) => i !== index);
       useChatStore.setState((state) => ({
         messagesByChatId: {
@@ -3387,8 +3388,36 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
       }));
       updateChat(activeChatId, { lastMsg: updatedMessages.length > 0 ? updatedMessages[updatedMessages.length - 1].text : t('common.history_cleared') });
+    }
+
+    const payload = {
+      sender: myNickname,
+      text: '',
+      type: 'delete-message',
+      targetMessageId: targetMsgId,
+      deleteIndex: index,
+    };
+
+    ablyService.sendMessage(activeChatId, payload).catch(() => {});
+
+    const pusher = getPusher();
+    const channel = pusher.subscribe(
+      activeChat?.type === 'channel'
+        ? `public-channel-${activeChatId}`
+        : activeChat?.type === 'group'
+        ? `presence-group-${activeChatId}`
+        : `private-chat-${activeChatId}`
+    );
+    const send = () => {
+      channel.trigger('client-message', payload);
     };
     if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+
+    if (targetMsgId && activeChat?.type !== 'channel') {
+      const peerCode = activeChat?.peerCode;
+      supabaseService.deleteMessage(activeChatId, targetMsgId, peerCode, myCode).catch(() => {});
+    }
+
     setContextMenu(prev => ({ ...prev, visible: false }));
   };
 
@@ -3604,6 +3633,20 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         if (targetId) {
           useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
         }
+      } else if (data?.type === 'delete' || data?.type === 'delete-message') {
+        const targetId = data.targetMessageId || data.messageId;
+        if (targetId) {
+          useChatStore.getState().deleteMessage(activeChatId, targetId);
+        } else if (data.deleteIndex !== undefined) {
+          const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+          const updated = currentMsgs.filter((_, i) => i !== data.deleteIndex);
+          useChatStore.setState((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: updated,
+            },
+          }));
+        }
       }
     });
 
@@ -3629,6 +3672,20 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         const targetId = data.messageId || data.id;
         if (targetId) {
           useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
+        }
+      } else if (data.type === 'delete' || data.type === 'delete-message') {
+        const targetId = data.targetMessageId || data.messageId;
+        if (targetId) {
+          useChatStore.getState().deleteMessage(activeChatId, targetId);
+        } else if (data.deleteIndex !== undefined) {
+          const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+          const updated = currentMsgs.filter((_, i) => i !== data.deleteIndex);
+          useChatStore.setState((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: updated,
+            },
+          }));
         }
       }
     };
@@ -5800,6 +5857,29 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             onDeleteMessage={(msgId) => {
               if (activeChatId) {
                 useChatStore.getState().deleteMessage(activeChatId, msgId);
+                const payload = {
+                  sender: myNickname,
+                  text: '',
+                  type: 'delete-message',
+                  targetMessageId: msgId,
+                };
+                ablyService.sendMessage(activeChatId, payload).catch(() => {});
+                const pusher = getPusher();
+                const channel = pusher.subscribe(
+                  activeChat?.type === 'channel'
+                    ? `public-channel-${activeChatId}`
+                    : activeChat?.type === 'group'
+                    ? `presence-group-${activeChatId}`
+                    : `private-chat-${activeChatId}`
+                );
+                const send = () => {
+                  channel.trigger('client-message', payload);
+                };
+                if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+                if (activeChat?.type !== 'channel') {
+                  const peerCode = activeChat?.peerCode;
+                  supabaseService.deleteMessage(activeChatId, msgId, peerCode, myCode).catch(() => {});
+                }
               }
             }}
             onOpenAllMedia={() => {

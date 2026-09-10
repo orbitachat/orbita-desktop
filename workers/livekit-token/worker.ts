@@ -571,9 +571,15 @@ export default {
           chatId: string;
           nickname?: string | null;
           avatarUrl?: string | null;
+          hideProfileId?: boolean | null;
+          senderCode?: string | null;
         };
 
         if (!body.chatId) return errorResponse('Missing chatId parameter', 400);
+
+        try {
+          await supabase.from('profile_updates').delete().eq('chat_id', body.chatId);
+        } catch {}
 
         const { data, error } = await supabase
           .from('profile_updates')
@@ -581,11 +587,54 @@ export default {
             chat_id: body.chatId,
             nickname: body.nickname || null,
             avatar_url: body.avatarUrl || null,
+            hide_profile_id: body.hideProfileId !== undefined ? body.hideProfileId : null,
+            sender_code: body.senderCode || null,
           })
           .select();
 
         if (error) return errorResponse(error.message, 500);
         return jsonResponse({ status: 'ok', data });
+      }
+
+      if (pathname === '/relay/delete-message' && request.method === 'POST') {
+        const supabase = getSupabaseClient(env);
+        if (!supabase) return errorResponse('Database not configured on server', 500);
+
+        const body = (await request.json()) as {
+          chatId?: string;
+          messageId: string;
+          recipientId?: string;
+          senderId?: string;
+        };
+
+        if (body.messageId) {
+          try {
+            await supabase.from('non_messages').delete().eq('id', body.messageId);
+            await supabase.from('messages').delete().eq('id', body.messageId);
+            if (body.chatId) {
+              await supabase.from('non_messages').delete().eq('chat_id', body.chatId).ilike('ciphertext', `%${body.messageId}%`);
+              await supabase.from('messages').delete().eq('chat_id', body.chatId).ilike('ciphertext', `%${body.messageId}%`);
+            }
+            if (body.recipientId && body.chatId) {
+              await supabase.from('non_messages').insert({
+                id: `del_${body.messageId}_${Date.now()}`,
+                chat_id: body.chatId,
+                sender_id: body.senderId || 'system',
+                recipient_id: body.recipientId,
+                ciphertext: JSON.stringify({
+                  type: 'delete-message',
+                  targetMessageId: body.messageId,
+                  chatId: body.chatId,
+                }),
+                delivered: false,
+              });
+            }
+          } catch (e) {
+            console.warn('[Worker] delete-message error:', e);
+          }
+        }
+
+        return jsonResponse({ status: 'ok' });
       }
 
       if (pathname === '/relay/profile' && request.method === 'GET') {
@@ -722,6 +771,44 @@ export default {
         };
 
         return jsonResponse({ status: 'ok', channel: channelObj });
+      }
+
+      if (pathname === '/channels/update' && request.method === 'POST') {
+        const body = (await request.json()) as {
+          channelId?: string;
+          id?: string;
+          name?: string;
+          description?: string;
+          avatarUrl?: string | null;
+        };
+
+        const channelId = body.channelId || body.id;
+        if (!channelId) return errorResponse('Missing channelId parameter', 400);
+
+        const supabase = getSupabaseClient(env);
+        const updateFields: any = {};
+        if (body.name !== undefined) updateFields.name = body.name.trim();
+        if (body.description !== undefined) updateFields.description = body.description.trim();
+        if (body.avatarUrl !== undefined) updateFields.avatar_url = body.avatarUrl;
+
+        if (supabase) {
+          try {
+            await supabase.from('public_channels').update(updateFields).eq('id', channelId);
+          } catch (e) {
+            console.warn('[Worker] Channels update error:', e);
+          }
+        }
+
+        const eventPayload = {
+          channelId,
+          name: body.name,
+          description: body.description,
+          avatarUrl: body.avatarUrl,
+        };
+
+        await triggerPusherEvent(env, `public-channel-${channelId}`, 'channel-updated', eventPayload);
+
+        return jsonResponse({ status: 'ok' });
       }
 
       if (pathname === '/channels/posts' && request.method === 'GET') {

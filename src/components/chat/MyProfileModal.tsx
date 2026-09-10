@@ -17,6 +17,7 @@ import { getPusher } from '../../utils/pusher';
 import { getInviteLink } from '../../utils/inviteLink';
 import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 import { mediaManager } from '../../services/mediaManager';
+import { supabaseService } from '../../services/supabaseService';
 
 const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string; hideProfileId?: boolean }) => {
   const currentNickname = useAuthStore.getState().nickname;
@@ -37,9 +38,14 @@ const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: stri
     hideProfileId: finalHideProfileId,
   };
 
+  if (myCode) {
+    supabaseService.publishPublicProfile(myCode, finalNickname, finalAvatar, null, finalHideProfileId).catch(() => {});
+  }
+
   const chats = useChatStore.getState().chats;
   chats.forEach((chat) => {
     if (chat.type === 'private' && chat.id !== 'notes') {
+      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalHideProfileId).catch(() => {});
       ablyService.sendMessage(chat.id, payload).catch(() => {});
       const pusher = getPusher();
       const channel = pusher.subscribe(`private-chat-${chat.id}`);

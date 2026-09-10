@@ -32,6 +32,8 @@ export interface ProfileUpdateRecord {
   chat_id: string;
   nickname: string | null;
   avatar_url: string | null;
+  hide_profile_id?: boolean | null;
+  sender_code?: string | null;
   updated_at: string;
 }
 
@@ -39,6 +41,7 @@ export interface UserDirectoryRecord {
   user_code: string;
   nickname: string;
   avatar_url: string | null;
+  hide_profile_id?: boolean | null;
   public_key?: string | null;
   updated_at?: string;
 }
@@ -178,6 +181,65 @@ class SupabaseService {
       .then(({ error }) => {
         if (error) console.error('[Supabase] markNonMessageDelivered error:', error);
       });
+  }
+
+  async deleteMessage(
+    chatId: string,
+    messageId: string,
+    recipientId?: string,
+    senderId?: string
+  ): Promise<void> {
+    if (!chatId || !messageId) return;
+
+    const primaryRelay = relayRouter.getRelayForRecipient(chatId);
+    const allRelays = [
+      primaryRelay,
+      ...relayRouter.getNodes().filter((n) => n.url !== primaryRelay.url),
+    ];
+
+    for (const relay of allRelays) {
+      try {
+        await fetch(`${relay.url}/relay/delete-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, messageId, recipientId, senderId }),
+        });
+      } catch {}
+    }
+
+    if (this.client) {
+      try {
+        await this.client.from('non_messages').delete().eq('id', messageId);
+      } catch {}
+      try {
+        await this.client.from('messages').delete().eq('id', messageId);
+      } catch {}
+      try {
+        await this.client.from('non_messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${messageId}%`);
+      } catch {}
+      try {
+        await this.client.from('messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${messageId}%`);
+      } catch {}
+
+      if (recipientId) {
+        try {
+          const deletePayload = JSON.stringify({
+            type: 'delete-message',
+            targetMessageId: messageId,
+            chatId,
+          });
+          const deletionEventId = `del_${messageId}_${Date.now()}`;
+          await this.client.from('non_messages').insert({
+            id: deletionEventId,
+            chat_id: chatId,
+            sender_id: senderId || 'system',
+            recipient_id: recipientId,
+            ciphertext: deletePayload,
+            delivered: false,
+          });
+        } catch {}
+      }
+    }
   }
 
   async getPendingMessages(recipientId: string): Promise<OfflineMessageRecord[]> {
@@ -413,10 +475,11 @@ class SupabaseService {
     chatId: string,
     nickname: string | null,
     avatarUrl: string | null,
-    senderCode?: string | null
+    senderCode?: string | null,
+    hideProfileId?: boolean | null
   ): Promise<void> {
     if (!chatId || chatId === 'notes') return;
-    console.log('[Relay/Supabase] saveProfileUpdate:', { chatId, nickname, avatarUrl, senderCode });
+    console.log('[Relay/Supabase] saveProfileUpdate:', { chatId, nickname, avatarUrl, senderCode, hideProfileId });
 
     const primaryRelay = relayRouter.getRelayForRecipient(chatId);
     const allRelays = [
@@ -429,7 +492,7 @@ class SupabaseService {
         const res = await fetch(`${relay.url}/relay/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode }),
+          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, hideProfileId }),
         });
 
         if (res.ok) return;
@@ -439,12 +502,17 @@ class SupabaseService {
     }
 
     if (this.client) {
+      try {
+        await this.client.from('profile_updates').delete().eq('chat_id', chatId);
+      } catch {}
       const { error } = await this.client
         .from('profile_updates')
         .insert({
           chat_id: chatId,
           nickname,
           avatar_url: avatarUrl,
+          hide_profile_id: hideProfileId !== undefined ? hideProfileId : null,
+          sender_code: senderCode || null,
         });
 
       if (error) {
@@ -496,16 +564,16 @@ class SupabaseService {
     return updates.filter((u): u is ProfileUpdateRecord => u !== null);
   }
 
-  // --- Публичный реестр профилей (Мгновенное появление ника и аватарки оффлайн-друзей) ---
   async publishPublicProfile(
     userCode: string,
     nickname: string,
     avatarUrl: string | null,
-    _publicKey?: string | null
+    _publicKey?: string | null,
+    hideProfileId?: boolean | null
   ): Promise<void> {
     if (!userCode || !nickname) return;
     try {
-      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode);
+      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, hideProfileId);
     } catch (e) {
       console.warn('[Directory] Failed to publish profile update:', e);
     }
@@ -521,6 +589,8 @@ class SupabaseService {
           user_code: userCode,
           nickname: update.nickname,
           avatar_url: update.avatar_url,
+          hide_profile_id: update.hide_profile_id,
+          updated_at: update.updated_at,
         };
       }
     } catch (err) {

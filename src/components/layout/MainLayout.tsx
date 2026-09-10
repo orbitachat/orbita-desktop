@@ -1300,6 +1300,19 @@ export const MainLayout = () => {
           continue;
         }
 
+        if (messageData?.type === 'delete-message' || messageData?.type === 'delete') {
+          processedMessageIds.current.add(record.id);
+          const targetChatId = messageData.chatId || record.chat_id;
+          const targetId = messageData.targetMessageId || messageData.messageId;
+          if (targetId) {
+            useChatStore.getState().deleteMessage(targetChatId, targetId);
+          }
+          try {
+            await supabaseService.markMessageDelivered(record.id);
+          } catch {}
+          continue;
+        }
+
         if (messageData?.type === 'receipt' || messageData?.type === 'read' || messageData?.receiptType === 'read') {
           processedMessageIds.current.add(record.id);
           const targetChatId = messageData.chatId || record.chat_id;
@@ -1381,6 +1394,15 @@ export const MainLayout = () => {
             const currentChats = useChatStore.getState().chats;
             const chat = currentChats.find(c => c.id === record.chat_id);
             if (!chat) {
+              await supabaseService.markNonMessageDelivered(record.id);
+              continue;
+            }
+
+            if (messageData?.type === 'delete-message' || messageData?.type === 'delete') {
+              const targetId = messageData.targetMessageId || messageData.messageId;
+              if (targetId) {
+                useChatStore.getState().deleteMessage(record.chat_id, targetId);
+              }
               await supabaseService.markNonMessageDelivered(record.id);
               continue;
             }
@@ -1555,12 +1577,59 @@ export const MainLayout = () => {
     }
   }, [nickname, avatarUrl, myCode, updateChat]);
 
+  const syncOfflineFriendProfiles = useCallback(async () => {
+    const currentChats = useChatStore.getState().chats;
+    const privateChats = currentChats.filter((c) => c.type === 'private' && c.id !== 'notes');
+    for (const chat of privateChats) {
+      try {
+        const update = await supabaseService.getLatestProfileUpdate(chat.id);
+        const updates: Partial<Chat> = {};
+        if (update) {
+          if (update.nickname && update.nickname !== chat.name) updates.name = update.nickname;
+          if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
+          if (update.hide_profile_id !== undefined && update.hide_profile_id !== null && update.hide_profile_id !== chat.hideProfileId) {
+            updates.hideProfileId = Boolean(update.hide_profile_id);
+          }
+          if (update.sender_code && !chat.peerCode) updates.peerCode = update.sender_code;
+        } else if (chat.peerCode) {
+          const pub = await supabaseService.lookupPublicProfile(chat.peerCode);
+          if (pub) {
+            if (pub.nickname && pub.nickname !== chat.name) updates.name = pub.nickname;
+            if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
+            if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null && pub.hide_profile_id !== chat.hideProfileId) {
+              updates.hideProfileId = Boolean(pub.hide_profile_id);
+            }
+          }
+        }
+        if (Object.keys(updates).length > 0) {
+          updateChat(chat.id, updates);
+        }
+      } catch {}
+    }
+
+    const currentChannels = useChatStore.getState().chats.filter((c) => c.type === 'channel');
+    for (const ch of currentChannels) {
+      channelService.getChannel(ch.id).then((info) => {
+        if (info) {
+          useChatStore.getState().updateChat(ch.id, {
+            name: info.name,
+            description: info.description,
+            avatarUrl: info.avatarUrl || undefined,
+            subscribersCount: info.subscribersCount,
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [updateChat]);
+
   const loadPendingHandshakesRef = useRef(loadPendingHandshakes);
   loadPendingHandshakesRef.current = loadPendingHandshakes;
   const loadPendingMessagesRef = useRef(loadPendingMessages);
   loadPendingMessagesRef.current = loadPendingMessages;
   const recoverProfilesRef = useRef(recoverCorruptedFriendProfiles);
   recoverProfilesRef.current = recoverCorruptedFriendProfiles;
+  const syncOfflineProfilesRef = useRef(syncOfflineFriendProfiles);
+  syncOfflineProfilesRef.current = syncOfflineFriendProfiles;
 
   const lastSyncTimeRef = useRef<number>(0);
   const isSyncingRef = useRef<boolean>(false);
@@ -1611,6 +1680,7 @@ export const MainLayout = () => {
         await Promise.allSettled([
           loadPendingHandshakesRef.current(),
           loadPendingMessagesRef.current(),
+          syncOfflineProfilesRef.current(),
         ]);
 
         const isConnected = isGatewayHealthy || pusherConnected;
@@ -1891,15 +1961,20 @@ export const MainLayout = () => {
 
       const messages = useChatStore.getState().messagesByChatId[chatId] || [];
 
-      if (data.type === 'delete') {
-        const updated = messages.filter((_, i) => i !== data.deleteIndex);
-        useChatStore.setState((state) => ({
-          messagesByChatId: {
-            ...state.messagesByChatId,
-            [chatId]: updated,
-          }
-        }));
-        updateChat(chatId, { lastMsg: updated.length > 0 ? updated[updated.length - 1].text : t('common.history_cleared') });
+      if (data.type === 'delete' || data.type === 'delete-message') {
+        const targetId = data.targetMessageId || data.messageId;
+        if (targetId) {
+          useChatStore.getState().deleteMessage(chatId, targetId);
+        } else if (data.deleteIndex !== undefined) {
+          const updated = messages.filter((_, i) => i !== data.deleteIndex);
+          useChatStore.setState((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [chatId]: updated,
+            }
+          }));
+          updateChat(chatId, { lastMsg: updated.length > 0 ? updated[updated.length - 1].text : t('common.history_cleared') });
+        }
         return;
       }
       if (data.type === 'edit' && messages[data.editIndex]) {
@@ -2119,9 +2194,20 @@ export const MainLayout = () => {
       }
     };
 
+    const handleChannelUpdated = (data: any) => {
+      const updates: Partial<Chat> = {};
+      if (data?.name !== undefined && data.name) updates.name = data.name;
+      if (data?.description !== undefined) updates.description = data.description;
+      if (data?.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
+      if (Object.keys(updates).length > 0) {
+        useChatStore.getState().updateChat(channelId, updates);
+      }
+    };
+
     channel.bind('new-post', handleNewPost);
     channel.bind('reaction-updated', handleReaction);
     channel.bind('subscribers-updated', handleSubscribers);
+    channel.bind('channel-updated', handleChannelUpdated);
 
     if (!ablyMessageUnsubscribes.current.has(channelId)) {
       const unsub = ablyService.subscribeToChatMessages(`public-channel-${channelId}`, (data: any) => {
@@ -2129,6 +2215,8 @@ export const MainLayout = () => {
           handleNewPost(data.post);
         } else if (data?.type === 'reaction-updated') {
           handleReaction(data);
+        } else if (data?.type === 'channel-updated') {
+          handleChannelUpdated(data);
         } else if (data?.id) {
           handleNewPost(data);
         }
@@ -2140,6 +2228,17 @@ export const MainLayout = () => {
       channel,
       handler: handleNewPost,
     });
+
+    channelService.getChannel(channelId).then((info) => {
+      if (info) {
+        useChatStore.getState().updateChat(channelId, {
+          name: info.name,
+          description: info.description,
+          avatarUrl: info.avatarUrl || undefined,
+          subscribersCount: info.subscribersCount,
+        });
+      }
+    }).catch(() => {});
 
     channelService.getChannelPosts(channelId).then((posts) => {
       if (posts && posts.length > 0) {
@@ -2504,18 +2603,23 @@ export const MainLayout = () => {
         return;
       }
 
-      if (data.type === 'delete') {
-        const messages = useChatStore.getState().messagesByChatId[chatId] || [];
-        const updated = messages.filter((_, i) => i !== data.deleteIndex);
-        useChatStore.setState((state) => ({
-          messagesByChatId: {
-            ...state.messagesByChatId,
-            [chatId]: updated,
-          }
-        }));
-        updateChat(chatId, {
-          lastMsg: updated.length > 0 ? updated[updated.length - 1].text : t('common.history_cleared'),
-        });
+      if (data.type === 'delete' || data.type === 'delete-message') {
+        const targetId = data.targetMessageId || data.messageId;
+        if (targetId) {
+          useChatStore.getState().deleteMessage(chatId, targetId);
+        } else if (data.deleteIndex !== undefined) {
+          const messages = useChatStore.getState().messagesByChatId[chatId] || [];
+          const updated = messages.filter((_, i) => i !== data.deleteIndex);
+          useChatStore.setState((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [chatId]: updated,
+            }
+          }));
+          updateChat(chatId, {
+            lastMsg: updated.length > 0 ? updated[updated.length - 1].text : t('common.history_cleared'),
+          });
+        }
         return;
       }
 

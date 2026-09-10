@@ -430,13 +430,50 @@ module.exports = async function handler(req, res) {
       const supabase = getSupabaseClient();
       if (!supabase) return sendError(res, 'Database not configured', 500);
       if (!body.chatId) return sendError(res, 'Missing chatId parameter', 400);
+      try {
+        await supabase.from('profile_updates').delete().eq('chat_id', body.chatId);
+      } catch {}
       const { data, error } = await supabase.from('profile_updates').insert({
         chat_id: body.chatId,
         nickname: body.nickname || null,
         avatar_url: body.avatarUrl || null,
+        hide_profile_id: body.hideProfileId !== undefined ? body.hideProfileId : null,
+        sender_code: body.senderCode || null,
       }).select();
       if (error) return sendError(res, error.message, 500);
       return sendJson(res, { status: 'ok', data });
+    }
+
+    if (pathname === '/relay/delete-message' && req.method === 'POST') {
+      const supabase = getSupabaseClient();
+      const { chatId, messageId, recipientId, senderId } = body;
+      if (supabase && messageId) {
+        try {
+          await supabase.from('non_messages').delete().eq('id', messageId);
+          await supabase.from('messages').delete().eq('id', messageId);
+          if (chatId) {
+            await supabase.from('non_messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${messageId}%`);
+            await supabase.from('messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${messageId}%`);
+          }
+          if (recipientId && chatId) {
+            await supabase.from('non_messages').insert({
+              id: `del_${messageId}_${Date.now()}`,
+              chat_id: chatId,
+              sender_id: senderId || 'system',
+              recipient_id: recipientId,
+              ciphertext: JSON.stringify({
+                type: 'delete-message',
+                targetMessageId: messageId,
+                chatId,
+              }),
+              delivered: false,
+            });
+          }
+        } catch (err) {
+          console.error('[relay/delete-message] error:', err);
+        }
+      }
+      return sendJson(res, { status: 'ok' });
     }
 
     if (pathname === '/relay/profile' && req.method === 'GET') {
@@ -564,17 +601,25 @@ module.exports = async function handler(req, res) {
       const channelId = body.channelId || body.id;
       if (!channelId) return sendError(res, 'Missing channelId', 400);
       const supabase = getSupabaseClient();
+      const updateFields = {};
+      if (body.name !== undefined) updateFields.name = body.name.trim();
+      if (body.description !== undefined) updateFields.description = body.description.trim();
+      if (body.avatarUrl !== undefined) updateFields.avatar_url = body.avatarUrl;
       if (supabase) {
         try {
-          const updateFields = {};
-          if (body.name !== undefined) updateFields.name = body.name.trim();
-          if (body.description !== undefined) updateFields.description = body.description.trim();
-          if (body.avatarUrl !== undefined) updateFields.avatar_url = body.avatarUrl;
           await supabase.from('public_channels').update(updateFields).eq('id', channelId);
         } catch (err) {
           console.error('[channels/update] Supabase error:', err);
         }
       }
+      const eventPayload = {
+        channelId,
+        name: body.name,
+        description: body.description,
+        avatarUrl: body.avatarUrl,
+      };
+      await triggerPusherEvent(`public-channel-${channelId}`, 'channel-updated', eventPayload);
+      await triggerAblyEvent(`chat:public-channel-${channelId}`, 'client-message', { type: 'channel-updated', ...eventPayload });
       return sendJson(res, { status: 'ok' });
     }
 
