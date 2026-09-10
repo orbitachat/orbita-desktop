@@ -2317,6 +2317,7 @@ export const MainLayout = () => {
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
         if (data.nickname !== undefined) updates.name = data.nickname;
         if (data.senderCode) updates.peerCode = data.senderCode;
+        if (data.hideProfileId !== undefined) updates.hideProfileId = data.hideProfileId;
         updateChat(chatId, updates);
         return;
       }
@@ -2541,6 +2542,7 @@ export const MainLayout = () => {
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
         if (data.nickname !== undefined) updates.name = data.nickname;
         if (data.senderCode) updates.peerCode = data.senderCode;
+        if (data.hideProfileId !== undefined) updates.hideProfileId = data.hideProfileId;
         updateChat(chatId, updates);
         return;
       }

@@ -18,12 +18,14 @@ import { getInviteLink } from '../../utils/inviteLink';
 import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 import { mediaManager } from '../../services/mediaManager';
 
-const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string }) => {
+const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string; hideProfileId?: boolean }) => {
   const currentNickname = useAuthStore.getState().nickname;
   const currentAvatar = useAuthStore.getState().avatarUrl;
   const myCode = useChatStore.getState().myCode;
+  const currentHideProfileId = useChatStore.getState().hideProfileId;
   const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
   const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
+  const finalHideProfileId = updates.hideProfileId !== undefined ? updates.hideProfileId : currentHideProfileId;
 
   const payload = {
     type: 'profile-update',
@@ -32,6 +34,7 @@ const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: stri
     senderId: myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
+    hideProfileId: finalHideProfileId,
   };
 
   const chats = useChatStore.getState().chats;
@@ -65,6 +68,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
   const { t } = useTranslation();
   const { nickname, avatarUrl, setNickname, setAvatarUrl } = useAuthStore();
   const myCode = useChatStore((s) => s.myCode);
+  const hideProfileId = useChatStore((s) => s.hideProfileId);
   const [copyToastOpen, setCopyToastOpen] = useState(false);
   const [devToastOpen, setDevToastOpen] = useState(false);
   const [nicknameEditOpen, setNicknameEditOpen] = useState(false);
@@ -843,7 +847,12 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                       fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                     }}
                   >
-                    {myCode || '------'}
+                    {hideProfileId && myCode && myCode.length > 10
+                      ? `${myCode.slice(0, 5)}...${myCode.slice(-5)}`
+                      : (myCode || '------')}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {hideProfileId ? t('profile.id_hidden', 'ID скрыт') : 'ID'}
                   </span>
                 </div>
 

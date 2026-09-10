@@ -672,6 +672,9 @@
       "link_previews_group": "ПРЕДПРОСМОТР ССЫЛОК",
       "link_previews_title": "Предпросмотр ссылок",
       "link_previews_desc": "Генерировать предпросмотр для отправляемых ссылок (анонимно на стороне отправителя)",
+      "profile_id_group": "ID ПРОФИЛЯ",
+      "hide_profile_id": "Скрывать ID профиля",
+      "hide_profile_id_desc": "Скрывать среднюю часть вашего ID в профиле",
       "preferences": "Предпочтения",
       "preferences_updates": "Обновление",
       "preferences_auto_update": "Автоматические обновления",
@@ -891,6 +894,8 @@
       "common_groups_count_many": "{{count}} общих групп",
       "at_time": "в",
       "id": "ID",
+      "id_hidden": "ID скрыт",
+      "bio": "О себе",
       "copy_id": "Скопировать ID",
       "copied": "Скопирован"
     },

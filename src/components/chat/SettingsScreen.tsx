@@ -522,6 +522,40 @@ export const NicknameEditModal = ({ open, onClose, currentNickname, onSave }: Ni
   );
 };
 
+const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string; hideProfileId?: boolean }) => {
+  const currentNickname = useAuthStore.getState().nickname;
+  const currentAvatar = useAuthStore.getState().avatarUrl;
+  const myCode = useChatStore.getState().myCode;
+  const currentHideProfileId = useChatStore.getState().hideProfileId;
+  const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
+  const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
+  const finalHideProfileId = updates.hideProfileId !== undefined ? updates.hideProfileId : currentHideProfileId;
+
+  const payload = {
+    type: 'profile-update',
+    sender: finalNickname,
+    senderCode: myCode,
+    senderId: myCode,
+    avatarUrl: finalAvatar,
+    nickname: finalNickname,
+    hideProfileId: finalHideProfileId,
+  };
+
+  const chats = useChatStore.getState().chats;
+  chats.forEach((chat) => {
+    if (chat.type === 'private' && chat.id !== 'notes') {
+      ablyService.sendMessage(chat.id, payload).catch(() => {});
+      const pusher = getPusher();
+      const channel = pusher.subscribe(`private-chat-${chat.id}`);
+      const send = () => {
+        channel.trigger('client-message', payload);
+      };
+      if (channel.subscribed) send();
+      else channel.bind('pusher:subscription_succeeded', send);
+    }
+  });
+};
+
 const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPassword: () => void; onOpenBackup?: () => void }) => {
   const { t } = useTranslation();
   const {
@@ -535,6 +569,8 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
     setLinkPreviewsEnabled,
     screenProtectionEnabled,
     setScreenProtectionEnabled,
+    hideProfileId,
+    setHideProfileId,
   } = useChatStore();
 
   const [isPasswordSet, setIsPasswordSet] = useState(() => securityService.isPasswordSet());
@@ -542,6 +578,12 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
   useEffect(() => {
     setIsPasswordSet(securityService.isPasswordSet());
   }, []);
+
+  const handleToggleHideProfileId = () => {
+    const nextVal = !hideProfileId;
+    setHideProfileId(nextVal);
+    broadcastProfileUpdate({ hideProfileId: nextVal });
+  };
 
   const handleToggleScreenProtection = async () => {
     const nextVal = !screenProtectionEnabled;
@@ -668,6 +710,34 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
             <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>{t('settings.link_previews_desc', 'Генерировать предпросмотр для отправляемых ссылок (анонимно на стороне отправителя)')}</div>
           </div>
           <M3Switch checked={linkPreviewsEnabled} onChange={() => setLinkPreviewsEnabled(!linkPreviewsEnabled)} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: MD3.onSurfaceVar,
+          letterSpacing: '0.05em',
+          padding: '0 20px',
+          marginBottom: 8,
+        }}>
+          {t('settings.profile_id_group', 'ID ПРОФИЛЯ')}
+        </div>
+        <div style={{
+          backgroundColor: MD3.surface,
+          borderRadius: 0,
+          padding: '16px 20px',
+          margin: '0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>{t('settings.hide_profile_id', 'Скрывать ID профиля')}</div>
+            <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>{t('settings.hide_profile_id_desc', 'Скрывать среднюю часть вашего ID в профиле')}</div>
+          </div>
+          <M3Switch checked={hideProfileId} onChange={handleToggleHideProfileId} />
         </div>
       </div>
 
@@ -2492,34 +2562,7 @@ export const SettingsScreen = () => {
   }, [myCode, setMyCode]);
 
   const sendProfileUpdate = useCallback((updates: { avatarUrl?: string | null; nickname?: string }) => {
-    const currentNickname = useAuthStore.getState().nickname;
-    const currentAvatar = useAuthStore.getState().avatarUrl;
-    const myCode = useChatStore.getState().myCode;
-    const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
-    const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
-
-    const payload = {
-      type: 'profile-update',
-      sender: finalNickname,
-      senderCode: myCode,
-      senderId: myCode,
-      avatarUrl: finalAvatar,
-      nickname: finalNickname,
-    };
-
-    const chats = useChatStore.getState().chats;
-    chats.forEach((chat) => {
-      if (chat.type === 'private' && chat.id !== 'notes') {
-        ablyService.sendMessage(chat.id, payload).catch(() => {});
-        const pusher = getPusher();
-        const channel = pusher.subscribe(`private-chat-${chat.id}`);
-        const send = () => {
-          channel.trigger('client-message', payload);
-        };
-        if (channel.subscribed) send();
-        else channel.bind('pusher:subscription_succeeded', send);
-      }
-    });
+    broadcastProfileUpdate(updates);
   }, []);
 
 

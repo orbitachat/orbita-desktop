@@ -661,6 +661,9 @@
       "link_previews_group": "LINK PREVIEWS",
       "link_previews_title": "Link previews",
       "link_previews_desc": "Generate link previews on sender side without compromising recipient IP privacy.",
+      "profile_id_group": "PROFILE ID",
+      "hide_profile_id": "Hide profile ID",
+      "hide_profile_id_desc": "Hide the middle part of your ID in profile",
       "preferences": "Preferences",
       "preferences_updates": "Updates",
       "preferences_auto_update": "Automatic updates",
@@ -880,6 +883,8 @@
       "common_groups_count_many": "{{count}} shared groups",
       "at_time": "at",
       "id": "ID",
+      "id_hidden": "ID hidden",
+      "bio": "Bio",
       "copy_id": "Copy ID",
       "copied": "Copied"
     },

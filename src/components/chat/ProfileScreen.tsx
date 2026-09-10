@@ -1034,12 +1034,13 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const isChannel = chat?.type === 'channel';
   const isChannelOwner = isChannel && Boolean(chat.isOwner);
 
-  const handleCopyChannelKey = useCallback(() => {
-    if (!chat) return;
-    navigator.clipboard.writeText(chat.id);
+  const handleCopyChannelKey = useCallback((customId?: string | React.MouseEvent) => {
+    const idToCopy = (typeof customId === 'string' && customId) ? customId : chat?.id;
+    if (!idToCopy) return;
+    navigator.clipboard.writeText(idToCopy);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
-  }, [chat]);
+  }, [chat?.id]);
 
   useEffect(() => {
     if (!chat || chat.type !== 'channel') return;
@@ -1134,7 +1135,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const [targetHeight, setTargetHeight] = useState<number | null>(null);
 
   useEffect(() => {
-    if (isMobileView) return;
+    if (isMobileView || isEditingChannel || subTab !== null) {
+      setTargetHeight(null);
+      return;
+    }
 
     const measure = () => {
       if (innerContentRef.current) {
@@ -1159,7 +1163,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       clearTimeout(timer);
       ro?.disconnect();
     };
-  }, [subTab, isMobileView, chat?.id]);
+  }, [subTab, isMobileView, isEditingChannel, chat?.id]);
 
   const mediaGroups = useMemo(() => {
     if (!chat || !messages) return {} as Record<MediaType, MediaGroup>;
@@ -1673,6 +1677,26 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     );
   };
 
+  const profileId = useMemo(() => {
+    if (!chat) return '';
+    if (isChannel) return chat.id;
+    if (chatId === 'notes') return '';
+    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined) || '';
+  }, [isChannel, chat, chatId]);
+
+  const isProfileIdHidden = useMemo(() => {
+    if (isChannel) return false;
+    return Boolean(chat?.hideProfileId);
+  }, [isChannel, chat?.hideProfileId]);
+
+  const formattedProfileId = useMemo(() => {
+    if (!profileId) return '';
+    if (isProfileIdHidden && profileId.length > 10) {
+      return `${profileId.slice(0, 5)}...${profileId.slice(-5)}`;
+    }
+    return profileId;
+  }, [profileId, isProfileIdHidden]);
+
   const renderMainContent = () => (
     <div
       style={{
@@ -1916,134 +1940,107 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         )}
       </div>
 
-      {isChannel && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', padding: '0 20px', marginBottom: '16px', boxSizing: 'border-box' }}>
-          {chat.description ? (
+      {(isChannel || Boolean(profileId) || Boolean(chat.description)) && (
+        <div
+          style={{
+            backgroundColor: 'var(--md-surface, #211c2e)',
+            width: '100%',
+            borderRadius: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            marginBottom: '16px',
+            boxSizing: 'border-box',
+          }}
+        >
+          {isChannel ? (
+            chat.description ? (
+              <div
+                onClick={isChannelOwner ? () => setIsEditingChannel(true) : undefined}
+                style={{
+                  padding: '12px 20px',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  cursor: isChannelOwner ? 'pointer' : 'default',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
+                  {chat.description}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                  {t('channel.description', 'Описание')}
+                </div>
+              </div>
+            ) : isChannelOwner ? (
+              <div
+                onClick={() => setIsEditingChannel(true)}
+                style={{
+                  padding: '12px 20px',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span style={{ fontSize: '14px', color: 'var(--accent-color, #9b7dd4)' }}>
+                  + {t('channel.add_description', 'Добавить описание')}
+                </span>
+                <Pencil size={14} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
+              </div>
+            ) : null
+          ) : chat.description ? (
             <div
-              onClick={isChannelOwner ? () => setIsEditingChannel(true) : undefined}
               style={{
-                background: 'var(--surface-container, rgba(255,255,255,0.04))',
-                borderRadius: '14px',
-                padding: '12px 14px',
-                marginBottom: '10px',
-                border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-                cursor: isChannelOwner ? 'pointer' : 'default',
+                padding: '12px 20px',
+                borderBottom: profileId ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              <div style={{ fontSize: '13.5px', color: 'var(--text-main)', lineHeight: '1.4', wordBreak: 'break-word', userSelect: 'text', marginBottom: '3px' }}>
+              <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
                 {chat.description}
               </div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {t('channel.description', 'Описание')}
+              <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                {t('profile.bio', 'О себе')}
               </div>
-            </div>
-          ) : isChannelOwner ? (
-            <div
-              onClick={() => setIsEditingChannel(true)}
-              style={{
-                background: 'var(--surface-container, rgba(255,255,255,0.04))',
-                borderRadius: '14px',
-                padding: '12px 14px',
-                marginBottom: '10px',
-                border: '1px dashed var(--surface-border, rgba(255,255,255,0.15))',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span style={{ fontSize: '13px', color: 'var(--accent-color)' }}>
-                + {t('channel.add_description', 'Добавить описание')}
-              </span>
-              <Pencil size={14} style={{ color: 'var(--accent-color)' }} />
             </div>
           ) : null}
 
-          <div
-            onClick={handleCopyChannelKey}
-            style={{
-              background: 'var(--surface-container, rgba(255,255,255,0.04))',
-              borderRadius: '14px',
-              padding: '12px 14px',
-              marginBottom: '10px',
-              border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              cursor: 'pointer',
-              transition: 'background 0.15s ease',
-            }}
-          >
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{
-                fontSize: '13px',
-                fontFamily: 'monospace',
-                fontWeight: 600,
-                color: 'var(--text-main, #ffffff)',
-                wordBreak: 'break-all',
-                userSelect: 'all',
-                lineHeight: '1.35',
-                marginBottom: '3px',
-              }}>
-                {chat.id}
-              </div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                ID
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCopyChannelKey();
-              }}
-              aria-label={copiedKey ? t('profile.copied', 'Скопирован') : t('profile.copy_id', 'Скопировать ID')}
+          {profileId ? (
+            <div
+              onClick={() => handleCopyChannelKey(profileId)}
               style={{
-                background: copiedKey ? 'var(--accent-color)' : 'var(--surface-container-strong, rgba(255,255,255,0.1))',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '8px',
-                color: '#ffffff',
-                cursor: 'pointer',
-                flexShrink: 0,
+                padding: '12px 20px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
+                justifyContent: 'space-between',
+                gap: '12px',
+                cursor: 'pointer',
               }}
             >
-              {copiedKey ? <Check size={18} /> : <Copy size={18} />}
-            </button>
-          </div>
-
-          <div
-            onClick={isChannelOwner ? () => setIsEditingChannel(true) : undefined}
-            style={{
-              background: isChannelOwner ? 'rgba(34, 197, 94, 0.1)' : 'var(--surface-container, rgba(255,255,255,0.04))',
-              borderRadius: '14px',
-              padding: '10px 14px',
-              border: isChannelOwner ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: isChannelOwner ? 'pointer' : 'default',
-            }}
-          >
-            {isChannelOwner ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, color: '#4ade80' }}>
-                  <span>👑</span>
-                  <span>{t('channel.creator_full_access', 'Вы создатель этого канала (полный доступ к публикациям)')}</span>
-                </div>
-                <Pencil size={14} style={{ color: '#4ade80', flexShrink: 0, marginLeft: '8px' }} />
+              <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <span
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: 'var(--accent-color, #9b7dd4)',
+                    wordBreak: 'break-all',
+                    lineHeight: 1.3,
+                    fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                  }}
+                >
+                  {formattedProfileId}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                  {isProfileIdHidden ? t('profile.id_hidden', 'ID скрыт') : 'ID'}
+                </span>
               </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-dim)' }}>
-                <span>{t('channel.subscriber', 'Вы подписчик')}</span>
+              <div style={{ flexShrink: 0, color: copiedKey ? '#4ade80' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
+                {copiedKey ? <Check size={18} /> : <Copy size={18} />}
               </div>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -2448,6 +2445,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             scale: 1,
             height: isMobileView
               ? 'calc(100vh - 30px)'
+              : (isEditingChannel || subTab !== null)
+              ? (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.85, 750) : 750)
               : targetHeight !== null
               ? Math.min(targetHeight, typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.85, 750) : 750)
               : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.85, 750) : 750),
@@ -2657,7 +2656,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 flexDirection: 'column',
                 minHeight: 0,
                 flex: 1,
-                overflowY: (subTab === null && !isEditingChannel) ? 'auto' : 'hidden',
+                overflowY: subTab !== null ? 'hidden' : 'auto',
                 overflowX: 'hidden',
               }}
               className="chat-list-scrollbar"
@@ -2666,11 +2665,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 ref={innerContentRef}
                 style={{
                   width: '100%',
-                  height: (subTab !== null || isEditingChannel) ? '100%' : 'auto',
+                  height: subTab !== null ? '100%' : 'auto',
                   display: 'flex',
                   flexDirection: 'column',
                   minHeight: 0,
-                  flex: (subTab !== null || isEditingChannel) ? 1 : 'none',
+                  flex: subTab !== null ? 1 : 'none',
                 }}
               >
                 {isEditingChannel ? renderEditChannel() : subTab !== null ? renderSubTab() : renderMainContent()}

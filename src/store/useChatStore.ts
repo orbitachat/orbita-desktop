@@ -196,6 +196,7 @@ export interface Chat {
   channelKey?: string;
   peerCode?: string;
   isBlocked?: boolean;
+  hideProfileId?: boolean;
 }
 
 export interface IncomingFriendRequest {
@@ -322,6 +323,8 @@ interface ChatState {
   readReceiptsEnabled: boolean;
   typingIndicatorsEnabled: boolean;
   linkPreviewsEnabled: boolean;
+  hideProfileId: boolean;
+  setHideProfileId: (hide: boolean) => void;
 
   recentEmojis: string[];
 
@@ -548,6 +551,7 @@ export const useChatStore = create<ChatState>()(
       readReceiptsEnabled: true,
       typingIndicatorsEnabled: true,
       linkPreviewsEnabled: true,
+      hideProfileId: false,
 
       recentEmojis: [],
 
@@ -1272,6 +1276,7 @@ export const useChatStore = create<ChatState>()(
       setReadReceiptsEnabled: (enabled) => set({ readReceiptsEnabled: enabled }),
       setTypingIndicatorsEnabled: (enabled) => set({ typingIndicatorsEnabled: enabled }),
       setLinkPreviewsEnabled: (enabled) => set({ linkPreviewsEnabled: enabled }),
+      setHideProfileId: (hide) => set({ hideProfileId: hide }),
 
       addRecentEmoji: (emoji: string) => {
         set((state) => {
@@ -1396,6 +1401,7 @@ export const useChatStore = create<ChatState>()(
         readReceiptsEnabled: state.readReceiptsEnabled,
         typingIndicatorsEnabled: state.typingIndicatorsEnabled,
         linkPreviewsEnabled: state.linkPreviewsEnabled,
+        hideProfileId: state.hideProfileId,
         recentEmojis: state.recentEmojis,
         isEmojiPanelOpen: state.isEmojiPanelOpen,
         autoUpdate: state.autoUpdate,
