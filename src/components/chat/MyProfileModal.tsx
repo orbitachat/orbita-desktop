@@ -182,13 +182,14 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
   }, []);
 
   const handleCopyLink = useCallback(() => {
+    if (hideProfileId) return;
     if (myCode) {
       const link = getInviteLink(myCode);
       navigator.clipboard.writeText(link);
     }
     setCopyToastOpen(true);
     setTimeout(() => setCopyToastOpen(false), 2000);
-  }, [myCode]);
+  }, [myCode, hideProfileId]);
 
   const handleSaveNickname = useCallback((newNick: string) => {
     setNickname(newNick);
@@ -836,11 +837,11 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: '14px',
-                  cursor: 'pointer',
+                  cursor: hideProfileId ? 'default' : 'pointer',
                   userSelect: 'none',
                   boxSizing: 'border-box',
                 }}
-                onClick={handleCopyLink}
+                onClick={hideProfileId ? undefined : handleCopyLink}
               >
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                   <span

@@ -1902,7 +1902,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             }}
           >
             {copiedKey ? (
-              <Check size={20} className="text-green-400" />
+              <Check size={20} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
             ) : (
               <Copy size={20} style={{ color: 'var(--text-dim, #8e8e93)' }} />
             )}
@@ -2009,14 +2009,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
           {profileId ? (
             <div
-              onClick={() => handleCopyChannelKey(profileId)}
+              onClick={isProfileIdHidden ? undefined : () => handleCopyChannelKey(profileId)}
               style={{
                 padding: '12px 20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '12px',
-                cursor: 'pointer',
+                cursor: isProfileIdHidden ? 'default' : 'pointer',
               }}
             >
               <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -2036,9 +2036,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   {isProfileIdHidden ? t('profile.id_hidden', 'ID скрыт') : 'ID'}
                 </span>
               </div>
-              <div style={{ flexShrink: 0, color: copiedKey ? '#4ade80' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
-                {copiedKey ? <Check size={18} /> : <Copy size={18} />}
-              </div>
+              {!isProfileIdHidden && (
+                <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
+                  {copiedKey ? <Check size={18} /> : <Copy size={18} />}
+                </div>
+              )}
             </div>
           ) : null}
         </div>

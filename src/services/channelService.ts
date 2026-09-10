@@ -1,6 +1,5 @@
 import { getPusher } from '../utils/pusher';
 import { type LinkPreviewData } from '../store/useChatStore';
-import { getVercelBaseUrl } from './gatewayManager';
 import { ablyService } from './ablyService';
 import { generateChannelId } from '../lib/codes';
 
@@ -34,34 +33,28 @@ export interface ChannelPost {
   reactions?: Record<string, string[]>;
 }
 
-class ChannelService {
-  private getWorkerUrl(): string {
-    return getVercelBaseUrl();
-  }
+const W = 'https://orbita.ypgreg78.workers.dev';
 
+class ChannelService {
   async getFeaturedChannels(): Promise<ChannelInfo[]> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/channels/featured`);
+      const res = await fetch(`${W}/channels/featured`);
       if (res.ok) {
         const data = (await res.json()) as { channels: ChannelInfo[] };
         return data.channels || [];
       }
-    } catch (err) {
-      console.warn('[ChannelService] Failed to fetch featured channels:', err);
-    }
+    } catch {}
     return [];
   }
 
   async getChannel(channelId: string): Promise<ChannelInfo | null> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/channels/get?channelId=${encodeURIComponent(channelId.trim())}`);
+      const res = await fetch(`${W}/channels/get?channelId=${encodeURIComponent(channelId.trim())}`);
       if (res.ok) {
         const data = (await res.json()) as { channel: ChannelInfo };
         return data.channel || null;
       }
-    } catch (err) {
-      console.warn('[ChannelService] Failed to get channel:', err);
-    }
+    } catch {}
     return null;
   }
 
@@ -74,7 +67,7 @@ class ChannelService {
   ): Promise<ChannelInfo | null> {
     try {
       const idToUse = customId?.trim() || generateChannelId();
-      const res = await fetch(`${this.getWorkerUrl()}/channels/create`, {
+      const res = await fetch(`${W}/channels/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,7 +94,7 @@ class ChannelService {
     data: { name?: string; description?: string; avatarUrl?: string | null }
   ): Promise<boolean> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/channels/update`, {
+      const res = await fetch(`${W}/channels/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -131,7 +124,7 @@ class ChannelService {
 
   async getChannelPosts(channelId: string): Promise<ChannelPost[]> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/channels/posts?channelId=${encodeURIComponent(channelId.trim())}`);
+      const res = await fetch(`${W}/channels/posts?channelId=${encodeURIComponent(channelId.trim())}`);
       if (res.ok) {
         const data = (await res.json()) as { posts: ChannelPost[] };
         return data.posts || [];
@@ -181,7 +174,7 @@ class ChannelService {
         linkPreview: linkPreview || null,
       };
 
-      const res = await fetch(`${this.getWorkerUrl()}/channels/post`, {
+      const res = await fetch(`${W}/channels/post`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -208,7 +201,7 @@ class ChannelService {
 
   async joinChannel(channelId: string, nickname?: string): Promise<number | null> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/channels/join`, {
+      const res = await fetch(`${W}/channels/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channelId: channelId.trim(), nickname }),
@@ -225,7 +218,7 @@ class ChannelService {
 
   async leaveChannel(channelId: string, nickname?: string): Promise<number | null> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/channels/leave`, {
+      const res = await fetch(`${W}/channels/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channelId: channelId.trim(), nickname }),
@@ -248,7 +241,7 @@ class ChannelService {
     action?: 'add' | 'remove' | 'toggle'
   ): Promise<Record<string, string[]> | null> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/channels/reaction`, {
+      const res = await fetch(`${W}/channels/reaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channelId, postId, emoji, userId, action: action || 'toggle' }),
