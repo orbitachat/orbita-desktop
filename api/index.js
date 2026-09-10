@@ -518,9 +518,18 @@ module.exports = async function handler(req, res) {
       return sendError(res, 'Channel not found', 404);
     }
 
+    function generateChannelId() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < 42; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return code;
+    }
+
     if (pathname === '/channels/create' && req.method === 'POST') {
       if (!body.name || !body.creatorNickname) return sendError(res, 'Missing name or creatorNickname', 400);
-      const channelId = body.id || `ch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const channelId = body.id || generateChannelId();
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
@@ -549,6 +558,24 @@ module.exports = async function handler(req, res) {
           createdAt: Date.now(),
         },
       });
+    }
+
+    if (pathname === '/channels/update' && req.method === 'POST') {
+      const channelId = body.channelId || body.id;
+      if (!channelId) return sendError(res, 'Missing channelId', 400);
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const updateFields = {};
+          if (body.name !== undefined) updateFields.name = body.name.trim();
+          if (body.description !== undefined) updateFields.description = body.description.trim();
+          if (body.avatarUrl !== undefined) updateFields.avatar_url = body.avatarUrl;
+          await supabase.from('public_channels').update(updateFields).eq('id', channelId);
+        } catch (err) {
+          console.error('[channels/update] Supabase error:', err);
+        }
+      }
+      return sendJson(res, { status: 'ok' });
     }
 
     if (pathname === '/channels/posts' && req.method === 'GET') {

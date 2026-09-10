@@ -878,7 +878,30 @@
       "common_groups_count_one": "{{count}} shared group",
       "common_groups_count_few": "{{count}} shared groups",
       "common_groups_count_many": "{{count}} shared groups",
-      "at_time": "at"
+      "at_time": "at",
+      "id": "ID",
+      "copy_id": "Copy ID",
+      "copied": "Copied"
+    },
+    "channel": {
+      "edit_channel": "Edit Channel",
+      "channel_name": "Channel Name",
+      "channel_name_placeholder": "Name",
+      "description": "Description",
+      "description_optional": "Description (optional)",
+      "add_description": "Add description",
+      "change_avatar": "Change avatar",
+      "choose_photo": "Choose photo",
+      "save": "Save",
+      "creator_full_access": "You are the creator of this channel (full publishing access)",
+      "subscriber": "You are a subscriber",
+      "leave_channel": "Leave channel",
+      "subscribers": "subscriber",
+      "subscribers_few": "subscribers",
+      "subscribers_many": "subscribers",
+      "public_channel": "public channel",
+      "copied_id": "ID copied!",
+      "channel_updated": "Channel updated successfully"
     },
     "sound_settings": {
       "title": "Sound settings",

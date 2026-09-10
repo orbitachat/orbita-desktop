@@ -889,7 +889,30 @@
       "common_groups_count_one": "{{count}} общая группа",
       "common_groups_count_few": "{{count}} общие группы",
       "common_groups_count_many": "{{count}} общих групп",
-      "at_time": "в"
+      "at_time": "в",
+      "id": "ID",
+      "copy_id": "Скопировать ID",
+      "copied": "Скопирован"
+    },
+    "channel": {
+      "edit_channel": "Редактировать канал",
+      "channel_name": "Название канала",
+      "channel_name_placeholder": "Название",
+      "description": "Описание",
+      "description_optional": "Описание (необязательно)",
+      "add_description": "Добавить описание",
+      "change_avatar": "Изменить аватарку",
+      "choose_photo": "Выбрать фото",
+      "save": "Сохранить",
+      "creator_full_access": "Вы создатель этого канала (полный доступ к публикациям)",
+      "subscriber": "Вы подписчик",
+      "leave_channel": "Покинуть канал",
+      "subscribers": "подписчик",
+      "subscribers_few": "подписчика",
+      "subscribers_many": "подписчиков",
+      "public_channel": "публичный канал",
+      "copied_id": "ID скопирован!",
+      "channel_updated": "Канал успешно обновлен"
     },
     "sound_settings": {
       "title": "Настройки звука",

@@ -7,6 +7,8 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { channelService } from '../../services/channelService';
 import { groupService } from '../../services/groupService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
+import { generateChannelId } from '../../lib/codes';
+import { AvatarCropperModal } from '../settings/AvatarCropperModal';
 
 export type CreateModalType = 'group' | 'channel' | 'friend';
 
@@ -23,8 +25,11 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
+  const [descriptionValue, setDescriptionValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [cropperModalOpen, setCropperModalOpen] = useState(false);
+  const [cropperImageSrc, setCropperImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tempWarning, setTempWarning] = useState<string | null>(null);
@@ -77,7 +82,8 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setAvatarUrl(event.target?.result as string);
+        setCropperImageSrc(event.target?.result as string);
+        setCropperModalOpen(true);
       };
       reader.readAsDataURL(file);
     }
@@ -159,11 +165,13 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
 
     if (type === 'channel') {
       try {
+        const channelId = generateChannelId();
         const channel = await channelService.createChannel(
           trimmed,
-          '',
+          descriptionValue.trim(),
           avatarUrl,
-          myNickname
+          myNickname,
+          channelId
         );
         if (channel) {
           addChannelChat({
@@ -187,7 +195,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
         setIsLoading(false);
       }
     }
-  }, [inputValue, isLoading, type, onConnectRequest, myNickname, myCode, avatarUrl, addChannelChat, setActiveChat, onClose, t]);
+  }, [inputValue, descriptionValue, isLoading, type, onConnectRequest, myNickname, myCode, avatarUrl, addChannelChat, setActiveChat, onClose, t]);
 
   const label =
     type === 'friend'
@@ -307,6 +315,24 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
             </div>
           </div>
 
+          {type === 'channel' && (
+            <div className="relative w-full flex flex-col pt-3">
+              <input
+                type="text"
+                value={descriptionValue}
+                onChange={(e) => setDescriptionValue(e.target.value)}
+                placeholder={t('channel.description_optional', 'Описание (необязательно)')}
+                aria-label={t('channel.description_optional', 'Описание (необязательно)')}
+                className="w-full bg-transparent outline-none text-[13.5px] text-[var(--text-main, #ffffff)] placeholder:text-[var(--text-dim, #9ca3af)] py-1.5 transition-colors"
+                style={{
+                  border: 'none',
+                  borderRadius: 0,
+                  borderBottom: '1px solid var(--border-color, rgba(255, 255, 255, 0.15))',
+                }}
+              />
+            </div>
+          )}
+
           {error && (
             <div className="text-[12px] text-red-400 mt-2 px-1">
               {error}
@@ -372,6 +398,20 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
           </div>
         </motion.div>
       </motion.div>
+
+      <AvatarCropperModal
+        isOpen={cropperModalOpen}
+        imageSrc={cropperImageSrc}
+        onClose={() => {
+          setCropperModalOpen(false);
+          setCropperImageSrc(null);
+        }}
+        onSave={(dataUrl) => {
+          setAvatarUrl(dataUrl);
+          setCropperModalOpen(false);
+          setCropperImageSrc(null);
+        }}
+      />
     </AnimatePresence>
   );
 };

@@ -2,8 +2,10 @@ import { useState, useRef, useCallback, memo, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { channelService } from '../../services/channelService';
-import { Search, MoreVertical, Copy, Check } from 'lucide-react';
+import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
+import { AvatarCropperModal } from '../settings/AvatarCropperModal';
+import { EmojiPicker } from './EmojiPicker';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
 import {
   Picture as GravityPictureIcon,
@@ -1053,6 +1055,81 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     });
   }, [chat?.id, chat?.type, updateChat]);
 
+  const [isEditingChannel, setIsEditingChannel] = useState(false);
+  const [editName, setEditName] = useState(chat?.name || '');
+  const [editDescription, setEditDescription] = useState(chat?.description || '');
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(chat?.avatarUrl || null);
+  const [isSavingChannel, setIsSavingChannel] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [cropperModalOpen, setCropperModalOpen] = useState(false);
+  const [cropperImageSrc, setCropperImageSrc] = useState<string | null>(null);
+  const emojiBtnRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (chat) {
+      setEditName(chat.name || '');
+      setEditDescription(chat.description || '');
+      setEditAvatarUrl(chat.avatarUrl || null);
+    }
+  }, [chat?.name, chat?.description, chat?.avatarUrl]);
+
+  const handleAvatarFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCropperImageSrc(event.target?.result as string);
+        setCropperModalOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const handleSaveChannel = useCallback(async () => {
+    if (!chat || isSavingChannel) return;
+    const newName = editName.trim();
+    if (!newName) return;
+    setIsSavingChannel(true);
+    try {
+      let finalAvatarUrl = editAvatarUrl;
+      if (editAvatarUrl && editAvatarUrl.startsWith('data:')) {
+        const base64 = editAvatarUrl.includes(',') ? editAvatarUrl.split(',')[1] : editAvatarUrl;
+        if (typeof window !== 'undefined' && window.orbita?.writeTempFile && window.orbita?.uploadToCloudinary) {
+          try {
+            const tempPath = await window.orbita.writeTempFile(base64, 'png');
+            if (tempPath) {
+              const publicId = `channel_avatar_${chat.id}_${Date.now()}`;
+              const result = await window.orbita.uploadToCloudinary(tempPath, publicId);
+              if (result.success && result.secure_url) {
+                finalAvatarUrl = result.secure_url;
+              }
+              await window.orbita.deleteTempFile(tempPath);
+            }
+          } catch {}
+        }
+      }
+
+      await channelService.updateChannel(chat.id, {
+        name: newName,
+        description: editDescription.trim(),
+        avatarUrl: finalAvatarUrl,
+      });
+
+      updateChat(chat.id, {
+        name: newName,
+        description: editDescription.trim(),
+        avatarUrl: finalAvatarUrl || undefined,
+      });
+
+      setIsEditingChannel(false);
+    } catch (err) {
+      console.error('Failed to save channel:', err);
+    } finally {
+      setIsSavingChannel(false);
+    }
+  }, [chat, isSavingChannel, editName, editDescription, editAvatarUrl, updateChat]);
+
   const innerContentRef = useRef<HTMLDivElement>(null);
   const [targetHeight, setTargetHeight] = useState<number | null>(null);
 
@@ -1805,7 +1882,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             ) : (
               <Copy size={20} style={{ color: 'var(--text-dim, #8e8e93)' }} />
             )}
-            <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{copiedKey ? 'Скопирован' : 'Ключ'}</span>
+            <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{copiedKey ? t('profile.copied', 'Скопирован') : 'ID'}</span>
           </button>
         ) : (
           <button
@@ -1841,54 +1918,87 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
       {isChannel && (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', padding: '0 20px', marginBottom: '16px', boxSizing: 'border-box' }}>
-          {chat.description && (
-            <div style={{
+          {chat.description ? (
+            <div
+              onClick={isChannelOwner ? () => setIsEditingChannel(true) : undefined}
+              style={{
+                background: 'var(--surface-container, rgba(255,255,255,0.04))',
+                borderRadius: '14px',
+                padding: '12px 14px',
+                marginBottom: '10px',
+                border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+                cursor: isChannelOwner ? 'pointer' : 'default',
+              }}
+            >
+              <div style={{ fontSize: '13.5px', color: 'var(--text-main)', lineHeight: '1.4', wordBreak: 'break-word', userSelect: 'text', marginBottom: '3px' }}>
+                {chat.description}
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {t('channel.description', 'Описание')}
+              </div>
+            </div>
+          ) : isChannelOwner ? (
+            <div
+              onClick={() => setIsEditingChannel(true)}
+              style={{
+                background: 'var(--surface-container, rgba(255,255,255,0.04))',
+                borderRadius: '14px',
+                padding: '12px 14px',
+                marginBottom: '10px',
+                border: '1px dashed var(--surface-border, rgba(255,255,255,0.15))',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span style={{ fontSize: '13px', color: 'var(--accent-color)' }}>
+                + {t('channel.add_description', 'Добавить описание')}
+              </span>
+              <Pencil size={14} style={{ color: 'var(--accent-color)' }} />
+            </div>
+          ) : null}
+
+          <div
+            onClick={handleCopyChannelKey}
+            style={{
               background: 'var(--surface-container, rgba(255,255,255,0.04))',
               borderRadius: '14px',
               padding: '12px 14px',
               marginBottom: '10px',
               border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                Описание
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4', wordBreak: 'break-word', userSelect: 'text' }}>
-                {chat.description}
-              </div>
-            </div>
-          )}
-
-          <div style={{
-            background: 'var(--surface-container, rgba(255,255,255,0.04))',
-            borderRadius: '14px',
-            padding: '12px 14px',
-            marginBottom: '10px',
-            border: '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}>
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            }}
+          >
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                Ключ канала для входа (36 знаков)
-              </div>
               <div style={{
-                fontSize: '12px',
+                fontSize: '13px',
                 fontFamily: 'monospace',
-                color: 'var(--accent-color)',
+                fontWeight: 600,
+                color: 'var(--text-main, #ffffff)',
                 wordBreak: 'break-all',
                 userSelect: 'all',
-                background: 'rgba(0,0,0,0.2)',
-                padding: '6px 8px',
-                borderRadius: '8px',
+                lineHeight: '1.35',
+                marginBottom: '3px',
               }}>
                 {chat.id}
               </div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ID
+              </div>
             </div>
             <button
-              onClick={handleCopyChannelKey}
-              aria-label="Скопировать ключ канала"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyChannelKey();
+              }}
+              aria-label={copiedKey ? t('profile.copied', 'Скопирован') : t('profile.copy_id', 'Скопировать ID')}
               style={{
                 background: copiedKey ? 'var(--accent-color)' : 'var(--surface-container-strong, rgba(255,255,255,0.1))',
                 border: 'none',
@@ -1907,19 +2017,26 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             </button>
           </div>
 
-          <div style={{
-            background: isChannelOwner ? 'rgba(34, 197, 94, 0.1)' : 'var(--surface-container, rgba(255,255,255,0.04))',
-            borderRadius: '14px',
-            padding: '10px 14px',
-            border: isChannelOwner ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--surface-border, rgba(255,255,255,0.08))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
+          <div
+            onClick={isChannelOwner ? () => setIsEditingChannel(true) : undefined}
+            style={{
+              background: isChannelOwner ? 'rgba(34, 197, 94, 0.1)' : 'var(--surface-container, rgba(255,255,255,0.04))',
+              borderRadius: '14px',
+              padding: '10px 14px',
+              border: isChannelOwner ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--surface-border, rgba(255,255,255,0.08))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: isChannelOwner ? 'pointer' : 'default',
+            }}
+          >
             {isChannelOwner ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, color: '#4ade80' }}>
-                <span>👑</span>
-                <span>{t('channel.creator_full_access', 'Вы создатель этого канала (полный доступ к публикациям)')}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, color: '#4ade80' }}>
+                  <span>👑</span>
+                  <span>{t('channel.creator_full_access', 'Вы создатель этого канала (полный доступ к публикациям)')}</span>
+                </div>
+                <Pencil size={14} style={{ color: '#4ade80', flexShrink: 0, marginLeft: '8px' }} />
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-dim)' }}>
@@ -2156,6 +2273,151 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     );
   };
 
+  const renderEditChannel = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '24px 20px 32px', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', width: '100%' }}>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label={t('channel.change_avatar', 'Изменить аватарку')}
+          style={{
+            width: '74px',
+            height: '74px',
+            borderRadius: '50%',
+            backgroundColor: '#3B82F6',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            flexShrink: 0,
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {editAvatarUrl ? (
+            <>
+              <img src={editAvatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Camera size={26} color="#ffffff" />
+              </div>
+            </>
+          ) : (
+            <Camera size={30} color="#ffffff" />
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleAvatarFileChange}
+        />
+
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          <span style={{ fontSize: '12px', color: 'var(--accent-color, #7C3AED)', fontWeight: 500, marginBottom: '2px' }}>
+            {t('channel.channel_name', 'Название канала')}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent-color, #7C3AED)', paddingBottom: '4px' }}>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder={t('channel.channel_name_placeholder', 'Название')}
+              aria-label={t('channel.channel_name', 'Название канала')}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'var(--text-main, #ffffff)',
+                fontSize: '15px',
+                padding: 0,
+              }}
+            />
+            <button
+              ref={emojiBtnRef}
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              aria-label={t('emojiPicker.emojis', 'Эмодзи')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-dim, #8e8e93)',
+                cursor: 'pointer',
+                padding: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Smile size={20} />
+            </button>
+          </div>
+          {showEmojiPicker && (
+            <div
+              style={{ position: 'absolute', right: 0, top: '100%', zIndex: 999999, marginTop: '8px' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <EmojiPicker
+                onSelect={(emoji: string) => {
+                  setEditName((prev) => prev + emoji);
+                }}
+                onClose={() => setShowEmojiPicker(false)}
+                anchorEl={emojiBtnRef.current}
+                recentEmojis={[]}
+                onRecentUpdate={() => {}}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', marginTop: '28px', width: '100%' }}>
+        <span style={{ fontSize: '13px', color: 'var(--text-dim, #8e8e93)', marginBottom: '6px' }}>
+          {t('channel.description_optional', 'Описание (необязательно)')}
+        </span>
+        <textarea
+          value={editDescription}
+          onChange={(e) => setEditDescription(e.target.value)}
+          placeholder={t('channel.description_optional', 'Описание (необязательно)')}
+          aria-label={t('channel.description_optional', 'Описание (необязательно)')}
+          rows={3}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: 'none',
+            borderBottom: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+            color: 'var(--text-main, #ffffff)',
+            fontSize: '14px',
+            lineHeight: '1.4',
+            resize: 'none',
+            outline: 'none',
+            padding: '6px 0',
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+
+      <AvatarCropperModal
+        isOpen={cropperModalOpen}
+        imageSrc={cropperImageSrc}
+        onClose={() => {
+          setCropperModalOpen(false);
+          setCropperImageSrc(null);
+        }}
+        onSave={(dataUrl) => {
+          setEditAvatarUrl(dataUrl);
+          setCropperModalOpen(false);
+          setCropperImageSrc(null);
+        }}
+      />
+    </div>
+  );
+
   return (
     <>
       <div
@@ -2214,39 +2476,160 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             outline: 'none',
           }}
         >
-          {/* Universal Settings-style Close Button - Fixed in top-right corner on Desktop */}
-          {!isMobileView && (
-            <button
-              onClick={onClose}
+          {isEditingChannel ? (
+            <div
+              style={{
+                width: '100%',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 12px',
+                boxSizing: 'border-box',
+                borderBottom: '1px solid var(--surface-border, rgba(255,255,255,0.06))',
+                flexShrink: 0,
+                zIndex: 30,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsEditingChannel(false)}
+                aria-label={t('common.back', 'Назад')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none',
+                  transition: 'color 150ms, background 150ms',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.color = 'var(--text-main)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-dim)';
+                }}
+              >
+                <ArrowLeft size={20} />
+              </button>
+
+              <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
+                {t('channel.edit_channel', 'Редактировать канал')}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleSaveChannel}
+                disabled={isSavingChannel || !editName.trim()}
+                aria-label={t('channel.save', 'Сохранить')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-color, #7C3AED)',
+                  cursor: (isSavingChannel || !editName.trim()) ? 'not-allowed' : 'pointer',
+                  opacity: (isSavingChannel || !editName.trim()) ? 0.5 : 1,
+                  padding: '6px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none',
+                  transition: 'background 150ms',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSavingChannel && editName.trim()) {
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                {isSavingChannel ? <MD3CircularSpinner size="small" /> : <Check size={20} />}
+              </button>
+            </div>
+          ) : (
+            <div
               style={{
                 position: 'absolute',
                 top: 12,
                 right: 12,
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-dim)',
-                cursor: 'pointer',
-                padding: '6px',
-                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'color 150ms, background 150ms',
+                gap: '4px',
                 zIndex: 30,
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
-                e.currentTarget.style.color = 'var(--text-main)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--text-dim)';
-              }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-                <path fill="currentColor" d="M6.225 4.811a1 1 0 0 0-1.414 1.414L10.586 12L4.81 17.775a1 1 0 1 0 1.414 1.414L12 13.414l5.775 5.775a1 1 0 0 0 1.414-1.414L13.414 12l5.775-5.775a1 1 0 0 0-1.414-1.414L12 10.586z" />
-              </svg>
-            </button>
+              {isChannelOwner && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingChannel(true)}
+                  aria-label={t('channel.edit_channel', 'Редактировать канал')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-dim)',
+                    cursor: 'pointer',
+                    padding: '6px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    outline: 'none',
+                    transition: 'color 150ms, background 150ms',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.color = 'var(--text-main)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-dim)';
+                  }}
+                >
+                  <Pencil size={18} />
+                </button>
+              )}
+
+              {!isMobileView && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label={t('common.close', 'Закрыть')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-dim)',
+                    cursor: 'pointer',
+                    padding: '6px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'color 150ms, background 150ms',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.color = 'var(--text-main)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-dim)';
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M6.225 4.811a1 1 0 0 0-1.414 1.414L10.586 12L4.81 17.775a1 1 0 1 0 1.414 1.414L12 13.414l5.775 5.775a1 1 0 0 0 1.414-1.414L13.414 12l5.775-5.775a1 1 0 0 0-1.414-1.414L12 10.586z" />
+                  </svg>
+                </button>
+              )}
+            </div>
           )}
 
           <div
@@ -2274,7 +2657,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 flexDirection: 'column',
                 minHeight: 0,
                 flex: 1,
-                overflowY: subTab === null ? 'auto' : 'hidden',
+                overflowY: (subTab === null && !isEditingChannel) ? 'auto' : 'hidden',
                 overflowX: 'hidden',
               }}
               className="chat-list-scrollbar"
@@ -2283,18 +2666,18 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 ref={innerContentRef}
                 style={{
                   width: '100%',
-                  height: subTab !== null ? '100%' : 'auto',
+                  height: (subTab !== null || isEditingChannel) ? '100%' : 'auto',
                   display: 'flex',
                   flexDirection: 'column',
                   minHeight: 0,
-                  flex: subTab !== null ? 1 : 'none',
+                  flex: (subTab !== null || isEditingChannel) ? 1 : 'none',
                 }}
               >
-                {subTab !== null ? renderSubTab() : renderMainContent()}
+                {isEditingChannel ? renderEditChannel() : subTab !== null ? renderSubTab() : renderMainContent()}
               </div>
             </div>
 
-            {subTab === null && profileThumb && (
+            {subTab === null && !isEditingChannel && profileThumb && (
               <>
                 <div
                   className="overlay-scroll-track"

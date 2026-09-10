@@ -2,6 +2,7 @@ import { getPusher } from '../utils/pusher';
 import { type LinkPreviewData } from '../store/useChatStore';
 import { getVercelBaseUrl } from './gatewayManager';
 import { ablyService } from './ablyService';
+import { generateChannelId } from '../lib/codes';
 
 export interface ChannelInfo {
   id: string;
@@ -72,11 +73,12 @@ class ChannelService {
     customId?: string
   ): Promise<ChannelInfo | null> {
     try {
+      const idToUse = customId?.trim() || generateChannelId();
       const res = await fetch(`${this.getWorkerUrl()}/channels/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: customId?.trim() || undefined,
+          id: idToUse,
           name: name.trim(),
           description: description.trim(),
           avatarUrl: avatarUrl || null,
@@ -92,6 +94,39 @@ class ChannelService {
       console.error('[ChannelService] Failed to create channel:', err);
     }
     return null;
+  }
+
+  async updateChannel(
+    channelId: string,
+    data: { name?: string; description?: string; avatarUrl?: string | null }
+  ): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/channels/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId: channelId.trim(),
+          name: data.name,
+          description: data.description,
+          avatarUrl: data.avatarUrl,
+        }),
+      });
+      if (res.ok) {
+        try {
+          ablyService.sendMessage(`public-channel-${channelId.trim()}`, {
+            type: 'channel-updated',
+            channelId: channelId.trim(),
+            name: data.name,
+            description: data.description,
+            avatarUrl: data.avatarUrl,
+          }).catch(() => {});
+        } catch {}
+        return true;
+      }
+    } catch (err) {
+      console.error('[ChannelService] Failed to update channel:', err);
+    }
+    return false;
   }
 
   async getChannelPosts(channelId: string): Promise<ChannelPost[]> {
