@@ -1,6 +1,7 @@
 import { useChatStore, Chat, Message } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { getPusher } from '../utils/pusher';
+import { gatewayManager } from './gatewayManager';
 
 export interface SupportTicketRecord {
   id?: number;
@@ -70,7 +71,7 @@ class SupportService {
     if (!this.myCode) return;
 
     try {
-      const res = await fetch(`https://orbitad.vercel.app/support/admin/check?userCode=${encodeURIComponent(this.myCode)}`);
+      const res = await gatewayManager.fetch(`/support/admin/check?userCode=${encodeURIComponent(this.myCode)}`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.isAdmin) {
@@ -86,7 +87,7 @@ class SupportService {
           this.adminToken = storedToken;
 
           if (!data.hasToken) {
-            await gatewayManager.fetch(/support/admin/register-token', {
+            await gatewayManager.fetch('/support/admin/register-token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userCode: this.myCode, adminToken: this.adminToken }),
@@ -162,7 +163,7 @@ class SupportService {
       if (this.adminToken) {
         headers['X-Admin-Token'] = this.adminToken;
       }
-      const res = await fetch(`https://orbitad.vercel.app/support/admin/tickets?userCode=${encodeURIComponent(this.myCode)}`, { headers });
+      const res = await gatewayManager.fetch(`/support/admin/tickets?userCode=${encodeURIComponent(this.myCode)}`, { headers });
       if (res.ok) {
         const data = await res.json();
         const tickets: SupportTicketRecord[] = data.tickets || [];
@@ -274,7 +275,7 @@ class SupportService {
               const headers: Record<string, string> = { 'Content-Type': 'application/json' };
               if (this.adminToken) headers['X-Admin-Token'] = this.adminToken;
 
-              const res = await gatewayManager.fetch(/support/reply', {
+              const res = await gatewayManager.fetch('/support/reply', {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -390,7 +391,7 @@ class SupportService {
 
     if (lower === '/ticket' || lower === '/tickets') {
       try {
-        const res = await fetch(`https://orbitad.vercel.app/support/tickets?userCode=${encodeURIComponent(this.myCode)}`);
+        const res = await gatewayManager.fetch(`/support/tickets?userCode=${encodeURIComponent(this.myCode)}`);
         if (res.ok) {
           const data = await res.json();
           const tickets = data.tickets || [];
@@ -416,7 +417,7 @@ class SupportService {
     const myNickname = useAuthStore.getState().nickname || 'User';
 
     try {
-      await gatewayManager.fetch(/support/ticket', {
+      await gatewayManager.fetch('/support/ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -492,7 +493,7 @@ class SupportService {
     if (!this.myCode) return;
 
     try {
-      const res = await fetch(`https://orbitad.vercel.app/support/tickets?userCode=${encodeURIComponent(this.myCode)}`);
+      const res = await gatewayManager.fetch(`/support/tickets?userCode=${encodeURIComponent(this.myCode)}`);
       if (res.ok) {
         const data = await res.json();
         const tickets = data.tickets || [];
@@ -507,3 +508,4 @@ class SupportService {
 }
 
 export const supportService = new SupportService();
+
