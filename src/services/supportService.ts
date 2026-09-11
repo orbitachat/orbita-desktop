@@ -86,7 +86,7 @@ class SupportService {
           this.adminToken = storedToken;
 
           if (!data.hasToken) {
-            await fetch('https://orbitad.vercel.app/support/admin/register-token', {
+            await gatewayManager.fetch(/support/admin/register-token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userCode: this.myCode, adminToken: this.adminToken }),
@@ -274,7 +274,7 @@ class SupportService {
               const headers: Record<string, string> = { 'Content-Type': 'application/json' };
               if (this.adminToken) headers['X-Admin-Token'] = this.adminToken;
 
-              const res = await fetch('https://orbitad.vercel.app/support/reply', {
+              const res = await gatewayManager.fetch(/support/reply', {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -416,7 +416,7 @@ class SupportService {
     const myNickname = useAuthStore.getState().nickname || 'User';
 
     try {
-      await fetch('https://orbitad.vercel.app/support/ticket', {
+      await gatewayManager.fetch(/support/ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
