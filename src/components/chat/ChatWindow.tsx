@@ -49,6 +49,7 @@ import { useToastStore } from '../../store/useToastStore';
 import { MessageItem } from './MessageItem';
 import { MessageReactions } from './ReactionBadge';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
+import { BotIcon } from '../common/BotIcon';
 import { type ConfirmActionType } from '../common/ActionConfirmModal';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useAudioStore } from '../../store/useAudioStore';
@@ -2361,6 +2362,67 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     });
   }, [activeChatId]);
 
+  const isChannelOwner = useMemo(() => {
+    if (activeChat?.type !== 'channel') return false;
+    if (activeChat.isOwner) return true;
+    if (activeChat.role === 'owner') return true;
+    const myNick = myNickname?.trim().toLowerCase();
+    if (myNick && activeChat.creatorNickname?.trim().toLowerCase() === myNick) return true;
+    if (messages.some((m) => m.isOutgoing || (m.sender && myNick && m.sender.trim().toLowerCase() === myNick))) return true;
+    return false;
+  }, [activeChat, myNickname, messages]);
+
+  useEffect(() => {
+    if (activeChat?.type === 'channel' && !activeChat.isOwner && isChannelOwner) {
+      useChatStore.getState().updateChat(activeChat.id, { isOwner: true });
+    }
+  }, [activeChat?.id, activeChat?.type, activeChat?.isOwner, isChannelOwner]);
+
+  const handleMessageButtonClick = useCallback((btn: { text: string; action: string; channelId?: string; url?: string; data?: string }) => {
+    if (btn.action === 'open_channel' && btn.channelId) {
+      const channelId = btn.channelId.trim();
+      const existing = useChatStore.getState().chats.find((c) => c.id === channelId);
+      if (existing) {
+        useChatStore.getState().setActiveChat(channelId);
+      } else {
+        channelService.getChannel(channelId).then((info) => {
+          if (info) {
+            useChatStore.getState().addChannelChat({
+              id: info.id,
+              name: info.name,
+              description: info.description,
+              avatarUrl: info.avatarUrl,
+              creatorNickname: info.creatorNickname,
+              subscribersCount: info.subscribersCount,
+              isOfficial: info.isOfficial,
+            });
+            useChatStore.getState().setActiveChat(channelId);
+          } else {
+            useChatStore.getState().setActiveChat(channelId);
+          }
+        }).catch(() => {
+          useChatStore.getState().setActiveChat(channelId);
+        });
+      }
+      return;
+    }
+
+    if (btn.action === 'open_backup') {
+      useChatStore.getState().openSettings('backup');
+      return;
+    }
+
+    if (btn.action === 'send_command') {
+      orbitosService.handleUserMessage(btn.data || btn.text, t);
+      return;
+    }
+
+    if (btn.action === 'open_url' && btn.url) {
+      window.open(btn.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+  }, [t]);
+
   useEffect(() => {
     if (!activeChatId) return;
     if (activeChatId === 'notes') return; // для заметок не обрабатываем вставку
@@ -3076,8 +3138,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const chat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
 
     if (chat?.type === 'channel') {
-      const isOwner = Boolean(chat.isOwner);
-      if (!isOwner) return;
+      if (!isChannelOwner) return;
 
       const sentText = text;
       const sentMedia = mediaPayload;
@@ -4280,7 +4341,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     const isChannel = chat.type === 'channel';
     if (isChannel) {
-      if (!chat.isOwner) return;
+      if (!isChannelOwner) return;
     } else {
       if (!sharedSecret || !chat.ratchetState) return;
     }
@@ -4470,8 +4531,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     if (chat.type === 'channel') {
-      const isOwner = Boolean(chat.isOwner);
-      if (!isOwner) {
+      if (!isChannelOwner) {
         setIsSendingFiles(false);
         return;
       }
@@ -5172,6 +5232,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             onQuoteClick={(q) => handleQuoteClick(q, index)}
             isGroup={activeChat?.type === 'group'}
             onLinkClick={handleLinkClick}
+            onButtonClick={handleMessageButtonClick}
           />
         </div>
       );
@@ -5556,6 +5617,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   {activeChat?.type === 'channel' && (
                     <ChannelMegaphoneIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
                   )}
+                  {activeChat?.type === 'bot' && (
+                    <BotIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
+                  )}
                   <h2 className="font-bold text-[14px] truncate" style={{ color: 'var(--text-main)' }}>
                     {activeChatId === 'notes' ? t('connectModal.notes') : activeChat?.name}
                   </h2>
@@ -5577,11 +5641,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                         ? `${activeChat.subscribersCount.toLocaleString('ru-RU')} ${(() => { const n = activeChat.subscribersCount || 0; const m10 = n % 10; const m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'подписчик'; if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'подписчика'; return 'подписчиков'; })()}`
                         : t('channel.subscribers_none', 'подписчиков пока нет')}
                     </span>
-                  ) : activeChat?.type === 'bot' ? (
-                    <span className="text-[11px] font-medium text-[var(--accent-color)]">
-                      {t('orbitos.badge', 'БОТ')}
-                    </span>
-                  ) : !isServerConnected ? (
+                  ) : activeChat?.type === 'bot' ? null : !isServerConnected ? (
                     <span className="text-[11px] font-semibold text-[var(--accent-color)] animate-pulse">
                       {t('common.connecting') || 'соединение...'}
                     </span>
@@ -5853,7 +5913,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         </button>
       </div>
 
-      {activeChat?.type === 'channel' && !activeChat.isOwner ? null : (
+      {activeChat?.type === 'channel' && !isChannelOwner ? null : (
         <MessageInput
           inputText={inputText}
           setInputText={handleSetInputText}

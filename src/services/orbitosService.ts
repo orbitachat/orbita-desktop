@@ -6,7 +6,46 @@ class OrbitosService {
   public initOrbitosChat(t: any): void {
     const store = useChatStore.getState();
     const existing = store.chats.find((c) => c.id === this.BOT_ID);
-    if (existing) return;
+    if (existing) {
+      const existingMsgs = store.messagesByChatId[this.BOT_ID] || [];
+      const hasButtons = existingMsgs.some((m) => m.buttons && m.buttons.length > 0);
+      if (!hasButtons && existingMsgs.length > 0) {
+        useChatStore.setState((state) => ({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) => {
+              if (m.id === 'orbitos_welcome_2' && !m.buttons) {
+                return {
+                  ...m,
+                  buttons: [
+                    {
+                      text: t('orbitos.btn_backup', '🛡️ Резервная копия'),
+                      action: 'open_backup',
+                      icon: 'backup' as const,
+                    },
+                  ],
+                };
+              }
+              if (m.id === 'orbitos_welcome_3' && !m.buttons) {
+                return {
+                  ...m,
+                  buttons: [
+                    {
+                      text: t('orbitos.btn_channel', '📢 Перейти в Orbita Updates'),
+                      action: 'open_channel',
+                      channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
+                      icon: 'channel' as const,
+                    },
+                  ],
+                };
+              }
+              return m;
+            }),
+          },
+        }));
+      }
+      return;
+    }
 
     const chatName = t('orbitos.name', 'Орбитос');
     const initialLastMsg = t('orbitos.initial_last_msg', 'Добро пожаловать в Orbita!');
@@ -46,6 +85,13 @@ class OrbitosService {
         time: now - 2000,
         read: false,
         status: 'delivered',
+        buttons: [
+          {
+            text: t('orbitos.btn_backup', '🛡️ Резервная копия'),
+            action: 'open_backup',
+            icon: 'backup',
+          },
+        ],
       },
       {
         id: 'orbitos_welcome_3',
@@ -56,6 +102,14 @@ class OrbitosService {
         time: now - 1000,
         read: false,
         status: 'delivered',
+        buttons: [
+          {
+            text: t('orbitos.btn_channel', '📢 Перейти в Orbita Updates'),
+            action: 'open_channel',
+            channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
+            icon: 'channel',
+          },
+        ],
       },
     ];
 
@@ -67,13 +121,42 @@ class OrbitosService {
   public async handleUserMessage(userText: string, t: any): Promise<void> {
     const raw = userText.trim().toLowerCase();
     let reply = '';
+    let buttons: Message['buttons'] = undefined;
 
     if (raw === '/help' || raw === 'помощь' || raw === 'help' || raw === '/start') {
       reply = t('orbitos.help_reply');
+      buttons = [
+        {
+          text: t('orbitos.btn_channel', '📢 Перейти в Orbita Updates'),
+          action: 'open_channel',
+          channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
+          icon: 'channel',
+        },
+        {
+          text: t('orbitos.btn_backup', '🛡️ Резервная копия'),
+          action: 'open_backup',
+          icon: 'backup',
+        },
+      ];
     } else if (raw === '/backup' || raw.includes('бэкап') || raw.includes('копи')) {
       reply = t('orbitos.backup_reply');
+      buttons = [
+        {
+          text: t('orbitos.btn_backup', '🛡️ Резервная копия'),
+          action: 'open_backup',
+          icon: 'backup',
+        },
+      ];
     } else if (raw === '/channels' || raw.includes('канал')) {
       reply = t('orbitos.channels_reply');
+      buttons = [
+        {
+          text: t('orbitos.btn_channel', '📢 Перейти в Orbita Updates'),
+          action: 'open_channel',
+          channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
+          icon: 'channel',
+        },
+      ];
     } else if (raw === '/security' || raw.includes('безопасн') || raw.includes('шифр')) {
       reply = t('orbitos.security_reply');
     } else if (raw === '/about' || raw.includes('орбита') || raw.includes('orbita')) {
@@ -94,6 +177,7 @@ class OrbitosService {
       time: Date.now(),
       read: false,
       status: 'delivered',
+      buttons,
     };
 
     store.addMessage(this.BOT_ID, replyMsg);

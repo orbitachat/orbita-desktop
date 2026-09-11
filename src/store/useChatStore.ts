@@ -140,6 +140,7 @@ export interface Message {
   waveform?: number[];
   reactions?: Record<string, string[]>;
   linkPreview?: LinkPreviewData;
+  buttons?: Array<{ text: string; action: string; channelId?: string; url?: string; data?: string; icon?: 'channel' | 'backup' | 'help' | 'link' }>;
 }
 
 export function isMessageOutgoing(

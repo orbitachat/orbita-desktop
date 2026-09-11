@@ -60,6 +60,7 @@ import { DeleteAccountModal } from '../common/DeleteAccountModal';
 import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { DevicePermissionModal } from '../common/DevicePermissionModal';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
+import { BotIcon } from '../common/BotIcon';
 import { BotAvatar } from '../common/BotAvatar';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
@@ -493,12 +494,15 @@ const ChatListItem = React.memo(({
                 />
               )}
               <span
-                className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
+                className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0 inline-flex items-center"
                 style={{
                   color: isLightTheme ? '#111111' : 'rgba(255,255,255,0.85)',
                   fontFamily: 'inherit'
                 }}
               >
+                {chat.type === 'bot' && (
+                  <BotIcon size={14} className="flex-shrink-0 text-[var(--accent-color)] mr-1.5" />
+                )}
                 {chat.id === 'notes' ? t('connectModal.notes') : chat.name}
               </span>
               <DeveloperBadge
@@ -508,11 +512,6 @@ const ChatListItem = React.memo(({
               {chat.type === 'channel' && chat.isOfficial && (
                 <span className="px-1 py-0.2 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[9px] font-extrabold uppercase flex-shrink-0">
                   {t('channel.official', 'ОФИЦ')}
-                </span>
-              )}
-              {chat.type === 'bot' && (
-                <span className="px-1 py-0.2 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[9px] font-extrabold uppercase flex-shrink-0">
-                  {t('orbitos.badge', 'БОТ')}
                 </span>
               )}
             </div>
@@ -1698,18 +1697,29 @@ export const MainLayout = () => {
           if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
             return;
           }
+          const myNick = (useAuthStore.getState().nickname || '').trim().toLowerCase();
+          const isCreator = Boolean(
+            current?.isOwner ||
+            current?.role === 'owner' ||
+            (info.creatorNickname && myNick && info.creatorNickname.trim().toLowerCase() === myNick) ||
+            (ch.creatorNickname && myNick && ch.creatorNickname.trim().toLowerCase() === myNick)
+          );
           const updates: Partial<Chat> = {
             subscribersCount: info.subscribersCount,
+            creatorNickname: info.creatorNickname || ch.creatorNickname,
           };
-          if (!current?.isOwner) {
+          if (isCreator) {
+            updates.isOwner = true;
+          }
+          if (!isCreator) {
             updates.name = info.name;
             updates.description = info.description;
             updates.avatarUrl = info.avatarUrl || undefined;
             if (info.updatedAt) updates.updatedAt = info.updatedAt;
           } else {
-            if (info.name && !current.name) updates.name = info.name;
-            if (info.description && !current.description) updates.description = info.description;
-            if (info.avatarUrl && !current.avatarUrl) updates.avatarUrl = info.avatarUrl;
+            if (info.name && !current?.name) updates.name = info.name;
+            if (info.description && !current?.description) updates.description = info.description;
+            if (info.avatarUrl && !current?.avatarUrl) updates.avatarUrl = info.avatarUrl;
           }
           useChatStore.getState().updateChat(ch.id, updates);
         }
@@ -2370,18 +2380,29 @@ export const MainLayout = () => {
         if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
           return;
         }
+        const myNick = (useAuthStore.getState().nickname || '').trim().toLowerCase();
+        const isCreator = Boolean(
+          current?.isOwner ||
+          current?.role === 'owner' ||
+          (info.creatorNickname && myNick && info.creatorNickname.trim().toLowerCase() === myNick) ||
+          (current?.creatorNickname && myNick && current.creatorNickname.trim().toLowerCase() === myNick)
+        );
         const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
+          creatorNickname: info.creatorNickname || current?.creatorNickname,
         };
-        if (!current?.isOwner) {
+        if (isCreator) {
+          updates.isOwner = true;
+        }
+        if (!isCreator) {
           updates.name = info.name;
           updates.description = info.description;
           updates.avatarUrl = info.avatarUrl || undefined;
           if (info.updatedAt) updates.updatedAt = info.updatedAt;
         } else {
-          if (info.name && !current.name) updates.name = info.name;
-          if (info.description && !current.description) updates.description = info.description;
-          if (info.avatarUrl && !current.avatarUrl) updates.avatarUrl = info.avatarUrl;
+          if (info.name && !current?.name) updates.name = info.name;
+          if (info.description && !current?.description) updates.description = info.description;
+          if (info.avatarUrl && !current?.avatarUrl) updates.avatarUrl = info.avatarUrl;
         }
         useChatStore.getState().updateChat(channelId, updates);
       }

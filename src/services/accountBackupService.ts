@@ -85,6 +85,10 @@ export const createAccountBackup = async (mnemonic: string): Promise<Uint8Array>
         muted: chat.muted,
         notificationsEnabled: chat.notificationsEnabled,
         isOfficial: chat.isOfficial,
+        isOwner: chat.isOwner,
+        creatorNickname: chat.creatorNickname,
+        description: chat.description,
+        subscribersCount: chat.subscribersCount,
       })),
       passcode: chatState.passcode,
       currentTheme: chatState.currentTheme,
@@ -286,7 +290,18 @@ export const restoreAccountBackup = async (
   const restoredNickname = payload.auth.nickname || '';
   const restoredAvatarUrl = payload.auth.avatarUrl || null;
   const restoredChats = Array.isArray(payload.chatStore.chats)
-    ? payload.chatStore.chats.map((c: any) => ({ ...c, online: false, lastMsg: '', unreadCount: 0 }))
+    ? payload.chatStore.chats.map((c: any) => {
+        const isOwner = c.isOwner !== undefined
+          ? c.isOwner
+          : (c.type === 'channel' && c.creatorNickname && restoredNickname && c.creatorNickname.trim().toLowerCase() === restoredNickname.trim().toLowerCase());
+        return {
+          ...c,
+          isOwner,
+          online: false,
+          lastMsg: '',
+          unreadCount: 0,
+        };
+      })
     : [];
 
   useChatStore.setState({

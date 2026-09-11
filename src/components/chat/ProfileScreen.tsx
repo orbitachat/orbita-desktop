@@ -5,6 +5,7 @@ import { channelService } from '../../services/channelService';
 import { supabaseService } from '../../services/supabaseService';
 import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
+import { BotIcon } from '../common/BotIcon';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
 import { EmojiPicker } from './EmojiPicker';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
@@ -1033,7 +1034,16 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const voiceCallsEnabled = useChatStore((state) => state.voiceCallsEnabled);
 
   const isChannel = chat?.type === 'channel';
-  const isChannelOwner = isChannel && Boolean(chat.isOwner);
+  const isChannelOwner = useMemo(() => {
+    if (!isChannel || !chat) return false;
+    if (chat.isOwner) return true;
+    if (chat.role === 'owner') return true;
+    const myNick = (myNickname || '').trim().toLowerCase();
+    if (myNick && chat.creatorNickname && chat.creatorNickname.trim().toLowerCase() === myNick) return true;
+    const chatMsgs = useChatStore.getState().messagesByChatId[chat.id] || [];
+    if (chatMsgs.some((m) => m.isOutgoing || (m.sender && myNick && m.sender.trim().toLowerCase() === myNick))) return true;
+    return false;
+  }, [isChannel, chat, myNickname]);
 
   const handleCopyChannelKey = useCallback((customId?: string | React.MouseEvent) => {
     const idToCopy = (typeof customId === 'string' && customId) ? customId : chat?.id;
@@ -1051,18 +1061,29 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
           return;
         }
+        const myNick = (useAuthStore.getState().nickname || '').trim().toLowerCase();
+        const isCreator = Boolean(
+          current?.isOwner ||
+          current?.role === 'owner' ||
+          (info.creatorNickname && myNick && info.creatorNickname.trim().toLowerCase() === myNick) ||
+          (chat.creatorNickname && myNick && chat.creatorNickname.trim().toLowerCase() === myNick)
+        );
         const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
+          creatorNickname: info.creatorNickname || chat.creatorNickname,
         };
-        if (!current?.isOwner) {
+        if (isCreator) {
+          updates.isOwner = true;
+        }
+        if (!isCreator) {
           updates.name = info.name;
           updates.description = info.description;
           updates.avatarUrl = info.avatarUrl || undefined;
           if (info.updatedAt) updates.updatedAt = info.updatedAt;
         } else {
-          if (info.name && !current.name) updates.name = info.name;
-          if (info.description && !current.description) updates.description = info.description;
-          if (info.avatarUrl && !current.avatarUrl) updates.avatarUrl = info.avatarUrl;
+          if (info.name && !current?.name) updates.name = info.name;
+          if (info.description && !current?.description) updates.description = info.description;
+          if (info.avatarUrl && !current?.avatarUrl) updates.avatarUrl = info.avatarUrl;
         }
         updateChat(chat.id, updates);
       }
@@ -1560,15 +1581,13 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     return `${c} подписчиков`;
   };
 
-  const statusText = chatId === 'notes'
+  const statusText = (chatId === 'notes' || chat.type === 'bot')
     ? ''
-    : chat.type === 'bot'
-      ? t('orbitos.badge', 'БОТ')
-      : chat.type === 'channel'
-        ? formatSubscribers(chat.subscribersCount || 0)
-        : chat.online
-          ? t('userStatus.online')
-          : formatLastSeen(chat.lastSeen, t);
+    : chat.type === 'channel'
+      ? formatSubscribers(chat.subscribersCount || 0)
+      : chat.online
+        ? t('userStatus.online')
+        : formatLastSeen(chat.lastSeen, t);
 
   const filteredMessages = (messagesList: Message[]) => {
     if (!searchQuery.trim()) return messagesList;
@@ -1823,7 +1842,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2px', padding: '0 20px', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-          <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center' }}>
+          <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            {chat.type === 'bot' && (
+              <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
+            )}
             {chatId === 'notes' ? t('connectModal.notes') : chat.name}
           </h3>
           <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>

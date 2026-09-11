@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DeveloperBadge } from '../ui/DeveloperBadge';
-import { Pin } from 'lucide-react';
+import { Pin, Megaphone, ShieldCheck, HelpCircle, ExternalLink } from 'lucide-react';
 import { Message, useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { parseReplyChain, countEmojis, formatTimeOfDay, markdownToHtml, formatPreviewText } from '../../utils/messageUtils';
@@ -22,6 +22,7 @@ interface MessageItemProps {
   onQuoteClick?: (q: { id?: string; sender: string; text: string; time: string }) => void;
   isGroup?: boolean;
   onLinkClick?: (url: string) => void;
+  onButtonClick?: (button: { text: string; action: string; channelId?: string; url?: string; data?: string; icon?: 'channel' | 'backup' | 'help' | 'link' }) => void;
 }
 
 const MessageText = ({
@@ -96,7 +97,7 @@ const MessageText = ({
 };
 
 export const MessageItem: React.FC<MessageItemProps> = React.memo(
-  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, onLinkClick }) => {
+  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, onLinkClick, onButtonClick }) => {
     const { t } = useTranslation();
     const myCode = useChatStore((s) => s.myCode);
     const myNickname = useAuthStore((s) => s.nickname);
@@ -390,6 +391,39 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
             )}
           </div>
         )}
+        {msg.buttons && msg.buttons.length > 0 && (
+          <div className="flex flex-col gap-1.5 w-full mt-1.5 select-none" style={{ maxWidth: '380px' }}>
+            {msg.buttons.map((btn, bIdx) => (
+              <button
+                key={bIdx}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onButtonClick?.(btn);
+                }}
+                aria-label={btn.text}
+                className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.08)) 80%, var(--accent-color) 12%)',
+                  color: 'var(--text-main, #ffffff)',
+                  border: '1px solid color-mix(in srgb, var(--accent-color) 25%, transparent)',
+                  backdropFilter: 'blur(8px)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.14)) 70%, var(--accent-color) 24%)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.08)) 80%, var(--accent-color) 12%)';
+                }}
+              >
+                {btn.icon === 'channel' && <Megaphone size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
+                {btn.icon === 'backup' && <ShieldCheck size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
+                {btn.icon === 'help' && <HelpCircle size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
+                {btn.icon === 'link' && <ExternalLink size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
+                <span className="truncate">{btn.text}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {isPinned && (
           <Pin
             size={10}
@@ -405,5 +439,6 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
     prev.isOwn === next.isOwn &&
     prev.isPinned === next.isPinned &&
     prev.bubbleRadius === next.bubbleRadius &&
-    prev.currentUserId === next.currentUserId
+    prev.currentUserId === next.currentUserId &&
+    prev.onButtonClick === next.onButtonClick
 );
