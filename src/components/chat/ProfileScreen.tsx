@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, memo, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { channelService } from '../../services/channelService';
+import { supabaseService } from '../../services/supabaseService';
 import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
@@ -1067,6 +1068,69 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       }
     });
   }, [chat?.id, chat?.type, updateChat]);
+
+  useEffect(() => {
+    if (!chat || chat.type !== 'private' || chatId === 'notes') return;
+    const myCode = useChatStore.getState().myCode;
+    const myNickname = useAuthStore.getState().nickname;
+    const targetCode = (chat.peerCode && chat.peerCode !== myCode)
+      ? chat.peerCode
+      : (chat.name && chat.name.length === 36 && chat.name !== myCode)
+        ? chat.name
+        : undefined;
+
+    let isMounted = true;
+    (async () => {
+      try {
+        let hideVal: boolean | null = null;
+        let updateNick: string | undefined = undefined;
+        let updateAvatar: string | undefined = undefined;
+
+        const update = await supabaseService.getLatestProfileUpdate(chat.id, myCode || undefined);
+        const isMyOwnUpdate = update && (
+          (myCode && update.sender_code === myCode) ||
+          (myNickname && update.nickname === myNickname)
+        );
+
+        if (update && !isMyOwnUpdate) {
+          if (update.hide_profile_id !== undefined && update.hide_profile_id !== null) {
+            hideVal = Boolean(update.hide_profile_id);
+          }
+          if (update.nickname && update.nickname !== myNickname) updateNick = update.nickname;
+          if (update.avatar_url !== undefined) updateAvatar = update.avatar_url || undefined;
+        }
+
+        if (hideVal === null && targetCode) {
+          const pub = await supabaseService.lookupPublicProfile(targetCode);
+          if (pub && pub.hide_profile_id !== undefined && pub.hide_profile_id !== null) {
+            hideVal = Boolean(pub.hide_profile_id);
+          }
+          if (pub?.nickname && pub.nickname !== myNickname && !updateNick) updateNick = pub.nickname;
+          if (pub?.avatar_url !== undefined && !updateAvatar) updateAvatar = pub.avatar_url || undefined;
+        }
+
+        if (!isMounted) return;
+
+        const chatUpdates: Partial<Chat> = {};
+        if (hideVal !== null && hideVal !== Boolean(chat.hideProfileId)) {
+          chatUpdates.hideProfileId = hideVal;
+        }
+        if (updateNick && updateNick !== chat.name) {
+          chatUpdates.name = updateNick;
+        }
+        if (updateAvatar !== undefined && updateAvatar !== chat.avatarUrl) {
+          chatUpdates.avatarUrl = updateAvatar;
+        }
+        if (Object.keys(chatUpdates).length > 0) {
+          updateChat(chat.id, chatUpdates);
+        }
+      } catch {}
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [chat?.id, chat?.type, chat?.peerCode, updateChat]);
 
   const [isEditingChannel, setIsEditingChannel] = useState(false);
   const [editName, setEditName] = useState(chat?.name || '');

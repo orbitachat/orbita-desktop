@@ -607,6 +607,7 @@ export const MainLayout = () => {
     inChatSearch,
     closeInChatSearch,
     addChannelChat,
+    hideProfileId,
   } = useChatStore(useShallow(state => ({
     chats: state.chats,
     activeChatId: state.activeChatId,
@@ -631,6 +632,7 @@ export const MainLayout = () => {
     inChatSearch: state.inChatSearch,
     closeInChatSearch: state.closeInChatSearch,
     addChannelChat: state.addChannelChat,
+    hideProfileId: state.hideProfileId,
   })));
   const isServerConnected = useConnectionStore((state) => state.isServerConnected);
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
@@ -775,9 +777,9 @@ export const MainLayout = () => {
   useEffect(() => {
     if (step === 'main' && nickname && myCode) {
       const myKeys = generateKeyPair();
-      supabaseService.publishPublicProfile(myCode, nickname, avatarUrl || null, myKeys.publicKey).catch(() => {});
+      supabaseService.publishPublicProfile(myCode, nickname, avatarUrl || null, myKeys.publicKey, hideProfileId).catch(() => {});
     }
-  }, [step, nickname, myCode, avatarUrl]);
+  }, [step, nickname, myCode, avatarUrl, hideProfileId]);
 
   useEffect(() => {
     const pusher = getPusher();
@@ -1409,6 +1411,30 @@ export const MainLayout = () => {
               continue;
             }
 
+            if (messageData?.type === 'profile-update') {
+              const myCode = useChatStore.getState().myCode;
+              const myNickname = useAuthStore.getState().nickname;
+              if (
+                (messageData.sender && (messageData.sender === myNickname || messageData.sender === nickname)) ||
+                (messageData.senderCode && myCode && messageData.senderCode === myCode) ||
+                (messageData.senderId && myCode && messageData.senderId === myCode) ||
+                (messageData.nickname && (messageData.nickname === myNickname || messageData.nickname === nickname))
+              ) {
+                await supabaseService.markNonMessageDelivered(record.id);
+                continue;
+              }
+              const updates: Partial<Chat> = {};
+              if (messageData.avatarUrl !== undefined) updates.avatarUrl = messageData.avatarUrl;
+              if (messageData.nickname !== undefined && messageData.nickname !== myNickname && messageData.nickname !== nickname) updates.name = messageData.nickname;
+              if (messageData.senderCode && (!myCode || messageData.senderCode !== myCode)) updates.peerCode = messageData.senderCode;
+              if (messageData.hideProfileId !== undefined) updates.hideProfileId = Boolean(messageData.hideProfileId);
+              if (Object.keys(updates).length > 0) {
+                updateChat(record.chat_id, updates);
+              }
+              await supabaseService.markNonMessageDelivered(record.id);
+              continue;
+            }
+
             const msgId = messageData?.id || record.id;
             const isNonActiveChat = useChatStore.getState().activeChatId === record.chat_id && typeof document !== 'undefined' && document.visibilityState === 'visible';
             addMessage(record.chat_id, {
@@ -1618,19 +1644,29 @@ export const MainLayout = () => {
           (myNickname && update.nickname === myNickname) ||
           (nickname && update.nickname === nickname)
         );
+        const targetPeerCode = (chat.peerCode && chat.peerCode !== myCode)
+          ? chat.peerCode
+          : (update?.sender_code && update.sender_code !== myCode)
+            ? update.sender_code
+            : (chat.name && chat.name.length === 36 && chat.name !== myCode)
+              ? chat.name
+              : undefined;
+
         if (update && !isMyOwnUpdate) {
           if (update.nickname && update.nickname !== chat.name && update.nickname !== myNickname && update.nickname !== nickname) updates.name = update.nickname;
           if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
-          if (update.hide_profile_id !== undefined && update.hide_profile_id !== null && update.hide_profile_id !== chat.hideProfileId) {
+          if (update.hide_profile_id !== undefined && update.hide_profile_id !== null && Boolean(update.hide_profile_id) !== Boolean(chat.hideProfileId)) {
             updates.hideProfileId = Boolean(update.hide_profile_id);
           }
           if (update.sender_code && update.sender_code !== myCode && !chat.peerCode) updates.peerCode = update.sender_code;
-        } else if (chat.peerCode && chat.peerCode !== myCode) {
-          const pub = await supabaseService.lookupPublicProfile(chat.peerCode);
+        }
+
+        if (updates.hideProfileId === undefined && targetPeerCode) {
+          const pub = await supabaseService.lookupPublicProfile(targetPeerCode);
           if (pub) {
-            if (pub.nickname && pub.nickname !== chat.name && pub.nickname !== myNickname && pub.nickname !== nickname) updates.name = pub.nickname;
-            if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
-            if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null && pub.hide_profile_id !== chat.hideProfileId) {
+            if (pub.nickname && pub.nickname !== chat.name && pub.nickname !== myNickname && pub.nickname !== nickname && !updates.name) updates.name = pub.nickname;
+            if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl && !updates.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
+            if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null && Boolean(pub.hide_profile_id) !== Boolean(chat.hideProfileId)) {
               updates.hideProfileId = Boolean(pub.hide_profile_id);
             }
           }
@@ -2776,26 +2812,6 @@ export const MainLayout = () => {
         if (data.senderCode) updates.peerCode = data.senderCode;
         if (Object.keys(updates).length > 0) updateChat(chatId, updates);
         lastPongTime.current.set(chatId, Date.now());
-      }
-
-      if (data.type === 'profile-update') {
-        const myCode = useChatStore.getState().myCode;
-        const myNickname = useAuthStore.getState().nickname;
-        if (
-          (data.sender && (data.sender === myNickname || data.sender === nickname)) ||
-          (data.senderCode && myCode && data.senderCode === myCode) ||
-          (data.senderId && myCode && data.senderId === myCode) ||
-          (data.nickname && (data.nickname === myNickname || data.nickname === nickname))
-        ) {
-          return;
-        }
-        const updates: Partial<Chat> = {};
-        if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
-        if (data.nickname !== undefined && data.nickname !== myNickname && data.nickname !== nickname) updates.name = data.nickname;
-        if (data.senderCode && (!myCode || data.senderCode !== myCode)) updates.peerCode = data.senderCode;
-        if (data.hideProfileId !== undefined) updates.hideProfileId = data.hideProfileId;
-        updateChat(chatId, updates);
-        return;
       }
 
       if (data.type === 'system') {

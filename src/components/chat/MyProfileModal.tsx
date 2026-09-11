@@ -54,6 +54,21 @@ const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: stri
       };
       if (channel.subscribed) send();
       else channel.bind('pusher:subscription_succeeded', send);
+
+      const recipientTargets = Array.from(new Set([
+        chat.peerCode,
+        chat.name && chat.name.length === 36 ? chat.name : undefined,
+      ].filter((t): t is string => Boolean(t && t !== myCode))));
+
+      for (const target of recipientTargets) {
+        supabaseService.saveNonMessage(
+          chat.id,
+          myCode || 'user',
+          target,
+          JSON.stringify(payload),
+          `prof_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+        ).catch(() => {});
+      }
     }
   });
 };

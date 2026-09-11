@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { relayRouter } from './relayRouter';
 import { getVercelBaseUrl } from './gatewayManager';
+import { useChatStore } from '../store/useChatStore';
 
 export interface OfflineMessageRecord {
   id: string;
@@ -586,8 +587,9 @@ class SupabaseService {
     hideProfileId?: boolean | null
   ): Promise<void> {
     if (!userCode || !nickname) return;
+    const finalHide = hideProfileId !== undefined ? hideProfileId : useChatStore.getState().hideProfileId;
     try {
-      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, hideProfileId);
+      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, finalHide);
     } catch (e) {
       console.warn('[Directory] Failed to publish profile update:', e);
     }
