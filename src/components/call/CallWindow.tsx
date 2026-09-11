@@ -4,7 +4,7 @@ import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
 import { liveKitService } from '../../services/livekitService';
 import { useTranslation } from 'react-i18next';
-import { Phone, PhoneOff, Mic, MicOff, ChevronLeft, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2, Volume2 } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, ChevronLeft, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2, Volume2, Volume1, VolumeX, Zap } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
@@ -772,99 +772,204 @@ export const CallWindow = () => {
                   {isVolumeOpen && (
                     <motion.div
                       ref={volumeMenuRef}
-                      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                      initial={{ opacity: 0, y: 16, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 12, scale: 0.96 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute bottom-20 left-1/2 -translate-x-1/2 w-72 p-4 rounded-2xl shadow-2xl flex flex-col gap-4 z-50 select-none"
+                      exit={{ opacity: 0, y: 16, scale: 0.95 }}
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
+                      className="absolute bottom-20 left-1/2 -translate-x-1/2 w-80 p-4 rounded-3xl shadow-2xl flex flex-col gap-3.5 z-50 select-none"
                       style={{
-                        backgroundColor: 'var(--surface-container, #1e1e24)',
-                        border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
-                        backdropFilter: 'blur(20px)',
+                        backgroundColor: 'rgba(24, 24, 30, 0.94)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06)',
+                        backdropFilter: 'blur(30px) saturate(190%)',
                       }}
                     >
-                      <div className="flex items-center justify-between pb-1 border-b border-white/10">
-                        <div className="flex items-center gap-2">
-                          <Volume2 size={16} style={{ color: 'var(--accent-color, #7C3AED)' }} />
-                          <span className="text-sm font-semibold" style={{ color: 'var(--text-main, #ffffff)' }}>
-                            {t('call.volume_settings')}
-                          </span>
+                      <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-7 h-7 rounded-xl flex items-center justify-center shadow-inner"
+                            style={{
+                              backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 22%, transparent)',
+                              color: 'var(--accent-color, #7C3AED)',
+                            }}
+                          >
+                            <Volume2 size={16} />
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold tracking-tight" style={{ color: 'var(--text-main, #ffffff)' }}>
+                              {t('call.volume_settings', 'Громкость звонка')}
+                            </div>
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => setIsVolumeOpen(false)}
-                          aria-label={t('call.close')}
-                          className="p-1 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors border-0 bg-transparent cursor-pointer"
+                          aria-label={t('call.close', 'Закрыть')}
+                          className="w-7 h-7 rounded-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors border-0 bg-transparent cursor-pointer"
                         >
-                          <X size={14} />
+                          <X size={15} />
                         </button>
                       </div>
 
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                            {t('call.peer_volume')}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {peerVolume > 100 && (
-                              <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-amber-500/20 text-amber-300">
-                                {t('call.volume_boost')}
-                              </span>
-                            )}
-                            <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
-                              {peerVolume}%
+                      <div
+                        className="flex flex-col gap-2 p-3 rounded-2xl transition-colors"
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.035)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPeerVolume(peerVolume > 0 ? 0 : 100)}
+                              aria-label={t('call.peer_volume')}
+                              className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors border-0 bg-transparent cursor-pointer flex items-center justify-center"
+                            >
+                              {peerVolume === 0 ? (
+                                <VolumeX size={16} className="text-red-400" />
+                              ) : peerVolume < 60 ? (
+                                <Volume1 size={16} style={{ color: 'var(--accent-color, #7C3AED)' }} />
+                              ) : (
+                                <Volume2 size={16} style={{ color: 'var(--accent-color, #7C3AED)' }} />
+                              )}
+                            </button>
+                            <span className="text-xs font-medium" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                              {t('call.peer_volume', 'Собеседник')}
                             </span>
                           </div>
+                          <div className="flex items-center gap-1.5">
+                            {peerVolume > 100 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                <Zap size={10} />
+                                Boost {peerVolume}%
+                              </span>
+                            )}
+                            {peerVolume <= 100 && (
+                              <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
+                                {peerVolume}%
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="200"
-                          step="1"
-                          value={peerVolume}
-                          onChange={(e) => setPeerVolume(Number(e.target.value))}
-                          aria-label={t('call.peer_volume')}
-                          className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
-                          style={{ accentColor: 'var(--accent-color, #7C3AED)' }}
-                        />
-                        <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                          <span>0%</span>
-                          <span style={{ color: peerVolume === 100 ? 'var(--accent-color, #7C3AED)' : undefined }}>100%</span>
-                          <span>200%</span>
+
+                        <div className="relative flex items-center py-1">
+                          <input
+                            type="range"
+                            min="0"
+                            max="200"
+                            step="1"
+                            value={peerVolume}
+                            onChange={(e) => setPeerVolume(Number(e.target.value))}
+                            aria-label={t('call.peer_volume')}
+                            className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to right, ${peerVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)'} 0%, ${peerVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)'} ${(peerVolume / 200) * 100}%, rgba(255,255,255,0.12) ${(peerVolume / 200) * 100}%, rgba(255,255,255,0.12) 100%)`,
+                              accentColor: peerVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)',
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 pt-0.5">
+                          {[0, 50, 100, 150, 200].map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setPeerVolume(val)}
+                              aria-label={`${val}%`}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors border-0 cursor-pointer"
+                              style={{
+                                backgroundColor: peerVolume === val
+                                  ? (val > 100 ? 'rgba(245, 158, 11, 0.25)' : 'color-mix(in srgb, var(--accent-color, #7C3AED) 25%, transparent)')
+                                  : 'rgba(255, 255, 255, 0.05)',
+                                color: peerVolume === val
+                                  ? (val > 100 ? '#fbbf24' : 'var(--accent-color, #7C3AED)')
+                                  : 'var(--text-dim, #8a96a3)',
+                              }}
+                            >
+                              {val === 0 ? '0%' : `${val}%`}
+                            </button>
+                          ))}
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                            {t('call.mic_volume')}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {micVolume > 100 && (
-                              <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-amber-500/20 text-amber-300">
-                                {t('call.volume_boost')}
-                              </span>
-                            )}
-                            <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
-                              {micVolume}%
+                      <div
+                        className="flex flex-col gap-2 p-3 rounded-2xl transition-colors"
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.035)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setMicVolume(micVolume > 0 ? 0 : 100)}
+                              aria-label={t('call.mic_volume')}
+                              className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors border-0 bg-transparent cursor-pointer flex items-center justify-center"
+                            >
+                              {micVolume === 0 ? (
+                                <MicOff size={16} className="text-red-400" />
+                              ) : (
+                                <Mic size={16} style={{ color: 'var(--accent-color, #7C3AED)' }} />
+                              )}
+                            </button>
+                            <span className="text-xs font-medium" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                              {t('call.mic_volume', 'Микрофон')}
                             </span>
                           </div>
+                          <div className="flex items-center gap-1.5">
+                            {micVolume > 100 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                <Zap size={10} />
+                                Boost {micVolume}%
+                              </span>
+                            )}
+                            {micVolume <= 100 && (
+                              <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
+                                {micVolume}%
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="200"
-                          step="1"
-                          value={micVolume}
-                          onChange={(e) => setMicVolume(Number(e.target.value))}
-                          aria-label={t('call.mic_volume')}
-                          className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
-                          style={{ accentColor: 'var(--accent-color, #7C3AED)' }}
-                        />
-                        <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                          <span>0%</span>
-                          <span style={{ color: micVolume === 100 ? 'var(--accent-color, #7C3AED)' : undefined }}>100%</span>
-                          <span>200%</span>
+
+                        <div className="relative flex items-center py-1">
+                          <input
+                            type="range"
+                            min="0"
+                            max="200"
+                            step="1"
+                            value={micVolume}
+                            onChange={(e) => setMicVolume(Number(e.target.value))}
+                            aria-label={t('call.mic_volume')}
+                            className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to right, ${micVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)'} 0%, ${micVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)'} ${(micVolume / 200) * 100}%, rgba(255,255,255,0.12) ${(micVolume / 200) * 100}%, rgba(255,255,255,0.12) 100%)`,
+                              accentColor: micVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)',
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 pt-0.5">
+                          {[0, 50, 100, 150, 200].map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setMicVolume(val)}
+                              aria-label={`${val}%`}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors border-0 cursor-pointer"
+                              style={{
+                                backgroundColor: micVolume === val
+                                  ? (val > 100 ? 'rgba(245, 158, 11, 0.25)' : 'color-mix(in srgb, var(--accent-color, #7C3AED) 25%, transparent)')
+                                  : 'rgba(255, 255, 255, 0.05)',
+                                color: micVolume === val
+                                  ? (val > 100 ? '#fbbf24' : 'var(--accent-color, #7C3AED)')
+                                  : 'var(--text-dim, #8a96a3)',
+                              }}
+                            >
+                              {val === 0 ? '0%' : `${val}%`}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </motion.div>

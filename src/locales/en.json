@@ -461,6 +461,21 @@
     "settings": {
       "title": "Settings",
       "subtitle": "Manage your account and app",
+      "orbitos_ai": "ORBITA AI Assistant",
+      "ai_active": "Active",
+      "ai_free": "Gemini 1.5",
+      "ai_title": "Google Gemini 1.5 Flash",
+      "ai_status_label": "Free official AI assistant",
+      "ai_desc": "ORBITA bot uses the ultra-fast Gemini 1.5 Flash model. It will help you understand encryption, settings, backups, and answer any questions.",
+      "ai_get_free_key": "Get free key (Google AI Studio)",
+      "ai_key_label": "Gemini API Key",
+      "ai_key_placeholder": "Paste your AIzaSy... key",
+      "ai_save_btn": "Save Key",
+      "ai_test_btn": "Test",
+      "ai_clear_btn": "Remove",
+      "ai_status_testing": "Testing connection with Gemini...",
+      "ai_status_success": "Key verified successfully and ready to use!",
+      "ai_status_error": "Key verification failed. Please check the key.",
       "security": "Security",
       "security_desc": "Passcode and session management",
       "connection": "Connection",
@@ -1078,7 +1093,10 @@
       "faq_reply": "Frequently Asked Questions:\n\nQ: Where are my messages stored?\nA: Only locally on your computer.\n\nQ: How to transfer data to another PC?\nA: Create a .orbita backup in Settings and enter your 12-word key on the new device.\n\nQ: What if I lose my 12-word key?\nA: Without the file and key, recovery is impossible — encryption is mathematically irreversible.",
       "default_reply": "I understood you! If you have questions about Orbita, use one of the commands:\n\n/help — list all commands\n/backup — create backup\n/security — security & encryption\n/channels — channels\n/faq — frequent questions",
       "btn_backup": "Backup Settings",
-      "btn_channel": "Open Orbita Updates"
+      "btn_channel": "Open Orbita Updates",
+      "btn_setup_ai": "Set up Gemini AI",
+      "ai_no_key_prompt": "I can answer all your questions using Google Gemini 1.5 Flash AI.\n\nTo connect, enter your free Gemini API key in Settings.",
+      "ai_error": "Failed to get response from Gemini AI. Please check your network connection or API key in Settings."
     },
     "support": {
       "name": "Technical Support",

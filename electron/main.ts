@@ -27,6 +27,8 @@ import * as crypto from 'crypto';
 import * as sqlite3 from 'sqlite3';
 import { autoUpdater } from 'electron-updater';
 
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'orbita-media',

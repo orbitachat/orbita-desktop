@@ -2401,6 +2401,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return;
     }
 
+    if (btn.action === 'open_settings_ai') {
+      useChatStore.getState().openSettings('orbitosAi');
+      return;
+    }
+
     if (btn.action === 'send_command') {
       orbitosService.handleUserMessage(btn.data || btn.text, t);
       return;

@@ -6,6 +6,7 @@ class CallSoundService {
   private ctx: AudioContext | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
   private gainNode: GainNode | null = null;
+  private currentAudioElement: HTMLAudioElement | null = null;
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private isCurrentlyPlaying = false;
   private currentPlayId = 0;
@@ -38,20 +39,23 @@ class CallSoundService {
     const ctx = this.getAudioContext();
     if (!ctx) return null;
 
-    try {
-      const response = await fetch(path);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      this.bufferCache.set(path, audioBuffer);
-      return audioBuffer;
-    } catch {
-      return null;
+    const candidates = ['./' + path, '/' + path, path];
+    for (const candidate of candidates) {
+      try {
+        const response = await fetch(candidate);
+        if (!response.ok) continue;
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        this.bufferCache.set(path, audioBuffer);
+        return audioBuffer;
+      } catch {}
     }
+    return null;
   }
 
   async play(type: CallSoundType): Promise<void> {
     const callSoundsEnabled = useChatStore.getState().callSoundsEnabled;
-    if (!callSoundsEnabled) {
+    if (callSoundsEnabled === false) {
       return;
     }
 
@@ -60,51 +64,82 @@ class CallSoundService {
       return;
     }
 
-    const playId = ++this.currentPlayId;
     this.stop();
+    const playId = ++this.currentPlayId;
 
+    const isLoop = (type === 'incoming' || type === 'outgoing');
     const ctx = this.getAudioContext();
-    if (!ctx) return;
 
-    const speakerId = useChatStore.getState().selectedSpeakerId;
-    if (speakerId && typeof (ctx as any).setSinkId === 'function') {
+    if (ctx) {
+      const speakerId = useChatStore.getState().selectedSpeakerId;
+      if (speakerId && typeof (ctx as any).setSinkId === 'function') {
+        try {
+          await (ctx as any).setSinkId(speakerId);
+        } catch {}
+      }
+
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch {}
+      }
+
       try {
-        await (ctx as any).setSinkId(speakerId);
+        const buffer = await this.loadBuffer(path);
+        if (this.currentPlayId !== playId) return;
+
+        if (buffer) {
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.loop = isLoop;
+
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = 1.0;
+
+          source.connect(gainNode);
+          gainNode.connect(ctx.destination);
+
+          source.onended = () => {
+            if (this.currentSource === source) {
+              this.currentSource = null;
+              this.isCurrentlyPlaying = false;
+            }
+          };
+
+          this.currentSource = source;
+          this.gainNode = gainNode;
+          this.isCurrentlyPlaying = true;
+
+          source.start(0);
+          return;
+        }
       } catch {}
     }
 
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-      } catch {}
-    }
+    if (this.currentPlayId !== playId) return;
 
     try {
-      const buffer = await this.loadBuffer(path);
-      if (!buffer || this.currentPlayId !== playId) return;
+      const audio = new Audio('./' + path);
+      audio.loop = isLoop;
+      audio.volume = 1.0;
 
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = (type === 'incoming' || type === 'outgoing');
+      const speakerId = useChatStore.getState().selectedSpeakerId;
+      if (speakerId && typeof (audio as any).setSinkId === 'function') {
+        try {
+          await (audio as any).setSinkId(speakerId);
+        } catch {}
+      }
 
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 1.0;
-
-      source.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      source.onended = () => {
-        if (this.currentSource === source) {
-          this.currentSource = null;
+      audio.onended = () => {
+        if (this.currentAudioElement === audio) {
+          this.currentAudioElement = null;
           this.isCurrentlyPlaying = false;
         }
       };
 
-      this.currentSource = source;
-      this.gainNode = gainNode;
+      this.currentAudioElement = audio;
       this.isCurrentlyPlaying = true;
-
-      source.start(0);
+      await audio.play();
     } catch {
       this.stop();
     }
@@ -124,6 +159,13 @@ class CallSoundService {
         this.gainNode.disconnect();
       } catch {}
       this.gainNode = null;
+    }
+    if (this.currentAudioElement) {
+      try {
+        this.currentAudioElement.pause();
+        this.currentAudioElement.currentTime = 0;
+      } catch {}
+      this.currentAudioElement = null;
     }
     this.isCurrentlyPlaying = false;
   }

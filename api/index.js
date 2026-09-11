@@ -19,6 +19,7 @@ const ENV = {
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
 };
 
 const CORS_HEADERS = {
@@ -213,7 +214,22 @@ async function getParsedBody(req) {
       }
     });
   });
-}
+const ORBITOS_SYSTEM_PROMPT = `Ты — официальный искусственный интеллект ORBITA в мессенджере Orbita.
+Твоя цель — отвечать на вопросы пользователя об Orbita, технологиях шифрования, функциях мессенджера и помогать в любых вопросах.
+
+Ключевые факты об Orbita:
+- Архитектура и приватность: Сквозное шифрование (End-to-End Encryption) на базе протокола Double Ratchet.
+- Ключи: Curve25519, Ed25519, AES-256-GCM. Приватные ключи генерируются локально на устройстве пользователя и никогда не передаются на серверы.
+- Без учетных записей: аккаунт привязан к криптографическому публичному коду и мнемонической фразе (12 слов).
+- Резервная копия: профиль можно экспортировать в зашифрованный файл бэкапа (.orbita) в Настройках -> Резервная копия или восстановить по мнемонике. История сообщений хранится локально на устройстве.
+- Звонки: WebRTC прямое P2P соединение или через LiveKit релей. Поддерживаются аудио и видеозвонки, демонстрация экрана, переключение устройств и усиление громкости звука до 200%.
+- Каналы: Публичные каналы, лента постов, реакции и комментарии.
+- Техническая поддержка: Чат с официальной техподдержкой Orbita для тикетов.
+
+Правила:
+1. Отвечай на том языке, на котором обратился пользователь.
+2. Будь вежливым, лаконичным, точным и дружелюбным.
+3. Помогай с решением любых технических вопросов и вопросов общего характера.`;
 
 module.exports = async function handler(req, res) {
   for (const [k, v] of Object.entries(CORS_HEADERS)) {
@@ -1098,6 +1114,59 @@ module.exports = async function handler(req, res) {
       if (error) return sendError(res, error.message, 500);
       const codes = (data || []).map((d) => d.code).filter(Boolean);
       return sendJson(res, { developers: codes });
+    }
+
+    if (pathname === '/orbitos/ai' && req.method === 'POST') {
+      const apiKey = (body && body.apiKey) || ENV.GEMINI_API_KEY;
+      if (!apiKey) {
+        return sendError(res, 'GEMINI_API_KEY_NOT_CONFIGURED', 400);
+      }
+      const userMessage = (body && body.message) ? String(body.message).trim() : '';
+      if (!userMessage) {
+        return sendError(res, 'Empty message', 400);
+      }
+      const history = Array.isArray(body?.history) ? body.history : [];
+      const contents = [];
+      for (const item of history.slice(-10)) {
+        if (item && item.text) {
+          contents.push({
+            role: item.isOutgoing ? 'user' : 'model',
+            parts: [{ text: String(item.text) }],
+          });
+        }
+      }
+      contents.push({
+        role: 'user',
+        parts: [{ text: userMessage }],
+      });
+
+      const systemInstruction = (body && body.systemPrompt) || ORBITOS_SYSTEM_PROMPT;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const payload = {
+        system_instruction: {
+          parts: [{ text: systemInstruction }],
+        },
+        contents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1000,
+        },
+      };
+
+      const aiRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!aiRes.ok) {
+        const errText = await aiRes.text();
+        return sendError(res, `Gemini API error: ${errText}`, aiRes.status);
+      }
+
+      const aiData = await aiRes.json();
+      const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return sendJson(res, { reply: replyText });
     }
 
     return sendError(res, 'Endpoint not found', 404);

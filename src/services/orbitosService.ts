@@ -1,4 +1,5 @@
 import { useChatStore, Chat, Message } from '../store/useChatStore';
+import { getVercelBaseUrl } from './gatewayManager';
 
 class OrbitosService {
   public readonly BOT_ID = 'system_orbitos';
@@ -126,6 +127,69 @@ class OrbitosService {
     }
   }
 
+  private async askGeminiAI(userText: string): Promise<{ reply: string; buttons?: Message['buttons'] } | null> {
+    const localKey = typeof window !== 'undefined' ? (localStorage.getItem('orbita_gemini_api_key') || '') : '';
+    const store = useChatStore.getState();
+    const history = (store.messagesByChatId[this.BOT_ID] || []).slice(-10).map((m) => ({
+      text: m.text,
+      isOutgoing: m.isOutgoing,
+    }));
+
+    try {
+      const baseUrl = getVercelBaseUrl();
+      const res = await fetch(`${baseUrl}/orbitos/ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userText,
+          apiKey: localKey || undefined,
+          history,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.reply) {
+          return { reply: data.reply };
+        }
+      }
+
+      if (localKey) {
+        const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${localKey}`;
+        const contents = history.map((h) => ({
+          role: h.isOutgoing ? 'user' : 'model',
+          parts: [{ text: h.text }],
+        }));
+        contents.push({
+          role: 'user',
+          parts: [{ text: userText }],
+        });
+
+        const directRes = await fetch(directUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents,
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1000,
+            },
+          }),
+        });
+
+        if (directRes.ok) {
+          const directData = await directRes.json();
+          const directText = directData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (directText) {
+            return { reply: directText };
+          }
+        }
+      }
+    } catch {}
+
+    return null;
+  }
+
   public async handleUserMessage(userText: string, t: any): Promise<void> {
     const raw = userText.trim().toLowerCase();
     let reply = '';
@@ -161,41 +225,54 @@ class OrbitosService {
           icon: 'backup',
         },
       ];
-    } else if (raw === '/backup' || raw.includes('бэкап') || raw.includes('копи')) {
-      reply = t('orbitos.backup_reply');
-      buttons = [
-        {
-          text: t('orbitos.btn_backup', 'Резервная копия'),
-          action: 'open_backup',
-          icon: 'backup',
-        },
-      ];
-    } else if (raw === '/channels' || raw.includes('канал')) {
-      reply = t('orbitos.channels_reply');
-      buttons = [
-        {
-          text: t('orbitos.btn_channel', 'Перейти в Orbita Updates'),
-          action: 'open_channel',
-          channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
-          icon: 'channel',
-        },
-      ];
-    } else if (raw === '/security' || raw.includes('безопасн') || raw.includes('шифр') || raw.includes('ratchet')) {
-      reply = t('orbitos.security_reply');
-    } else if (raw === '/privacy' || raw.includes('приватн') || raw.includes('скрыть') || raw.includes('id')) {
-      reply = t('orbitos.privacy_reply');
-    } else if (raw === '/calls' || raw.includes('звон') || raw.includes('видео') || raw.includes('webrtc')) {
-      reply = t('orbitos.calls_reply');
-    } else if (raw === '/appearance' || raw.includes('тема') || raw.includes('цвет') || raw.includes('дизайн')) {
-      reply = t('orbitos.appearance_reply');
-    } else if (raw === '/proxy' || raw === '/network' || raw.includes('прокси') || raw.includes('сеть')) {
-      reply = t('orbitos.proxy_reply');
-    } else if (raw === '/faq' || raw.includes('вопрос')) {
-      reply = t('orbitos.faq_reply');
-    } else if (raw === '/about' || raw.includes('орбита') || raw.includes('orbita')) {
-      reply = t('orbitos.welcome_msg_1');
     } else {
-      reply = t('orbitos.default_reply');
+      const aiResult = await this.askGeminiAI(userText);
+      if (aiResult && aiResult.reply) {
+        reply = aiResult.reply;
+        buttons = aiResult.buttons;
+      } else if (raw === '/backup' || raw.includes('бэкап') || raw.includes('копи')) {
+        reply = t('orbitos.backup_reply');
+        buttons = [
+          {
+            text: t('orbitos.btn_backup', 'Резервная копия'),
+            action: 'open_backup',
+            icon: 'backup',
+          },
+        ];
+      } else if (raw === '/channels' || raw.includes('канал')) {
+        reply = t('orbitos.channels_reply');
+        buttons = [
+          {
+            text: t('orbitos.btn_channel', 'Перейти в Orbita Updates'),
+            action: 'open_channel',
+            channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
+            icon: 'channel',
+          },
+        ];
+      } else if (raw === '/security' || raw.includes('безопасн') || raw.includes('шифр') || raw.includes('ratchet')) {
+        reply = t('orbitos.security_reply');
+      } else if (raw === '/privacy' || raw.includes('приватн') || raw.includes('скрыть') || raw.includes('id')) {
+        reply = t('orbitos.privacy_reply');
+      } else if (raw === '/calls' || raw.includes('звон') || raw.includes('видео') || raw.includes('webrtc')) {
+        reply = t('orbitos.calls_reply');
+      } else if (raw === '/appearance' || raw.includes('тема') || raw.includes('цвет') || raw.includes('дизайн')) {
+        reply = t('orbitos.appearance_reply');
+      } else if (raw === '/proxy' || raw === '/network' || raw.includes('прокси') || raw.includes('сеть')) {
+        reply = t('orbitos.proxy_reply');
+      } else if (raw === '/faq' || raw.includes('вопрос')) {
+        reply = t('orbitos.faq_reply');
+      } else if (raw === '/about' || raw.includes('орбита') || raw.includes('orbita')) {
+        reply = t('orbitos.welcome_msg_1');
+      } else {
+        reply = t('orbitos.ai_no_key_prompt', 'Я могу отвечать на любые вопросы с помощью ИИ Gemini 1.5 Flash.\n\nДля подключения введите бесплатный API-ключ в Настройках.');
+        buttons = [
+          {
+            text: t('orbitos.btn_setup_ai', 'Настроить Gemini ИИ'),
+            action: 'open_settings_ai',
+            icon: 'backup',
+          },
+        ];
+      }
     }
 
     await new Promise((resolve) => setTimeout(resolve, 500));
