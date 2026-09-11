@@ -155,7 +155,7 @@ class OrbitosService {
       }
 
       if (localKey) {
-        const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${localKey}`;
+        const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${localKey}`;
         const contents = history.map((h) => ({
           role: h.isOutgoing ? 'user' : 'model',
           parts: [{ text: h.text }],

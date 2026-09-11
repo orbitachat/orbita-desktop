@@ -1143,7 +1143,6 @@ module.exports = async function handler(req, res) {
       });
 
       const systemInstruction = (body && body.systemPrompt) || ORBITOS_SYSTEM_PROMPT;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       const payload = {
         system_instruction: {
           parts: [{ text: systemInstruction }],
@@ -1155,11 +1154,19 @@ module.exports = async function handler(req, res) {
         },
       };
 
-      const aiRes = await fetch(url, {
+      let aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      if (!aiRes.ok && aiRes.status === 404) {
+        aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!aiRes.ok) {
         const errText = await aiRes.text();
