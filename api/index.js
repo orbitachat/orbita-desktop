@@ -555,6 +555,7 @@ module.exports = async function handler(req, res) {
 
       await triggerPusherEvent('support-admin', 'new-ticket', ticketPayload);
       await triggerAblyEvent('support-admin', 'new-ticket', ticketPayload);
+      await triggerAblyEvent('chat:support-admin', 'client-message', { type: 'new-ticket', ticket: ticketPayload, ...ticketPayload });
 
       return sendJson(res, { status: 'ok', ticketNumber });
     }
@@ -710,9 +711,30 @@ module.exports = async function handler(req, res) {
           adminReply,
           answeredAt,
         });
+        await triggerAblyEvent(`chat:user-${existingTicket.user_code}`, 'client-message', {
+          type: 'ticket-reply',
+          ticketNumber,
+          adminReply,
+          answeredAt,
+        });
       }
 
       await triggerPusherEvent('support-admin', 'ticket-updated', {
+        ticketNumber,
+        adminReply,
+        adminCode,
+        status: 'answered',
+        answeredAt,
+      });
+      await triggerAblyEvent('support-admin', 'ticket-updated', {
+        ticketNumber,
+        adminReply,
+        adminCode,
+        status: 'answered',
+        answeredAt,
+      });
+      await triggerAblyEvent('chat:support-admin', 'client-message', {
+        type: 'ticket-updated',
         ticketNumber,
         adminReply,
         adminCode,

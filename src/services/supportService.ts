@@ -2,6 +2,7 @@ import { useChatStore, Chat, Message } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { getPusher } from '../utils/pusher';
 import { gatewayManager } from './gatewayManager';
+import { ablyService } from './ablyService';
 
 export interface SupportTicketRecord {
   id?: number;
@@ -23,12 +24,13 @@ class SupportService {
   private myCode: string = '';
   private t: any = null;
   private syncInterval: any = null;
-  private isSubscribed: boolean = false;
+  private isAdminSubscribed: boolean = false;
+  private isUserSubscribed: boolean = false;
 
-  public initSupportChat(t: any): void {
+  public initSupportChat(t: any, userCode?: string): void {
     this.t = t;
     const store = useChatStore.getState();
-    this.myCode = store.myCode || '';
+    this.myCode = userCode || store.myCode || this.myCode || '';
 
     const existing = store.chats.find((c) => c.id === this.BOT_ID);
     const chatName = t('support.name', 'Техническая поддержка');
@@ -62,12 +64,22 @@ class SupportService {
       store.addMessage(this.BOT_ID, welcomeMsg);
     }
 
-    this.checkAdminStatus();
+    if (!this.myCode) {
+      const unsub = useChatStore.subscribe((state) => {
+        if (state.myCode && state.myCode !== this.myCode) {
+          this.myCode = state.myCode;
+          this.checkAdminStatus();
+          unsub();
+        }
+      });
+    } else {
+      this.checkAdminStatus();
+    }
   }
 
   public async checkAdminStatus(): Promise<void> {
     const store = useChatStore.getState();
-    this.myCode = store.myCode || '';
+    this.myCode = store.myCode || this.myCode || '';
     if (!this.myCode) return;
 
     try {
@@ -113,21 +125,21 @@ class SupportService {
             store.addMessage(this.BOT_ID, adminInitMsg);
           }
 
-          this.setupAdminPusher();
+          this.setupAdminRealtime();
           this.fetchAdminTickets();
-          this.startSync(15000);
+          this.startSync(8000);
           return;
         }
       }
     } catch {}
 
     this.isAdmin = false;
-    this.setupUserPusher();
-    this.startSync(35000);
+    this.setupUserRealtime();
+    this.startSync(25000);
   }
 
-  private setupAdminPusher(): void {
-    if (this.isSubscribed) return;
+  private setupAdminRealtime(): void {
+    if (this.isAdminSubscribed) return;
     try {
       const pusher = getPusher();
       const channel = pusher.subscribe('support-admin');
@@ -137,12 +149,36 @@ class SupportService {
       channel.bind('ticket-updated', (data: any) => {
         if (data?.ticketNumber) this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
       });
-      this.isSubscribed = true;
     } catch {}
+
+    try {
+      ablyService.subscribeToChatMessages('support-admin', (data: any) => {
+        if (!data) return;
+        if (data.type === 'new-ticket' && data.ticket) {
+          this.handleIncomingTicket(data.ticket);
+        } else if (data.ticket_number || data.ticketNumber) {
+          this.handleIncomingTicket(data);
+        } else if (data.type === 'ticket-updated') {
+          this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
+        }
+      });
+      ablyService.subscribeToChatMessages('chat:support-admin', (data: any) => {
+        if (!data) return;
+        if (data.type === 'new-ticket' && data.ticket) {
+          this.handleIncomingTicket(data.ticket);
+        } else if (data.ticket_number || data.ticketNumber) {
+          this.handleIncomingTicket(data);
+        } else if (data.type === 'ticket-updated') {
+          this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
+        }
+      });
+    } catch {}
+
+    this.isAdminSubscribed = true;
   }
 
-  private setupUserPusher(): void {
-    if (this.isSubscribed || !this.myCode) return;
+  private setupUserRealtime(): void {
+    if (this.isUserSubscribed || !this.myCode) return;
     try {
       const pusher = getPusher();
       const channel = pusher.subscribe(`user-${this.myCode}`);
@@ -151,8 +187,22 @@ class SupportService {
           this.deliverUserReply(data.ticketNumber, data.adminReply, data.answeredAt);
         }
       });
-      this.isSubscribed = true;
     } catch {}
+
+    try {
+      ablyService.subscribeToChatMessages(`user-${this.myCode}`, (data: any) => {
+        if (data?.type === 'ticket-reply' || (data?.ticketNumber && data?.adminReply)) {
+          this.deliverUserReply(data.ticketNumber, data.adminReply, data.answeredAt);
+        }
+      });
+      ablyService.subscribeToChatMessages(`chat:user-${this.myCode}`, (data: any) => {
+        if (data?.type === 'ticket-reply' || (data?.ticketNumber && data?.adminReply)) {
+          this.deliverUserReply(data.ticketNumber, data.adminReply, data.answeredAt);
+        }
+      });
+    } catch {}
+
+    this.isUserSubscribed = true;
   }
 
   public async fetchAdminTickets(): Promise<void> {
@@ -163,7 +213,8 @@ class SupportService {
       if (this.adminToken) {
         headers['X-Admin-Token'] = this.adminToken;
       }
-      const res = await gatewayManager.fetch(`/support/admin/tickets?userCode=${encodeURIComponent(this.myCode)}`, { headers });
+      const tokenQuery = this.adminToken ? `&adminToken=${encodeURIComponent(this.adminToken)}` : '';
+      const res = await gatewayManager.fetch(`/support/admin/tickets?userCode=${encodeURIComponent(this.myCode)}${tokenQuery}`, { headers });
       if (res.ok) {
         const data = await res.json();
         const tickets: SupportTicketRecord[] = data.tickets || [];

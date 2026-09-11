@@ -763,8 +763,14 @@ export const MainLayout = () => {
 
   useEffect(() => {
     orbitosService.initOrbitosChat(t);
-    supportService.initSupportChat(t);
-  }, [t]);
+    supportService.initSupportChat(t, myCode);
+  }, [t, myCode]);
+
+  useEffect(() => {
+    if (activeChatId === supportService.BOT_ID) {
+      supportService.checkAdminStatus();
+    }
+  }, [activeChatId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
