@@ -746,9 +746,35 @@ export const useChatStore = create<ChatState>()(
         });
       },
       updateChat: (chatId, updates) =>
-        set((state) => ({
-          chats: state.chats.map(c => c.id === chatId ? { ...c, ...updates } : c)
-        })),
+        set((state) => {
+          const myCode = state.myCode;
+          let myNick = '';
+          let myAvatar = '';
+          try {
+            const raw = localStorage.getItem('orbita-auth-storage');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              myNick = parsed?.state?.nickname || '';
+              myAvatar = parsed?.state?.avatarUrl || '';
+            }
+          } catch {}
+          const cleanUpdates = { ...updates };
+          const target = state.chats.find(c => c.id === chatId);
+          if (target && target.type === 'private' && chatId !== 'notes') {
+            if (cleanUpdates.name && myNick && cleanUpdates.name.trim().toLowerCase() === myNick.trim().toLowerCase()) {
+              delete cleanUpdates.name;
+            }
+            if (cleanUpdates.peerCode && myCode && cleanUpdates.peerCode === myCode) {
+              delete cleanUpdates.peerCode;
+            }
+            if (cleanUpdates.avatarUrl && myAvatar && cleanUpdates.avatarUrl === myAvatar) {
+              delete cleanUpdates.avatarUrl;
+            }
+          }
+          return {
+            chats: state.chats.map(c => c.id === chatId ? { ...c, ...cleanUpdates } : c)
+          };
+        }),
       togglePinChat: (chatId) => {
         if (chatId === 'notes') return;
         set((state) => {

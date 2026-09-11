@@ -565,7 +565,20 @@ export default {
         return jsonResponse({ status: 'ok' });
       }
 
-      // 9. Relay: Profiles
+      if (pathname === '/relay/chat-handshakes' && request.method === 'GET') {
+        const supabase = getSupabaseClient(env);
+        if (!supabase) return errorResponse('Database not configured on server', 500);
+        const chatId = url.searchParams.get('chatId');
+        if (!chatId) return errorResponse('Missing chatId parameter', 400);
+        const { data, error } = await supabase
+          .from('handshakes')
+          .select('*')
+          .eq('chat_id', chatId)
+          .order('created_at', { ascending: false });
+        if (error) return errorResponse(error.message, 500);
+        return jsonResponse({ handshakes: data || [] });
+      }
+
       if (pathname === '/relay/profile' && request.method === 'POST') {
         const supabase = getSupabaseClient(env);
         if (!supabase) return errorResponse('Database not configured on server', 500);
@@ -581,7 +594,9 @@ export default {
         if (!body.chatId) return errorResponse('Missing chatId parameter', 400);
 
         try {
-          await supabase.from('profile_updates').delete().eq('chat_id', body.chatId);
+          if (body.senderCode) {
+            await supabase.from('profile_updates').delete().eq('chat_id', body.chatId).eq('sender_code', body.senderCode);
+          }
         } catch {}
 
         const { data, error } = await supabase
@@ -656,11 +671,18 @@ export default {
 
         const chatId = url.searchParams.get('chatId');
         if (!chatId) return errorResponse('Missing chatId parameter', 400);
+        const excludeCode = url.searchParams.get('excludeCode');
 
-        const { data, error } = await supabase
+        let query = supabase
           .from('profile_updates')
           .select('*')
-          .eq('chat_id', chatId)
+          .eq('chat_id', chatId);
+
+        if (excludeCode) {
+          query = query.neq('sender_code', excludeCode);
+        }
+
+        const { data, error } = await query
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();

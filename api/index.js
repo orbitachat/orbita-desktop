@@ -439,12 +439,28 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { status: 'ok' });
     }
 
+    if (pathname === '/relay/chat-handshakes' && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const chatId = query.chatId;
+      if (!chatId) return sendError(res, 'Missing chatId parameter', 400);
+      const { data, error } = await supabase
+        .from('handshakes')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: false });
+      if (error) return sendError(res, error.message, 500);
+      return sendJson(res, { handshakes: data || [] });
+    }
+
     if (pathname === '/relay/profile' && req.method === 'POST') {
       const supabase = getSupabaseClient();
       if (!supabase) return sendError(res, 'Database not configured', 500);
       if (!body.chatId) return sendError(res, 'Missing chatId parameter', 400);
       try {
-        await supabase.from('profile_updates').delete().eq('chat_id', body.chatId);
+        if (body.senderCode) {
+          await supabase.from('profile_updates').delete().eq('chat_id', body.chatId).eq('sender_code', body.senderCode);
+        }
       } catch {}
       const { data, error } = await supabase.from('profile_updates').insert({
         chat_id: body.chatId,
@@ -504,10 +520,14 @@ module.exports = async function handler(req, res) {
       if (!supabase) return sendError(res, 'Database not configured', 500);
       const chatId = query.chatId;
       if (!chatId) return sendError(res, 'Missing chatId parameter', 400);
-      const { data, error } = await supabase
+      let queryBuilder = supabase
         .from('profile_updates')
         .select('*')
-        .eq('chat_id', chatId)
+        .eq('chat_id', chatId);
+      if (query.excludeCode) {
+        queryBuilder = queryBuilder.neq('sender_code', query.excludeCode);
+      }
+      const { data, error } = await queryBuilder
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();

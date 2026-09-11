@@ -1455,7 +1455,7 @@ export const MainLayout = () => {
       if (checkedRecoveryChatsRef.current.has(chat.id)) continue;
       const is36CharCode = Boolean(chat.name && chat.name.length === 36 && !chat.name.includes(' '));
       const isCorruptedName =
-        chat.name === nickname ||
+        (nickname && chat.name === nickname) ||
         chat.name === 'Peppe' ||
         chat.name === 'Saizzi' ||
         chat.name === 'undefined' ||
@@ -1468,13 +1468,14 @@ export const MainLayout = () => {
         chat.avatarUrl === 'null'
       );
 
-      if (!isCorruptedName && !isCorruptedAvatar) continue;
+      const isCorruptedPeerCode = Boolean(myCode && chat.peerCode === myCode);
+
+      if (!isCorruptedName && !isCorruptedAvatar && !isCorruptedPeerCode) continue;
 
       let recoveredName: string | undefined;
       let recoveredAvatar: string | undefined = isCorruptedAvatar ? undefined : chat.avatarUrl;
-      let recoveredPeerCode: string | undefined = (chat.peerCode && chat.peerCode !== 'undefined' && chat.peerCode !== 'null') ? chat.peerCode : undefined;
+      let recoveredPeerCode: string | undefined = (chat.peerCode && chat.peerCode !== 'undefined' && chat.peerCode !== 'null' && (!myCode || chat.peerCode !== myCode)) ? chat.peerCode : undefined;
 
-      // 1. Check message history for real incoming messages from the friend
       const msgs = useChatStore.getState().messagesByChatId[chat.id] || [];
       for (const m of msgs) {
         if (
@@ -1488,11 +1489,20 @@ export const MainLayout = () => {
           m.sender.length !== 36
         ) {
           recoveredName = m.sender.trim();
-          break;
         }
+        if (
+          m.senderId &&
+          myCode &&
+          m.senderId !== myCode &&
+          m.senderId !== 'undefined' &&
+          m.senderId !== 'null' &&
+          m.senderId.length >= 8
+        ) {
+          recoveredPeerCode = m.senderId.trim();
+        }
+        if (recoveredName && recoveredPeerCode) break;
       }
 
-      // 2. Query Supabase handshakes table for this chat
       try {
         const handshakes = await supabaseService.getHandshakeRecordsForChat(chat.id);
         for (const hs of handshakes) {
@@ -1500,10 +1510,12 @@ export const MainLayout = () => {
             if (!recoveredName && hs.sender_nickname && hs.sender_nickname.length !== 36 && hs.sender_nickname !== 'undefined' && hs.sender_nickname !== 'null') {
               recoveredName = hs.sender_nickname.trim();
             }
-            if (hs.sender_avatar_url && hs.sender_avatar_url !== 'undefined' && hs.sender_avatar_url !== 'null' && hs.sender_avatar_url.trim()) {
+            if (!recoveredAvatar && hs.sender_avatar_url && hs.sender_avatar_url !== 'undefined' && hs.sender_avatar_url !== 'null' && hs.sender_avatar_url.trim()) {
               recoveredAvatar = hs.sender_avatar_url.trim();
             }
-            recoveredPeerCode = hs.sender_code.trim();
+            if (!recoveredPeerCode) {
+              recoveredPeerCode = hs.sender_code.trim();
+            }
             break;
           } else if (
             hs.sender_nickname &&
@@ -1515,7 +1527,7 @@ export const MainLayout = () => {
             hs.sender_nickname.length !== 36
           ) {
             if (!recoveredName) recoveredName = hs.sender_nickname.trim();
-            if (hs.sender_avatar_url && hs.sender_avatar_url !== 'undefined' && hs.sender_avatar_url !== 'null' && hs.sender_avatar_url.trim()) {
+            if (!recoveredAvatar && hs.sender_avatar_url && hs.sender_avatar_url !== 'undefined' && hs.sender_avatar_url !== 'null' && hs.sender_avatar_url.trim()) {
               recoveredAvatar = hs.sender_avatar_url.trim();
             }
           }
@@ -1527,16 +1539,17 @@ export const MainLayout = () => {
             hs.recipient_code !== 'undefined' &&
             hs.recipient_code !== 'null'
           ) {
-            recoveredPeerCode = hs.recipient_code.trim();
+            if (!recoveredPeerCode) {
+              recoveredPeerCode = hs.recipient_code.trim();
+            }
           }
         }
       } catch (err) {
         console.warn('[Recovery] Failed to fetch handshake for chat', chat.id, err);
       }
 
-      // 3. Query public profile directory by peerCode
-      const targetCode = (recoveredPeerCode || chat.peerCode)?.trim();
-      if (targetCode && targetCode !== 'undefined' && targetCode !== 'null') {
+      const targetCode = (recoveredPeerCode || (!myCode || chat.peerCode !== myCode ? chat.peerCode : undefined))?.trim();
+      if (targetCode && targetCode !== 'undefined' && targetCode !== 'null' && (!myCode || targetCode !== myCode)) {
         try {
           const profile = await supabaseService.lookupPublicProfile(targetCode);
           if (profile) {
@@ -1550,7 +1563,6 @@ export const MainLayout = () => {
         } catch {}
       }
 
-      // Clean corrupted avatar clone if no valid new avatar was found
       if (isCorruptedAvatar && (recoveredAvatar === avatarUrl || recoveredAvatar === 'undefined' || recoveredAvatar === 'null')) {
         recoveredAvatar = undefined;
       }
@@ -1568,35 +1580,55 @@ export const MainLayout = () => {
       }
       if (recoveredPeerCode && recoveredPeerCode !== chat.peerCode && recoveredPeerCode !== 'undefined' && recoveredPeerCode !== 'null') {
         updates.peerCode = recoveredPeerCode;
+      } else if (chat.peerCode && myCode && chat.peerCode === myCode && !recoveredPeerCode) {
+        updates.peerCode = undefined;
       }
 
-      // Only perform update if there are genuine changes
       if (Object.keys(updates).length > 0) {
         console.log('[Recovery] Cleaned friend profile for chat', chat.id, updates);
         updateChat(chat.id, updates);
       }
-      checkedRecoveryChatsRef.current.add(chat.id);
+
+      const finalName = updates.name || chat.name;
+      const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : chat.avatarUrl;
+      const finalPeerCode = updates.peerCode !== undefined ? updates.peerCode : chat.peerCode;
+      const stillCorrupted =
+        (nickname && finalName === nickname) ||
+        finalName === 'Peppe' ||
+        finalName === 'Saizzi' ||
+        (avatarUrl && finalAvatar === avatarUrl) ||
+        (myCode && finalPeerCode === myCode);
+      if (!stillCorrupted) {
+        checkedRecoveryChatsRef.current.add(chat.id);
+      }
     }
   }, [nickname, avatarUrl, myCode, updateChat]);
 
   const syncOfflineFriendProfiles = useCallback(async () => {
+    const myNickname = useAuthStore.getState().nickname;
+    const myCode = useChatStore.getState().myCode;
     const currentChats = useChatStore.getState().chats;
     const privateChats = currentChats.filter((c) => c.type === 'private' && c.id !== 'notes');
     for (const chat of privateChats) {
       try {
-        const update = await supabaseService.getLatestProfileUpdate(chat.id);
+        const update = await supabaseService.getLatestProfileUpdate(chat.id, myCode || undefined);
         const updates: Partial<Chat> = {};
-        if (update) {
-          if (update.nickname && update.nickname !== chat.name) updates.name = update.nickname;
+        const isMyOwnUpdate = update && (
+          (myCode && update.sender_code === myCode) ||
+          (myNickname && update.nickname === myNickname) ||
+          (nickname && update.nickname === nickname)
+        );
+        if (update && !isMyOwnUpdate) {
+          if (update.nickname && update.nickname !== chat.name && update.nickname !== myNickname && update.nickname !== nickname) updates.name = update.nickname;
           if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
           if (update.hide_profile_id !== undefined && update.hide_profile_id !== null && update.hide_profile_id !== chat.hideProfileId) {
             updates.hideProfileId = Boolean(update.hide_profile_id);
           }
-          if (update.sender_code && !chat.peerCode) updates.peerCode = update.sender_code;
-        } else if (chat.peerCode) {
+          if (update.sender_code && update.sender_code !== myCode && !chat.peerCode) updates.peerCode = update.sender_code;
+        } else if (chat.peerCode && chat.peerCode !== myCode) {
           const pub = await supabaseService.lookupPublicProfile(chat.peerCode);
           if (pub) {
-            if (pub.nickname && pub.nickname !== chat.name) updates.name = pub.nickname;
+            if (pub.nickname && pub.nickname !== chat.name && pub.nickname !== myNickname && pub.nickname !== nickname) updates.name = pub.nickname;
             if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
             if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null && pub.hide_profile_id !== chat.hideProfileId) {
               updates.hideProfileId = Boolean(pub.hide_profile_id);
@@ -1710,8 +1742,9 @@ export const MainLayout = () => {
       }
     };
 
-    syncAll(true);
-    recoverProfilesRef.current().catch(() => {});
+    recoverProfilesRef.current().finally(() => {
+      syncAll(true);
+    });
 
     const handleOnline = () => {
       console.log('[SyncManager] Network online event received! Instantly restoring connections...');
@@ -2507,10 +2540,20 @@ export const MainLayout = () => {
       if (!chat) return;
 
       if (data.type === 'profile-update') {
+        const myCode = useChatStore.getState().myCode;
+        const myNickname = useAuthStore.getState().nickname;
+        if (
+          (data.sender && (data.sender === myNickname || data.sender === nickname)) ||
+          (data.senderCode && myCode && data.senderCode === myCode) ||
+          (data.senderId && myCode && data.senderId === myCode) ||
+          (data.nickname && (data.nickname === myNickname || data.nickname === nickname))
+        ) {
+          return;
+        }
         const updates: Partial<Chat> = {};
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
-        if (data.nickname !== undefined) updates.name = data.nickname;
-        if (data.senderCode) updates.peerCode = data.senderCode;
+        if (data.nickname !== undefined && data.nickname !== myNickname && data.nickname !== nickname) updates.name = data.nickname;
+        if (data.senderCode && (!myCode || data.senderCode !== myCode)) updates.peerCode = data.senderCode;
         if (data.hideProfileId !== undefined) updates.hideProfileId = data.hideProfileId;
         updateChat(chatId, updates);
         return;
@@ -2736,11 +2779,20 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'profile-update') {
-        if (data.sender === nickname) return;
+        const myCode = useChatStore.getState().myCode;
+        const myNickname = useAuthStore.getState().nickname;
+        if (
+          (data.sender && (data.sender === myNickname || data.sender === nickname)) ||
+          (data.senderCode && myCode && data.senderCode === myCode) ||
+          (data.senderId && myCode && data.senderId === myCode) ||
+          (data.nickname && (data.nickname === myNickname || data.nickname === nickname))
+        ) {
+          return;
+        }
         const updates: Partial<Chat> = {};
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
-        if (data.nickname !== undefined) updates.name = data.nickname;
-        if (data.senderCode) updates.peerCode = data.senderCode;
+        if (data.nickname !== undefined && data.nickname !== myNickname && data.nickname !== nickname) updates.name = data.nickname;
+        if (data.senderCode && (!myCode || data.senderCode !== myCode)) updates.peerCode = data.senderCode;
         if (data.hideProfileId !== undefined) updates.hideProfileId = data.hideProfileId;
         updateChat(chatId, updates);
         return;

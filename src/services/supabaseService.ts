@@ -508,7 +508,9 @@ class SupabaseService {
 
     if (this.client) {
       try {
-        await this.client.from('profile_updates').delete().eq('chat_id', chatId);
+        if (senderCode) {
+          await this.client.from('profile_updates').delete().eq('chat_id', chatId).eq('sender_code', senderCode);
+        }
       } catch {}
       const { error } = await this.client
         .from('profile_updates')
@@ -526,13 +528,14 @@ class SupabaseService {
     }
   }
 
-  async getLatestProfileUpdate(chatId: string): Promise<ProfileUpdateRecord | null> {
+  async getLatestProfileUpdate(chatId: string, excludeCode?: string): Promise<ProfileUpdateRecord | null> {
     if (!chatId || chatId === 'notes') return null;
     const nodes = relayRouter.getNodes();
 
     for (const relay of nodes) {
       try {
-        const res = await fetch(`${relay.url}/relay/profile?chatId=${encodeURIComponent(chatId)}`);
+        const queryParam = excludeCode ? `&excludeCode=${encodeURIComponent(excludeCode)}` : '';
+        const res = await fetch(`${relay.url}/relay/profile?chatId=${encodeURIComponent(chatId)}${queryParam}`);
         if (res.ok) {
           const data = (await res.json()) as { profile: ProfileUpdateRecord | null };
           if (data?.profile) return data.profile;
@@ -543,10 +546,16 @@ class SupabaseService {
     }
 
     if (this.client) {
-      const { data, error } = await this.client
+      let queryBuilder = this.client
         .from('profile_updates')
         .select('*')
-        .eq('chat_id', chatId)
+        .eq('chat_id', chatId);
+
+      if (excludeCode) {
+        queryBuilder = queryBuilder.neq('sender_code', excludeCode);
+      }
+
+      const { data, error } = await queryBuilder
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -607,6 +616,18 @@ class SupabaseService {
 
   async getHandshakeRecordsForChat(chatId: string): Promise<OfflineHandshakeRecord[]> {
     if (!chatId || chatId === 'notes') return [];
+    const nodes = relayRouter.getNodes();
+    for (const relay of nodes) {
+      try {
+        const res = await fetch(`${relay.url}/relay/chat-handshakes?chatId=${encodeURIComponent(chatId)}`);
+        if (res.ok) {
+          const data = (await res.json()) as { handshakes: OfflineHandshakeRecord[] };
+          if (data?.handshakes && data.handshakes.length > 0) return data.handshakes;
+        }
+      } catch (err) {
+        console.warn(`[Relay] Failed to get handshakes for chat from ${relay.url}:`, err);
+      }
+    }
     if (this.client) {
       const { data, error } = await this.client
         .from('handshakes')
