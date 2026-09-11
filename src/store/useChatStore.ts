@@ -169,7 +169,7 @@ export function isMessageOutgoing(
 
 export interface Chat {
   id: string;
-  type: 'private' | 'group' | 'channel';
+  type: 'private' | 'group' | 'channel' | 'bot';
   name: string;
   lastMsg: string;
   online: boolean;

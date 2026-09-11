@@ -60,8 +60,10 @@ import { DeleteAccountModal } from '../common/DeleteAccountModal';
 import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { DevicePermissionModal } from '../common/DevicePermissionModal';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
+import { BotAvatar } from '../common/BotAvatar';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
+import { orbitosService } from '../../services/orbitosService';
 
 interface ChatContextMenu {
   visible: boolean;
@@ -452,6 +454,8 @@ const ChatListItem = React.memo(({
         <div style={{ width: 48, height: 48, marginRight: 10, flexShrink: 0, position: 'relative' }}>
           {chat.id === 'notes' ? (
             <NotesAvatar className="w-12 h-12" />
+          ) : chat.type === 'bot' ? (
+            <BotAvatar className="w-12 h-12" />
           ) : (
             <Avatar src={chat.avatarUrl} alt={chat.name} className="w-12 h-12" style={{ borderRadius: '50%' }} />
           )}
@@ -504,6 +508,11 @@ const ChatListItem = React.memo(({
               {chat.type === 'channel' && chat.isOfficial && (
                 <span className="px-1 py-0.2 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[9px] font-extrabold uppercase flex-shrink-0">
                   {t('channel.official', 'ОФИЦ')}
+                </span>
+              )}
+              {chat.type === 'bot' && (
+                <span className="px-1 py-0.2 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[9px] font-extrabold uppercase flex-shrink-0">
+                  {t('orbitos.badge', 'БОТ')}
                 </span>
               )}
             </div>
@@ -740,6 +749,10 @@ export const MainLayout = () => {
       }
     }
   }, [chats, addChat, updateChat, t]);
+
+  useEffect(() => {
+    orbitosService.initOrbitosChat(t);
+  }, [t]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

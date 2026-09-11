@@ -63,6 +63,8 @@ import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { EmptyChatGreeting } from './EmptyChatGreeting';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
+import { orbitosService } from '../../services/orbitosService';
+import { BotAvatar } from '../common/BotAvatar';
 
 declare global {
   interface Window {
@@ -3051,6 +3053,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return;
     }
 
+    if (activeChatId === 'system_orbitos') {
+      const localMessage: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        senderId: myCode,
+        sender: myNickname,
+        isOutgoing: true,
+        text: text,
+        time: Date.now(),
+        read: true,
+        status: 'sent',
+      };
+      addMessage(activeChatId, localMessage);
+      updateChat(activeChatId, { lastMsg: text });
+      setInputText('');
+      setReplyingTo(null);
+      requestAnimationFrame(() => scrollToBottom(false));
+      orbitosService.handleUserMessage(text, t);
+      return;
+    }
+
     const chat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
 
     if (chat?.type === 'channel') {
@@ -5523,6 +5545,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               {isMobileView && (
                 activeChatId === 'notes' ? (
                   <NotesAvatar className="w-10 h-10" />
+                ) : activeChat?.type === 'bot' ? (
+                  <BotAvatar className="w-10 h-10" />
                 ) : (
                   <Avatar src={activeChat?.avatarUrl} alt={activeChat?.name} className="w-10 h-10 rounded-full flex-shrink-0" />
                 )
@@ -5549,7 +5573,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 <div>
                   {activeChatId === 'notes' ? null : activeChat?.type === 'channel' ? (
                     <span className="text-[11px] font-medium text-[var(--text-dim)]">
-                      {activeChat.subscribersCount ? `${activeChat.subscribersCount} подписчиков` : 'публичный канал'}
+                      {activeChat.subscribersCount
+                        ? `${activeChat.subscribersCount.toLocaleString('ru-RU')} ${(() => { const n = activeChat.subscribersCount || 0; const m10 = n % 10; const m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'подписчик'; if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'подписчика'; return 'подписчиков'; })()}`
+                        : t('channel.subscribers_none', 'подписчиков пока нет')}
+                    </span>
+                  ) : activeChat?.type === 'bot' ? (
+                    <span className="text-[11px] font-medium text-[var(--accent-color)]">
+                      {t('orbitos.badge', 'БОТ')}
                     </span>
                   ) : !isServerConnected ? (
                     <span className="text-[11px] font-semibold text-[var(--accent-color)] animate-pulse">

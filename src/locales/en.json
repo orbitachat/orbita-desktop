@@ -1053,6 +1053,20 @@
       "backup_created_success": "Backup successfully created!",
       "err_generate": "Failed to create backup",
       "err_folder": "Failed to save file to the chosen folder"
+    },
+    "orbitos": {
+      "name": "Orbitos",
+      "description": "Official system assistant of the Orbita messenger",
+      "badge": "BOT",
+      "initial_last_msg": "Welcome to Orbita!",
+      "welcome_msg_1": "Hi! My name is Orbitos 🪐\nWelcome to Orbita — a secure messenger with full end-to-end encryption.",
+      "welcome_msg_2": "Important: make a profile backup in Settings. This way you can restore all your contacts and keys on a new device at any time.\n\nMessage history is stored strictly locally — this is our principle of protection from data interception.",
+      "welcome_msg_3": "I recommend subscribing to the official channel to be the first to know about all updates:\n\n📢 Orbita Updates\nID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9",
+      "help_reply": "Available commands:\n\n/backup — how to make a backup\n/channels — official channels\n/security — about Orbita security\n/about — about me",
+      "backup_reply": "To create a backup:\n\n1. Open Settings\n2. Go to the Backup section\n3. Click Create Backup\n\nSave the .orbita file and the 12-word recovery key in a safe place.",
+      "channels_reply": "Official Orbita channels:\n\n📢 Orbita Updates — news and updates\nID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9\n\nCopy the ID and paste it into the search field in Join Channel.",
+      "security_reply": "Orbita uses the Double Ratchet protocol — the same as Signal.\n\nEverything is encrypted locally on your device. The server only sees encrypted data and transmission timestamps.\n\nMessage history is not stored on servers.",
+      "default_reply": "I don't understand that message yet 🤖\n\nTry typing /help to see the list of available commands."
     }
   }
 }

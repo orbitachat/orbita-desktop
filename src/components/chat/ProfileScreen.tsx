@@ -1562,11 +1562,13 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
   const statusText = chatId === 'notes'
     ? ''
-    : isChannel
-      ? `${formatSubscribers(chat.subscribersCount || 1)} • публичный канал`
-      : chat.online
-        ? t('userStatus.online')
-        : formatLastSeen(chat.lastSeen, t);
+    : chat.type === 'bot'
+      ? t('orbitos.badge', 'БОТ')
+      : chat.type === 'channel'
+        ? formatSubscribers(chat.subscribersCount || 0)
+        : chat.online
+          ? t('userStatus.online')
+          : formatLastSeen(chat.lastSeen, t);
 
   const filteredMessages = (messagesList: Message[]) => {
     if (!searchQuery.trim()) return messagesList;
