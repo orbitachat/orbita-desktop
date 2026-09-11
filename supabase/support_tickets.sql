@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS public.support_tickets (
   answered_at TIMESTAMPTZ
 );
 
+ALTER TABLE public.support_tickets ADD COLUMN IF NOT EXISTS admin_code TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_support_tickets_user_code ON public.support_tickets(user_code);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON public.support_tickets(status);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_created_at ON public.support_tickets(created_at DESC);

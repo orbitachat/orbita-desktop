@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { getPusher } from '../utils/pusher';
 import { gatewayManager } from './gatewayManager';
 import { ablyService } from './ablyService';
+import { parseReplyChain } from '../utils/messageUtils';
 
 export interface SupportTicketRecord {
   id?: number;
@@ -98,13 +99,11 @@ class SupportService {
           }
           this.adminToken = storedToken;
 
-          if (!data.hasToken) {
-            await gatewayManager.fetch('/support/admin/register-token', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userCode: this.myCode, adminToken: this.adminToken }),
-            }).catch(() => {});
-          }
+          await gatewayManager.fetch('/support/admin/register-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userCode: this.myCode, adminToken: this.adminToken }),
+          }).catch(() => {});
 
           store.updateChat(this.BOT_ID, {
             description: this.t ? this.t('support.admin_welcome_short', 'Панель администратора технической поддержки') : 'Панель администратора технической поддержки',
@@ -313,53 +312,90 @@ class SupportService {
     const store = useChatStore.getState();
 
     if (this.isAdmin) {
-      if (lower.startsWith('/reply')) {
-        const parts = raw.split(/\s+/);
-        if (parts.length >= 3) {
-          let ticketNum = parts[1].trim();
-          if (!ticketNum.startsWith('#')) {
-            ticketNum = ticketNum.startsWith('T-') ? `#${ticketNum}` : `#T-${ticketNum}`;
-          }
-          const replyContent = parts.slice(2).join(' ').trim();
-          if (ticketNum && replyContent) {
-            try {
-              const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-              if (this.adminToken) headers['X-Admin-Token'] = this.adminToken;
+      let ticketNum = '';
+      let replyContent = '';
 
-              const res = await gatewayManager.fetch('/support/reply', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                  ticketNumber: ticketNum,
-                  adminReply: replyContent,
-                  adminCode: this.myCode,
-                  adminToken: this.adminToken,
-                }),
-              });
-
-              if (res.ok) {
-                this.updateTicketInChat(ticketNum, replyContent, 'answered');
-                const successMsg: Message = {
-                  id: `admin_sent_${Date.now()}`,
-                  senderId: this.BOT_ID,
-                  sender: t('support.name', 'Техническая поддержка'),
-                  isOutgoing: false,
-                  text: t('support.admin_reply_sent', {
-                    number: ticketNum,
-                    reply: replyContent,
-                    defaultValue: `Ответ на обращение ${ticketNum} успешно отправлен пользователю:\n\n«${replyContent}»`,
-                  }),
-                  time: Date.now(),
-                  read: false,
-                  status: 'delivered',
-                };
-                store.addMessage(this.BOT_ID, successMsg);
-                store.updateChat(this.BOT_ID, { lastMsg: `Ответ на ${ticketNum} отправлен` });
-                return;
-              }
-            } catch {}
-          }
+      const replyMatch = raw.match(/^\/reply\s+(?:#?T-?)?(\d+)\s+([\s\S]+)$/i);
+      if (replyMatch) {
+        ticketNum = `#T-${replyMatch[1]}`;
+        replyContent = replyMatch[2].trim().replace(/^<([\s\S]+)>$/, '$1').trim();
+      } else {
+        const parsedReply = parseReplyChain(raw);
+        const quotedTicketMatch = raw.match(/#T-(\d+)/i);
+        if (quotedTicketMatch && parsedReply.quotes.length > 0 && parsedReply.body.trim()) {
+          ticketNum = `#T-${quotedTicketMatch[1]}`;
+          replyContent = parsedReply.body.trim();
         }
+      }
+
+      if (ticketNum && replyContent) {
+        try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (this.adminToken) headers['X-Admin-Token'] = this.adminToken;
+
+          const res = await gatewayManager.fetch('/support/reply', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              ticketNumber: ticketNum,
+              adminReply: replyContent,
+              adminCode: this.myCode,
+              adminToken: this.adminToken,
+            }),
+          });
+
+          if (res.ok) {
+            this.updateTicketInChat(ticketNum, replyContent, 'answered');
+            const successMsg: Message = {
+              id: `admin_sent_${Date.now()}`,
+              senderId: this.BOT_ID,
+              sender: t('support.name', 'Техническая поддержка'),
+              isOutgoing: false,
+              text: t('support.admin_reply_sent', {
+                number: ticketNum,
+                reply: replyContent,
+                defaultValue: `Ответ на обращение ${ticketNum} успешно отправлен пользователю:\n\n«${replyContent}»`,
+              }),
+              time: Date.now(),
+              read: false,
+              status: 'delivered',
+            };
+            store.addMessage(this.BOT_ID, successMsg);
+            store.updateChat(this.BOT_ID, { lastMsg: `Ответ на ${ticketNum} отправлен` });
+            return;
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            const errMsg = errData.error || `HTTP ${res.status}`;
+            const errorMsg: Message = {
+              id: `admin_err_${Date.now()}`,
+              senderId: this.BOT_ID,
+              sender: t('support.name', 'Техническая поддержка'),
+              isOutgoing: false,
+              text: `${t('support.admin_reply_error')} (${errMsg})`,
+              time: Date.now(),
+              read: false,
+              status: 'delivered',
+            };
+            store.addMessage(this.BOT_ID, errorMsg);
+            return;
+          }
+        } catch (e: any) {
+          const errorMsg: Message = {
+            id: `admin_err_${Date.now()}`,
+            senderId: this.BOT_ID,
+            sender: t('support.name', 'Техническая поддержка'),
+            isOutgoing: false,
+            text: `${t('support.admin_reply_error')} (${e?.message || 'Network error'})`,
+            time: Date.now(),
+            read: false,
+            status: 'delivered',
+          };
+          store.addMessage(this.BOT_ID, errorMsg);
+          return;
+        }
+      }
+
+      if (lower.startsWith('/reply')) {
         const errorMsg: Message = {
           id: `admin_err_${Date.now()}`,
           senderId: this.BOT_ID,

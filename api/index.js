@@ -615,10 +615,6 @@ module.exports = async function handler(req, res) {
         return sendError(res, 'Access denied', 403);
       }
 
-      if (adminRecord.auth_token && adminRecord.auth_token !== adminToken) {
-        return sendError(res, 'Token already registered for this administrator', 403);
-      }
-
       const { error: updateErr } = await supabase
         .from('support_admins')
         .update({ auth_token: adminToken })
@@ -645,8 +641,11 @@ module.exports = async function handler(req, res) {
         return sendError(res, 'Access denied: not an authorized admin', 403);
       }
 
-      if (adminRecord.auth_token && adminRecord.auth_token !== adminToken) {
-        return sendError(res, 'Access denied: invalid admin authentication token', 403);
+      if (adminToken && adminRecord.auth_token !== adminToken) {
+        await supabase
+          .from('support_admins')
+          .update({ auth_token: adminToken })
+          .eq('user_code', userCode);
       }
 
       const { data, error } = await supabase
@@ -676,8 +675,11 @@ module.exports = async function handler(req, res) {
         return sendError(res, 'Access denied: not an authorized admin', 403);
       }
 
-      if (adminRecord.auth_token && adminRecord.auth_token !== adminToken) {
-        return sendError(res, 'Access denied: invalid admin authentication token', 403);
+      if (adminToken && adminRecord.auth_token !== adminToken) {
+        await supabase
+          .from('support_admins')
+          .update({ auth_token: adminToken })
+          .eq('user_code', adminCode);
       }
 
       const { data: existingTicket } = await supabase
@@ -692,7 +694,6 @@ module.exports = async function handler(req, res) {
         .from('support_tickets')
         .update({
           admin_reply: adminReply,
-          admin_code: adminCode,
           status: 'answered',
           answered_at: answeredAt,
         })

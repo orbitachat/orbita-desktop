@@ -69,8 +69,9 @@ const MessageText = ({
         cursor: 'text',
       }}
     >
-      <span>
+      <span style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}>
         <span 
+          style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}
           dangerouslySetInnerHTML={{ __html: markdownToHtml(text, isOwn ? '#ffffff' : (themeColor || 'var(--accent-color)')) }} 
           onClick={handleHtmlClick}
         />
@@ -78,17 +79,19 @@ const MessageText = ({
       {timeNode && (
         <span
           aria-hidden
-          className="flex-shrink-0"
+          className="flex-shrink-0 select-none"
           style={{
             float: 'right',
             marginLeft: '10px',
             marginRight: isOwn ? '-9px' : '-6px',
-            marginBottom: '-4.5px', // 6.5px bubble padding - 4.5px = 2px from bottom
-            marginTop: isEmojiOnly ? '16px' : '6px', // Matches bottom alignment for 22px emoji font vs regular font
+            marginBottom: '-4.5px',
+            marginTop: isEmojiOnly ? '16px' : '6px',
             display: 'inline-flex',
             alignItems: 'center',
             lineHeight: 1,
             whiteSpace: 'nowrap',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         >
           {timeNode}

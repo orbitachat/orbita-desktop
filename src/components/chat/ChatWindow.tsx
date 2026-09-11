@@ -2122,28 +2122,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   }, [activeChatId]);
 
   const handleChatWindowMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button === 1) {
-      return;
-    }
-    const sel = window.getSelection();
-    if (sel && sel.toString().trim().length > 0) {
-      return;
-    }
-
+    if (e.button !== 0) return;
     const target = e.target as HTMLElement | null;
     if (target) {
       const isInteractive = target.closest(
-        'button, input, textarea, a, select, option, audio, video, [role="button"], [role="menuitem"], [role="dialog"], .emoji-picker, .modal, .custom-chat-scrollbar, .rich-editor, [contenteditable="true"]'
+        'button, input, textarea, a, select, option, audio, video, [role="button"], [role="menuitem"], [role="dialog"], .emoji-picker, .modal, .custom-chat-scrollbar, .rich-editor, [contenteditable="true"], .select-text, .message-bubble-selectable, [data-message], [data-message-id]'
       );
       if (isInteractive) {
         return;
       }
-    }
-
-    e.preventDefault();
-
-    if (document.activeElement !== inputRef.current) {
-      inputRef.current?.focus();
     }
   }, []);
 
@@ -2156,7 +2143,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const target = e.target as HTMLElement | null;
     if (target) {
       const isInteractive = target.closest(
-        'button, input, textarea, a, select, option, audio, video, [role="button"], [role="menuitem"], [role="dialog"], .emoji-picker, .modal, .custom-chat-scrollbar, .rich-editor, [contenteditable="true"]'
+        'button, input, textarea, a, select, option, audio, video, [role="button"], [role="menuitem"], [role="dialog"], .emoji-picker, .modal, .custom-chat-scrollbar, .rich-editor, [contenteditable="true"], .select-text, .message-bubble-selectable, [data-message], [data-message-id]'
       );
       if (isInteractive) {
         return;
@@ -5574,7 +5561,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   return (
     <div
-      className="flex flex-col h-full bg-transparent select-none overflow-hidden min-h-0 relative"
+      className="flex flex-col h-full bg-transparent overflow-hidden min-h-0 relative"
       onMouseDown={handleChatWindowMouseDown}
       onClick={handleChatWindowClick}
       onContextMenu={(e) => e.preventDefault()}
@@ -5829,6 +5816,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             transform: 'translateZ(0)',
             willChange: 'scroll-position',
             overscrollBehaviorY: 'contain',
+            userSelect: 'text',
+            WebkitUserSelect: 'text',
           }}
         >
           {messages.length === 0 ? (
