@@ -10,6 +10,8 @@ const ENV = {
   ABLY_API_KEY_2: process.env.ABLY_API_KEY_2 || '',
   SUPABASE_URL: process.env.SUPABASE_URL || 'https://majmrtymawymomliowbz.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  CHANNELS_SUPABASE_URL: process.env.CHANNELS_SUPABASE_URL || 'https://rugqiezexuknqcppicma.supabase.co',
+  CHANNELS_SUPABASE_KEY: process.env.CHANNELS_SUPABASE_KEY || process.env.CHANNELS_SUPABASE_SECRET_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   PUSHER_KEY: process.env.PUSHER_KEY || 'e8f5cf13f6759775e44e',
   PUSHER_SECRET: process.env.PUSHER_SECRET || '',
   PUSHER_APP_ID: process.env.PUSHER_APP_ID || '2142120',
@@ -62,6 +64,15 @@ function sendError(res, error, status = 400) {
 function getSupabaseClient() {
   if (!ENV.SUPABASE_URL || !ENV.SUPABASE_SERVICE_ROLE_KEY) return null;
   return createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+}
+
+function getChannelsSupabaseClient() {
+  const url = ENV.CHANNELS_SUPABASE_URL || ENV.SUPABASE_URL;
+  const key = ENV.CHANNELS_SUPABASE_KEY || ENV.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, {
     auth: { persistSession: false },
   });
 }
@@ -481,7 +492,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/channels/featured' && req.method === 'GET') {
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
       let channels = [];
       if (supabase) {
         try {
@@ -500,6 +511,7 @@ module.exports = async function handler(req, res) {
               subscribersCount: c.subscribers_count || 1,
               isOfficial: c.is_official || false,
               createdAt: new Date(c.created_at).getTime(),
+              updatedAt: c.updated_at ? new Date(c.updated_at).getTime() : new Date(c.created_at).getTime(),
             }));
           }
         } catch {}
@@ -510,7 +522,7 @@ module.exports = async function handler(req, res) {
     if (pathname === '/channels/get' && req.method === 'GET') {
       const channelId = query.channelId ? query.channelId.trim() : '';
       if (!channelId) return sendError(res, 'Missing channelId parameter', 400);
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
       if (supabase) {
         try {
           let { data, error } = await supabase.from('public_channels').select('*').eq('id', channelId).maybeSingle();
@@ -532,6 +544,7 @@ module.exports = async function handler(req, res) {
                 subscribersCount: data.subscribers_count || 1,
                 isOfficial: data.is_official || false,
                 createdAt: new Date(data.created_at).getTime(),
+                updatedAt: data.updated_at ? new Date(data.updated_at).getTime() : new Date(data.created_at).getTime(),
               },
             });
           }
@@ -552,7 +565,8 @@ module.exports = async function handler(req, res) {
     if (pathname === '/channels/create' && req.method === 'POST') {
       if (!body.name || !body.creatorNickname) return sendError(res, 'Missing name or creatorNickname', 400);
       const channelId = body.id || generateChannelId();
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
+      const nowIso = new Date().toISOString();
       if (supabase) {
         try {
           await supabase.from('public_channels').upsert({
@@ -563,7 +577,8 @@ module.exports = async function handler(req, res) {
             creator_nickname: body.creatorNickname,
             subscribers_count: 1,
             is_official: false,
-            created_at: new Date().toISOString(),
+            created_at: nowIso,
+            updated_at: nowIso,
           });
         } catch {}
       }
@@ -578,6 +593,7 @@ module.exports = async function handler(req, res) {
           subscribersCount: 1,
           isOfficial: false,
           createdAt: Date.now(),
+          updatedAt: Date.now(),
         },
       });
     }
@@ -585,8 +601,11 @@ module.exports = async function handler(req, res) {
     if (pathname === '/channels/update' && req.method === 'POST') {
       const channelId = body.channelId || body.id;
       if (!channelId) return sendError(res, 'Missing channelId', 400);
-      const supabase = getSupabaseClient();
-      const updateFields = {};
+      const supabase = getChannelsSupabaseClient();
+      const now = Date.now();
+      const updateFields = {
+        updated_at: new Date(now).toISOString(),
+      };
       if (body.name !== undefined) updateFields.name = body.name.trim();
       if (body.description !== undefined) updateFields.description = body.description.trim();
       if (body.avatarUrl !== undefined) updateFields.avatar_url = body.avatarUrl;
@@ -602,6 +621,7 @@ module.exports = async function handler(req, res) {
         name: body.name,
         description: body.description,
         avatarUrl: body.avatarUrl,
+        updatedAt: now,
       };
       await triggerPusherEvent(`public-channel-${channelId}`, 'channel-updated', eventPayload);
       await triggerAblyEvent(`chat:public-channel-${channelId}`, 'client-message', { type: 'channel-updated', ...eventPayload });
@@ -611,7 +631,7 @@ module.exports = async function handler(req, res) {
     if (pathname === '/channels/posts' && req.method === 'GET') {
       const channelId = query.channelId;
       if (!channelId) return sendError(res, 'Missing channelId parameter', 400);
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
       if (supabase) {
         try {
           const { data, error } = await supabase
@@ -668,7 +688,7 @@ module.exports = async function handler(req, res) {
         linkPreview: body.linkPreview || null,
         reactions: {},
       };
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
       if (supabase) {
         try {
           const { data: chanCheck } = await supabase.from('public_channels').select('id').eq('id', body.channelId).maybeSingle();
@@ -712,7 +732,7 @@ module.exports = async function handler(req, res) {
       if (!body.channelId) return sendError(res, 'Missing channelId parameter', 400);
       const channelId = body.channelId.trim();
       let newCount = 1;
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
       if (supabase) {
         try {
           const { data } = await supabase.from('public_channels').select('subscribers_count').eq('id', channelId).maybeSingle();
@@ -734,7 +754,7 @@ module.exports = async function handler(req, res) {
       if (!body.channelId) return sendError(res, 'Missing channelId parameter', 400);
       const channelId = body.channelId.trim();
       let newCount = 1;
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
       if (supabase) {
         try {
           const { data } = await supabase.from('public_channels').select('subscribers_count').eq('id', channelId).maybeSingle();
@@ -756,7 +776,7 @@ module.exports = async function handler(req, res) {
       if (!body.channelId || !body.postId || !body.emoji || !body.userId) {
         return sendError(res, 'Missing reaction parameters', 400);
       }
-      const supabase = getSupabaseClient();
+      const supabase = getChannelsSupabaseClient();
       let updatedReactions = {};
       if (supabase) {
         try {

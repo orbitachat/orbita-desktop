@@ -1614,6 +1614,9 @@ export const MainLayout = () => {
       channelService.getChannel(ch.id).then((info) => {
         if (info) {
           const current = useChatStore.getState().chats.find((c) => c.id === ch.id);
+          if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
+            return;
+          }
           const updates: Partial<Chat> = {
             subscribersCount: info.subscribersCount,
           };
@@ -1621,6 +1624,7 @@ export const MainLayout = () => {
             updates.name = info.name;
             updates.description = info.description;
             updates.avatarUrl = info.avatarUrl || undefined;
+            if (info.updatedAt) updates.updatedAt = info.updatedAt;
           } else {
             if (info.name && !current.name) updates.name = info.name;
             if (info.description && !current.description) updates.description = info.description;
@@ -2209,9 +2213,8 @@ export const MainLayout = () => {
       if (data?.name !== undefined && data.name) updates.name = data.name;
       if (data?.description !== undefined) updates.description = data.description;
       if (data?.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
-      if (Object.keys(updates).length > 0) {
-        useChatStore.getState().updateChat(channelId, updates);
-      }
+      updates.updatedAt = data?.updatedAt || Date.now();
+      useChatStore.getState().updateChat(channelId, updates);
     };
 
     channel.bind('new-post', handleNewPost);
@@ -2242,6 +2245,9 @@ export const MainLayout = () => {
     channelService.getChannel(channelId).then((info) => {
       if (info) {
         const current = useChatStore.getState().chats.find((c) => c.id === channelId);
+        if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
+          return;
+        }
         const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
         };
@@ -2249,6 +2255,7 @@ export const MainLayout = () => {
           updates.name = info.name;
           updates.description = info.description;
           updates.avatarUrl = info.avatarUrl || undefined;
+          if (info.updatedAt) updates.updatedAt = info.updatedAt;
         } else {
           if (info.name && !current.name) updates.name = info.name;
           if (info.description && !current.description) updates.description = info.description;

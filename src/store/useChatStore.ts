@@ -197,6 +197,7 @@ export interface Chat {
   peerCode?: string;
   isBlocked?: boolean;
   hideProfileId?: boolean;
+  updatedAt?: number;
 }
 
 export interface IncomingFriendRequest {

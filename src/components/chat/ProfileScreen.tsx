@@ -1047,6 +1047,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     channelService.getChannel(chat.id).then((info) => {
       if (info) {
         const current = useChatStore.getState().chats.find((c) => c.id === chat.id);
+        if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
+          return;
+        }
         const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
         };
@@ -1054,6 +1057,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           updates.name = info.name;
           updates.description = info.description;
           updates.avatarUrl = info.avatarUrl || undefined;
+          if (info.updatedAt) updates.updatedAt = info.updatedAt;
         } else {
           if (info.name && !current.name) updates.name = info.name;
           if (info.description && !current.description) updates.description = info.description;
