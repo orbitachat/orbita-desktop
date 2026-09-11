@@ -2323,13 +2323,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           const newItems: Message[] = [];
           posts.forEach((post) => {
             if (!existingIds.has(post.id)) {
+              const isMine = myNickname ? post.sender === myNickname : false;
               newItems.push({
                 id: post.id,
                 sender: post.sender,
                 text: post.text,
                 time: post.time,
                 read: true,
-                status: 'sent',
+                status: isMine ? 'read' : undefined,
+                isOutgoing: isMine,
                 mediaType: post.mediaType || undefined,
                 mediaUrl: post.mediaUrl || undefined,
                 mediaName: post.mediaName || undefined,
@@ -3072,7 +3074,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         text: sentText,
         time: Date.now(),
         read: true,
-        status: 'sent',
+        status: 'read',
         mediaType: (sentMedia?.type as Message['mediaType']) || undefined,
         mediaUrl: sentMedia?.url || undefined,
         mediaName: sentMedia?.name || undefined,
@@ -3110,7 +3112,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               messagesByChatId: {
                 ...state.messagesByChatId,
                 [activeChatId]: currentMsgs.map((m) =>
-                  m.id === optimisticId ? { ...m, id: post.id, time: post.time || m.time } : m
+                  m.id === optimisticId ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const } : m
                 ),
               },
             };
@@ -3719,13 +3721,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       if (!post || !post.id) return;
       const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
       if (!currentMsgs.some((m) => m.id === post.id)) {
+        const sender = post.sender || post.senderNickname || 'Channel';
+        const isMine = myNickname ? sender === myNickname : false;
         useChatStore.getState().addMessage(activeChatId, {
           id: post.id,
-          sender: post.sender || post.senderNickname || 'Channel',
+          sender,
           text: post.text || '',
           time: post.time || Date.now(),
           read: true,
-          status: 'sent',
+          status: isMine ? 'read' : undefined,
+          isOutgoing: isMine,
           mediaType: post.mediaType || undefined,
           mediaUrl: post.mediaUrl || undefined,
           mediaName: post.mediaName || undefined,
@@ -4669,7 +4674,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           <CustomPinIcon size={12} style={{ color: isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--accent-color, #7C3AED)' }} className="flex-shrink-0" />
         )}
         {formatTime(msg.time)}
-        {isOwn && msg.status && activeChat?.type !== 'channel' && (
+        {isOwn && msg.status && (
           <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
             <MessageStatus status={msg.status} isOwn={isOwn} />
           </span>
@@ -5262,7 +5267,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     }}
                   >
                     <span>{formatTimeOfDay(msg.time)}</span>
-                    {isOwn && msg.status && activeChat?.type !== 'channel' && (
+                    {isOwn && msg.status && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0 }}>
                         <MessageStatus status={msg.status} isOwn={isOwn} />
                       </span>

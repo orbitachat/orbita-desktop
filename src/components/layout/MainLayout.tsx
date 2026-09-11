@@ -403,7 +403,7 @@ const ChatListItem = React.memo(({
     ? `${lastMsgTime.getHours().toString().padStart(2, '0')}:${lastMsgTime.getMinutes().toString().padStart(2, '0')}`
     : '';
   const isOwn = isMessageOutgoing(lastMsg, myCode, nickname, chat);
-  const status = isOwn && lastMsg?.status && chat.type !== 'channel' ? lastMsg.status : undefined;
+  const status = isOwn && lastMsg?.status ? lastMsg.status : undefined;
 
   const rawDraft = useChatStore(
     useCallback((s) => s.draftsByChatId[chat.id], [chat.id])
@@ -2142,13 +2142,18 @@ export const MainLayout = () => {
       const activeChatId = useChatStore.getState().activeChatId;
       const isViewingThisChannel = activeChatId === channelId;
 
+      const sender = post.sender || post.senderNickname || 'Channel';
+      const myNickname = useAuthStore.getState().nickname;
+      const isMine = myNickname ? sender === myNickname : false;
+
       const newMsg: Message = {
         id: post.id,
-        sender: post.sender || post.senderNickname || 'Channel',
+        sender,
         text: post.text || '',
         time: post.time || Date.now(),
         read: isViewingThisChannel,
-        status: 'sent',
+        status: isMine ? 'read' : undefined,
+        isOutgoing: isMine,
         mediaType: post.mediaType || undefined,
         mediaUrl: post.mediaUrl || undefined,
         mediaName: post.mediaName || undefined,
@@ -2333,15 +2338,18 @@ export const MainLayout = () => {
             return m;
           });
           const newItems: Message[] = [];
+          const myNickname = useAuthStore.getState().nickname;
           posts.forEach((post) => {
             if (!existingIds.has(post.id)) {
+              const isMine = myNickname ? post.sender === myNickname : false;
               newItems.push({
                 id: post.id,
                 sender: post.sender,
                 text: post.text,
                 time: post.time,
                 read: state.activeChatId === channelId,
-                status: 'sent',
+                status: isMine ? 'read' : undefined,
+                isOutgoing: isMine,
                 mediaType: post.mediaType || undefined,
                 mediaUrl: post.mediaUrl || undefined,
                 mediaName: post.mediaName || undefined,
