@@ -1143,7 +1143,7 @@ module.exports = async function handler(req, res) {
       });
 
       const systemInstruction = (body && body.systemPrompt) || ORBITOS_SYSTEM_PROMPT;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
       const payload = {
         system_instruction: {
           parts: [{ text: systemInstruction }],
