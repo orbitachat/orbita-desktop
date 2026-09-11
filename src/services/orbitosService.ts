@@ -196,41 +196,8 @@ class OrbitosService {
       if (aiResult && aiResult.reply) {
         reply = aiResult.reply;
         buttons = aiResult.buttons;
-      } else if (raw === '/backup' || raw.includes('бэкап') || raw.includes('копи')) {
-        reply = t('orbitos.backup_reply');
-        buttons = [
-          {
-            text: t('orbitos.btn_backup', 'Резервная копия'),
-            action: 'open_backup',
-            icon: 'backup',
-          },
-        ];
-      } else if (raw === '/channels' || raw.includes('канал')) {
-        reply = t('orbitos.channels_reply');
-        buttons = [
-          {
-            text: t('orbitos.btn_channel', 'Перейти в Orbita Updates'),
-            action: 'open_channel',
-            channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
-            icon: 'channel',
-          },
-        ];
-      } else if (raw === '/security' || raw.includes('безопасн') || raw.includes('шифр') || raw.includes('ratchet')) {
-        reply = t('orbitos.security_reply');
-      } else if (raw === '/privacy' || raw.includes('приватн') || raw.includes('скрыть') || raw.includes('id')) {
-        reply = t('orbitos.privacy_reply');
-      } else if (raw === '/calls' || raw.includes('звон') || raw.includes('видео') || raw.includes('webrtc')) {
-        reply = t('orbitos.calls_reply');
-      } else if (raw === '/appearance' || raw.includes('тема') || raw.includes('цвет') || raw.includes('дизайн')) {
-        reply = t('orbitos.appearance_reply');
-      } else if (raw === '/proxy' || raw === '/network' || raw.includes('прокси') || raw.includes('сеть')) {
-        reply = t('orbitos.proxy_reply');
-      } else if (raw === '/faq' || raw.includes('вопрос')) {
-        reply = t('orbitos.faq_reply');
-      } else if (raw === '/about' || raw.includes('орбита') || raw.includes('orbita')) {
-        reply = t('orbitos.welcome_msg_1');
       } else {
-        reply = t('orbitos.faq_reply');
+        reply = t('orbitos.temp_error', 'Хм, что-то пошло не так на моей стороне 🤔 Попробуй ещё раз — обычно это быстро проходит.');
       }
     }
 

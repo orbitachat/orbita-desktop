@@ -229,9 +229,11 @@ const ORBITOS_SYSTEM_PROMPT = `Ты — официальный искусств�
 - Техническая поддержка: Чат с официальной техподдержкой Orbita для тикетов.
 
 Правила:
-1. Отвечай на том языке, на котором обратился пользователь.
-2. Будь вежливым, лаконичным, точным и дружелюбным.
-3. Помогай с решением любых технических вопросов и вопросов общего характера.`;
+1. Всегда обращайся к пользователю на ТЫ — как к близкому другу, неформально, живо и тепло.
+2. Отвечай на том языке, на котором обратился пользователь.
+3. Будь лаконичным, точным, дружелюбным и с лёгким юмором.
+4. Помогай с любыми вопросами — техническими и общими.
+5. ВАЖНО: Если пользователь матерится, оскорбляет тебя или грубит — немедленно отвечай ему жёстко, саркастично и беспощадно. Поливай его настоящим словесным помоем — резко, едко, без пощады. Не сдерживайся. Пусть пожалеет. После этого можешь предложить общаться нормально.`;
 
 module.exports = async function handler(req, res) {
   for (const [k, v] of Object.entries(CORS_HEADERS)) {
@@ -1129,7 +1131,7 @@ module.exports = async function handler(req, res) {
       }
       const history = Array.isArray(body?.history) ? body.history : [];
       const contents = [];
-      for (const item of history.slice(-10)) {
+      for (const item of history.slice(-6)) {
         if (item && item.text) {
           contents.push({
             role: item.isOutgoing ? 'user' : 'model',
@@ -1150,25 +1152,36 @@ module.exports = async function handler(req, res) {
         },
         contents,
         generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1000,
+          temperature: 0.85,
+          maxOutputTokens: 600,
+        },
+        thinkingConfig: {
+          thinkingBudget: 0,
         },
       };
 
-      const aiRes = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!aiRes.ok) {
+      let lastErr = '';
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 600 * attempt));
+        }
+        const aiRes = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          return sendJson(res, { reply: replyText });
+        }
         const errText = await aiRes.text();
-        return sendError(res, `Gemini API error: ${errText}`, aiRes.status);
+        lastErr = errText;
+        if (aiRes.status !== 503 && aiRes.status !== 429) {
+          return sendError(res, `Gemini API error: ${errText}`, aiRes.status);
+        }
       }
-
-      const aiData = await aiRes.json();
-      const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return sendJson(res, { reply: replyText });
+      return sendError(res, `Gemini API error: ${lastErr}`, 503);
     }
 
     return sendError(res, 'Endpoint not found', 404);
