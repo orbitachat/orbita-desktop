@@ -2419,6 +2419,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return;
     }
 
+    if (btn.action === 'reply_ticket' && btn.data) {
+      setInputText(`/reply ${btn.data} `);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return;
+    }
+
     if (btn.action === 'open_url' && btn.url) {
       window.open(btn.url, '_blank', 'noopener,noreferrer');
       return;

@@ -24,7 +24,7 @@ const ENV = {
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Admin-Token',
 };
 
 const PUSHER_CONFIGS = [
@@ -541,15 +541,21 @@ module.exports = async function handler(req, res) {
       const { ticketNumber, userCode, senderNickname, messageText } = body;
       if (!ticketNumber || !messageText) return sendError(res, 'Missing ticket data', 400);
 
-      const { error } = await supabase.from('support_tickets').insert({
+      const ticketPayload = {
         ticket_number: ticketNumber,
         user_code: userCode || 'ANON',
         sender_nickname: senderNickname || 'User',
         message_text: messageText,
         status: 'sent',
-      });
+        created_at: new Date().toISOString(),
+      };
 
+      const { error } = await supabase.from('support_tickets').insert(ticketPayload);
       if (error) return sendError(res, error.message, 500);
+
+      await triggerPusherEvent('support-admin', 'new-ticket', ticketPayload);
+      await triggerAblyEvent('support-admin', 'new-ticket', ticketPayload);
+
       return sendJson(res, { status: 'ok', ticketNumber });
     }
 
@@ -569,22 +575,151 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { tickets: data || [] });
     }
 
+    if (pathname === '/support/admin/check' && req.method === 'GET') {
+      const supabase = getSupabaseClient() || getChannelsSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const userCode = query.userCode;
+      if (!userCode) return sendError(res, 'Missing userCode', 400);
+
+      const { data, error } = await supabase
+        .from('support_admins')
+        .select('user_code, role, auth_token')
+        .eq('user_code', userCode)
+        .maybeSingle();
+
+      if (error || !data) {
+        return sendJson(res, { isAdmin: false });
+      }
+
+      return sendJson(res, {
+        isAdmin: true,
+        role: data.role || 'admin',
+        hasToken: Boolean(data.auth_token),
+      });
+    }
+
+    if (pathname === '/support/admin/register-token' && req.method === 'POST') {
+      const supabase = getSupabaseClient() || getChannelsSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const { userCode, adminToken } = body;
+      if (!userCode || !adminToken) return sendError(res, 'Missing parameters', 400);
+
+      const { data: adminRecord, error: checkErr } = await supabase
+        .from('support_admins')
+        .select('user_code, auth_token')
+        .eq('user_code', userCode)
+        .maybeSingle();
+
+      if (checkErr || !adminRecord) {
+        return sendError(res, 'Access denied', 403);
+      }
+
+      if (adminRecord.auth_token && adminRecord.auth_token !== adminToken) {
+        return sendError(res, 'Token already registered for this administrator', 403);
+      }
+
+      const { error: updateErr } = await supabase
+        .from('support_admins')
+        .update({ auth_token: adminToken })
+        .eq('user_code', userCode);
+
+      if (updateErr) return sendError(res, updateErr.message, 500);
+      return sendJson(res, { status: 'ok' });
+    }
+
+    if (pathname === '/support/admin/tickets' && req.method === 'GET') {
+      const supabase = getSupabaseClient() || getChannelsSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const userCode = query.userCode;
+      const adminToken = req.headers['x-admin-token'] || query.adminToken;
+      if (!userCode) return sendError(res, 'Missing userCode', 400);
+
+      const { data: adminRecord, error: adminErr } = await supabase
+        .from('support_admins')
+        .select('user_code, auth_token')
+        .eq('user_code', userCode)
+        .maybeSingle();
+
+      if (adminErr || !adminRecord) {
+        return sendError(res, 'Access denied: not an authorized admin', 403);
+      }
+
+      if (adminRecord.auth_token && adminRecord.auth_token !== adminToken) {
+        return sendError(res, 'Access denied: invalid admin authentication token', 403);
+      }
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) return sendError(res, error.message, 500);
+      return sendJson(res, { tickets: data || [] });
+    }
+
     if (pathname === '/support/reply' && req.method === 'POST') {
       const supabase = getSupabaseClient() || getChannelsSupabaseClient();
       if (!supabase) return sendError(res, 'Database not configured', 500);
-      const { ticketNumber, adminReply } = body;
-      if (!ticketNumber || !adminReply) return sendError(res, 'Missing ticketNumber or adminReply', 400);
+      const { ticketNumber, adminReply, adminCode } = body;
+      const adminToken = req.headers['x-admin-token'] || body.adminToken;
+      if (!ticketNumber || !adminReply || !adminCode) return sendError(res, 'Missing required fields', 400);
+
+      const { data: adminRecord, error: adminErr } = await supabase
+        .from('support_admins')
+        .select('user_code, auth_token')
+        .eq('user_code', adminCode)
+        .maybeSingle();
+
+      if (adminErr || !adminRecord) {
+        return sendError(res, 'Access denied: not an authorized admin', 403);
+      }
+
+      if (adminRecord.auth_token && adminRecord.auth_token !== adminToken) {
+        return sendError(res, 'Access denied: invalid admin authentication token', 403);
+      }
+
+      const { data: existingTicket } = await supabase
+        .from('support_tickets')
+        .select('user_code, message_text')
+        .eq('ticket_number', ticketNumber)
+        .maybeSingle();
+
+      const answeredAt = new Date().toISOString();
 
       const { error } = await supabase
         .from('support_tickets')
         .update({
           admin_reply: adminReply,
+          admin_code: adminCode,
           status: 'answered',
-          answered_at: new Date().toISOString(),
+          answered_at: answeredAt,
         })
         .eq('ticket_number', ticketNumber);
 
       if (error) return sendError(res, error.message, 500);
+
+      if (existingTicket?.user_code) {
+        await triggerPusherEvent(`user-${existingTicket.user_code}`, 'ticket-reply', {
+          ticketNumber,
+          adminReply,
+          answeredAt,
+        });
+        await triggerAblyEvent(`user-${existingTicket.user_code}`, 'ticket-reply', {
+          ticketNumber,
+          adminReply,
+          answeredAt,
+        });
+      }
+
+      await triggerPusherEvent('support-admin', 'ticket-updated', {
+        ticketNumber,
+        adminReply,
+        adminCode,
+        status: 'answered',
+        answeredAt,
+      });
+
       return sendJson(res, { status: 'ok' });
     }
 

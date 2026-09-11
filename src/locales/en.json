@@ -1085,7 +1085,17 @@
       "help_reply": "Orbita Technical Support Service:\n\nJust send your question or bug description as a regular message in this chat. The system will automatically create a ticket and notify administrators.\n\nCommands:\n/ticket — check ticket status\n/faq — popular questions & solutions\n/help — this help message",
       "faq_reply": "Before sending a ticket, check common solutions:\n\n1. Connection issues — check internet connection or configure proxy in network settings.\n2. Profile recovery — requires .orbita backup file and 12-word key.\n3. Update — check latest release in Orbita Updates channel.",
       "ticket_status_none": "You do not have any registered support tickets yet.",
-      "ticket_status_info": "Your tickets are checked automatically every 45 seconds. Operator reply will appear right here."
+      "ticket_status_info": "Your tickets are checked automatically every 45 seconds. Operator reply will appear right here.",
+      "admin_welcome_short": "Technical support administrator panel",
+      "admin_welcome": "You are authenticated as an Orbita technical support administrator.\n\nIncoming user tickets will arrive in this chat in real time. To reply to a ticket, click 'Reply' below it or send:\n/reply #T-XXXXX <reply text>",
+      "admin_reply_sent": "Reply to ticket {{number}} successfully sent to the user:\n\n«{{reply}}»",
+      "admin_reply_error": "Failed to send reply to ticket. Check status or database connection.",
+      "admin_prompt_format": "To reply to a user, click 'Reply' below the ticket or use the format:\n/reply #T-XXXXX <your reply>",
+      "admin_help": "Support administrator commands:\n\n/reply #T-XXXXX <text> — reply to a ticket\n/tickets — refresh list of open tickets\n/check — verify administrator status",
+      "admin_no_open_tickets": "No pending tickets at the moment.",
+      "admin_open_tickets_summary": "Pending tickets:\n\n{{list}}",
+      "status_pending": "Pending response",
+      "status_answered": "Answered"
     },
     "commands": {
       "start_desc": "Start bot and get greeting",
@@ -1103,7 +1113,9 @@
       "support_start_desc": "Start dialog with technical support",
       "support_ticket_desc": "Check support ticket status",
       "support_help_desc": "How to get assistance",
-      "support_faq_desc": "Frequent questions before contacting"
+      "support_faq_desc": "Frequent questions before contacting",
+      "support_admin_reply_desc": "Reply to ticket: /reply #T-XXXXX <text>",
+      "support_admin_tickets_desc": "Show list of open tickets"
     }
   }
 }

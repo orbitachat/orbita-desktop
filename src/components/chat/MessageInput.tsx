@@ -9,6 +9,7 @@ import { extractFirstUrl, fetchLinkPreview } from '../../utils/linkPreviewUtils'
 import { htmlToMarkdown, markdownToHtml, formatPreviewText } from '../../utils/messageUtils';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
 import { BotIcon } from '../common/BotIcon';
+import { supportService } from '../../services/supportService';
 
 const FileWithArrowIcon = () => (
   <svg
@@ -195,6 +196,13 @@ export const MessageInput = memo<MessageInputProps>(({
 
   const availableCommands = useMemo(() => {
     if (activeChatId === 'system_support') {
+      if (supportService.isAdmin) {
+        return [
+          { command: '/reply', desc: t('commands.support_admin_reply_desc', 'Ответить на обращение: /reply #T-XXXXX <текст>') },
+          { command: '/tickets', desc: t('commands.support_admin_tickets_desc', 'Показать список открытых обращений') },
+          { command: '/help', desc: t('support.admin_help', 'Справка администратора поддержки') },
+        ];
+      }
       return [
         { command: '/start', desc: t('commands.support_start_desc', 'Начать диалог с поддержкой') },
         { command: '/ticket', desc: t('commands.support_ticket_desc', 'Проверить статус обращений') },
@@ -228,6 +236,15 @@ export const MessageInput = memo<MessageInputProps>(({
   const executeCommand = useCallback((cmdStr: string) => {
     setShowCommandsMenu(false);
     setSlashQuery('');
+    if (cmdStr === '/reply') {
+      setCurrentText('/reply ');
+      if (editorRef.current) {
+        editorRef.current.innerHTML = '/reply ';
+        setIsEditorEmpty(false);
+        placeCaretAtEnd(editorRef.current);
+      }
+      return;
+    }
     if (editorRef.current) {
       editorRef.current.innerHTML = '';
       setIsEditorEmpty(true);
