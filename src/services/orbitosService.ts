@@ -128,7 +128,6 @@ class OrbitosService {
   }
 
   private async askGeminiAI(userText: string): Promise<{ reply: string; buttons?: Message['buttons'] } | null> {
-    const localKey = typeof window !== 'undefined' ? (localStorage.getItem('orbita_gemini_api_key') || '') : '';
     const store = useChatStore.getState();
     const history = (store.messagesByChatId[this.BOT_ID] || []).slice(-10).map((m) => ({
       text: m.text,
@@ -142,7 +141,6 @@ class OrbitosService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText,
-          apiKey: localKey || undefined,
           history,
         }),
       });
@@ -151,38 +149,6 @@ class OrbitosService {
         const data = await res.json();
         if (data && data.reply) {
           return { reply: data.reply };
-        }
-      }
-
-      if (localKey) {
-        const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${localKey}`;
-        const contents = history.map((h) => ({
-          role: h.isOutgoing ? 'user' : 'model',
-          parts: [{ text: h.text }],
-        }));
-        contents.push({
-          role: 'user',
-          parts: [{ text: userText }],
-        });
-
-        const directRes = await fetch(directUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents,
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 1000,
-            },
-          }),
-        });
-
-        if (directRes.ok) {
-          const directData = await directRes.json();
-          const directText = directData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (directText) {
-            return { reply: directText };
-          }
         }
       }
     } catch {}
@@ -264,14 +230,7 @@ class OrbitosService {
       } else if (raw === '/about' || raw.includes('орбита') || raw.includes('orbita')) {
         reply = t('orbitos.welcome_msg_1');
       } else {
-        reply = t('orbitos.ai_no_key_prompt', 'Я могу отвечать на любые вопросы с помощью ИИ Gemini 1.5 Flash.\n\nДля подключения введите бесплатный API-ключ в Настройках.');
-        buttons = [
-          {
-            text: t('orbitos.btn_setup_ai', 'Настроить Gemini ИИ'),
-            action: 'open_settings_ai',
-            icon: 'backup',
-          },
-        ];
+        reply = t('orbitos.faq_reply');
       }
     }
 

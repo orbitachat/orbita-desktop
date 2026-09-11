@@ -3292,8 +3292,8 @@ export const SettingsScreen = () => {
           onClick={() => pushTab('orbitosAi')}
           rightElement={
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <span style={{ fontSize: 13, color: 'var(--accent-color, #9b7dd4)' }}>
-                {t('settings.ai_active')}
+              <span style={{ fontSize: 13, color: geminiApiKey ? 'var(--accent-color, #9b7dd4)' : MD3.onSurfaceVar }}>
+                {geminiApiKey ? t('settings.ai_active') : t('settings.ai_free')}
               </span>
               <ChevronRight size={16} color={MD3.onSurfaceVar} />
             </div>
