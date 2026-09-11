@@ -1,5 +1,5 @@
-// src/components/chat/SendAsTxtModal.tsx
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileText, MoreVertical, Smile } from 'lucide-react';
 
@@ -20,7 +20,6 @@ export const SendAsTxtModal: React.FC<SendAsTxtModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Approximate byte size
   const sizeKb = (textLength * 1.2 / 1024).toFixed(1);
 
   const handleSend = () => {
@@ -29,7 +28,7 @@ export const SendAsTxtModal: React.FC<SendAsTxtModalProps> = ({
     onClose();
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -261,4 +260,9 @@ export const SendAsTxtModal: React.FC<SendAsTxtModalProps> = ({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

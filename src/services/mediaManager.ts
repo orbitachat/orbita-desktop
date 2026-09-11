@@ -332,7 +332,9 @@ class MediaManager {
         idbMediaStorage.save(url, b64, mime, chatId, messageId).catch(() => {});
       }
 
-      this.requestServerMediaDelete(url).catch(() => {});
+      if (sharedSecret && sharedSecret.trim()) {
+        this.requestServerMediaDelete(url).catch(() => {});
+      }
     }
 
     const blob = new Blob([decryptedData], { type: mime });

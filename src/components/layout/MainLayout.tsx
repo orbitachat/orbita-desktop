@@ -3388,7 +3388,7 @@ export const MainLayout = () => {
     <div className="flex flex-1 h-full overflow-hidden">
       {!isMobileView && (
         <div
-          className="flex flex-col items-center shrink-0 select-none z-10"
+          className="flex flex-col items-center shrink-0 select-none"
           style={{
             width: '72px',
             backgroundColor: 'var(--surface-container-soft, rgba(255,255,255,0.02))',
@@ -3806,7 +3806,7 @@ export const MainLayout = () => {
             }}
           >
             <div className="flex flex-col h-full relative">
-              <div className="relative z-0 flex flex-col flex-1 min-h-0">
+              <div className="relative flex flex-col flex-1 min-h-0">
                 {activeChatId && chats.some(c => c.id === activeChatId) ? (
                   <ChatWindow
                     isMobileView={isMobileView}

@@ -1,5 +1,5 @@
-// src/components/chat/DiscordFileLimitModal.tsx
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface DiscordFileLimitModalProps {
@@ -15,7 +15,7 @@ export const DiscordFileLimitModal: React.FC<DiscordFileLimitModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -135,4 +135,9 @@ export const DiscordFileLimitModal: React.FC<DiscordFileLimitModalProps> = ({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

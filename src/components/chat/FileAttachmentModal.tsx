@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { X, FileText, MoreVertical, Smile, Play } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -135,14 +136,14 @@ export const FileAttachmentModal = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[400] flex items-center justify-center select-none"
+          className="fixed inset-0 z-[1000] flex items-center justify-center select-none"
           style={{
             backgroundColor: 'rgba(0, 0, 0, 0.65)',
             userSelect: 'none',
@@ -571,4 +572,9 @@ export const FileAttachmentModal = ({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };

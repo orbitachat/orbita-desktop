@@ -4251,14 +4251,19 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   }, [getMediaDimensionsForFile]);
 
   const handleSendFiles = async (caption: string, group: boolean, asFile: boolean) => {
-    if (!activeChatId || !sharedSecret || attachedFiles.length === 0) return;
-    setIsSendingFiles(true);
+    if (!activeChatId || attachedFiles.length === 0) return;
 
     const chat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
-    if (!chat || !chat.ratchetState) {
-      setIsSendingFiles(false);
-      return;
+    if (!chat) return;
+
+    const isChannel = chat.type === 'channel';
+    if (isChannel) {
+      if (!chat.isOwner) return;
+    } else {
+      if (!sharedSecret || !chat.ratchetState) return;
     }
+
+    setIsSendingFiles(true);
 
     const uploadedFiles: Array<{
       url: string;
@@ -4371,15 +4376,29 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
 
         const cleanedBuffer = stripExifMetadata(fileArrayBuffer, file.fileType || file.name);
-        const fileKey = generateEphemeralKey();
-        const encryptedBlob = await encryptFile(cleanedBuffer, fileKey);
-        const encryptedBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.readAsDataURL(encryptedBlob);
-        });
+        let fileKey: string | undefined = undefined;
+        let fileBase64: string;
 
-        const tempPath = await window.orbita.writeTempFile(encryptedBase64);
+        if (isChannel) {
+          const uint8 = new Uint8Array(cleanedBuffer);
+          let binary = '';
+          const chunkSz = 8192;
+          for (let j = 0; j < uint8.length; j += chunkSz) {
+            binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(j, j + chunkSz)));
+          }
+          fileBase64 = btoa(binary);
+        } else {
+          fileKey = generateEphemeralKey();
+          const encryptedBlob = await encryptFile(cleanedBuffer, fileKey);
+          fileBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result as string).split(',')[1]);
+            reader.readAsDataURL(encryptedBlob);
+          });
+        }
+
+        const ext = (file.name?.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
+        const tempPath = await window.orbita.writeTempFile(fileBase64, isChannel ? ext : undefined);
         if (!tempPath) throw new Error('Failed to write temp file');
 
         const publicId = `orbita_${Date.now()}_${i}`;
@@ -4400,7 +4419,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
         const itemMime = resolveMime(file.fileType, file.name);
         const localBlob = new Blob([cleanedBuffer], { type: itemMime });
-        mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey, localBlob, itemMime, activeChatId);
+        mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey || '', localBlob, itemMime, activeChatId);
 
         uploadedFiles.push({
           url: result.secure_url,
@@ -4435,14 +4454,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         return;
       }
 
-      for (const file of uploadedFiles) {
+      for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
+        const file = uploadedFiles[fIdx];
+        const postCaption = fIdx === 0 ? (caption || '') : '';
         const optimisticId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const localMessage: Message = {
           id: optimisticId,
           senderId: myCode,
           sender: myNickname,
           isOutgoing: true,
-          text: caption || '',
+          text: postCaption,
           time: Date.now(),
           read: true,
           status: 'sent',
@@ -4457,12 +4478,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           duration: file.duration,
         };
         addMessage(activeChatId, localMessage);
-        updateChat(activeChatId, { lastMsg: caption || file.name || 'Новый медиа-пост' });
+        updateChat(activeChatId, { lastMsg: postCaption || file.name || 'Новый медиа-пост' });
 
         channelService.publishPost(
           activeChatId,
           myNickname,
-          caption || '',
+          postCaption,
           {
             type: file.type,
             url: file.url,
@@ -4494,6 +4515,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
       setAttachedFiles([]);
       setIsAttachmentModalOpen(false);
+      setIsSendingFiles(false);
+      return;
+    }
+
+    if (!chat.ratchetState) {
       setIsSendingFiles(false);
       return;
     }

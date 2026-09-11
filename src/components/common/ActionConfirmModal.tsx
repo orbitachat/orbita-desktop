@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from './Avatar';
@@ -112,14 +113,14 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
 
   const showSubtitle = type === 'clear_history' || type === 'delete_chat' || type === 'leave_channel';
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-[500] flex items-center justify-center p-4 select-none"
+        className="fixed inset-0 z-[1000] flex items-center justify-center p-4 select-none"
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.55)',
           backdropFilter: 'none',
@@ -225,4 +226,9 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
       </motion.div>
     </AnimatePresence>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };
