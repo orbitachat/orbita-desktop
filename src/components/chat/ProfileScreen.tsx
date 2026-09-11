@@ -6,6 +6,7 @@ import { supabaseService } from '../../services/supabaseService';
 import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { BotIcon } from '../common/BotIcon';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
 import { EmojiPicker } from './EmojiPicker';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
@@ -1847,6 +1848,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
             )}
             {chatId === 'notes' ? t('connectModal.notes') : chat.name}
+            {chat.type === 'bot' && (
+              <VerifiedBadge size={18} className="flex-shrink-0" />
+            )}
           </h3>
           <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
             <DeveloperBadge

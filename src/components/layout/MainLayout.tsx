@@ -61,10 +61,12 @@ import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { DevicePermissionModal } from '../common/DevicePermissionModal';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
 import { BotIcon } from '../common/BotIcon';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 import { BotAvatar } from '../common/BotAvatar';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
 import { orbitosService } from '../../services/orbitosService';
+import { supportService } from '../../services/supportService';
 
 interface ChatContextMenu {
   visible: boolean;
@@ -493,18 +495,28 @@ const ChatListItem = React.memo(({
                   }}
                 />
               )}
+              {chat.type === 'bot' && (
+                <BotIcon
+                  size={15}
+                  className="flex-shrink-0"
+                  style={{
+                    color: isLightTheme ? '#555555' : 'rgba(255, 255, 255, 0.85)',
+                    marginRight: 2,
+                  }}
+                />
+              )}
               <span
-                className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0 inline-flex items-center"
+                className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
                 style={{
                   color: isLightTheme ? '#111111' : 'rgba(255,255,255,0.85)',
                   fontFamily: 'inherit'
                 }}
               >
-                {chat.type === 'bot' && (
-                  <BotIcon size={14} className="flex-shrink-0 text-[var(--accent-color)] mr-1.5" />
-                )}
                 {chat.id === 'notes' ? t('connectModal.notes') : chat.name}
               </span>
+              {chat.type === 'bot' && (
+                <VerifiedBadge size={16} className="flex-shrink-0" />
+              )}
               <DeveloperBadge
                 userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined)}
                 size={18}
@@ -751,6 +763,7 @@ export const MainLayout = () => {
 
   useEffect(() => {
     orbitosService.initOrbitosChat(t);
+    supportService.initSupportChat(t);
   }, [t]);
 
   useEffect(() => {

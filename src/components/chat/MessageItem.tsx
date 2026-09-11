@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DeveloperBadge } from '../ui/DeveloperBadge';
-import { Pin, Megaphone, ShieldCheck, HelpCircle, ExternalLink } from 'lucide-react';
+import { Pin } from 'lucide-react';
 import { Message, useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { parseReplyChain, countEmojis, formatTimeOfDay, markdownToHtml, formatPreviewText } from '../../utils/messageUtils';
@@ -215,23 +215,26 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
           </div>
         ) : (
           <div
-            className={`min-w-[50px] relative flex flex-col ${
+            className={`flex flex-col min-w-[50px] ${
               hasLinkPreview
                 ? 'max-w-[min(540px,94%)] sm:max-w-[min(500px,85%)] w-full'
                 : 'max-w-[min(460px,88%)] sm:max-w-[min(440px,75%)] w-fit'
             }`}
-            style={{
-              padding: '6.5px 12px 6.5px 11px',
-              borderRadius: bubbleRadius,
-              background: isOwn
-                ? 'var(--chat-bubble-own-bg, #2c6bed)'
-                : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
-              color: isOwn
-                ? '#ffffff'
-                : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
-              fontSize: bubbleFontSize,
-            }}
           >
+            <div
+              className="w-full relative flex flex-col"
+              style={{
+                padding: '6.5px 12px 6.5px 11px',
+                borderRadius: bubbleRadius,
+                background: isOwn
+                  ? 'var(--chat-bubble-own-bg, #2c6bed)'
+                  : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
+                color: isOwn
+                  ? '#ffffff'
+                  : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
+                fontSize: bubbleFontSize,
+              }}
+            >
             {!isOwn && isGroup && msg.sender && (
               <div className="flex items-center mb-1">
                 <span
@@ -313,115 +316,113 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               onLinkClick={onLinkClick}
             />
 
-            {hasLinkPreview && (
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onLinkClick && msg.linkPreview?.url) {
-                    onLinkClick(msg.linkPreview.url);
-                  }
-                }}
-                className="flex flex-col w-full min-w-0 mt-2 cursor-pointer hover:opacity-90 transition-opacity select-none"
-                style={{
-                  padding: '8px 12px',
-                  backgroundColor: isOwn ? 'rgba(0,0,0,0.18)' : 'color-mix(in srgb, var(--accent-color) 10%, rgba(0,0,0,0.15))',
-                  borderRadius: '0 8px 8px 0',
-                  borderLeft: isOwn ? '3px solid rgba(255,255,255,0.7)' : '3px solid var(--accent-color)',
-                }}
-              >
-                {msg.linkPreview!.siteName && (
-                  <span
-                    className="font-bold text-[12.5px] mb-0.5 truncate"
-                    style={{ color: isOwn ? 'rgba(255,255,255,0.95)' : 'var(--accent-color)' }}
-                  >
-                    {msg.linkPreview!.siteName}
-                  </span>
-                )}
-                {msg.linkPreview!.title &&
-                  (!msg.linkPreview!.siteName ||
-                    msg.linkPreview!.title.trim().toLowerCase() !== msg.linkPreview!.siteName.trim().toLowerCase()) && (
-                  <span
-                    className="font-bold text-[13.5px] leading-snug mb-1 line-clamp-2"
-                    style={{ color: isOwn ? '#ffffff' : 'var(--text-main)' }}
-                  >
-                    {msg.linkPreview!.title}
-                  </span>
-                )}
-                {msg.linkPreview!.description && (
-                  <span
-                    className="text-[12.5px] leading-normal mb-1.5 opacity-90 line-clamp-4"
-                    style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--text-dim)' }}
-                  >
-                    {msg.linkPreview!.description}
-                  </span>
-                )}
-                {msg.linkPreview!.image && (
-                  <img
-                    src={msg.linkPreview!.image}
-                    alt=""
-                    decoding="async"
-                    loading="lazy"
-                    className="w-full max-h-72 object-cover rounded-md mt-1"
-                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                  />
-                )}
-              </div>
-            )}
-
-            {hasLinkPreview && !hasReactions && (
-              <div className="flex justify-end items-center mt-1 -mb-0.5 select-none">
-                {timeBadge}
-              </div>
-            )}
-
-            {hasReactions && (
-              <div className="flex items-end justify-between gap-2 mt-1 min-w-0 w-full">
-                <div className="flex-1 min-w-0">
-                  <MessageReactions
-                    reactions={msg.reactions}
-                    onToggleReaction={(emoji) => onToggleReaction?.(emoji)}
-                    isOwn={isOwn}
-                    isSmallMessage={isShortMessage}
-                  />
+              {hasLinkPreview && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onLinkClick && msg.linkPreview?.url) {
+                      onLinkClick(msg.linkPreview.url);
+                    }
+                  }}
+                  className="flex flex-col w-full min-w-0 mt-2 cursor-pointer hover:opacity-90 transition-opacity select-none"
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: isOwn ? 'rgba(0,0,0,0.18)' : 'color-mix(in srgb, var(--accent-color) 10%, rgba(0,0,0,0.15))',
+                    borderRadius: '0 8px 8px 0',
+                    borderLeft: isOwn ? '3px solid rgba(255,255,255,0.7)' : '3px solid var(--accent-color)',
+                  }}
+                >
+                  {msg.linkPreview!.siteName && (
+                    <span
+                      className="font-bold text-[12.5px] mb-0.5 truncate"
+                      style={{ color: isOwn ? 'rgba(255,255,255,0.95)' : 'var(--accent-color)' }}
+                    >
+                      {msg.linkPreview!.siteName}
+                    </span>
+                  )}
+                  {msg.linkPreview!.title &&
+                    (!msg.linkPreview!.siteName ||
+                      msg.linkPreview!.title.trim().toLowerCase() !== msg.linkPreview!.siteName.trim().toLowerCase()) && (
+                    <span
+                      className="font-bold text-[13.5px] leading-snug mb-1 line-clamp-2"
+                      style={{ color: isOwn ? '#ffffff' : 'var(--text-main)' }}
+                    >
+                      {msg.linkPreview!.title}
+                    </span>
+                  )}
+                  {msg.linkPreview!.description && (
+                    <span
+                      className="text-[12.5px] leading-normal mb-1.5 opacity-90 line-clamp-4"
+                      style={{ color: isOwn ? 'rgba(255,255,255,0.85)' : 'var(--text-dim)' }}
+                    >
+                      {msg.linkPreview!.description}
+                    </span>
+                  )}
+                  {msg.linkPreview!.image && (
+                    <img
+                      src={msg.linkPreview!.image}
+                      alt=""
+                      decoding="async"
+                      loading="lazy"
+                      className="w-full max-h-72 object-cover rounded-md mt-1"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  )}
                 </div>
-                <div className="flex-shrink-0 ml-auto flex items-center gap-1 self-end pb-0.5">
+              )}
+
+              {hasLinkPreview && !hasReactions && (
+                <div className="flex justify-end items-center mt-1 -mb-0.5 select-none">
                   {timeBadge}
                 </div>
+              )}
+
+              {hasReactions && (
+                <div className="flex items-end justify-between gap-2 mt-1 min-w-0 w-full">
+                  <div className="flex-1 min-w-0">
+                    <MessageReactions
+                      reactions={msg.reactions}
+                      onToggleReaction={(emoji) => onToggleReaction?.(emoji)}
+                      isOwn={isOwn}
+                      isSmallMessage={isShortMessage}
+                    />
+                  </div>
+                  <div className="flex-shrink-0 ml-auto flex items-center gap-1 self-end pb-0.5">
+                    {timeBadge}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {msg.buttons && msg.buttons.length > 0 && (
+              <div className="flex flex-col gap-1.5 w-full select-none" style={{ maxWidth: '380px', marginTop: '3px' }}>
+                {msg.buttons.map((btn, bIdx) => (
+                  <button
+                    key={bIdx}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onButtonClick?.(btn);
+                    }}
+                    aria-label={btn.text}
+                    className="w-full flex items-center justify-center px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                    style={{
+                      backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.08)) 80%, var(--accent-color) 12%)',
+                      color: 'var(--text-main, #ffffff)',
+                      border: '1px solid color-mix(in srgb, var(--accent-color) 25%, transparent)',
+                      backdropFilter: 'blur(8px)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.14)) 70%, var(--accent-color) 24%)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.08)) 80%, var(--accent-color) 12%)';
+                    }}
+                  >
+                    <span className="truncate">{btn.text}</span>
+                  </button>
+                ))}
               </div>
             )}
-          </div>
-        )}
-        {msg.buttons && msg.buttons.length > 0 && (
-          <div className="flex flex-col gap-1.5 w-full mt-1.5 select-none" style={{ maxWidth: '380px' }}>
-            {msg.buttons.map((btn, bIdx) => (
-              <button
-                key={bIdx}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onButtonClick?.(btn);
-                }}
-                aria-label={btn.text}
-                className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-all cursor-pointer shadow-sm active:scale-[0.98]"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.08)) 80%, var(--accent-color) 12%)',
-                  color: 'var(--text-main, #ffffff)',
-                  border: '1px solid color-mix(in srgb, var(--accent-color) 25%, transparent)',
-                  backdropFilter: 'blur(8px)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.14)) 70%, var(--accent-color) 24%)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.08)) 80%, var(--accent-color) 12%)';
-                }}
-              >
-                {btn.icon === 'channel' && <Megaphone size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
-                {btn.icon === 'backup' && <ShieldCheck size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
-                {btn.icon === 'help' && <HelpCircle size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
-                {btn.icon === 'link' && <ExternalLink size={14} className="text-[var(--accent-color)] flex-shrink-0" />}
-                <span className="truncate">{btn.text}</span>
-              </button>
-            ))}
           </div>
         )}
         {isPinned && (

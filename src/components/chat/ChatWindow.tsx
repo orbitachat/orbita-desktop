@@ -65,6 +65,8 @@ import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { EmptyChatGreeting } from './EmptyChatGreeting';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { orbitosService } from '../../services/orbitosService';
+import { supportService } from '../../services/supportService';
+import { VerifiedBadge } from '../common/VerifiedBadge';
 import { BotAvatar } from '../common/BotAvatar';
 
 declare global {
@@ -3115,7 +3117,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return;
     }
 
-    if (activeChatId === 'system_orbitos') {
+    if (activeChatId === 'system_orbitos' || activeChatId === 'system_support') {
       const localMessage: Message = {
         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         senderId: myCode,
@@ -3131,7 +3133,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       setInputText('');
       setReplyingTo(null);
       requestAnimationFrame(() => scrollToBottom(false));
-      orbitosService.handleUserMessage(text, t);
+      if (activeChatId === 'system_support') {
+        supportService.handleUserMessage(text, t);
+      } else {
+        orbitosService.handleUserMessage(text, t);
+      }
       return;
     }
 
@@ -5623,6 +5629,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   <h2 className="font-bold text-[14px] truncate" style={{ color: 'var(--text-main)' }}>
                     {activeChatId === 'notes' ? t('connectModal.notes') : activeChat?.name}
                   </h2>
+                  {activeChat?.type === 'bot' && (
+                    <VerifiedBadge size={16} className="flex-shrink-0" />
+                  )}
                   <DeveloperBadge
                     userId={activeChat?.peerCode || (activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined) || (activeChat?.type === 'private' ? (activeChatId ?? undefined) : undefined)}
                     nickname={activeChat?.name}

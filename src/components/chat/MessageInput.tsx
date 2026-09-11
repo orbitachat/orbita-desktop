@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, memo, useCallback } from 'react';
+import React, { useRef, useEffect, useState, memo, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
@@ -8,6 +8,7 @@ import { InputContextMenu, FormattingType } from './InputContextMenu';
 import { extractFirstUrl, fetchLinkPreview } from '../../utils/linkPreviewUtils';
 import { htmlToMarkdown, markdownToHtml, formatPreviewText } from '../../utils/messageUtils';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
+import { BotIcon } from '../common/BotIcon';
 
 const FileWithArrowIcon = () => (
   <svg
@@ -187,6 +188,66 @@ export const MessageInput = memo<MessageInputProps>(({
 
   const linkPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [showCommandsMenu, setShowCommandsMenu] = useState(false);
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+
+  const availableCommands = useMemo(() => {
+    if (activeChatId === 'system_support') {
+      return [
+        { command: '/start', desc: t('commands.support_start_desc', 'Начать диалог с поддержкой') },
+        { command: '/ticket', desc: t('commands.support_ticket_desc', 'Проверить статус обращений') },
+        { command: '/help', desc: t('commands.support_help_desc', 'Как получить помощь') },
+        { command: '/faq', desc: t('commands.support_faq_desc', 'Частые вопросы перед обращением') },
+      ];
+    }
+    return [
+      { command: '/start', desc: t('commands.start_desc', 'Запустить бота и получить приветствие') },
+      { command: '/help', desc: t('commands.help_desc', 'Справка и список возможностей') },
+      { command: '/backup', desc: t('commands.backup_desc', 'Инструкция и создание резервной копии') },
+      { command: '/channels', desc: t('commands.channels_desc', 'Официальные каналы и новости') },
+      { command: '/security', desc: t('commands.security_desc', 'Сквозное шифрование и безопасность') },
+      { command: '/privacy', desc: t('commands.privacy_desc', 'Конфиденциальность и скрытие ID') },
+      { command: '/calls', desc: t('commands.calls_desc', 'Голосовые и видеозвонки P2P') },
+      { command: '/appearance', desc: t('commands.appearance_desc', 'Оформление, темы и кастомизация') },
+      { command: '/network', desc: t('commands.network_desc', 'Сеть, WebRTC и прокси') },
+      { command: '/proxy', desc: t('commands.proxy_desc', 'Настройки сетевого прокси') },
+      { command: '/faq', desc: t('commands.faq_desc', 'Часто задаваемые вопросы') },
+      { command: '/about', desc: t('commands.about_desc', 'О мессенджере Orbita') },
+    ];
+  }, [activeChatId, t]);
+
+  const filteredCommands = useMemo(() => {
+    if (!slashQuery.startsWith('/')) return [];
+    const q = slashQuery.slice(1).toLowerCase().trim();
+    if (!q) return availableCommands;
+    return availableCommands.filter((c) => c.command.slice(1).toLowerCase().includes(q) || c.desc.toLowerCase().includes(q));
+  }, [availableCommands, slashQuery]);
+
+  const executeCommand = useCallback((cmdStr: string) => {
+    setShowCommandsMenu(false);
+    setSlashQuery('');
+    if (editorRef.current) {
+      editorRef.current.innerHTML = '';
+      setIsEditorEmpty(true);
+    }
+    setCurrentText('');
+    onSendMessage(cmdStr);
+  }, [onSendMessage, setCurrentText]);
+
+  useEffect(() => {
+    const trimmed = currentText.trim();
+    if (trimmed.startsWith('/')) {
+      setSlashQuery(trimmed);
+      setShowCommandsMenu(true);
+      setSelectedCommandIndex(0);
+    } else {
+      setShowCommandsMenu(false);
+      setSlashQuery('');
+    }
+  }, [currentText]);
+
   useEffect(() => {
     if (!linkPreviewsEnabled || editingIndex !== null) {
       setLiveLinkPreview(null);
@@ -305,12 +366,22 @@ export const MessageInput = memo<MessageInputProps>(({
   const handleEditorInput = () => {
     const el = editorRef.current;
     if (!el) return;
-    const empty = el.innerText.replace(/\u200B/g, '').trim() === '';
+    const raw = el.innerText.replace(/\u200B/g, '');
+    const empty = raw.trim() === '';
     if (empty !== isEditorEmpty) {
       setIsEditorEmpty(empty);
     }
 
-    // High performance debounce: typing at 300Hz runs with 0 React renders in ChatWindow!
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('/')) {
+      setSlashQuery(trimmed);
+      setShowCommandsMenu(true);
+      setSelectedCommandIndex(0);
+    } else {
+      setShowCommandsMenu(false);
+      setSlashQuery('');
+    }
+
     if (syncDebounceTimerRef.current) clearTimeout(syncDebounceTimerRef.current);
     syncDebounceTimerRef.current = setTimeout(() => {
       syncEditorToState();
@@ -318,6 +389,8 @@ export const MessageInput = memo<MessageInputProps>(({
   };
 
   const handleSend = () => {
+    setShowCommandsMenu(false);
+    setSlashQuery('');
     if (syncDebounceTimerRef.current) {
       clearTimeout(syncDebounceTimerRef.current);
       syncDebounceTimerRef.current = null;
@@ -464,6 +537,32 @@ export const MessageInput = memo<MessageInputProps>(({
       }
     }
 
+    if (showCommandsMenu && filteredCommands.length > 0) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedCommandIndex((prev) => (prev > 0 ? prev - 1 : filteredCommands.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedCommandIndex((prev) => (prev < filteredCommands.length - 1 ? prev + 1 : 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const targetCmd = filteredCommands[selectedCommandIndex] || filteredCommands[0];
+        if (targetCmd) {
+          executeCommand(targetCmd.command);
+          return;
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowCommandsMenu(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter') {
       if (sendOnEnter) {
         if (!e.shiftKey && !isCmdOrCtrl) {
@@ -532,6 +631,55 @@ export const MessageInput = memo<MessageInputProps>(({
         alignItems: 'stretch',
       }}
     >
+      {showCommandsMenu && filteredCommands.length > 0 && !isRecordingActive && (
+        <div
+          role="listbox"
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: 0,
+            right: 0,
+            maxHeight: '136px',
+            overflowY: 'auto',
+            backgroundColor: 'var(--bg-secondary, #20222b)',
+            borderTop: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+            borderBottom: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+            boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.3)',
+            zIndex: 50,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {filteredCommands.map((cmd, idx) => (
+            <div
+              key={cmd.command}
+              role="option"
+              aria-selected={idx === selectedCommandIndex}
+              onClick={() => executeCommand(cmd.command)}
+              onMouseEnter={() => setSelectedCommandIndex(idx)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '7px 16px',
+                minHeight: '34px',
+                cursor: 'pointer',
+                backgroundColor: idx === selectedCommandIndex ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                transition: 'background-color 0.1s ease',
+              }}
+            >
+              <BotIcon size={16} className="text-accent" />
+              <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main, #ffffff)', flexShrink: 0 }}>
+                {cmd.command}
+              </span>
+              <span style={{ fontSize: '13px', color: 'var(--text-dim, rgba(255, 255, 255, 0.5))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {cmd.desc}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {liveLinkPreview && !isRecordingActive && (
         <div
           style={{

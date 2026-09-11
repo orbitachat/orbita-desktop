@@ -535,6 +535,59 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { profile: data || null });
     }
 
+    if (pathname === '/support/ticket' && req.method === 'POST') {
+      const supabase = getSupabaseClient() || getChannelsSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const { ticketNumber, userCode, senderNickname, messageText } = body;
+      if (!ticketNumber || !messageText) return sendError(res, 'Missing ticket data', 400);
+
+      const { error } = await supabase.from('support_tickets').insert({
+        ticket_number: ticketNumber,
+        user_code: userCode || 'ANON',
+        sender_nickname: senderNickname || 'User',
+        message_text: messageText,
+        status: 'sent',
+      });
+
+      if (error) return sendError(res, error.message, 500);
+      return sendJson(res, { status: 'ok', ticketNumber });
+    }
+
+    if (pathname === '/support/tickets' && req.method === 'GET') {
+      const supabase = getSupabaseClient() || getChannelsSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const userCode = query.userCode;
+      if (!userCode) return sendError(res, 'Missing userCode', 400);
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('user_code', userCode)
+        .order('created_at', { ascending: true });
+
+      if (error) return sendError(res, error.message, 500);
+      return sendJson(res, { tickets: data || [] });
+    }
+
+    if (pathname === '/support/reply' && req.method === 'POST') {
+      const supabase = getSupabaseClient() || getChannelsSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const { ticketNumber, adminReply } = body;
+      if (!ticketNumber || !adminReply) return sendError(res, 'Missing ticketNumber or adminReply', 400);
+
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({
+          admin_reply: adminReply,
+          status: 'answered',
+          answered_at: new Date().toISOString(),
+        })
+        .eq('ticket_number', ticketNumber);
+
+      if (error) return sendError(res, error.message, 500);
+      return sendJson(res, { status: 'ok' });
+    }
+
     if (pathname === '/channels/featured' && req.method === 'GET') {
       const supabase = getChannelsSupabaseClient();
       let channels = [];
