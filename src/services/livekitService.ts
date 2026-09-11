@@ -54,10 +54,48 @@ class LiveKitService extends EventEmitter {
   private e2eeWorker: Worker | null = null;
   private attachedAudioElements: Map<string, HTMLMediaElement> = new Map();
   private neuralProcessor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null = null;
+  private peerVolume = 1.0;
+  private micVolume = 1.0;
 
   constructor() {
     super();
     this.room = null;
+  }
+
+  public setPeerVolume(volume: number): void {
+    this.peerVolume = Math.max(0, Math.min(2.0, volume));
+    this.attachedAudioElements.forEach((el) => {
+      try {
+        el.volume = Math.min(1.0, this.peerVolume);
+      } catch {}
+    });
+    if (this.room) {
+      for (const p of this.room.remoteParticipants.values()) {
+        const pub = p.getTrackPublication(Track.Source.Microphone);
+        if (pub?.track) {
+          try {
+            (pub.track as any).setVolume?.(this.peerVolume);
+          } catch {}
+        }
+      }
+    }
+  }
+
+  public getPeerVolume(): number {
+    return this.peerVolume;
+  }
+
+  public setMicVolume(volume: number): void {
+    this.micVolume = Math.max(0, Math.min(2.0, volume));
+    if (this.localAudioTrack) {
+      try {
+        (this.localAudioTrack as any).setVolume?.(this.micVolume);
+      } catch {}
+    }
+  }
+
+  public getMicVolume(): number {
+    return this.micVolume;
   }
 
   public get status(): CallStatus {
@@ -330,7 +368,7 @@ class LiveKitService extends EventEmitter {
       const selectedMicId = useChatStore.getState().selectedMicrophoneId;
       await this.localParticipant.setMicrophoneEnabled(true, {
         deviceId: selectedMicId || undefined,
-        autoGainControl: false,
+        autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: isNoiseSuppression,
         channelCount: 1,
@@ -340,6 +378,9 @@ class LiveKitService extends EventEmitter {
       const pub = this.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (pub?.track) {
         this.localAudioTrack = pub.track as LocalTrack;
+        try {
+          (this.localAudioTrack as any).setVolume?.(this.micVolume);
+        } catch {}
         if ((this.localAudioTrack as any).setProcessor && mode !== 'none') {
           const processor = neuralAudioProcessor.createLiveKitProcessor(() => useChatStore.getState().noiseSuppressionMode);
           await (this.localAudioTrack as any).setProcessor(processor).catch(() => {});
@@ -392,7 +433,7 @@ class LiveKitService extends EventEmitter {
         await this.localAudioTrack.mediaStreamTrack.applyConstraints({
           noiseSuppression: isNoiseSuppression,
           echoCancellation: true,
-          autoGainControl: false,
+          autoGainControl: true,
           channelCount: 1,
           sampleRate: 48000,
           sampleSize: 16,
@@ -717,9 +758,13 @@ class LiveKitService extends EventEmitter {
         const el = track.attach();
         el.id = `livekit-audio-${participant.identity}`;
         el.autoplay = true;
+        el.volume = Math.min(1.0, this.peerVolume);
         el.style.display = 'none';
         document.body.appendChild(el);
         this.attachedAudioElements.set(key, el);
+        try {
+          (track as any).setVolume?.(this.peerVolume);
+        } catch {}
       } catch {}
     }
     if (track.source === Track.Source.ScreenShare) {

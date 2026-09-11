@@ -64,6 +64,9 @@ const MessageText = ({
         whiteSpace: 'pre-wrap',
         width: '100%',
         position: 'relative',
+        userSelect: 'text',
+        WebkitUserSelect: 'text',
+        cursor: 'text',
       }}
     >
       <span>
@@ -222,7 +225,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
             }`}
           >
             <div
-              className="w-full relative flex flex-col"
+              className="w-full relative flex flex-col message-bubble-selectable"
               style={{
                 padding: '6.5px 12px 6.5px 11px',
                 borderRadius: bubbleRadius,
@@ -233,6 +236,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                   ? '#ffffff'
                   : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
                 fontSize: bubbleFontSize,
+                userSelect: 'text',
+                WebkitUserSelect: 'text',
               }}
             >
             {!isOwn && isGroup && msg.sender && (

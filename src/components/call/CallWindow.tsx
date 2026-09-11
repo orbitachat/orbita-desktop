@@ -4,7 +4,7 @@ import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
 import { liveKitService } from '../../services/livekitService';
 import { useTranslation } from 'react-i18next';
-import { Phone, PhoneOff, Mic, MicOff, ChevronLeft, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2 } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, ChevronLeft, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2, Volume2 } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
@@ -60,6 +60,23 @@ export const CallWindow = () => {
   const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [hasCamera, setHasCamera] = useState<boolean>(false);
+  const peerVolume = useCallStore((state) => state.peerVolume);
+  const micVolume = useCallStore((state) => state.micVolume);
+  const setPeerVolume = useCallStore((state) => state.setPeerVolume);
+  const setMicVolume = useCallStore((state) => state.setMicVolume);
+  const [isVolumeOpen, setIsVolumeOpen] = useState<boolean>(false);
+  const volumeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isVolumeOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (volumeMenuRef.current && !volumeMenuRef.current.contains(e.target as Node)) {
+        setIsVolumeOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isVolumeOpen]);
 
   useEffect(() => {
     const checkCamera = async () => {
@@ -123,14 +140,8 @@ export const CallWindow = () => {
   }, []);
 
   useEffect(() => {
-    const handleTrackSubscribed = (track: RemoteTrack, identity: string) => {
-      if (track.kind === 'audio') {
-        const el = track.attach();
-        el.autoplay = true;
-        el.style.display = 'none';
-        remoteAudioContainerRef.current?.appendChild(el);
-        attachedElements.current.set(`${identity}:${track.sid}`, el);
-      } else if (track.kind === 'video') {
+    const handleTrackSubscribed = (track: RemoteTrack) => {
+      if (track.kind === 'video') {
         if (track.source === 'screen_share') {
           if (remoteScreenShareRef.current) {
             track.attach(remoteScreenShareRef.current);
@@ -143,18 +154,8 @@ export const CallWindow = () => {
       }
     };
 
-    const handleTrackUnsubscribed = (track: RemoteTrack, identity: string) => {
-      if (track.kind === 'audio') {
-        const key = `${identity}:${track.sid}`;
-        const el = attachedElements.current.get(key);
-        if (el) {
-          track.detach(el as HTMLAudioElement);
-          el.remove();
-          attachedElements.current.delete(key);
-        } else {
-          track.detach().forEach((detachedEl) => detachedEl.remove());
-        }
-      } else if (track.kind === 'video') {
+    const handleTrackUnsubscribed = (track: RemoteTrack) => {
+      if (track.kind === 'video') {
         if (track.source === 'screen_share') {
           if (remoteScreenShareRef.current) {
             track.detach(remoteScreenShareRef.current);
@@ -746,6 +747,130 @@ export const CallWindow = () => {
                   {isScreenSharing ? t('call.stop_screen_share') : t('call.screen_share')}
                 </span>
               </button>
+            )}
+
+            {isConnected && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsVolumeOpen(!isVolumeOpen)}
+                  aria-label={t('call.volume_settings')}
+                  className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+                >
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95"
+                    style={neutralButtonStyle(isVolumeOpen)}
+                  >
+                    <Volume2 size={24} />
+                  </div>
+                  <span style={{ color: 'var(--text-dim)', fontSize: '12px', fontWeight: 500 }}>
+                    {t('call.volume')}
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {isVolumeOpen && (
+                    <motion.div
+                      ref={volumeMenuRef}
+                      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 12, scale: 0.96 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute bottom-20 left-1/2 -translate-x-1/2 w-72 p-4 rounded-2xl shadow-2xl flex flex-col gap-4 z-50 select-none"
+                      style={{
+                        backgroundColor: 'var(--surface-container, #1e1e24)',
+                        border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
+                        backdropFilter: 'blur(20px)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                        <div className="flex items-center gap-2">
+                          <Volume2 size={16} style={{ color: 'var(--accent-color, #7C3AED)' }} />
+                          <span className="text-sm font-semibold" style={{ color: 'var(--text-main, #ffffff)' }}>
+                            {t('call.volume_settings')}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsVolumeOpen(false)}
+                          aria-label={t('call.close')}
+                          className="p-1 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors border-0 bg-transparent cursor-pointer"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                            {t('call.peer_volume')}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {peerVolume > 100 && (
+                              <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-amber-500/20 text-amber-300">
+                                {t('call.volume_boost')}
+                              </span>
+                            )}
+                            <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
+                              {peerVolume}%
+                            </span>
+                          </div>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="200"
+                          step="1"
+                          value={peerVolume}
+                          onChange={(e) => setPeerVolume(Number(e.target.value))}
+                          aria-label={t('call.peer_volume')}
+                          className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: 'var(--accent-color, #7C3AED)' }}
+                        />
+                        <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                          <span>0%</span>
+                          <span style={{ color: peerVolume === 100 ? 'var(--accent-color, #7C3AED)' : undefined }}>100%</span>
+                          <span>200%</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                            {t('call.mic_volume')}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {micVolume > 100 && (
+                              <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-amber-500/20 text-amber-300">
+                                {t('call.volume_boost')}
+                              </span>
+                            )}
+                            <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
+                              {micVolume}%
+                            </span>
+                          </div>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="200"
+                          step="1"
+                          value={micVolume}
+                          onChange={(e) => setMicVolume(Number(e.target.value))}
+                          aria-label={t('call.mic_volume')}
+                          className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: 'var(--accent-color, #7C3AED)' }}
+                        />
+                        <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                          <span>0%</span>
+                          <span style={{ color: micVolume === 100 ? 'var(--accent-color, #7C3AED)' : undefined }}>100%</span>
+                          <span>200%</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
 
             <button

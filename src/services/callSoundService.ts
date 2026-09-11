@@ -8,6 +8,7 @@ class CallSoundService {
   private gainNode: GainNode | null = null;
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private isCurrentlyPlaying = false;
+  private currentPlayId = 0;
 
   private getPath(type: CallSoundType): string {
     const map: Record<CallSoundType, string> = {
@@ -43,8 +44,7 @@ class CallSoundService {
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
       this.bufferCache.set(path, audioBuffer);
       return audioBuffer;
-    } catch (err) {
-      console.warn(`[CallSound] Failed to load/decode audio from ${path}:`, err);
+    } catch {
       return null;
     }
   }
@@ -57,10 +57,10 @@ class CallSoundService {
 
     const path = this.getPath(type);
     if (!path) {
-      console.warn(`[CallSound] Unknown sound type: ${type}`);
       return;
     }
 
+    const playId = ++this.currentPlayId;
     this.stop();
 
     const ctx = this.getAudioContext();
@@ -81,7 +81,7 @@ class CallSoundService {
 
     try {
       const buffer = await this.loadBuffer(path);
-      if (!buffer) return;
+      if (!buffer || this.currentPlayId !== playId) return;
 
       const source = ctx.createBufferSource();
       source.buffer = buffer;
@@ -105,16 +105,13 @@ class CallSoundService {
       this.isCurrentlyPlaying = true;
 
       source.start(0);
-    } catch (error) {
-      console.warn('[CallSound] Failed to play sound:', error);
+    } catch {
       this.stop();
     }
   }
 
-  /**
-   * Останавливает текущее воспроизведение.
-   */
   stop(): void {
+    this.currentPlayId++;
     if (this.currentSource) {
       try {
         this.currentSource.stop();
@@ -131,12 +128,9 @@ class CallSoundService {
     this.isCurrentlyPlaying = false;
   }
 
-  /**
-   * Возвращает true, если в данный момент играет звук.
-   */
   isPlaying(): boolean {
     return this.isCurrentlyPlaying;
   }
 }
 
-export const callSoundService = new CallSoundService();
+export const callSoundService = new CallSoundService();

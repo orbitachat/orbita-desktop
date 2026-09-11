@@ -2932,12 +2932,24 @@ export const MainLayout = () => {
         if (currentState.activeCall || currentState.incomingCall) {
           const pusher = getPusher();
           const channel = pusher.subscribe(`private-chat-${chatId}`);
-          const sendBusy = () => channel.trigger('client-message', {
-            type: 'call-busy',
-            sender: nickname,
-            text: '',
-            roomName: data.roomName,
-          });
+          const sendBusy = () => {
+            try {
+              channel.trigger('client-message', {
+                type: 'call-busy',
+                sender: nickname,
+                text: '',
+                roomName: data.roomName,
+              });
+            } catch {}
+            try {
+              ablyService.sendMessage(chatId, {
+                type: 'call-busy',
+                sender: nickname,
+                text: '',
+                roomName: data.roomName,
+              });
+            } catch {}
+          };
           if (channel.subscribed) sendBusy();
           else channel.bind('pusher:subscription_succeeded', sendBusy);
           return;
@@ -2964,6 +2976,9 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'call-reject') {
+        if (data.roomName) {
+          useCallStore.getState().addProcessedRoomName(data.roomName);
+        }
         useCallStore.getState().handleReject();
         return;
       }
@@ -2974,6 +2989,9 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'call-cancel') {
+        if (data.roomName) {
+          useCallStore.getState().addProcessedRoomName(data.roomName);
+        }
         useCallStore.getState().handleCancel();
         return;
       }

@@ -7,6 +7,7 @@ import { callSoundService } from '../services/callSoundService';
 import { generateCallVerificationEmojis } from '../lib/call-verification';
 import { useAudioStore } from './useAudioStore';
 import { gatewayManager } from '../services/gatewayManager';
+import { ablyService } from '../services/ablyService';
 import i18n from '../i18n';
 
 export type CallType = 'audio' | 'video';
@@ -80,6 +81,10 @@ interface CallStore {
   toggleScreenShare: () => Promise<void>;
   updateParticipants: (participants: ParticipantInfo[]) => void;
   updateConnectionQuality: (quality: 'excellent' | 'good' | 'poor' | 'unknown') => void;
+  peerVolume: number;
+  micVolume: number;
+  setPeerVolume: (volume: number) => void;
+  setMicVolume: (volume: number) => void;
   isBusy: () => boolean;
   reset: () => void;
 }
@@ -119,6 +124,14 @@ async function fetchLivekitToken(room: string, identity: string): Promise<{ toke
   return data as { token: string; url: string };
 }
 
+const savedPeerVolume = typeof localStorage !== 'undefined' ? Number(localStorage.getItem('orbita_call_peer_volume') || '100') : 100;
+const savedMicVolume = typeof localStorage !== 'undefined' ? Number(localStorage.getItem('orbita_call_mic_volume') || '100') : 100;
+
+try {
+  liveKitService.setPeerVolume((isNaN(savedPeerVolume) ? 100 : savedPeerVolume) / 100);
+  liveKitService.setMicVolume((isNaN(savedMicVolume) ? 100 : savedMicVolume) / 100);
+} catch {}
+
 function sendCallSignal(chatId: string, payload: Record<string, unknown>) {
   try {
     const pusher = getPusher();
@@ -135,6 +148,12 @@ function sendCallSignal(chatId: string, payload: Record<string, unknown>) {
     else channel.bind('pusher:subscription_succeeded', send);
   } catch (err) {
     console.error(`${LOG_PREFIX} sendCallSignal error:`, err);
+  }
+
+  try {
+    ablyService.sendMessage(chatId, payload);
+  } catch (err) {
+    console.error(`${LOG_PREFIX} ably sendCallSignal error:`, err);
   }
 }
 
@@ -404,6 +423,22 @@ export const useCallStore = create<CallStore>((set, get) => {
     isEnding: false,
     isMinimized: false,
     processedRoomNames: [],
+    peerVolume: isNaN(savedPeerVolume) ? 100 : savedPeerVolume,
+    micVolume: isNaN(savedMicVolume) ? 100 : savedMicVolume,
+
+    setPeerVolume: (volume: number) => {
+      const clamped = Math.max(0, Math.min(200, Math.round(volume)));
+      set({ peerVolume: clamped });
+      try { localStorage.setItem('orbita_call_peer_volume', String(clamped)); } catch {}
+      liveKitService.setPeerVolume(clamped / 100);
+    },
+
+    setMicVolume: (volume: number) => {
+      const clamped = Math.max(0, Math.min(200, Math.round(volume)));
+      set({ micVolume: clamped });
+      try { localStorage.setItem('orbita_call_mic_volume', String(clamped)); } catch {}
+      liveKitService.setMicVolume(clamped / 100);
+    },
 
     addProcessedRoomName: (roomName) => {
       set((state) => {
@@ -419,6 +454,9 @@ export const useCallStore = create<CallStore>((set, get) => {
 
     setIncomingCall: (call) => {
       if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
+      if (!call) {
+        callSoundService.stop();
+      }
       if (call) {
         if (lastSeenOfferRoom === call.roomName && (get().incomingCall || get().activeCall)) {
           return;
@@ -567,10 +605,10 @@ export const useCallStore = create<CallStore>((set, get) => {
     rejectCall: (silent = false) => {
       const state = get();
       if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
+      callSoundService.stop();
       if (!state.incomingCall) return;
       const { chatId, roomName } = state.incomingCall;
-      callSoundService.stop();
-      sendCallSignal(chatId, { type: 'call-reject', sender: state.myNickname || useAuthStore.getState().nickname || undefined, text: '', roomName });
+      sendCallSignalReliable(chatId, { type: 'call-reject', sender: state.myNickname || useAuthStore.getState().nickname || undefined, text: '', roomName });
       console.log(`${LOG_PREFIX} Incoming call rejected${silent ? ' (auto)' : ''}`);
       set({ incomingCall: null, activeCall: null, callState: 'idle', duration: 0, statusMessage: '', isEnding: false });
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
@@ -578,11 +616,18 @@ export const useCallStore = create<CallStore>((set, get) => {
 
     endCall: (_forceClose = false) => {
       const state = get();
-      if (!state.activeCall || state.isEnding) return;
+      callSoundService.stop();
+      if (!state.activeCall && !state.incomingCall) return;
+      if (state.incomingCall && !state.activeCall) {
+        get().rejectCall();
+        return;
+      }
+      if (state.isEnding || !state.activeCall) return;
       set({ isEnding: true });
-      const { chatId, direction, startTime } = state.activeCall;
+      const activeCall = state.activeCall;
+      const { chatId, direction, startTime } = activeCall;
       const duration = startTime > 0 ? Math.max(0, Math.floor((Date.now() - startTime) / 1000)) : 0;
-      let endedStatus: CallEndedStatus = state.activeCall.endedStatus;
+      let endedStatus: CallEndedStatus = activeCall.endedStatus;
       let signalType: string | null = null;
       if (state.callState !== 'ended') {
         switch (state.callState) {
@@ -592,10 +637,9 @@ export const useCallStore = create<CallStore>((set, get) => {
           default: endedStatus = endedStatus || null; signalType = null;
         }
       }
-      if (signalType) sendCallSignal(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName: state.activeCall.roomName });
+      if (signalType) sendCallSignalReliable(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName: activeCall.roomName });
       liveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} disconnect error:`, err));
       clearAllTimers();
-      callSoundService.stop();
       activationInProgress = false;
       if (endedStatus !== null && state.myNickname) createCallMessage(chatId, direction, duration, endedStatus);
       console.log(`${LOG_PREFIX} Call ended. status=${endedStatus} duration=${duration}s`);
@@ -662,26 +706,28 @@ export const useCallStore = create<CallStore>((set, get) => {
     handleCancel: () => {
       console.log(`${LOG_PREFIX} Remote cancelled`);
       const state = get();
+      callSoundService.stop();
       if (!state.activeCall && !state.incomingCall) return;
       if (state.incomingCall && !state.activeCall) {
         if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
-        callSoundService.stop(); callSoundService.play('end');
+        callSoundService.play('end');
         set({ incomingCall: null, callState: 'idle', statusMessage: '', isEnding: false });
         try { (window as any).orbita?.closeCallWindow?.(); } catch {}
         return;
       }
       if (state.activeCall) set({ activeCall: { ...state.activeCall, endedStatus: 'missed' }, callState: 'ended' });
-      callSoundService.stop(); callSoundService.play('end');
+      callSoundService.play('end');
       get().endCall(false);
     },
 
     handleHangup: () => {
       console.log(`${LOG_PREFIX} Remote hung up`);
       const state = get();
+      callSoundService.stop();
       if (!state.activeCall && !state.incomingCall) return;
       if (state.incomingCall && !state.activeCall) {
         if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
-        callSoundService.stop(); callSoundService.play('end');
+        callSoundService.play('end');
         set({ incomingCall: null, callState: 'idle', statusMessage: '', isEnding: false });
         try { (window as any).orbita?.closeCallWindow?.(); } catch {}
         return;
@@ -690,7 +736,7 @@ export const useCallStore = create<CallStore>((set, get) => {
         const newStatus = state.callState === 'connected' ? 'completed' : 'failed';
         set({ activeCall: { ...state.activeCall, endedStatus: newStatus }, callState: 'ended', statusMessage: '' });
       }
-      callSoundService.stop(); callSoundService.play('end');
+      callSoundService.play('end');
       get().endCall(false);
     },
 
@@ -780,6 +826,7 @@ const syncCallState = (state: CallStore) => {
     activeCall: state.activeCall ? { ...state.activeCall, otherName: chat?.name || state.activeCall.chatId, otherAvatar: chat?.avatarUrl || null } : null,
     incomingCall: state.incomingCall ? { ...state.incomingCall, otherName: chat?.name || state.incomingCall.from, otherAvatar: chat?.avatarUrl || null } : null,
     callState: state.callState, isMicEnabled: state.isMicEnabled, isVideoEnabled: state.isVideoEnabled, isScreenSharing: state.isScreenSharing, duration: state.duration, statusMessage: state.statusMessage, myNickname: state.myNickname,
+    peerVolume: state.peerVolume, micVolume: state.micVolume,
   };
   try { (window as any).orbita?.sendCallState?.(payload); } catch {}
   try {
@@ -808,6 +855,8 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
     case 'toggleScreenShare': store.toggleScreenShare(); break;
     case 'startScreenShareWithOptions': store.startScreenShareWithOptions(action.payload); break;
     case 'stopScreenShare': store.stopScreenShare(); break;
+    case 'setPeerVolume': store.setPeerVolume(action.payload); break;
+    case 'setMicVolume': store.setMicVolume(action.payload); break;
   }
 };
 

@@ -752,3 +752,17 @@ video {
   user-select: none !important;
   -webkit-user-select: none !important;
 }
+
+.select-text,
+.select-text *,
+.message-bubble-selectable,
+.message-bubble-selectable * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.select-text ::selection,
+.message-bubble-selectable ::selection {
+  background: rgba(92, 84, 229, 0.4);
+  color: inherit;
+}

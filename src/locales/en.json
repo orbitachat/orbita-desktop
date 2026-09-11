@@ -446,7 +446,12 @@
       "seconds": "{count}s",
       "encryption_info": "If these emojis match on your and your partner's screen, your call is securely end-to-end encrypted.",
       "enable_video": "Video",
-      "video_call_hint": "Ready for video call"
+      "video_call_hint": "Ready for video call",
+      "volume_settings": "Audio settings",
+      "volume": "Audio",
+      "peer_volume": "User volume",
+      "mic_volume": "Microphone volume",
+      "volume_boost": "Boost"
     },
     "permission": {
       "camera_title": "Allow access to the device camera?",
