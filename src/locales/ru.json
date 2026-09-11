@@ -3,6 +3,7 @@
     "confirmModal": {
       "clear_history_title": "Вы точно хотите удалить все сообщения, сохраненные в {{name}}?",
       "delete_chat_title": "Вы точно хотите удалить чат, а также все сообщения, сохраненные в нем?",
+      "leave_channel_title": "Вы точно хотите покинуть канал {{name}}?",
       "delete_message_title": "Удалить это сообщение?",
       "pin_message_title": "Закрепить это сообщение?",
       "unpin_message_title": "Открепить это сообщение?",
@@ -911,6 +912,8 @@
       "save": "Сохранить",
       "creator_full_access": "Вы создатель этого канала (полный доступ к публикациям)",
       "subscriber": "Вы подписчик",
+      "official": "Официальный",
+      "community": "Канал",
       "leave_channel": "Покинуть канал",
       "subscribers": "подписчик",
       "subscribers_few": "подписчика",
@@ -972,12 +975,6 @@
       "invalid_content": "Неверное содержимое",
       "found_community": "Найдено сообщество",
       "subscribers": "подписчиков"
-    },
-    "channel": {
-      "creator_full_access": "Вы создатель этого канала (полный доступ к публикациям)",
-      "subscriber": "Вы подписчик",
-      "official": "Официальный",
-      "community": "Канал"
     },
     "callsModal": {
       "title": "Звонки",

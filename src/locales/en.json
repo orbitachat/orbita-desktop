@@ -3,6 +3,7 @@
     "confirmModal": {
       "clear_history_title": "Are you sure you want to delete all messages saved in {{name}}?",
       "delete_chat_title": "Are you sure you want to delete this chat and all messages saved in it?",
+      "leave_channel_title": "Are you sure you want to leave {{name}}?",
       "delete_message_title": "Delete this message?",
       "pin_message_title": "Pin this message?",
       "unpin_message_title": "Unpin this message?",
@@ -900,6 +901,8 @@
       "save": "Save",
       "creator_full_access": "You are the creator of this channel (full publishing access)",
       "subscriber": "You are a subscriber",
+      "official": "Official",
+      "community": "Channel",
       "leave_channel": "Leave channel",
       "subscribers": "subscriber",
       "subscribers_few": "subscribers",
@@ -961,12 +964,6 @@
       "invalid_content": "Invalid content",
       "found_community": "Community found",
       "subscribers": "subscribers"
-    },
-    "channel": {
-      "creator_full_access": "You are the creator of this channel (full access to posting)",
-      "subscriber": "You are a subscriber",
-      "official": "Official",
-      "community": "Channel"
     },
     "callsModal": {
       "title": "Calls",

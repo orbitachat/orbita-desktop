@@ -52,7 +52,7 @@ const GravityGifBadgeIcon = ({ width = 16, height = 16, style, className, ...pro
     </text>
   </svg>
 );
-import { useChatStore, type Message } from '../../store/useChatStore';
+import { useChatStore, type Message, type Chat } from '../../store/useChatStore';
 import { useCallStore } from '../../store/useCallStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAudioStore } from '../../store/useAudioStore';
@@ -1046,12 +1046,20 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (!chat || chat.type !== 'channel') return;
     channelService.getChannel(chat.id).then((info) => {
       if (info) {
-        updateChat(chat.id, {
+        const current = useChatStore.getState().chats.find((c) => c.id === chat.id);
+        const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
-          description: info.description,
-          name: info.name,
-          avatarUrl: info.avatarUrl || undefined,
-        });
+        };
+        if (!current?.isOwner) {
+          updates.name = info.name;
+          updates.description = info.description;
+          updates.avatarUrl = info.avatarUrl || undefined;
+        } else {
+          if (info.name && !current.name) updates.name = info.name;
+          if (info.description && !current.description) updates.description = info.description;
+          if (info.avatarUrl && !current.avatarUrl) updates.avatarUrl = info.avatarUrl;
+        }
+        updateChat(chat.id, updates);
       }
     });
   }, [chat?.id, chat?.type, updateChat]);
@@ -1091,11 +1099,21 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (!chat || isSavingChannel) return;
     const newName = editName.trim();
     if (!newName) return;
+    const newDesc = editDescription.trim();
+    const initialAvatar = editAvatarUrl;
+
     setIsSavingChannel(true);
-    try {
-      let finalAvatarUrl = editAvatarUrl;
-      if (editAvatarUrl && editAvatarUrl.startsWith('data:')) {
-        const base64 = editAvatarUrl.includes(',') ? editAvatarUrl.split(',')[1] : editAvatarUrl;
+    updateChat(chat.id, {
+      name: newName,
+      description: newDesc,
+      avatarUrl: initialAvatar || undefined,
+    });
+    setIsEditingChannel(false);
+
+    (async () => {
+      let finalAvatarUrl = initialAvatar;
+      if (initialAvatar && initialAvatar.startsWith('data:')) {
+        const base64 = initialAvatar.includes(',') ? initialAvatar.split(',')[1] : initialAvatar;
         if (typeof window !== 'undefined' && window.orbita?.writeTempFile && window.orbita?.uploadToCloudinary) {
           try {
             const tempPath = await window.orbita.writeTempFile(base64, 'png');
@@ -1104,6 +1122,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               const result = await window.orbita.uploadToCloudinary(tempPath, publicId);
               if (result.success && result.secure_url) {
                 finalAvatarUrl = result.secure_url;
+                updateChat(chat.id, { avatarUrl: finalAvatarUrl });
               }
               await window.orbita.deleteTempFile(tempPath);
             }
@@ -1113,22 +1132,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
       await channelService.updateChannel(chat.id, {
         name: newName,
-        description: editDescription.trim(),
+        description: newDesc,
         avatarUrl: finalAvatarUrl,
       });
-
-      updateChat(chat.id, {
-        name: newName,
-        description: editDescription.trim(),
-        avatarUrl: finalAvatarUrl || undefined,
-      });
-
-      setIsEditingChannel(false);
-    } catch (err) {
-      console.error('Failed to save channel:', err);
-    } finally {
+    })().catch((err) => {
+      console.error('Failed to save channel in background:', err);
+    }).finally(() => {
       setIsSavingChannel(false);
-    }
+    });
   }, [chat, isSavingChannel, editName, editDescription, editAvatarUrl, updateChat]);
 
   const innerContentRef = useRef<HTMLDivElement>(null);

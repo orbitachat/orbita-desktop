@@ -2,6 +2,7 @@ import { getPusher } from '../utils/pusher';
 import { type LinkPreviewData } from '../store/useChatStore';
 import { ablyService } from './ablyService';
 import { generateChannelId } from '../lib/codes';
+import { getVercelBaseUrl } from './gatewayManager';
 
 export interface ChannelInfo {
   id: string;
@@ -33,7 +34,7 @@ export interface ChannelPost {
   reactions?: Record<string, string[]>;
 }
 
-const W = 'https://orbita.ypgreg78.workers.dev';
+const W = getVercelBaseUrl();
 
 class ChannelService {
   async getFeaturedChannels(): Promise<ChannelInfo[]> {
@@ -93,27 +94,31 @@ class ChannelService {
     channelId: string,
     data: { name?: string; description?: string; avatarUrl?: string | null }
   ): Promise<boolean> {
+    const cleanId = channelId.trim();
+    const eventPayload = {
+      type: 'channel-updated',
+      channelId: cleanId,
+      name: data.name,
+      description: data.description,
+      avatarUrl: data.avatarUrl,
+    };
+
+    try {
+      ablyService.sendMessage(`public-channel-${cleanId}`, eventPayload).catch(() => {});
+    } catch {}
+
     try {
       const res = await fetch(`${W}/channels/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channelId: channelId.trim(),
+          channelId: cleanId,
           name: data.name,
           description: data.description,
           avatarUrl: data.avatarUrl,
         }),
       });
       if (res.ok) {
-        try {
-          ablyService.sendMessage(`public-channel-${channelId.trim()}`, {
-            type: 'channel-updated',
-            channelId: channelId.trim(),
-            name: data.name,
-            description: data.description,
-            avatarUrl: data.avatarUrl,
-          }).catch(() => {});
-        } catch {}
         return true;
       }
     } catch (err) {

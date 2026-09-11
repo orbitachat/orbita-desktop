@@ -4,7 +4,7 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash, WifiOff } from 'lucide-react';
+import { X, Trash, WifiOff, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher } from '../../utils/pusher';
@@ -661,7 +661,9 @@ export const MainLayout = () => {
     y: 0,
     chatId: '',
   });
-  const [pinnedChats, setPinnedChats] = useState<Set<string>>(new Set());
+  const pinnedChatIds = useChatStore((s) => s.pinnedChatIds) || [];
+  const togglePinChat = useChatStore((s) => s.togglePinChat);
+  const pinnedChatsSet = useMemo(() => new Set(pinnedChatIds), [pinnedChatIds]);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     type: ConfirmActionType | null;
@@ -1611,12 +1613,20 @@ export const MainLayout = () => {
     for (const ch of currentChannels) {
       channelService.getChannel(ch.id).then((info) => {
         if (info) {
-          useChatStore.getState().updateChat(ch.id, {
-            name: info.name,
-            description: info.description,
-            avatarUrl: info.avatarUrl || undefined,
+          const current = useChatStore.getState().chats.find((c) => c.id === ch.id);
+          const updates: Partial<Chat> = {
             subscribersCount: info.subscribersCount,
-          });
+          };
+          if (!current?.isOwner) {
+            updates.name = info.name;
+            updates.description = info.description;
+            updates.avatarUrl = info.avatarUrl || undefined;
+          } else {
+            if (info.name && !current.name) updates.name = info.name;
+            if (info.description && !current.description) updates.description = info.description;
+            if (info.avatarUrl && !current.avatarUrl) updates.avatarUrl = info.avatarUrl;
+          }
+          useChatStore.getState().updateChat(ch.id, updates);
         }
       }).catch(() => {});
     }
@@ -2231,12 +2241,20 @@ export const MainLayout = () => {
 
     channelService.getChannel(channelId).then((info) => {
       if (info) {
-        useChatStore.getState().updateChat(channelId, {
-          name: info.name,
-          description: info.description,
-          avatarUrl: info.avatarUrl || undefined,
+        const current = useChatStore.getState().chats.find((c) => c.id === channelId);
+        const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
-        });
+        };
+        if (!current?.isOwner) {
+          updates.name = info.name;
+          updates.description = info.description;
+          updates.avatarUrl = info.avatarUrl || undefined;
+        } else {
+          if (info.name && !current.name) updates.name = info.name;
+          if (info.description && !current.description) updates.description = info.description;
+          if (info.avatarUrl && !current.avatarUrl) updates.avatarUrl = info.avatarUrl;
+        }
+        useChatStore.getState().updateChat(channelId, updates);
       }
     }).catch(() => {});
 
@@ -2903,11 +2921,12 @@ export const MainLayout = () => {
     const chat = chats.find(c => c.id === chatId);
     if (!chat) return;
     const isNotes = chat.id === 'notes';
+    const isChannel = chat.type === 'channel';
     const chatName = isNotes ? t('connectModal.notes') : chat.name;
     setChatContextMenu(prev => ({ ...prev, visible: false }));
     setConfirmModal({
       isOpen: true,
-      type: 'delete_chat',
+      type: isChannel ? 'leave_channel' : 'delete_chat',
       chatId,
       chatName,
       avatarUrl: chat.avatarUrl,
@@ -2975,15 +2994,15 @@ export const MainLayout = () => {
         chats: state.chats.filter(c => c.id !== chatId),
         activeChatId: state.activeChatId === chatId ? null : state.activeChatId,
         messagesByChatId: rest,
+        pinnedChatIds: (state.pinnedChatIds || []).filter((id) => id !== chatId),
       };
     });
-    setPinnedChats(prev => { const next = new Set(prev); next.delete(chatId); return next; });
     setChatContextMenu(prev => ({ ...prev, visible: false }));
   };
 
   const handlePinChat = (chatId: string) => {
-    if (chatId === 'notes') return; // заметки нельзя закрепить
-    setPinnedChats(prev => { const next = new Set(prev); if (next.has(chatId)) next.delete(chatId); else next.add(chatId); return next; });
+    if (chatId === 'notes') return;
+    togglePinChat(chatId);
     setChatContextMenu(prev => ({ ...prev, visible: false }));
   };
 
@@ -3006,8 +3025,6 @@ export const MainLayout = () => {
       return true;
     });
   }, [chats, messagesByChatId]);
-
-  const pinnedChatsSet = useMemo(() => pinnedChats, [pinnedChats]);
 
   const sortedChats = useMemo(() => {
     return [...filteredChats].sort((a, b) => {
@@ -3205,7 +3222,7 @@ export const MainLayout = () => {
 
   const renderChat = useCallback((chat: Chat) => {
     const isActive = activeChatId === chat.id;
-    const isPinned = pinnedChats.has(chat.id);
+    const isPinned = pinnedChatsSet.has(chat.id);
     return (
       <ChatListItem
         key={chat.id}
@@ -3220,7 +3237,7 @@ export const MainLayout = () => {
         isLightTheme={isLightTheme}
       />
     );
-  }, [activeChatId, pinnedChats, handleSelectChat, nickname, myCode, t, isLightTheme]);
+  }, [activeChatId, pinnedChatsSet, handleSelectChat, nickname, myCode, t, isLightTheme]);
 
   return (
     <div className="flex flex-1 h-full overflow-hidden">
@@ -3780,7 +3797,7 @@ export const MainLayout = () => {
           onConfirm={() => {
             if (confirmModal.type === 'clear_history') {
               handleClearHistory(confirmModal.chatId);
-            } else if (confirmModal.type === 'delete_chat') {
+            } else if (confirmModal.type === 'delete_chat' || confirmModal.type === 'leave_channel') {
               handleDeleteChat(confirmModal.chatId);
             }
             setConfirmModal(prev => ({ ...prev, isOpen: false, type: null }));
@@ -3840,8 +3857,9 @@ export const MainLayout = () => {
               const baseBtnClass =
                 "w-full flex items-center gap-2.5 px-3.5 py-1.5 text-[13px] font-normal normal-case transition-colors hover:bg-[var(--surface-container-strong)] rounded-none text-left select-none";
               const isNotes = chatContextMenu.chatId === 'notes';
-              const isPinned = pinnedChats.has(chatContextMenu.chatId);
               const targetChat = chats.find(c => c.id === chatContextMenu.chatId);
+              const isChannel = targetChat?.type === 'channel';
+              const isPinned = pinnedChatsSet.has(chatContextMenu.chatId);
               const isMuted = targetChat?.muted;
 
               return (
@@ -3882,16 +3900,18 @@ export const MainLayout = () => {
                     </button>
                   )}
 
-                  <button
-                    onClick={() => requestClearHistory(chatContextMenu.chatId)}
-                    className={baseBtnClass}
-                    style={{ color: 'var(--text-main)' }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, flexShrink: 0 }}>
-                      <CustomClearHistoryIcon size={16} style={{ color: iconColor }} />
-                    </span>
-                    <span className="whitespace-nowrap">{t('common.clear_history')}</span>
-                  </button>
+                  {!isNotes && !isChannel && (
+                    <button
+                      onClick={() => requestClearHistory(chatContextMenu.chatId)}
+                      className={baseBtnClass}
+                      style={{ color: 'var(--text-main)' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, flexShrink: 0 }}>
+                        <CustomClearHistoryIcon size={16} style={{ color: iconColor }} />
+                      </span>
+                      <span className="whitespace-nowrap">{t('common.clear_history')}</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => requestDeleteChat(chatContextMenu.chatId)}
@@ -3899,9 +3919,15 @@ export const MainLayout = () => {
                     style={{ color: '#ef4444' }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, flexShrink: 0 }}>
-                      <Trash size={16} style={{ color: '#ef4444' }} />
+                      {isChannel ? (
+                        <LogOut size={16} style={{ color: '#ef4444' }} />
+                      ) : (
+                        <Trash size={16} style={{ color: '#ef4444' }} />
+                      )}
                     </span>
-                    <span className="whitespace-nowrap">{t('common.delete_chat')}</span>
+                    <span className="whitespace-nowrap">
+                      {isChannel ? t('channel.leave_channel', 'Покинуть канал') : t('common.delete_chat')}
+                    </span>
                   </button>
                 </div>
               );

@@ -1,4 +1,3 @@
-// src/components/common/ActionConfirmModal.tsx
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +7,7 @@ import { NotesAvatar } from './NotesAvatar';
 export type ConfirmActionType =
   | 'clear_history'
   | 'delete_chat'
+  | 'leave_channel'
   | 'delete_message'
   | 'pin_message'
   | 'unpin_message'
@@ -50,9 +50,9 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
   if (!isOpen || !type) return null;
 
   const isDestructive =
-    type === 'clear_history' || type === 'delete_chat' || type === 'delete_message' || type === 'discard_voice';
+    type === 'clear_history' || type === 'delete_chat' || type === 'leave_channel' || type === 'delete_message' || type === 'discard_voice';
 
-  const showHeader = (type === 'clear_history' || type === 'delete_chat') && (chatName || isNotes);
+  const showHeader = (type === 'clear_history' || type === 'delete_chat' || type === 'leave_channel') && (chatName || isNotes);
 
   const getTitle = () => {
     switch (type) {
@@ -65,6 +65,11 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
         return t('confirmModal.delete_chat_title', {
           name: chatName,
           defaultValue: 'Вы точно хотите удалить чат, а также все сообщения, сохраненные в нем?',
+        });
+      case 'leave_channel':
+        return t('confirmModal.leave_channel_title', {
+          name: chatName,
+          defaultValue: `Вы точно хотите покинуть канал ${chatName}?`,
         });
       case 'delete_message':
         return t('confirmModal.delete_message_title', {
@@ -94,6 +99,8 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
       case 'delete_message':
       case 'discard_voice':
         return t('common.delete', { defaultValue: 'Удалить' });
+      case 'leave_channel':
+        return t('channel.leave_channel', { defaultValue: 'Покинуть канал' });
       case 'pin_message':
         return t('common.pin', { defaultValue: 'Закрепить' });
       case 'unpin_message':
@@ -103,7 +110,7 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
     }
   };
 
-  const showSubtitle = type === 'clear_history' || type === 'delete_chat';
+  const showSubtitle = type === 'clear_history' || type === 'delete_chat' || type === 'leave_channel';
 
   return (
     <AnimatePresence>

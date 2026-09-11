@@ -272,6 +272,7 @@ if (typeof window !== 'undefined' && (window as any).orbita?.storageMigrate) {
 
 interface ChatState {
   chats: Chat[];
+  pinnedChatIds: string[];
   activeChatId: string | null;
   activeProfileChatId: string | null;
   messagesByChatId: Record<string, Message[]>;
@@ -391,6 +392,7 @@ interface ChatState {
   setActiveProfileChatId: (id: string | null) => void;
   addChat: (chat: Partial<Chat> & { ratchetState?: RatchetState; id?: string }) => void;
   updateChat: (chatId: string, updates: Partial<Chat>) => void;
+  togglePinChat: (chatId: string) => void;
   updateLastMsg: (chatId: string, msg: string) => void;
   addMessage: (chatId: string, message: Message, encryptedText?: string, index?: number) => void;
   deleteMessage: (chatId: string, messageId: string) => void;
@@ -488,6 +490,7 @@ export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
       chats: [],
+      pinnedChatIds: [],
       activeChatId: null,
       activeProfileChatId: null,
       messagesByChatId: {},
@@ -745,6 +748,18 @@ export const useChatStore = create<ChatState>()(
         set((state) => ({
           chats: state.chats.map(c => c.id === chatId ? { ...c, ...updates } : c)
         })),
+      togglePinChat: (chatId) => {
+        if (chatId === 'notes') return;
+        set((state) => {
+          const current = state.pinnedChatIds || [];
+          const exists = current.includes(chatId);
+          return {
+            pinnedChatIds: exists
+              ? current.filter((id) => id !== chatId)
+              : [...current, chatId],
+          };
+        });
+      },
       updateLastMsg: (chatId, msg) =>
         set((state) => ({
           chats: state.chats.map(c => c.id === chatId ? { ...c, lastMsg: msg } : c)
@@ -1343,6 +1358,7 @@ export const useChatStore = create<ChatState>()(
             chats: state.chats.filter(c => c.id !== chatId),
             activeChatId: state.activeChatId === chatId ? null : state.activeChatId,
             messagesByChatId: restMessages,
+            pinnedChatIds: (state.pinnedChatIds || []).filter((id) => id !== chatId),
           };
         });
 
@@ -1356,6 +1372,7 @@ export const useChatStore = create<ChatState>()(
       storage: createJSONStorage(() => ipcStorage),
       partialize: (state) => ({
         chats: state.chats,
+        pinnedChatIds: state.pinnedChatIds,
         messagesByChatId: state.messagesByChatId,
         passcode: state.passcode,
         currentTheme: state.currentTheme,
@@ -1463,6 +1480,9 @@ export const useChatStore = create<ChatState>()(
         return persistedState;
       },
       onRehydrateStorage: () => (state) => {
+        if (state && !Array.isArray(state.pinnedChatIds)) {
+          state.pinnedChatIds = [];
+        }
         if (state && Array.isArray(state.chats)) {
           state.chats = state.chats.map((c) => ({
             ...c,
