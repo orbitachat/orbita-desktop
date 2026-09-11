@@ -25,18 +25,6 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
 };
 
-const OFFICIAL_CHANNEL_ID = 'orbita-official-news-community-36c';
-const OFFICIAL_CHANNEL_DATA = {
-  id: OFFICIAL_CHANNEL_ID,
-  name: 'Orbita News',
-  description: 'Официальный новостной канал мессенджера Orbita. Обновления, новые возможности и важные анонсы.',
-  avatarUrl: null,
-  creatorNickname: 'Orbita Team',
-  subscribersCount: 1250,
-  isOfficial: true,
-  createdAt: 1700000000000,
-};
-
 const PUSHER_CONFIGS = [
   {
     appId: ENV.PUSHER_APP_ID,
@@ -494,7 +482,7 @@ module.exports = async function handler(req, res) {
 
     if (pathname === '/channels/featured' && req.method === 'GET') {
       const supabase = getSupabaseClient();
-      let channels = [OFFICIAL_CHANNEL_DATA];
+      let channels = [];
       if (supabase) {
         try {
           const { data } = await supabase
@@ -503,7 +491,7 @@ module.exports = async function handler(req, res) {
             .order('created_at', { ascending: false })
             .limit(20);
           if (data && data.length > 0) {
-            const mapped = data.map((c) => ({
+            channels = data.map((c) => ({
               id: c.id,
               name: c.name,
               description: c.description || '',
@@ -513,8 +501,6 @@ module.exports = async function handler(req, res) {
               isOfficial: c.is_official || false,
               createdAt: new Date(c.created_at).getTime(),
             }));
-            const others = mapped.filter((c) => c.id !== OFFICIAL_CHANNEL_ID);
-            channels = [OFFICIAL_CHANNEL_DATA, ...others];
           }
         } catch {}
       }
@@ -524,7 +510,6 @@ module.exports = async function handler(req, res) {
     if (pathname === '/channels/get' && req.method === 'GET') {
       const channelId = query.channelId ? query.channelId.trim() : '';
       if (!channelId) return sendError(res, 'Missing channelId parameter', 400);
-      if (channelId === OFFICIAL_CHANNEL_ID) return sendJson(res, { channel: OFFICIAL_CHANNEL_DATA });
       const supabase = getSupabaseClient();
       if (supabase) {
         try {

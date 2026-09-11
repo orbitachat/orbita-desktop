@@ -247,19 +247,6 @@ async function triggerPusherEvent(
 
   return results.some((r) => r.status === 'fulfilled' && r.value === true);
 }
-
-const OFFICIAL_CHANNEL_ID = 'orbita-official-news-community-36c';
-const OFFICIAL_CHANNEL_DATA = {
-  id: OFFICIAL_CHANNEL_ID,
-  name: 'Orbita News',
-  description: 'Официальный новостной канал мессенджера Orbita. Обновления, новые возможности и важные анонсы.',
-  avatarUrl: null,
-  creatorNickname: 'Orbita Team',
-  subscribersCount: 1250,
-  isOfficial: true,
-  createdAt: 1700000000000,
-};
-
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // 1. CORS Preflight
@@ -659,7 +646,7 @@ export default {
       // 10. Public Channels (Сообщества / Публичные каналы)
       if (pathname === '/channels/featured' && request.method === 'GET') {
         const supabase = getSupabaseClient(env);
-        let channels: any[] = [OFFICIAL_CHANNEL_DATA];
+        let channels: any[] = [];
         if (supabase) {
           try {
             const { data } = await supabase
@@ -668,7 +655,7 @@ export default {
               .order('created_at', { ascending: false })
               .limit(20);
             if (data && data.length > 0) {
-              const mapped = data.map((c) => ({
+              channels = data.map((c) => ({
                 id: c.id,
                 name: c.name,
                 description: c.description || '',
@@ -678,9 +665,6 @@ export default {
                 isOfficial: c.is_official || false,
                 createdAt: new Date(c.created_at).getTime(),
               }));
-              // Объединяем, исключая дубликат официального
-              const others = mapped.filter((c) => c.id !== OFFICIAL_CHANNEL_ID);
-              channels = [OFFICIAL_CHANNEL_DATA, ...others];
             }
           } catch {}
         }
@@ -690,10 +674,6 @@ export default {
       if (pathname === '/channels/get' && request.method === 'GET') {
         const channelId = url.searchParams.get('channelId');
         if (!channelId) return errorResponse('Missing channelId parameter', 400);
-
-        if (channelId === OFFICIAL_CHANNEL_ID) {
-          return jsonResponse({ channel: OFFICIAL_CHANNEL_DATA });
-        }
 
         const supabase = getSupabaseClient(env);
         if (supabase) {
@@ -847,29 +827,6 @@ export default {
               return jsonResponse({ posts: mapped });
             }
           } catch {}
-        }
-
-        // Fallback для официального новостного канала Orbita
-        if (channelId === OFFICIAL_CHANNEL_ID) {
-          const defaultPosts = [
-            {
-              id: 'post_official_welcome',
-              channelId: OFFICIAL_CHANNEL_ID,
-              sender: 'Orbita Team',
-              text: 'Добро пожаловать в официальный канал Orbita! 🎉\n\nЗдесь мы публикуем свежие обновления, новые фичи и полезные советы по использованию мессенджера.',
-              time: Date.now() - 3600000 * 24,
-              reactions: { '🔥': ['Orbita Team', 'User'] },
-            },
-            {
-              id: 'post_official_features',
-              channelId: OFFICIAL_CHANNEL_ID,
-              sender: 'Orbita Team',
-              text: '⚡️ Что нового в Orbita:\n• Публичные каналы и сообщества\n• Мгновенный обмен аудиофайлами и медиа\n• Сквозное шифрование Double Ratchet\n• Голосовые и видеозвонки LiveKit',
-              time: Date.now() - 3600000 * 2,
-              reactions: { '🚀': ['Orbita Team'] },
-            },
-          ];
-          return jsonResponse({ posts: defaultPosts });
         }
 
         return jsonResponse({ posts: [] });

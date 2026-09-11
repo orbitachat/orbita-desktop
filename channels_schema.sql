@@ -51,16 +51,3 @@ CREATE POLICY "Allow all for public_channels" ON public.public_channels FOR ALL 
 
 CREATE POLICY "Allow select for channel_posts" ON public.channel_posts FOR SELECT USING (true);
 CREATE POLICY "Allow all for channel_posts" ON public.channel_posts FOR ALL USING (true) WITH CHECK (true);
-
--- 5. Начальная запись официального новостного канала Orbita
-INSERT INTO public.public_channels (id, name, description, creator_nickname, is_official, subscribers_count)
-VALUES (
-    'orbita-official-news-community-36c',
-    'Orbita News',
-    'Официальный новостной канал мессенджера Orbita. Обновления, фичи и анонсы.',
-    'Orbita Team',
-    true,
-    1000
-) ON CONFLICT (id) DO UPDATE SET
-    name = EXCLUDED.name,
-    description = EXCLUDED.description;
