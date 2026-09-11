@@ -301,11 +301,15 @@ class ChannelService {
       waveform?: number[];
       audioMetadata?: any;
     },
-    linkPreview?: LinkPreviewData
+    linkPreview?: LinkPreviewData,
+    customId?: string
   ): Promise<ChannelPost | null> {
+    const cleanId = channelId.trim();
+    const postIdToUse = customId || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     try {
       const body = {
-        channelId: channelId.trim(),
+        id: postIdToUse,
+        channelId: cleanId,
         senderNickname,
         text,
         mediaType: mediaPayload?.type || null,
@@ -334,12 +338,6 @@ class ChannelService {
       if (res.ok) {
         const data = (await res.json()) as { post: ChannelPost };
         if (data.post) {
-          try {
-            ablyService.sendMessage(`public-channel-${channelId.trim()}`, {
-              type: 'channel-post',
-              post: data.post,
-            }).catch(() => {});
-          } catch {}
           return data.post;
         }
       }
@@ -348,11 +346,10 @@ class ChannelService {
     }
 
     try {
-      const postId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const now = Date.now();
       const directRow = {
-        id: postId,
-        channel_id: channelId.trim(),
+        id: postIdToUse,
+        channel_id: cleanId,
         sender_nickname: senderNickname,
         text: text || '',
         media_type: mediaPayload?.type || null,
@@ -385,7 +382,7 @@ class ChannelService {
       });
       if (res.ok) {
         const postObj: ChannelPost = {
-          id: postId,
+          id: postIdToUse,
           channelId: channelId.trim(),
           sender: senderNickname,
           text: text || '',

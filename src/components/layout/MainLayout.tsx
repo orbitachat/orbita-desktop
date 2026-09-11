@@ -2163,8 +2163,32 @@ export const MainLayout = () => {
       };
 
       const currentMsgs = useChatStore.getState().messagesByChatId[channelId] || [];
-      const exists = currentMsgs.some((m) => m.id === post.id);
-      if (!exists) {
+      const existingMatch = currentMsgs.find(
+        (m) =>
+          m.id === post.id ||
+          (m.isOutgoing &&
+            m.sender === (post.sender || post.senderNickname) &&
+            ((post.text && m.text === post.text) ||
+              (post.mediaUrl && m.mediaUrl === post.mediaUrl) ||
+              (post.mediaName && m.mediaName === post.mediaName)) &&
+            Math.abs(m.time - (post.time || 0)) < 30000)
+      );
+
+      if (existingMatch) {
+        if (existingMatch.id !== post.id) {
+          useChatStore.setState((state) => {
+            const list = state.messagesByChatId[channelId] || [];
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [channelId]: list.map((m) =>
+                  m.id === existingMatch.id ? { ...m, id: post.id, time: post.time || m.time } : m
+                ),
+              },
+            };
+          });
+        }
+      } else {
         addMessage(channelId, newMsg);
       }
 
@@ -2270,6 +2294,26 @@ export const MainLayout = () => {
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[channelId] || [];
           const existingIds = new Set(currentMsgs.map((m) => m.id).filter(Boolean));
+          const updatedExisting = currentMsgs.map((m) => {
+            const fetched = posts.find(
+              (p) =>
+                p.id === m.id ||
+                (m.isOutgoing &&
+                  m.sender === p.sender &&
+                  ((p.text && m.text === p.text) || (p.mediaUrl && m.mediaUrl === p.mediaUrl) || (p.mediaName && m.mediaName === p.mediaName)) &&
+                  Math.abs(m.time - (p.time || 0)) < 30000)
+            );
+            if (fetched) {
+              existingIds.add(fetched.id);
+              return {
+                ...m,
+                id: fetched.id,
+                time: fetched.time || m.time,
+                reactions: fetched.reactions || m.reactions,
+              };
+            }
+            return m;
+          });
           const newItems: Message[] = [];
           posts.forEach((post) => {
             if (!existingIds.has(post.id)) {
@@ -2294,8 +2338,8 @@ export const MainLayout = () => {
               });
             }
           });
-          if (newItems.length === 0) return state;
-          const merged = [...currentMsgs, ...newItems].sort((a, b) => a.time - b.time);
+          if (newItems.length === 0 && updatedExisting === currentMsgs) return state;
+          const merged = [...updatedExisting, ...newItems].sort((a, b) => a.time - b.time);
           const latest = merged[merged.length - 1];
           return {
             messagesByChatId: {

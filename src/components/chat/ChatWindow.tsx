@@ -2282,7 +2282,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     };
   }, [activeChatId, myCode, myNickname, activeChat, typingIndicatorsEnabled]);
 
-  // Загрузка постов канала и синхронизация реакций
   useEffect(() => {
     if (!activeChatId) return;
     const currentChat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
@@ -2296,9 +2295,22 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
           const newItems: Message[] = [];
           const updatedExisting = currentMsgs.map((m) => {
-            const fetched = posts.find((p) => p.id === m.id);
-            if (fetched && fetched.reactions) {
-              return { ...m, reactions: fetched.reactions };
+            const fetched = posts.find(
+              (p) =>
+                p.id === m.id ||
+                (m.isOutgoing &&
+                  m.sender === p.sender &&
+                  ((p.text && m.text === p.text) || (p.mediaUrl && m.mediaUrl === p.mediaUrl) || (p.mediaName && m.mediaName === p.mediaName)) &&
+                  Math.abs(m.time - (p.time || 0)) < 30000)
+            );
+            if (fetched) {
+              existingIds.add(fetched.id);
+              return {
+                ...m,
+                id: fetched.id,
+                time: fetched.time || m.time,
+                reactions: fetched.reactions || m.reactions,
+              };
             }
             return m;
           });
@@ -3082,7 +3094,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           waveform: sentMedia.waveform,
           audioMetadata: sentMedia.audioMetadata,
         } : undefined,
-        sentPreview
+        sentPreview,
+        optimisticId
       ).then((post) => {
         if (post && post.id !== optimisticId) {
           useChatStore.setState((state) => {
@@ -4442,7 +4455,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             width: file.width,
             height: file.height,
             audioMetadata: file.audioMetadata,
-          }
+          },
+          undefined,
+          optimisticId
         ).then((post) => {
           if (post && post.id !== optimisticId) {
             useChatStore.setState((state) => {

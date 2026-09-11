@@ -668,7 +668,7 @@ module.exports = async function handler(req, res) {
 
     if (pathname === '/channels/post' && req.method === 'POST') {
       if (!body.channelId || !body.senderNickname) return sendError(res, 'Missing channelId or senderNickname', 400);
-      const postId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const postId = body.id || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const createdAt = new Date().toISOString();
       const postRecord = {
         id: postId,

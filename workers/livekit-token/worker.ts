@@ -834,6 +834,7 @@ export default {
 
       if (pathname === '/channels/post' && request.method === 'POST') {
         const body = (await request.json()) as {
+          id?: string;
           channelId: string;
           senderNickname: string;
           text?: string;
@@ -853,7 +854,7 @@ export default {
           return errorResponse('Missing channelId or senderNickname parameter', 400);
         }
 
-        const postId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const postId = body.id || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const createdAt = new Date().toISOString();
 
         const postRecord = {
@@ -901,7 +902,6 @@ export default {
           }
         }
 
-        // Трансляция события через Pusher всем подписчикам канала в реальном времени
         await triggerPusherEvent(env, `public-channel-${body.channelId}`, 'new-post', postRecord);
 
         return jsonResponse({ status: 'ok', post: postRecord });
