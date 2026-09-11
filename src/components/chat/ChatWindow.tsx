@@ -2288,13 +2288,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (currentChat?.type !== 'channel') return;
 
     channelService.getChannelPosts(activeChatId).then((posts) => {
-      if (posts && posts.length > 0) {
+      if (posts) {
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[activeChatId] || [];
-          const existingIds = new Set(currentMsgs.map((m) => m.id).filter(Boolean));
+          const fetchedIds = new Set(posts.map((p) => p.id));
+          const existingIds = new Set<string>();
 
-          const newItems: Message[] = [];
-          const updatedExisting = currentMsgs.map((m) => {
+          const validExisting = currentMsgs.filter((m) =>
+            !m.id || fetchedIds.has(m.id) || (m.isOutgoing && Date.now() - (m.time || 0) < 20000)
+          );
+
+          const updatedExisting = validExisting.map((m) => {
             const fetched = posts.find(
               (p) =>
                 p.id === m.id ||
@@ -2312,9 +2316,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 reactions: fetched.reactions || m.reactions,
               };
             }
+            if (m.id) existingIds.add(m.id);
             return m;
           });
 
+          const newItems: Message[] = [];
           posts.forEach((post) => {
             if (!existingIds.has(post.id)) {
               newItems.push({
@@ -3235,7 +3241,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         };
         if (channel.subscribed) doSendPusher(); else channel.bind('pusher:subscription_succeeded', doSendPusher);
 
-        // 3. Supabase offline storage (encrypted)
         const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
         if (activeChat?.type === 'private') {
           for (const recipientId of recipientTargets) {
@@ -3245,7 +3250,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               recipientId,
               ciphertext,
               index,
-              dhPublicKey
+              dhPublicKey,
+              messageId
             ).catch((err) => console.warn('[ChatWindow] Offline message dispatch failed:', err));
           }
         }
@@ -3426,9 +3432,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     };
     if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
 
-    if (targetMsgId && activeChat?.type !== 'channel') {
-      const peerCode = activeChat?.peerCode;
-      supabaseService.deleteMessage(activeChatId, targetMsgId, peerCode, myCode).catch(() => {});
+    if (activeChat?.type === 'channel') {
+      if (targetMsgId) {
+        channelService.deletePost(activeChatId, targetMsgId);
+      }
+    } else if (targetMsgId) {
+      const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+      for (const rId of recipientTargets) {
+        supabaseService.deleteMessage(activeChatId, targetMsgId, rId, myCode).catch(() => {});
+      }
     }
 
     setContextMenu(prev => ({ ...prev, visible: false }));
@@ -4540,11 +4552,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
 
       try {
-        const recipientId = activeChat?.name;
-        if (recipientId && activeChat.type === 'private') {
-          await supabaseService.sendOfflineMessage(
-            activeChatId, myNickname, recipientId, ciphertext, index, groupDhPublicKey
-          );
+        const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+        if (activeChat?.type === 'private') {
+          for (const rId of recipientTargets) {
+            await supabaseService.sendOfflineMessage(
+              activeChatId, myNickname, rId, ciphertext, index, groupDhPublicKey, messageId
+            );
+          }
         }
       } catch (err) {
         console.error('Failed to save offline message:', err);
@@ -4618,11 +4632,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
 
         try {
-          const recipientId = activeChat?.name;
-          if (recipientId && activeChat.type === 'private') {
-            await supabaseService.sendOfflineMessage(
-              activeChatId, myNickname, recipientId, ciphertext, index, fileDhPublicKey
-            );
+          const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+          if (activeChat?.type === 'private') {
+            for (const rId of recipientTargets) {
+              await supabaseService.sendOfflineMessage(
+                activeChatId, myNickname, rId, ciphertext, index, fileDhPublicKey, messageId
+              );
+            }
           }
         } catch (err) {
           console.error('Failed to save offline message:', err);
@@ -5891,9 +5907,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   channel.trigger('client-message', payload);
                 };
                 if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
-                if (activeChat?.type !== 'channel') {
-                  const peerCode = activeChat?.peerCode;
-                  supabaseService.deleteMessage(activeChatId, msgId, peerCode, myCode).catch(() => {});
+                if (activeChat?.type === 'channel') {
+                  channelService.deletePost(activeChatId, msgId);
+                } else {
+                  const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+                  for (const rId of recipientTargets) {
+                    supabaseService.deleteMessage(activeChatId, msgId, rId, myCode).catch(() => {});
+                  }
                 }
               }
             }}

@@ -52,9 +52,18 @@ function getSupabaseClient(env: Env): SupabaseClient | null {
   });
 }
 
-/**
- * Генерация Ably TokenRequest через Web Crypto API (HMAC-SHA256)
- */
+async function toUuid(id?: string): Promise<string | null> {
+  if (!id || typeof id !== 'string') return null;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return id.toLowerCase();
+  }
+  const enc = new TextEncoder().encode(id);
+  const hashBuf = await crypto.subtle.digest('SHA-256', enc);
+  const hashArr = Array.from(new Uint8Array(hashBuf)).slice(0, 16);
+  const h = hashArr.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 async function createAblyTokenRequest(
   apiKey: string,
   clientId?: string,
@@ -407,7 +416,6 @@ export default {
         return jsonResponse(signResult);
       }
 
-      // 7. Relay: Messages
       if (pathname === '/relay/message' && request.method === 'POST') {
         const supabase = getSupabaseClient(env);
         if (!supabase) return errorResponse('Database not configured on server', 500);
@@ -419,23 +427,31 @@ export default {
           ciphertext: string;
           messageIndex: number;
           dhPublicKey: string;
+          clientMsgId?: string;
+          id?: string;
         };
 
-        const { chatId, senderId, recipientId, ciphertext, messageIndex, dhPublicKey } = body;
+        const { chatId, senderId, recipientId, ciphertext, messageIndex, dhPublicKey, clientMsgId, id } = body;
         if (!chatId || !senderId || !recipientId || !ciphertext) {
           return errorResponse('Missing required message parameters', 400);
         }
 
+        const msgRow: any = {
+          chat_id: chatId,
+          sender_id: senderId,
+          recipient_id: recipientId,
+          ciphertext,
+          message_index: messageIndex,
+          dh_public_key: dhPublicKey,
+        };
+        const explicitUuid = await toUuid(id || clientMsgId);
+        if (explicitUuid) {
+          msgRow.id = explicitUuid;
+        }
+
         const { data, error } = await supabase
           .from('messages')
-          .insert({
-            chat_id: chatId,
-            sender_id: senderId,
-            recipient_id: recipientId,
-            ciphertext,
-            message_index: messageIndex,
-            dh_public_key: dhPublicKey,
-          })
+          .insert(msgRow)
           .select();
 
         if (error) return errorResponse(error.message, 500);
@@ -596,25 +612,35 @@ export default {
 
         if (body.messageId) {
           try {
-            await supabase.from('non_messages').delete().eq('id', body.messageId);
+            const uuid = await toUuid(body.messageId);
+            if (uuid) {
+              await supabase.from('messages').delete().eq('id', uuid);
+            }
             await supabase.from('messages').delete().eq('id', body.messageId);
+            await supabase.from('non_messages').delete().eq('id', body.messageId);
+            if (uuid) {
+              await supabase.from('non_messages').delete().eq('id', uuid);
+            }
             if (body.chatId) {
               await supabase.from('non_messages').delete().eq('chat_id', body.chatId).ilike('ciphertext', `%${body.messageId}%`);
               await supabase.from('messages').delete().eq('chat_id', body.chatId).ilike('ciphertext', `%${body.messageId}%`);
             }
             if (body.recipientId && body.chatId) {
-              await supabase.from('non_messages').insert({
-                id: `del_${body.messageId}_${Date.now()}`,
-                chat_id: body.chatId,
-                sender_id: body.senderId || 'system',
-                recipient_id: body.recipientId,
-                ciphertext: JSON.stringify({
-                  type: 'delete-message',
-                  targetMessageId: body.messageId,
-                  chatId: body.chatId,
-                }),
-                delivered: false,
-              });
+              const targets = Array.isArray(body.recipientId) ? body.recipientId : [body.recipientId];
+              for (const rId of targets) {
+                await supabase.from('non_messages').insert({
+                  id: `del_${body.messageId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                  chat_id: body.chatId,
+                  sender_id: body.senderId || 'system',
+                  recipient_id: rId,
+                  ciphertext: JSON.stringify({
+                    type: 'delete-message',
+                    targetMessageId: body.messageId,
+                    chatId: body.chatId,
+                  }),
+                  delivered: false,
+                });
+              }
             }
           } catch (e) {
             console.warn('[Worker] delete-message error:', e);
@@ -905,6 +931,27 @@ export default {
         await triggerPusherEvent(env, `public-channel-${body.channelId}`, 'new-post', postRecord);
 
         return jsonResponse({ status: 'ok', post: postRecord });
+      }
+
+      if (pathname === '/channels/delete-post' && request.method === 'POST') {
+        const body = (await request.json()) as {
+          channelId: string;
+          postId: string;
+        };
+        if (!body.channelId || !body.postId) return errorResponse('Missing channelId or postId parameter', 400);
+
+        const supabase = getSupabaseClient(env);
+        if (supabase) {
+          try {
+            await supabase.from('channel_posts').delete().eq('id', body.postId).eq('channel_id', body.channelId);
+          } catch (e) {
+            console.warn('[Worker] delete channel post error:', e);
+          }
+        }
+
+        await triggerPusherEvent(env, `public-channel-${body.channelId}`, 'delete-post', { channelId: body.channelId, postId: body.postId, targetMessageId: body.postId });
+
+        return jsonResponse({ status: 'ok', channelId: body.channelId, postId: body.postId });
       }
 
       if (pathname === '/channels/join' && request.method === 'POST') {

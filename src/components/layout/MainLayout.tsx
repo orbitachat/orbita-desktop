@@ -2241,7 +2241,16 @@ export const MainLayout = () => {
       useChatStore.getState().updateChat(channelId, updates);
     };
 
+    const handleDeletePost = (data: any) => {
+      const postId = data?.postId || data?.targetMessageId || data?.id;
+      if (postId) {
+        useChatStore.getState().deleteMessage(channelId, postId);
+      }
+    };
+
     channel.bind('new-post', handleNewPost);
+    channel.bind('delete-post', handleDeletePost);
+    channel.bind('post-deleted', handleDeletePost);
     channel.bind('reaction-updated', handleReaction);
     channel.bind('subscribers-updated', handleSubscribers);
     channel.bind('channel-updated', handleChannelUpdated);
@@ -2250,6 +2259,8 @@ export const MainLayout = () => {
       const unsub = ablyService.subscribeToChatMessages(`public-channel-${channelId}`, (data: any) => {
         if (data?.type === 'channel-post' && data?.post) {
           handleNewPost(data.post);
+        } else if (data?.type === 'delete-post' || data?.type === 'post-deleted' || data?.type === 'delete-message') {
+          handleDeletePost(data);
         } else if (data?.type === 'reaction-updated') {
           handleReaction(data);
         } else if (data?.type === 'channel-updated') {
@@ -2290,11 +2301,17 @@ export const MainLayout = () => {
     }).catch(() => {});
 
     channelService.getChannelPosts(channelId).then((posts) => {
-      if (posts && posts.length > 0) {
+      if (posts) {
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[channelId] || [];
-          const existingIds = new Set(currentMsgs.map((m) => m.id).filter(Boolean));
-          const updatedExisting = currentMsgs.map((m) => {
+          const fetchedIds = new Set(posts.map((p) => p.id));
+          const existingIds = new Set<string>();
+
+          const validExisting = currentMsgs.filter((m) =>
+            !m.id || fetchedIds.has(m.id) || (m.isOutgoing && Date.now() - (m.time || 0) < 20000)
+          );
+
+          const updatedExisting = validExisting.map((m) => {
             const fetched = posts.find(
               (p) =>
                 p.id === m.id ||
@@ -2312,6 +2329,7 @@ export const MainLayout = () => {
                 reactions: fetched.reactions || m.reactions,
               };
             }
+            if (m.id) existingIds.add(m.id);
             return m;
           });
           const newItems: Message[] = [];
@@ -2338,7 +2356,7 @@ export const MainLayout = () => {
               });
             }
           });
-          if (newItems.length === 0 && updatedExisting === currentMsgs) return state;
+          if (newItems.length === 0 && updatedExisting.length === currentMsgs.length && updatedExisting === currentMsgs) return state;
           const merged = [...updatedExisting, ...newItems].sort((a, b) => a.time - b.time);
           const latest = merged[merged.length - 1];
           return {
@@ -2350,7 +2368,7 @@ export const MainLayout = () => {
               c.id === channelId
                 ? {
                     ...c,
-                    lastMsg: latest.text || (latest.mediaType ? `[${latest.mediaType}]` : c.lastMsg),
+                    lastMsg: latest ? (latest.text || (latest.mediaType ? `[${latest.mediaType}]` : c.lastMsg)) : 'История очищена',
                   }
                 : c
             ),

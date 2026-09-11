@@ -62,16 +62,16 @@ class SupabaseService {
     }
   }
 
-  // --- Сообщения ---
   async sendOfflineMessage(
     chatId: string,
     senderId: string,
     recipientId: string,
     ciphertext: string,
     index: number,
-    dhPublicKey: string
+    dhPublicKey: string,
+    clientMsgId?: string
   ): Promise<void> {
-    console.log('[Relay/Supabase] sendOfflineMessage called:', { chatId, senderId, recipientId, index });
+    console.log('[Relay/Supabase] sendOfflineMessage called:', { chatId, senderId, recipientId, index, clientMsgId });
 
     const primaryRelay = relayRouter.getRelayForRecipient(recipientId);
     const allRelays = [
@@ -93,6 +93,7 @@ class SupabaseService {
             ciphertext,
             messageIndex: index,
             dhPublicKey,
+            clientMsgId,
           }),
         });
 
@@ -110,16 +111,20 @@ class SupabaseService {
     }
 
     if (this.client) {
+      const row: any = {
+        chat_id: chatId,
+        sender_id: senderId,
+        recipient_id: recipientId,
+        ciphertext,
+        message_index: index,
+        dh_public_key: dhPublicKey,
+      };
+      if (clientMsgId) {
+        row.id = clientMsgId;
+      }
       const { error } = await this.client
         .from('messages')
-        .insert({
-          chat_id: chatId,
-          sender_id: senderId,
-          recipient_id: recipientId,
-          ciphertext,
-          message_index: index,
-          dh_public_key: dhPublicKey,
-        });
+        .insert(row);
 
       if (error) {
         console.error('[Supabase] Insert error:', error);

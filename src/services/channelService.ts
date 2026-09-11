@@ -412,6 +412,44 @@ class ChannelService {
     return null;
   }
 
+  async deletePost(channelId: string, postId: string): Promise<boolean> {
+    const cleanChanId = channelId.trim();
+    const cleanPostId = postId.trim();
+    try {
+      const res = await fetch(`${W}/channels/delete-post`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: cleanChanId, postId: cleanPostId }),
+      });
+      if (res.ok) {
+        return true;
+      }
+    } catch (err) {
+      console.error('[ChannelService] Failed to delete post via backend:', err);
+    }
+
+    try {
+      await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts?id=eq.${encodeURIComponent(cleanPostId)}&channel_id=eq.${encodeURIComponent(cleanChanId)}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': CHANNELS_SUPABASE_KEY,
+          'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+        },
+      });
+      try {
+        ablyService.sendMessage(`public-channel-${cleanChanId}`, {
+          type: 'delete-post',
+          channelId: cleanChanId,
+          postId: cleanPostId,
+          targetMessageId: cleanPostId,
+        }).catch(() => {});
+      } catch {}
+      return true;
+    } catch {}
+
+    return false;
+  }
+
   async joinChannel(channelId: string, nickname?: string): Promise<number | null> {
     try {
       const res = await fetch(`${W}/channels/join`, {

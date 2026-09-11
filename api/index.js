@@ -61,6 +61,15 @@ function sendError(res, error, status = 400) {
   sendJson(res, { error }, status);
 }
 
+function toUuid(id) {
+  if (!id || typeof id !== 'string') return null;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return id.toLowerCase();
+  }
+  const h = crypto.createHash('sha256').update(id).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 function getSupabaseClient() {
   if (!ENV.SUPABASE_URL || !ENV.SUPABASE_SERVICE_ROLE_KEY) return null;
   return createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
@@ -328,18 +337,23 @@ module.exports = async function handler(req, res) {
     if (pathname === '/relay/message' && req.method === 'POST') {
       const supabase = getSupabaseClient();
       if (!supabase) return sendError(res, 'Database not configured', 500);
-      const { chatId, senderId, recipientId, ciphertext, messageIndex, dhPublicKey } = body;
+      const { chatId, senderId, recipientId, ciphertext, messageIndex, dhPublicKey, clientMsgId, id } = body;
       if (!chatId || !senderId || !recipientId || !ciphertext) {
         return sendError(res, 'Missing required message parameters', 400);
       }
-      const { data, error } = await supabase.from('messages').insert({
+      const msgRow = {
         chat_id: chatId,
         sender_id: senderId,
         recipient_id: recipientId,
         ciphertext,
         message_index: messageIndex,
         dh_public_key: dhPublicKey,
-      }).select();
+      };
+      const explicitUuid = toUuid(id || clientMsgId);
+      if (explicitUuid) {
+        msgRow.id = explicitUuid;
+      }
+      const { data, error } = await supabase.from('messages').insert(msgRow).select();
       if (error) {
         if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
           return sendJson(res, { status: 'ok', duplicate: true });
@@ -448,25 +462,35 @@ module.exports = async function handler(req, res) {
       const { chatId, messageId, recipientId, senderId } = body;
       if (supabase && messageId) {
         try {
-          await supabase.from('non_messages').delete().eq('id', messageId);
+          const uuid = toUuid(messageId);
+          if (uuid) {
+            await supabase.from('messages').delete().eq('id', uuid);
+          }
           await supabase.from('messages').delete().eq('id', messageId);
+          await supabase.from('non_messages').delete().eq('id', messageId);
+          if (uuid) {
+            await supabase.from('non_messages').delete().eq('id', uuid);
+          }
           if (chatId) {
             await supabase.from('non_messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${messageId}%`);
             await supabase.from('messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${messageId}%`);
           }
           if (recipientId && chatId) {
-            await supabase.from('non_messages').insert({
-              id: `del_${messageId}_${Date.now()}`,
-              chat_id: chatId,
-              sender_id: senderId || 'system',
-              recipient_id: recipientId,
-              ciphertext: JSON.stringify({
-                type: 'delete-message',
-                targetMessageId: messageId,
-                chatId,
-              }),
-              delivered: false,
-            });
+            const targets = Array.isArray(recipientId) ? recipientId : [recipientId];
+            for (const rId of targets) {
+              await supabase.from('non_messages').insert({
+                id: `del_${messageId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                chat_id: chatId,
+                sender_id: senderId || 'system',
+                recipient_id: rId,
+                ciphertext: JSON.stringify({
+                  type: 'delete-message',
+                  targetMessageId: messageId,
+                  chatId,
+                }),
+                delivered: false,
+              });
+            }
           }
         } catch (err) {
           console.error('[relay/delete-message] error:', err);
@@ -726,6 +750,22 @@ module.exports = async function handler(req, res) {
       await triggerPusherEvent(`public-channel-${body.channelId}`, 'new-post', postRecord);
       await triggerAblyEvent(`chat:public-channel-${body.channelId}`, 'client-message', { type: 'channel-post', post: postRecord });
       return sendJson(res, { status: 'ok', post: postRecord });
+    }
+
+    if (pathname === '/channels/delete-post' && req.method === 'POST') {
+      const { channelId, postId } = body;
+      if (!channelId || !postId) return sendError(res, 'Missing channelId or postId', 400);
+      const supabase = getChannelsSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('channel_posts').delete().eq('id', postId).eq('channel_id', channelId);
+        } catch (err) {
+          console.error('[channels/delete-post] Supabase error:', err);
+        }
+      }
+      await triggerPusherEvent(`public-channel-${channelId}`, 'delete-post', { channelId, postId, targetMessageId: postId });
+      await triggerAblyEvent(`chat:public-channel-${channelId}`, 'client-message', { type: 'delete-post', channelId, postId, targetMessageId: postId });
+      return sendJson(res, { status: 'ok', channelId, postId });
     }
 
     if (pathname === '/channels/join' && req.method === 'POST') {
