@@ -3,6 +3,7 @@ import { type LinkPreviewData } from '../store/useChatStore';
 import { ablyService } from './ablyService';
 import { generateChannelId } from '../lib/codes';
 import { getVercelBaseUrl } from './gatewayManager';
+import { deriveChannelKey, encryptMessage, decryptMessage } from '../lib/crypto';
 
 export interface ChannelInfo {
   id: string;
@@ -242,48 +243,67 @@ class ChannelService {
 
   async getChannelPosts(channelId: string): Promise<ChannelPost[]> {
     const cleanId = channelId.trim();
+    const channelKey = deriveChannelKey(cleanId);
+    let rawPosts: ChannelPost[] = [];
     try {
       const res = await fetch(`${W}/channels/posts?channelId=${encodeURIComponent(cleanId)}`);
       if (res.ok) {
         const data = (await res.json()) as { posts: ChannelPost[] };
-        if (data.posts && data.posts.length > 0) return data.posts;
+        if (data.posts && data.posts.length > 0) rawPosts = data.posts;
       }
     } catch (err) {
       console.warn('[ChannelService] Failed to get channel posts via backend:', err);
     }
 
-    try {
-      const res = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts?channel_id=eq.${encodeURIComponent(cleanId)}&order=created_at.asc&limit=100`, {
-        headers: {
-          'apikey': CHANNELS_SUPABASE_KEY,
-          'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
-        },
-      });
-      if (res.ok) {
-        const data = (await res.json()) as any[];
-        if (Array.isArray(data)) {
-          return data.map((p) => ({
-            id: p.id,
-            channelId: p.channel_id,
-            sender: p.sender_nickname,
-            text: p.text || '',
-            time: new Date(p.created_at).getTime(),
-            mediaType: p.media_type || null,
-            mediaUrl: p.media_url || null,
-            mediaName: p.media_name || null,
-            mime: p.mime || null,
-            duration: p.duration || null,
-            width: p.width || null,
-            height: p.height || null,
-            waveform: p.waveform || null,
-            audioMetadata: p.audio_metadata || null,
-            linkPreview: p.link_preview || null,
-            reactions: p.reactions || {},
-          }));
+    if (rawPosts.length === 0) {
+      try {
+        const res = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts?channel_id=eq.${encodeURIComponent(cleanId)}&order=created_at.asc&limit=100`, {
+          headers: {
+            'apikey': CHANNELS_SUPABASE_KEY,
+            'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+          },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as any[];
+          if (Array.isArray(data)) {
+            rawPosts = data.map((p) => ({
+              id: p.id,
+              channelId: p.channel_id,
+              sender: p.sender_nickname,
+              text: p.text || '',
+              time: new Date(p.created_at).getTime(),
+              mediaType: p.media_type || null,
+              mediaUrl: p.media_url || null,
+              mediaName: p.media_name || null,
+              mime: p.mime || null,
+              duration: p.duration || null,
+              width: p.width || null,
+              height: p.height || null,
+              waveform: p.waveform || null,
+              audioMetadata: p.audio_metadata || null,
+              linkPreview: p.link_preview || null,
+              reactions: p.reactions || {},
+            }));
+          }
         }
-      }
-    } catch {}
-    return [];
+      } catch {}
+    }
+
+    return Promise.all(
+      rawPosts.map(async (p) => {
+        let decryptedText = p.text || '';
+        if (decryptedText.startsWith('orb_e2e:')) {
+          const plain = await decryptMessage(decryptedText.slice(8), channelKey);
+          if (plain && plain !== '[ENCRYPTED MESSAGE]') {
+            decryptedText = plain;
+          }
+        }
+        return {
+          ...p,
+          text: decryptedText,
+        };
+      })
+    );
   }
 
   async publishPost(
@@ -305,13 +325,23 @@ class ChannelService {
     customId?: string
   ): Promise<ChannelPost | null> {
     const cleanId = channelId.trim();
+    const channelKey = deriveChannelKey(cleanId);
+    let cipherText = text || '';
+    if (text) {
+      try {
+        const encrypted = await encryptMessage(text, channelKey);
+        cipherText = `orb_e2e:${encrypted}`;
+      } catch {
+        cipherText = text;
+      }
+    }
     const postIdToUse = customId || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     try {
       const body = {
         id: postIdToUse,
         channelId: cleanId,
         senderNickname,
-        text,
+        text: cipherText,
         mediaType: mediaPayload?.type || null,
         mediaUrl: mediaPayload?.url || null,
         mediaName: mediaPayload?.name || null,
@@ -338,7 +368,17 @@ class ChannelService {
       if (res.ok) {
         const data = (await res.json()) as { post: ChannelPost };
         if (data.post) {
-          return data.post;
+          const postObj = {
+            ...data.post,
+            text: text || '',
+          };
+          try {
+            ablyService.sendMessage(`public-channel-${cleanId}`, {
+              type: 'channel-post',
+              post: { ...data.post, text: cipherText },
+            }).catch(() => {});
+          } catch {}
+          return postObj;
         }
       }
     } catch (err) {
@@ -351,7 +391,7 @@ class ChannelService {
         id: postIdToUse,
         channel_id: cleanId,
         sender_nickname: senderNickname,
-        text: text || '',
+        text: cipherText,
         media_type: mediaPayload?.type || null,
         media_url: mediaPayload?.url || null,
         media_name: mediaPayload?.name || null,
@@ -383,7 +423,7 @@ class ChannelService {
       if (res.ok) {
         const postObj: ChannelPost = {
           id: postIdToUse,
-          channelId: channelId.trim(),
+          channelId: cleanId,
           sender: senderNickname,
           text: text || '',
           time: now,
@@ -400,9 +440,9 @@ class ChannelService {
           reactions: directRow.reactions,
         };
         try {
-          ablyService.sendMessage(`public-channel-${channelId.trim()}`, {
+          ablyService.sendMessage(`public-channel-${cleanId}`, {
             type: 'channel-post',
-            post: postObj,
+            post: { ...postObj, text: cipherText },
           }).catch(() => {});
         } catch {}
         return postObj;

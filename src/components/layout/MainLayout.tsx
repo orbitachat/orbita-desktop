@@ -32,9 +32,10 @@ import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '..
 import { DoubleRatchet } from '../../lib/double-ratchet';
 import { useTranslation } from 'react-i18next';
 import { showNotification } from '../../utils/notification';
-import { channelService, type ChannelInfo } from '../../services/channelService';
-import { useCallStore } from '../../store/useCallStore';
 import { MessageStatus } from '../../components/MessageStatus';
+import { channelService, type ChannelInfo } from '../../services/channelService';
+import { deriveChannelKey } from '../../lib/crypto';
+import { useCallStore } from '../../store/useCallStore';
 import { ResizableSidebar } from './ResizableSidebar';
 import { supabaseService } from '../../services/supabaseService';
 import { gatewayManager } from '../../services/gatewayManager';
@@ -2245,9 +2246,18 @@ export const MainLayout = () => {
     const channelName = `public-channel-${channelId}`;
     const channel = pusher.subscribe(channelName);
 
-    const handleNewPost = (post: any) => {
+    const handleNewPost = async (post: any) => {
       console.log('[MainLayout] Received new channel post:', post);
       if (!post || !post.id) return;
+
+      let postText = post.text || '';
+      if (postText.startsWith('orb_e2e:')) {
+        const channelKey = deriveChannelKey(channelId);
+        const decrypted = await decryptMessage(postText.slice(8), channelKey);
+        if (decrypted && decrypted !== '[ENCRYPTED MESSAGE]') {
+          postText = decrypted;
+        }
+      }
 
       const currentChat = useChatStore.getState().chats.find((c) => c.id === channelId);
       const activeChatId = useChatStore.getState().activeChatId;
@@ -2260,7 +2270,7 @@ export const MainLayout = () => {
       const newMsg: Message = {
         id: post.id,
         sender,
-        text: post.text || '',
+        text: postText,
         time: post.time || Date.now(),
         read: isViewingThisChannel,
         status: isMine ? 'read' : undefined,

@@ -766,6 +766,78 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { status: 'ok' });
     }
 
+    if (pathname === '/support/close' && req.method === 'POST') {
+      const supabase = getSupabaseClient() || getChannelsSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const { ticketNumber, adminCode } = body;
+      const adminToken = req.headers['x-admin-token'] || body.adminToken;
+      if (!ticketNumber || !adminCode) return sendError(res, 'Missing required fields', 400);
+
+      const { data: adminRecord, error: adminErr } = await supabase
+        .from('support_admins')
+        .select('user_code, auth_token')
+        .eq('user_code', adminCode)
+        .maybeSingle();
+
+      if (adminErr || !adminRecord) {
+        return sendError(res, 'Access denied: not an authorized admin', 403);
+      }
+
+      if (adminToken && adminRecord.auth_token !== adminToken) {
+        await supabase
+          .from('support_admins')
+          .update({ auth_token: adminToken })
+          .eq('user_code', adminCode);
+      }
+
+      const { data: existingTicket } = await supabase
+        .from('support_tickets')
+        .select('user_code')
+        .eq('ticket_number', ticketNumber)
+        .maybeSingle();
+
+      const { error } = await supabase
+        .from('support_tickets')
+        .delete()
+        .eq('ticket_number', ticketNumber);
+
+      if (error) return sendError(res, error.message, 500);
+
+      const closedAt = new Date().toISOString();
+
+      if (existingTicket?.user_code) {
+        await triggerPusherEvent(`user-${existingTicket.user_code}`, 'ticket-closed', {
+          ticketNumber,
+          closedAt,
+        });
+        await triggerAblyEvent(`user-${existingTicket.user_code}`, 'ticket-closed', {
+          ticketNumber,
+          closedAt,
+        });
+        await triggerAblyEvent(`chat:user-${existingTicket.user_code}`, 'client-message', {
+          type: 'ticket-closed',
+          ticketNumber,
+          closedAt,
+        });
+      }
+
+      await triggerPusherEvent('support-admin', 'ticket-closed', {
+        ticketNumber,
+        closedAt,
+      });
+      await triggerAblyEvent('support-admin', 'ticket-closed', {
+        ticketNumber,
+        closedAt,
+      });
+      await triggerAblyEvent('chat:support-admin', 'client-message', {
+        type: 'ticket-closed',
+        ticketNumber,
+        closedAt,
+      });
+
+      return sendJson(res, { status: 'ok', ticketNumber });
+    }
+
     if (pathname === '/channels/featured' && req.method === 'GET') {
       const supabase = getChannelsSupabaseClient();
       let channels = [];
@@ -1154,9 +1226,6 @@ module.exports = async function handler(req, res) {
         generationConfig: {
           temperature: 0.85,
           maxOutputTokens: 600,
-        },
-        thinkingConfig: {
-          thinkingBudget: 0,
         },
       };
 

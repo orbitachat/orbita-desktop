@@ -15,6 +15,7 @@ import { getPusher } from '../../utils/pusher';
 import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
+import { deriveChannelKey, decryptMessage } from '../../lib/crypto';
 import { useTranslation } from 'react-i18next';
 import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
 import { useCallStore } from '../../store/useCallStore';
@@ -66,6 +67,7 @@ import { EmptyChatGreeting } from './EmptyChatGreeting';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { orbitosService } from '../../services/orbitosService';
 import { supportService } from '../../services/supportService';
+import { SupportTicketsModal } from './SupportTicketsModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
 import { BotAvatar } from '../common/BotAvatar';
 
@@ -1756,6 +1758,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const [inputText, setInputText] = useState('');
   const [isDiscordFileLimitModalOpen, setIsDiscordFileLimitModalOpen] = useState(false);
   const [isSendAsTxtModalOpen, setIsSendAsTxtModalOpen] = useState(false);
+  const [isSupportTicketsModalOpen, setIsSupportTicketsModalOpen] = useState(false);
   const [unsafeLinkData, setUnsafeLinkData] = useState<{ isOpen: boolean; url: string }>({ isOpen: false, url: '' });
 
   const emojiHoverOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2416,6 +2419,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
+      return;
+    }
+
+    if (btn.action === 'close_ticket' && btn.data) {
+      supportService.closeTicket(btn.data);
       return;
     }
 
@@ -3704,16 +3712,24 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     useChatStore.getState().syncReactionsFromSupabase(activeChatId);
 
     const ablyTopic = activeChat?.type === 'channel' ? `public-channel-${activeChatId}` : activeChatId;
-    const unsubAbly = ablyService.subscribeToChatMessages(ablyTopic, (data: any) => {
+    const unsubAbly = ablyService.subscribeToChatMessages(ablyTopic, async (data: any) => {
       if (data?.type === 'channel-post' && data?.post) {
         const post = data.post;
         if (post && post.id) {
+          let postText = post.text || '';
+          if (postText.startsWith('orb_e2e:')) {
+            const channelKey = deriveChannelKey(activeChatId);
+            const decrypted = await decryptMessage(postText.slice(8), channelKey);
+            if (decrypted && decrypted !== '[ENCRYPTED MESSAGE]') {
+              postText = decrypted;
+            }
+          }
           const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
           if (!currentMsgs.some((m) => m.id === post.id)) {
             useChatStore.getState().addMessage(activeChatId, {
               id: post.id,
               sender: post.sender || post.senderNickname || 'Channel',
-              text: post.text || '',
+              text: postText,
               time: post.time || Date.now(),
               read: true,
               status: 'sent',
@@ -5675,6 +5691,23 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {activeChatId === 'system_support' && supportService.isAdmin && (
+                <button
+                  className="p-2 transition-colors duration-200 text-[var(--accent-color, #7C3AED)] hover:opacity-80 cursor-pointer bg-transparent border-none outline-none flex items-center justify-center relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsSupportTicketsModalOpen(true);
+                  }}
+                  aria-label={t('support.open_tickets_modal', 'Тикеты поддержки')}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+                    <path d="M13 5v2"/>
+                    <path d="M13 17v2"/>
+                    <path d="M13 11v2"/>
+                  </svg>
+                </button>
+              )}
               <button
                 className="p-2 transition-colors duration-200 text-[var(--text-dim)] hover:text-[var(--text-main)] cursor-pointer bg-transparent border-none outline-none flex items-center justify-center"
                 onClick={(e) => {
@@ -6378,6 +6411,18 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               </div>
             </motion.div>
           </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {createPortal(
+        <AnimatePresence>
+          {isSupportTicketsModalOpen && (
+            <SupportTicketsModal
+              isOpen={isSupportTicketsModalOpen}
+              onClose={() => setIsSupportTicketsModalOpen(false)}
+            />
+          )}
         </AnimatePresence>,
         document.body
       )}

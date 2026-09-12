@@ -40,8 +40,24 @@ export const generateChatId = (): string => nanoid(21);
  */
 export const deriveRootKey = (sharedSecret: string): string => {
   const ikm = hexDecode(sharedSecret);
-  const salt = new Uint8Array(32); // fixed salt OK per RFC 5869 §3.1 when IKM is already pseudo-random
+  const salt = new Uint8Array(32);
   const info = new TextEncoder().encode('orbita-root-key-v1');
+  const derived = hkdfSha256(ikm, salt, info, 32);
+  return hexEncode(derived);
+};
+
+export const deriveChannelKey = (channelId: string): string => {
+  const ikm = new TextEncoder().encode(`orbita:channel:${channelId.trim()}`);
+  const salt = new Uint8Array(32);
+  const info = new TextEncoder().encode('orbita-channel-e2ee-key');
+  const derived = hkdfSha256(ikm, salt, info, 32);
+  return hexEncode(derived);
+};
+
+export const deriveTicketKey = (ticketNumber: string): string => {
+  const ikm = new TextEncoder().encode(`orbita:ticket:${ticketNumber.trim().toUpperCase()}`);
+  const salt = new Uint8Array(32);
+  const info = new TextEncoder().encode('orbita-ticket-e2ee-key');
   const derived = hkdfSha256(ikm, salt, info, 32);
   return hexEncode(derived);
 };
@@ -166,4 +182,4 @@ export const decryptMessage = async (cipherText: string, sharedSecret: string): 
   } catch {
     return '[ENCRYPTED MESSAGE]';
   }
-};
+};

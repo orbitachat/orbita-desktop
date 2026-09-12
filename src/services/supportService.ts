@@ -4,6 +4,7 @@ import { getPusher } from '../utils/pusher';
 import { gatewayManager } from './gatewayManager';
 import { ablyService } from './ablyService';
 import { parseReplyChain } from '../utils/messageUtils';
+import { deriveTicketKey, encryptMessage, decryptMessage } from '../lib/crypto';
 
 export interface SupportTicketRecord {
   id?: number;
@@ -18,20 +19,42 @@ export interface SupportTicketRecord {
   answered_at?: string;
 }
 
+export type SupportTicketsListener = (tickets: SupportTicketRecord[]) => void;
+
 class SupportService {
   public readonly BOT_ID = 'system_support';
   public isAdmin: boolean = false;
+  public activeTicketNumber: string | null = null;
   private adminToken: string = '';
   private myCode: string = '';
   private t: any = null;
   private syncInterval: any = null;
   private isAdminSubscribed: boolean = false;
   private isUserSubscribed: boolean = false;
+  private cachedTickets: SupportTicketRecord[] = [];
+  private ticketsListeners: Set<SupportTicketsListener> = new Set();
+
+  public subscribeToTickets(listener: SupportTicketsListener): () => void {
+    this.ticketsListeners.add(listener);
+    listener(this.cachedTickets);
+    return () => {
+      this.ticketsListeners.delete(listener);
+    };
+  }
+
+  public getCachedTickets(): SupportTicketRecord[] {
+    return this.cachedTickets;
+  }
+
+  private notifyTicketsListeners(): void {
+    this.ticketsListeners.forEach((fn) => fn(this.cachedTickets));
+  }
 
   public initSupportChat(t: any, userCode?: string): void {
     this.t = t;
     const store = useChatStore.getState();
     this.myCode = userCode || store.myCode || this.myCode || '';
+    this.activeTicketNumber = localStorage.getItem('orbita_user_active_ticket');
 
     const existing = store.chats.find((c) => c.id === this.BOT_ID);
     const chatName = t('support.name', 'Техническая поддержка');
@@ -148,6 +171,9 @@ class SupportService {
       channel.bind('ticket-updated', (data: any) => {
         if (data?.ticketNumber) this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
       });
+      channel.bind('ticket-closed', (data: any) => {
+        if (data?.ticketNumber) this.handleTicketClosedLocally(data.ticketNumber);
+      });
     } catch {}
 
     try {
@@ -159,6 +185,8 @@ class SupportService {
           this.handleIncomingTicket(data);
         } else if (data.type === 'ticket-updated') {
           this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
+        } else if (data.type === 'ticket-closed' || data.event === 'ticket-closed') {
+          this.handleTicketClosedLocally(data.ticketNumber);
         }
       });
       ablyService.subscribeToChatMessages('chat:support-admin', (data: any) => {
@@ -169,6 +197,8 @@ class SupportService {
           this.handleIncomingTicket(data);
         } else if (data.type === 'ticket-updated') {
           this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
+        } else if (data.type === 'ticket-closed') {
+          this.handleTicketClosedLocally(data.ticketNumber);
         }
       });
     } catch {}
@@ -186,17 +216,24 @@ class SupportService {
           this.deliverUserReply(data.ticketNumber, data.adminReply, data.answeredAt);
         }
       });
+      channel.bind('ticket-closed', (data: { ticketNumber: string }) => {
+        if (data?.ticketNumber) this.handleTicketClosedForUser(data.ticketNumber);
+      });
     } catch {}
 
     try {
       ablyService.subscribeToChatMessages(`user-${this.myCode}`, (data: any) => {
         if (data?.type === 'ticket-reply' || (data?.ticketNumber && data?.adminReply)) {
           this.deliverUserReply(data.ticketNumber, data.adminReply, data.answeredAt);
+        } else if (data?.type === 'ticket-closed' || data?.event === 'ticket-closed') {
+          this.handleTicketClosedForUser(data.ticketNumber);
         }
       });
       ablyService.subscribeToChatMessages(`chat:user-${this.myCode}`, (data: any) => {
         if (data?.type === 'ticket-reply' || (data?.ticketNumber && data?.adminReply)) {
           this.deliverUserReply(data.ticketNumber, data.adminReply, data.answeredAt);
+        } else if (data?.type === 'ticket-closed') {
+          this.handleTicketClosedForUser(data.ticketNumber);
         }
       });
     } catch {}
@@ -217,15 +254,35 @@ class SupportService {
       if (res.ok) {
         const data = await res.json();
         const tickets: SupportTicketRecord[] = data.tickets || [];
+        this.cachedTickets = tickets;
+        this.notifyTicketsListeners();
         const reversed = [...tickets].reverse();
         for (const tk of reversed) {
-          this.handleIncomingTicket(tk, false);
+          await this.handleIncomingTicket(tk, false);
         }
       }
     } catch {}
   }
 
-  private handleIncomingTicket(tk: SupportTicketRecord, updateChatHeader: boolean = true): void {
+  private async decryptTicketPayload(tk: SupportTicketRecord): Promise<{ messageText: string; adminReply?: string }> {
+    const ticketKey = deriveTicketKey(tk.ticket_number);
+    let messageText = tk.message_text;
+    if (messageText && messageText.startsWith('orb_e2e:')) {
+      const dec = await decryptMessage(messageText.slice(8), ticketKey);
+      if (dec && dec !== '[ENCRYPTED MESSAGE]') messageText = dec;
+    }
+
+    let adminReply = tk.admin_reply;
+    if (adminReply && adminReply.startsWith('orb_e2e:')) {
+      const dec = await decryptMessage(adminReply.slice(8), ticketKey);
+      if (dec && dec !== '[ENCRYPTED MESSAGE]') adminReply = dec;
+    }
+
+    return { messageText, adminReply };
+  }
+
+  private async handleIncomingTicket(tk: SupportTicketRecord, updateChatHeader: boolean = true): Promise<void> {
+    const { messageText, adminReply } = await this.decryptTicketPayload(tk);
     const store = useChatStore.getState();
     const existingMsgs = store.messagesByChatId[this.BOT_ID] || [];
     const msgId = `ticket_${tk.ticket_number}`;
@@ -236,24 +293,29 @@ class SupportService {
       ? (this.t ? this.t('support.status_answered', 'Отвечено') : 'Отвечено')
       : (this.t ? this.t('support.status_pending', 'Ожидает ответа') : 'Ожидает ответа');
 
-    const replySection = tk.admin_reply ? `\n\nОтвет: ${tk.admin_reply}` : '';
-    const bodyText = `📩 Обращение ${tk.ticket_number}\nОт: ${tk.sender_nickname || 'Пользователь'} (ID: ${tk.user_code})\n\n«${tk.message_text}»\n\nСтатус: ${statusText}${replySection}`;
+    const replySection = adminReply ? `\n\nОтвет: ${adminReply}` : '';
+    const bodyText = `📩 Обращение ${tk.ticket_number}\nОт: ${tk.sender_nickname || 'Пользователь'} (ID: ${tk.user_code})\n\n«${messageText}»\n\nСтатус: ${statusText}${replySection}`;
 
-    const replyButton = isAnswered ? undefined : [
-      {
+    const replyButtons = [
+      ...(!isAnswered ? [{
         text: `Ответить на ${tk.ticket_number}`,
         action: 'reply_ticket',
+        data: tk.ticket_number,
+      }] : []),
+      {
+        text: `Закрыть ${tk.ticket_number}`,
+        action: 'close_ticket',
         data: tk.ticket_number,
       },
     ];
 
     if (alreadyExists) {
-      if (alreadyExists.text !== bodyText || Boolean(alreadyExists.buttons) !== Boolean(replyButton)) {
+      if (alreadyExists.text !== bodyText || Boolean(alreadyExists.buttons?.length) !== Boolean(replyButtons.length)) {
         useChatStore.setState((state) => ({
           messagesByChatId: {
             ...state.messagesByChatId,
             [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
-              m.id === msgId ? { ...m, text: bodyText, buttons: replyButton } : m
+              m.id === msgId ? { ...m, text: bodyText, buttons: replyButtons } : m
             ),
           },
         }));
@@ -270,7 +332,7 @@ class SupportService {
       time: tk.created_at ? new Date(tk.created_at).getTime() : Date.now(),
       read: false,
       status: 'delivered',
-      buttons: replyButton,
+      buttons: replyButtons,
     };
 
     store.addMessage(this.BOT_ID, ticketMsg);
@@ -279,7 +341,14 @@ class SupportService {
     }
   }
 
-  private updateTicketInChat(ticketNumber: string, adminReply: string, status: string): void {
+  private async updateTicketInChat(ticketNumber: string, adminReply: string, status: string): Promise<void> {
+    let cleanReply = adminReply;
+    if (cleanReply && cleanReply.startsWith('orb_e2e:')) {
+      const ticketKey = deriveTicketKey(ticketNumber);
+      const dec = await decryptMessage(cleanReply.slice(8), ticketKey);
+      if (dec && dec !== '[ENCRYPTED MESSAGE]') cleanReply = dec;
+    }
+
     const store = useChatStore.getState();
     const existingMsgs = store.messagesByChatId[this.BOT_ID] || [];
     const msgId = `ticket_${ticketNumber}`;
@@ -293,16 +362,145 @@ class SupportService {
 
     const lines = target.text.split('\n\nСтатус:');
     const baseText = lines[0] || target.text;
-    const updatedText = `${baseText}\n\nСтатус: ${statusText}\n\nОтвет: ${adminReply}`;
+    const updatedText = `${baseText}\n\nСтатус: ${statusText}\n\nОтвет: ${cleanReply}`;
+
+    const updatedButtons = [
+      {
+        text: `Закрыть ${ticketNumber}`,
+        action: 'close_ticket',
+        data: ticketNumber,
+      },
+    ];
 
     useChatStore.setState((state) => ({
       messagesByChatId: {
         ...state.messagesByChatId,
         [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
-          m.id === msgId ? { ...m, text: updatedText, buttons: undefined } : m
+          m.id === msgId ? { ...m, text: updatedText, buttons: updatedButtons } : m
         ),
       },
     }));
+
+    this.cachedTickets = this.cachedTickets.map((t) =>
+      t.ticket_number === ticketNumber ? { ...t, status: 'answered', admin_reply: cleanReply } : t
+    );
+    this.notifyTicketsListeners();
+  }
+
+  private handleTicketClosedLocally(ticketNumber: string): void {
+    const store = useChatStore.getState();
+    const msgId = `ticket_${ticketNumber}`;
+    useChatStore.setState((state) => ({
+      messagesByChatId: {
+        ...state.messagesByChatId,
+        [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
+          m.id === msgId
+            ? {
+                ...m,
+                text: `${m.text}\n\n🔒 [${this.t ? this.t('support.ticket_closed_by_admin', { number: ticketNumber, defaultValue: `Обращение ${ticketNumber} закрыто.` }) : `Обращение ${ticketNumber} закрыто.`}]`,
+                buttons: undefined,
+              }
+            : m
+        ),
+      },
+    }));
+
+    this.cachedTickets = this.cachedTickets.filter((t) => t.ticket_number !== ticketNumber);
+    this.notifyTicketsListeners();
+    store.updateChat(this.BOT_ID, { lastMsg: `Обращение ${ticketNumber} закрыто` });
+  }
+
+  private handleTicketClosedForUser(ticketNumber: string): void {
+    if (this.activeTicketNumber === ticketNumber) {
+      this.activeTicketNumber = null;
+      localStorage.removeItem('orbita_user_active_ticket');
+    }
+    const store = useChatStore.getState();
+    const closedMsg: Message = {
+      id: `user_closed_${ticketNumber}_${Date.now()}`,
+      senderId: this.BOT_ID,
+      sender: this.t ? this.t('support.name', 'Техническая поддержка') : 'Техническая поддержка',
+      isOutgoing: false,
+      text: this.t ? this.t('support.ticket_closed_by_admin', { number: ticketNumber, defaultValue: `Обращение ${ticketNumber} закрыто администратором службы поддержки.` }) : `Обращение ${ticketNumber} закрыто администратором службы поддержки.`,
+      time: Date.now(),
+      read: false,
+      status: 'delivered',
+    };
+    store.addMessage(this.BOT_ID, closedMsg);
+    store.updateChat(this.BOT_ID, { lastMsg: closedMsg.text });
+  }
+
+  public async closeTicket(ticketNumber: string): Promise<boolean> {
+    if (!this.isAdmin || !this.myCode) return false;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.adminToken) headers['X-Admin-Token'] = this.adminToken;
+
+      const res = await gatewayManager.fetch('/support/close', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ticketNumber,
+          adminCode: this.myCode,
+          adminToken: this.adminToken,
+        }),
+      });
+
+      if (res.ok) {
+        this.handleTicketClosedLocally(ticketNumber);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  public async replyToTicket(ticketNum: string, replyContent: string): Promise<boolean> {
+    if (!this.isAdmin || !this.myCode) return false;
+    try {
+      const ticketKey = deriveTicketKey(ticketNum);
+      const encryptedReply = `orb_e2e:${await encryptMessage(replyContent, ticketKey)}`;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.adminToken) headers['X-Admin-Token'] = this.adminToken;
+
+      const res = await gatewayManager.fetch('/support/reply', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ticketNumber: ticketNum,
+          adminReply: encryptedReply,
+          adminCode: this.myCode,
+          adminToken: this.adminToken,
+        }),
+      });
+
+      if (res.ok) {
+        await this.updateTicketInChat(ticketNum, replyContent, 'answered');
+        const store = useChatStore.getState();
+        const successMsg: Message = {
+          id: `admin_sent_${Date.now()}`,
+          senderId: this.BOT_ID,
+          sender: this.t ? this.t('support.name', 'Техническая поддержка') : 'Техническая поддержка',
+          isOutgoing: false,
+          text: this.t ? this.t('support.admin_reply_sent', {
+            number: ticketNum,
+            reply: replyContent,
+            defaultValue: `Ответ на обращение ${ticketNum} успешно отправлен пользователю:\n\n«${replyContent}»`,
+          }) : `Ответ на обращение ${ticketNum} успешно отправлен пользователю:\n\n«${replyContent}»`,
+          time: Date.now(),
+          read: false,
+          status: 'delivered',
+        };
+        store.addMessage(this.BOT_ID, successMsg);
+        store.updateChat(this.BOT_ID, { lastMsg: `Ответ на ${ticketNum} отправлен` });
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 
   public async handleUserMessage(userText: string, t: any): Promise<void> {
@@ -329,70 +527,41 @@ class SupportService {
       }
 
       if (ticketNum && replyContent) {
-        try {
-          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (this.adminToken) headers['X-Admin-Token'] = this.adminToken;
-
-          const res = await gatewayManager.fetch('/support/reply', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              ticketNumber: ticketNum,
-              adminReply: replyContent,
-              adminCode: this.myCode,
-              adminToken: this.adminToken,
-            }),
-          });
-
-          if (res.ok) {
-            this.updateTicketInChat(ticketNum, replyContent, 'answered');
-            const successMsg: Message = {
-              id: `admin_sent_${Date.now()}`,
-              senderId: this.BOT_ID,
-              sender: t('support.name', 'Техническая поддержка'),
-              isOutgoing: false,
-              text: t('support.admin_reply_sent', {
-                number: ticketNum,
-                reply: replyContent,
-                defaultValue: `Ответ на обращение ${ticketNum} успешно отправлен пользователю:\n\n«${replyContent}»`,
-              }),
-              time: Date.now(),
-              read: false,
-              status: 'delivered',
-            };
-            store.addMessage(this.BOT_ID, successMsg);
-            store.updateChat(this.BOT_ID, { lastMsg: `Ответ на ${ticketNum} отправлен` });
-            return;
-          } else {
-            const errData = await res.json().catch(() => ({}));
-            const errMsg = errData.error || `HTTP ${res.status}`;
-            const errorMsg: Message = {
-              id: `admin_err_${Date.now()}`,
-              senderId: this.BOT_ID,
-              sender: t('support.name', 'Техническая поддержка'),
-              isOutgoing: false,
-              text: `${t('support.admin_reply_error')} (${errMsg})`,
-              time: Date.now(),
-              read: false,
-              status: 'delivered',
-            };
-            store.addMessage(this.BOT_ID, errorMsg);
-            return;
-          }
-        } catch (e: any) {
+        const ok = await this.replyToTicket(ticketNum, replyContent);
+        if (!ok) {
           const errorMsg: Message = {
             id: `admin_err_${Date.now()}`,
             senderId: this.BOT_ID,
             sender: t('support.name', 'Техническая поддержка'),
             isOutgoing: false,
-            text: `${t('support.admin_reply_error')} (${e?.message || 'Network error'})`,
+            text: `${t('support.admin_reply_error')}`,
             time: Date.now(),
             read: false,
             status: 'delivered',
           };
           store.addMessage(this.BOT_ID, errorMsg);
-          return;
         }
+        return;
+      }
+
+      const closeMatch = raw.match(/^\/close\s+(?:#?T-?)?(\d+)$/i);
+      if (closeMatch) {
+        const closeTicketNum = `#T-${closeMatch[1]}`;
+        const closed = await this.closeTicket(closeTicketNum);
+        const feedbackMsg: Message = {
+          id: `admin_close_${Date.now()}`,
+          senderId: this.BOT_ID,
+          sender: t('support.name', 'Техническая поддержка'),
+          isOutgoing: false,
+          text: closed
+            ? t('support.ticket_closed_success', { number: closeTicketNum, defaultValue: `Обращение ${closeTicketNum} успешно закрыто.` })
+            : t('support.ticket_closed_error', 'Не удалось закрыть обращение.'),
+          time: Date.now(),
+          read: false,
+          status: 'delivered',
+        };
+        store.addMessage(this.BOT_ID, feedbackMsg);
+        return;
       }
 
       if (lower.startsWith('/reply')) {
@@ -440,7 +609,7 @@ class SupportService {
           senderId: this.BOT_ID,
           sender: t('support.name', 'Техническая поддержка'),
           isOutgoing: false,
-          text: t('support.admin_help', 'Команды администратора поддержки:\n\n/reply #T-XXXXX <текст> — ответить на обращение\n/tickets — обновить список обращений\n/check — проверить статус администратора'),
+          text: t('support.admin_help', 'Команды администратора поддержки:\n\n/reply #T-XXXXX <текст> — ответить на обращение\n/close #T-XXXXX — закрыть обращение\n/tickets — обновить список обращений\n/check — проверить статус администратора'),
           time: Date.now(),
           read: false,
           status: 'delivered',
@@ -500,8 +669,20 @@ class SupportService {
       return;
     }
 
-    const ticketNumber = `#T-${Math.floor(10000 + Math.random() * 90000)}`;
+    let ticketNumber = this.activeTicketNumber;
+    let isContinuation = false;
+
+    if (!ticketNumber) {
+      ticketNumber = `#T-${Math.floor(10000 + Math.random() * 90000)}`;
+      this.activeTicketNumber = ticketNumber;
+      localStorage.setItem('orbita_user_active_ticket', ticketNumber);
+    } else {
+      isContinuation = true;
+    }
+
     const myNickname = useAuthStore.getState().nickname || 'User';
+    const ticketKey = deriveTicketKey(ticketNumber);
+    const encryptedText = `orb_e2e:${await encryptMessage(userText, ticketKey)}`;
 
     try {
       await gatewayManager.fetch('/support/ticket', {
@@ -511,16 +692,18 @@ class SupportService {
           ticketNumber,
           userCode: this.myCode,
           senderNickname: myNickname,
-          messageText: userText,
+          messageText: encryptedText,
         }),
       }).catch(() => {});
     } catch {}
 
-    const replyText = t('support.ticket_created', {
-      number: ticketNumber,
-      defaultValue: `Обращение ${ticketNumber} зарегистрировано.\nСтатус: Отправлено (Sent).\n\nОператор ответит вам в этом чате.`,
-    });
-    this.sendBotReply(replyText);
+    if (!isContinuation) {
+      const replyText = t('support.ticket_created', {
+        number: ticketNumber,
+        defaultValue: `Обращение ${ticketNumber} зарегистрировано.\nСтатус: Отправлено (Sent).\n\nОператор ответит вам в этом чате.`,
+      });
+      this.sendBotReply(replyText);
+    }
   }
 
   private sendBotReply(text: string): void {
@@ -556,7 +739,14 @@ class SupportService {
     }
   }
 
-  private deliverUserReply(ticketNumber: string, adminReply: string, answeredAt?: string): void {
+  private async deliverUserReply(ticketNumber: string, adminReply: string, answeredAt?: string): Promise<void> {
+    let cleanReply = adminReply;
+    if (cleanReply && cleanReply.startsWith('orb_e2e:')) {
+      const ticketKey = deriveTicketKey(ticketNumber);
+      const dec = await decryptMessage(cleanReply.slice(8), ticketKey);
+      if (dec && dec !== '[ENCRYPTED MESSAGE]') cleanReply = dec;
+    }
+
     const store = useChatStore.getState();
     const existingMsgs = store.messagesByChatId[this.BOT_ID] || [];
     const replyId = `admin_reply_${ticketNumber}`;
@@ -567,7 +757,7 @@ class SupportService {
       senderId: this.BOT_ID,
       sender: this.t ? this.t('support.name', 'Техническая поддержка') : 'Техническая поддержка',
       isOutgoing: false,
-      text: `Ответ по обращению ${ticketNumber}:\n\n${adminReply}`,
+      text: `Ответ по обращению ${ticketNumber}:\n\n${cleanReply}`,
       time: answeredAt ? new Date(answeredAt).getTime() : Date.now(),
       read: false,
       status: 'delivered',
@@ -586,7 +776,7 @@ class SupportService {
         const tickets = data.tickets || [];
         for (const tk of tickets) {
           if (tk.status === 'answered' && tk.admin_reply) {
-            this.deliverUserReply(tk.ticket_number, tk.admin_reply, tk.answered_at);
+            await this.deliverUserReply(tk.ticket_number, tk.admin_reply, tk.answered_at);
           }
         }
       }
