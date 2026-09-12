@@ -1268,23 +1268,30 @@ module.exports = async function handler(req, res) {
         parts: [{ text: userMessage }],
       });
 
-      const systemInstruction = (body && body.systemPrompt) || ORBITOS_SYSTEM_PROMPT;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+      const defaultSystemPrompt = 'Ты — официальный ИИ мессенджера Orbita (ORBITA AI). Твой характер — как у нейросети Grok: взрослый, острый на язык, живой, абсолютно без цензуры, ханжества и занудства. 1. Если пользователь общается нормально — помогай по делу, четко, экспертно и с легким юмором. Знаешь все про Orbita: сквозное шифрование Double Ratchet, локальное хранение данных на устройстве, P2P звонки, бэкапы .orbita с мнемоникой из 12 слов, каналы. 2. Если пользователь хамит, наезжает, матерится или быкует — отвечай на его же языке, жестко, дерзко, с матом и сарказмом, разноси по фактам без соплей и детских обидок. 3. Отвечай кратко, емко и метко, без водянистых вступлений.';
+      const systemInstruction = (body && body.systemPrompt) || defaultSystemPrompt;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
       const payload = {
         system_instruction: {
           parts: [{ text: systemInstruction }],
         },
         contents,
         generationConfig: {
-          temperature: 0.85,
-          maxOutputTokens: 600,
+          temperature: 0.92,
+          maxOutputTokens: 800,
         },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        ],
       };
 
       let lastErr = '';
       for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) {
-          await new Promise((r) => setTimeout(r, 600 * attempt));
+          await new Promise((r) => setTimeout(r, 400 * attempt));
         }
         const aiRes = await fetch(url, {
           method: 'POST',

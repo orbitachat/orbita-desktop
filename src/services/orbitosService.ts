@@ -202,8 +202,6 @@ class OrbitosService {
       }
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
     const store = useChatStore.getState();
     const replyMsg: Message = {
       id: `bot_reply_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
