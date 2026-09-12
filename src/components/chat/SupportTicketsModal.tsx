@@ -161,7 +161,7 @@ export const SupportTicketsModal: React.FC<SupportTicketsModalProps> = ({ isOpen
                       {tk.sender_nickname || 'Пользователь'} (ID: {tk.user_code})
                     </span>
                     <span className="text-[11px] truncate opacity-70" style={{ color: 'var(--text-dim)' }}>
-                      {tk.message_text.replace(/^orb_e2e:/, '[Зашифровано] ')}
+                      {(tk.decrypted_message_text || tk.message_text).replace(/^orb_e2e:/, '')}
                     </span>
                   </div>
                 );
@@ -214,7 +214,7 @@ export const SupportTicketsModal: React.FC<SupportTicketsModalProps> = ({ isOpen
                       {selectedTicket.sender_nickname || 'Пользователь'}:
                     </span>
                     <p className="text-[13px] whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--text-main)' }}>
-                      {selectedTicket.message_text.replace(/^orb_e2e:/, '')}
+                      {(selectedTicket.decrypted_message_text || selectedTicket.message_text).replace(/^orb_e2e:/, '')}
                     </p>
                   </div>
 

@@ -1,5 +1,5 @@
 import { useChatStore, Chat, Message } from '../store/useChatStore';
-import { getVercelBaseUrl } from './gatewayManager';
+import { gatewayManager } from './gatewayManager';
 
 class OrbitosService {
   public readonly BOT_ID = 'system_orbitos';
@@ -135,13 +135,14 @@ class OrbitosService {
     }));
 
     try {
-      const baseUrl = getVercelBaseUrl();
-      const res = await fetch(`${baseUrl}/orbitos/ai`, {
+      const userApiKey = typeof window !== 'undefined' ? localStorage.getItem('orbita_gemini_api_key') : null;
+      const res = await gatewayManager.fetch('/orbitos/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText,
           history,
+          ...(userApiKey ? { apiKey: userApiKey } : {}),
         }),
       });
 

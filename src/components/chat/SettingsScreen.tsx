@@ -31,6 +31,7 @@ import { LinkCopiedToast } from '../common/LinkCopiedToast';
 import { QrCodeView } from './QrCodeView';
 import { getInviteLink } from '../../utils/inviteLink';
 import { CHAT_COLOR_PRESETS, DEFAULT_CHAT_COLOR, type ThemeId } from '../../theme';
+import { gatewayManager } from '../../services/gatewayManager';
 
 const QrCodeMiniIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size}>
@@ -2843,18 +2844,17 @@ export const SettingsScreen = () => {
     setAiTestStatus('testing');
     setAiTestError('');
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keyToTest}`;
-      const res = await fetch(url, {
+      const res = await gatewayManager.fetch('/orbitos/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
-          generationConfig: { maxOutputTokens: 10 },
+          message: 'ping',
+          apiKey: keyToTest,
         }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `HTTP ${res.status}`);
+        throw new Error(errJson?.error || `HTTP ${res.status}`);
       }
       setAiTestStatus('success');
     } catch (err: any) {

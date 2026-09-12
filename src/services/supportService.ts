@@ -17,6 +17,7 @@ export interface SupportTicketRecord {
   admin_code?: string;
   created_at: string;
   answered_at?: string;
+  decrypted_message_text?: string;
 }
 
 export type SupportTicketsListener = (tickets: SupportTicketRecord[]) => void;
@@ -254,9 +255,19 @@ class SupportService {
       if (res.ok) {
         const data = await res.json();
         const tickets: SupportTicketRecord[] = data.tickets || [];
-        this.cachedTickets = tickets;
+        const decryptedList = await Promise.all(
+          tickets.map(async (tk) => {
+            const dec = await this.decryptTicketPayload(tk);
+            return {
+              ...tk,
+              decrypted_message_text: dec.messageText,
+              admin_reply: dec.adminReply || tk.admin_reply,
+            };
+          })
+        );
+        this.cachedTickets = decryptedList;
         this.notifyTicketsListeners();
-        const reversed = [...tickets].reverse();
+        const reversed = [...decryptedList].reverse();
         for (const tk of reversed) {
           await this.handleIncomingTicket(tk, false);
         }
@@ -266,11 +277,19 @@ class SupportService {
 
   private async decryptTicketPayload(tk: SupportTicketRecord): Promise<{ messageText: string; adminReply?: string }> {
     const ticketKey = deriveTicketKey(tk.ticket_number);
-    let messageText = tk.message_text;
-    if (messageText && messageText.startsWith('orb_e2e:')) {
-      const dec = await decryptMessage(messageText.slice(8), ticketKey);
-      if (dec && dec !== '[ENCRYPTED MESSAGE]') messageText = dec;
-    }
+    const rawText = tk.message_text || '';
+    const parts = rawText.split('\n\n---\n\n');
+    const decryptedParts = await Promise.all(
+      parts.map(async (part) => {
+        const trimmed = part.trim();
+        if (trimmed.startsWith('orb_e2e:')) {
+          const dec = await decryptMessage(trimmed.slice(8), ticketKey);
+          return (dec && dec !== '[ENCRYPTED MESSAGE]') ? dec : trimmed;
+        }
+        return trimmed;
+      })
+    );
+    const messageText = decryptedParts.join('\n\n---\n\n');
 
     let adminReply = tk.admin_reply;
     if (adminReply && adminReply.startsWith('orb_e2e:')) {
@@ -310,15 +329,16 @@ class SupportService {
     ];
 
     if (alreadyExists) {
-      if (alreadyExists.text !== bodyText || Boolean(alreadyExists.buttons?.length) !== Boolean(replyButtons.length)) {
-        useChatStore.setState((state) => ({
-          messagesByChatId: {
-            ...state.messagesByChatId,
-            [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
-              m.id === msgId ? { ...m, text: bodyText, buttons: replyButtons } : m
-            ),
-          },
-        }));
+      useChatStore.setState((state) => ({
+        messagesByChatId: {
+          ...state.messagesByChatId,
+          [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
+            m.id === msgId ? { ...m, text: bodyText, buttons: replyButtons } : m
+          ),
+        },
+      }));
+      if (!isAnswered && updateChatHeader) {
+        store.updateChat(this.BOT_ID, { lastMsg: `Новый вопрос в ${tk.ticket_number}` });
       }
       return;
     }
@@ -701,6 +721,12 @@ class SupportService {
       const replyText = t('support.ticket_created', {
         number: ticketNumber,
         defaultValue: `Обращение ${ticketNumber} зарегистрировано.\nСтатус: Отправлено (Sent).\n\nОператор ответит вам в этом чате.`,
+      });
+      this.sendBotReply(replyText);
+    } else {
+      const replyText = t('support.ticket_message_added', {
+        number: ticketNumber,
+        defaultValue: `Сообщение добавлено к обращению ${ticketNumber}.\nСтатус: Передано оператору.`,
       });
       this.sendBotReply(replyText);
     }

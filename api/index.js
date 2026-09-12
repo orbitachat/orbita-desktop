@@ -87,6 +87,41 @@ function getChannelsSupabaseClient() {
   });
 }
 
+async function checkAdminAuthorization(supabase, userCode) {
+  if (!supabase || !userCode) return null;
+  try {
+    const { data: adminRecord } = await supabase
+      .from('support_admins')
+      .select('user_code, role, auth_token')
+      .eq('user_code', userCode)
+      .maybeSingle();
+
+    if (adminRecord) return adminRecord;
+
+    const { data: devRecord } = await supabase
+      .from('developers')
+      .select('code')
+      .eq('code', userCode)
+      .maybeSingle();
+
+    if (devRecord) {
+      const newAdmin = {
+        user_code: userCode,
+        role: 'superadmin',
+        auth_token: null,
+      };
+      try {
+        await supabase.from('support_admins').insert(newAdmin);
+      } catch {}
+      return newAdmin;
+    }
+  } catch (err) {
+    console.error('[checkAdminAuthorization] error:', err);
+  }
+
+  return null;
+}
+
 function createAblyTokenRequest(apiKey, clientId, capability = '{"*":["*"]}', ttl = 3600000) {
   const parts = apiKey.split(':');
   if (parts.length !== 2) {
@@ -561,6 +596,48 @@ module.exports = async function handler(req, res) {
       const { ticketNumber, userCode, senderNickname, messageText } = body;
       if (!ticketNumber || !messageText) return sendError(res, 'Missing ticket data', 400);
 
+      const { data: existingTicket } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('ticket_number', ticketNumber)
+        .maybeSingle();
+
+      if (existingTicket) {
+        const updatedMessage = existingTicket.message_text
+          ? `${existingTicket.message_text}\n\n---\n\n${messageText}`
+          : messageText;
+
+        const { error: updateErr } = await supabase
+          .from('support_tickets')
+          .update({
+            message_text: updatedMessage,
+            status: 'sent',
+            sender_nickname: senderNickname || existingTicket.sender_nickname,
+            created_at: new Date().toISOString(),
+          })
+          .eq('ticket_number', ticketNumber);
+
+        if (updateErr) return sendError(res, updateErr.message, 500);
+
+        const payload = {
+          ticket_number: ticketNumber,
+          user_code: existingTicket.user_code,
+          sender_nickname: senderNickname || existingTicket.sender_nickname,
+          message_text: updatedMessage,
+          status: 'sent',
+          admin_reply: existingTicket.admin_reply,
+          created_at: new Date().toISOString(),
+        };
+
+        await triggerPusherEvent('support-admin', 'ticket-updated', payload);
+        await triggerAblyEvent('support-admin', 'ticket-updated', payload);
+        await triggerPusherEvent('support-admin', 'new-ticket', payload);
+        await triggerAblyEvent('support-admin', 'new-ticket', payload);
+        await triggerAblyEvent('chat:support-admin', 'client-message', { type: 'ticket-updated', ...payload });
+
+        return sendJson(res, { status: 'ok', ticketNumber, updated: true });
+      }
+
       const ticketPayload = {
         ticket_number: ticketNumber,
         user_code: userCode || 'ANON',
@@ -602,20 +679,15 @@ module.exports = async function handler(req, res) {
       const userCode = query.userCode;
       if (!userCode) return sendError(res, 'Missing userCode', 400);
 
-      const { data, error } = await supabase
-        .from('support_admins')
-        .select('user_code, role, auth_token')
-        .eq('user_code', userCode)
-        .maybeSingle();
-
-      if (error || !data) {
+      const adminRecord = await checkAdminAuthorization(supabase, userCode);
+      if (!adminRecord) {
         return sendJson(res, { isAdmin: false });
       }
 
       return sendJson(res, {
         isAdmin: true,
-        role: data.role || 'admin',
-        hasToken: Boolean(data.auth_token),
+        role: adminRecord.role || 'admin',
+        hasToken: Boolean(adminRecord.auth_token),
       });
     }
 
@@ -625,13 +697,8 @@ module.exports = async function handler(req, res) {
       const { userCode, adminToken } = body;
       if (!userCode || !adminToken) return sendError(res, 'Missing parameters', 400);
 
-      const { data: adminRecord, error: checkErr } = await supabase
-        .from('support_admins')
-        .select('user_code, auth_token')
-        .eq('user_code', userCode)
-        .maybeSingle();
-
-      if (checkErr || !adminRecord) {
+      const adminRecord = await checkAdminAuthorization(supabase, userCode);
+      if (!adminRecord) {
         return sendError(res, 'Access denied', 403);
       }
 
@@ -651,13 +718,8 @@ module.exports = async function handler(req, res) {
       const adminToken = req.headers['x-admin-token'] || query.adminToken;
       if (!userCode) return sendError(res, 'Missing userCode', 400);
 
-      const { data: adminRecord, error: adminErr } = await supabase
-        .from('support_admins')
-        .select('user_code, auth_token')
-        .eq('user_code', userCode)
-        .maybeSingle();
-
-      if (adminErr || !adminRecord) {
+      const adminRecord = await checkAdminAuthorization(supabase, userCode);
+      if (!adminRecord) {
         return sendError(res, 'Access denied: not an authorized admin', 403);
       }
 
@@ -685,13 +747,8 @@ module.exports = async function handler(req, res) {
       const adminToken = req.headers['x-admin-token'] || body.adminToken;
       if (!ticketNumber || !adminReply || !adminCode) return sendError(res, 'Missing required fields', 400);
 
-      const { data: adminRecord, error: adminErr } = await supabase
-        .from('support_admins')
-        .select('user_code, auth_token')
-        .eq('user_code', adminCode)
-        .maybeSingle();
-
-      if (adminErr || !adminRecord) {
+      const adminRecord = await checkAdminAuthorization(supabase, adminCode);
+      if (!adminRecord) {
         return sendError(res, 'Access denied: not an authorized admin', 403);
       }
 
@@ -773,13 +830,8 @@ module.exports = async function handler(req, res) {
       const adminToken = req.headers['x-admin-token'] || body.adminToken;
       if (!ticketNumber || !adminCode) return sendError(res, 'Missing required fields', 400);
 
-      const { data: adminRecord, error: adminErr } = await supabase
-        .from('support_admins')
-        .select('user_code, auth_token')
-        .eq('user_code', adminCode)
-        .maybeSingle();
-
-      if (adminErr || !adminRecord) {
+      const adminRecord = await checkAdminAuthorization(supabase, adminCode);
+      if (!adminRecord) {
         return sendError(res, 'Access denied: not an authorized admin', 403);
       }
 
