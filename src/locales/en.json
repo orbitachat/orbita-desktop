@@ -764,7 +764,7 @@
       "restart_and_install": "Restart and update",
       "current_version": "Current version",
       "update_error": "Error checking for updates",
-      "update_dev_mode": "Development mode (check available in release build)",
+      "update_dev_mode": "Development mode (download disabled)",
       "nickname_length_error": "Name must be between 3 and 20 characters",
       "edit_nickname_title": "Edit name",
       "edit_nickname_desc": "This name will be seen by your contacts in chats.",

@@ -1,10 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff } from 'lucide-react';
+import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2 } from 'lucide-react';
+import type { RemoteTrack } from 'livekit-client';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
+import { liveKitService } from '../../services/livekitService';
+import { gatewayManager } from '../../services/gatewayManager';
 
 interface CallStatePayload {
   activeCall: {
@@ -18,6 +21,10 @@ interface CallStatePayload {
     verificationEmojis?: string[];
     otherName?: string;
     otherAvatar?: string | null;
+    token?: string;
+    url?: string;
+    verificationSecret?: string;
+    verificationSalt?: string;
   } | null;
   incomingCall: {
     from: string;
@@ -185,14 +192,19 @@ export const CallWindowView = () => {
     } catch {}
   };
 
-  const handleToggleMic = () => {
-    const next = !isMicEnabled;
-    setCallData((prev) => (prev ? { ...prev, isMicEnabled: next } : prev));
-    sendAction('toggleMic', next);
-  };
-
   const [hasCamera, setHasCamera] = useState<boolean>(false);
   const [isScreenPickerOpen, setIsScreenPickerOpen] = useState<boolean>(false);
+  const [isRemoteVideoActive, setIsRemoteVideoActive] = useState<boolean>(false);
+  const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
+  const [isLocalScreenShareActive, setIsLocalScreenShareActive] = useState<boolean>(false);
+  const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteScreenShareRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const localScreenShareRef = useRef<HTMLVideoElement>(null);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const checkCameraAvailability = async () => {
@@ -216,27 +228,6 @@ export const CallWindowView = () => {
     };
   }, []);
 
-  const handleToggleVideo = () => {
-    const next = !isVideoEnabled;
-    setCallData((prev) => (prev ? { ...prev, isVideoEnabled: next } : prev));
-    sendAction('toggleVideo', next);
-  };
-
-  const handleToggleScreenShare = () => {
-    if (isScreenSharing) {
-      sendAction('stopScreenShare');
-      setCallData((prev) => (prev ? { ...prev, isScreenSharing: false } : prev));
-    } else {
-      setIsScreenPickerOpen(true);
-    }
-  };
-
-  const formatDuration = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
   const activeCall = callData?.activeCall;
   const incomingCall = callData?.incomingCall;
   const callState = callData?.callState || 'idle';
@@ -256,52 +247,209 @@ export const CallWindowView = () => {
   const isConnecting = callState === 'connecting';
   const isEnded = callState === 'ended';
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
   useEffect(() => {
-    const isCallActive = callState === 'ringing' || callState === 'connecting' || callState === 'connected' || callState === 'preparing';
-    const showWebcam = isCallActive && isVideoEnabled && hasCamera;
-
-    if (!showWebcam) {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-        streamRef.current = null;
-      }
-      return;
-    }
+    if (!activeCall) return;
+    const isShouldConnect = callState === 'connected' || callState === 'connecting' || (callState === 'ringing' && activeCall.direction === 'outgoing');
+    if (!isShouldConnect) return;
+    if (liveKitService.isConnected) return;
 
     let cancelled = false;
-    navigator.mediaDevices
-      ?.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: false,
-      })
-      .then((stream) => {
-        if (cancelled) {
-          stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-          return;
+    const doConnect = async () => {
+      try {
+        const roomName = activeCall.roomName;
+        const myNick = callData?.myNickname || activeCall.otherName || 'User';
+        const sessionKey = activeCall.verificationSecret
+          ? (activeCall.verificationSalt ? `${activeCall.verificationSecret}:${activeCall.verificationSalt}` : activeCall.verificationSecret)
+          : undefined;
+
+        let token = activeCall.token;
+        let url = activeCall.url;
+        if (!token || !url) {
+          const res = await gatewayManager.fetch('/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room: roomName, identity: myNick, name: myNick }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            token = data.token;
+            url = data.url;
+          }
         }
-        streamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-          localVideoRef.current.play().catch(() => {});
+        if (cancelled || !token || !url) return;
+        await liveKitService.connect(roomName, token, url, sessionKey);
+        await liveKitService.enableMicrophone();
+        if (isVideoEnabled) {
+          await liveKitService.enableCamera();
         }
-      })
-      .catch(() => {});
+      } catch {}
+    };
+
+    doConnect();
 
     return () => {
       cancelled = true;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-        streamRef.current = null;
+    };
+  }, [callState, activeCall?.roomName, activeCall?.token]);
+
+  useEffect(() => {
+    const handleTrackSubscribed = (track: RemoteTrack) => {
+      if (track.kind === 'video') {
+        if (track.source === 'screen_share') {
+          if (remoteScreenShareRef.current) {
+            track.attach(remoteScreenShareRef.current);
+          }
+          setIsRemoteScreenShareActive(true);
+        } else {
+          if (remoteVideoRef.current) {
+            track.attach(remoteVideoRef.current);
+          }
+          if (bgVideoRef.current) {
+            track.attach(bgVideoRef.current);
+          }
+          setIsRemoteVideoActive(true);
+        }
       }
     };
-  }, [callState, isVideoEnabled, hasCamera]);
+
+    const handleTrackUnsubscribed = (track: RemoteTrack) => {
+      if (track.kind === 'video') {
+        if (track.source === 'screen_share') {
+          if (remoteScreenShareRef.current) {
+            track.detach(remoteScreenShareRef.current);
+          }
+          setIsRemoteScreenShareActive(false);
+        } else {
+          if (remoteVideoRef.current) {
+            track.detach(remoteVideoRef.current);
+          }
+          if (bgVideoRef.current) {
+            track.detach(bgVideoRef.current);
+          }
+          setIsRemoteVideoActive(false);
+        }
+      }
+    };
+
+    const handleCameraChanged = (enabled: boolean, track: any) => {
+      setIsLocalVideoActive(enabled);
+      if (enabled && track && localVideoRef.current) {
+        track.attach(localVideoRef.current);
+      }
+    };
+
+    const handleScreenShareChanged = (enabled: boolean, track: any) => {
+      setIsLocalScreenShareActive(enabled);
+      if (enabled && track && localScreenShareRef.current) {
+        track.attach(localScreenShareRef.current);
+      }
+      sendAction('syncMediaState', { isScreenSharing: enabled });
+    };
+
+    const handleRemoteScreenShareChanged = (active: boolean, track: any) => {
+      setIsRemoteScreenShareActive(active);
+      if (active && track && remoteScreenShareRef.current) {
+        track.attach(remoteScreenShareRef.current);
+      }
+    };
+
+    const handleConnected = () => {
+      const rTrack = liveKitService.getRemoteVideoTrack();
+      if (rTrack && !rTrack.isMuted) {
+        if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
+        if (bgVideoRef.current) rTrack.attach(bgVideoRef.current);
+        setIsRemoteVideoActive(true);
+      }
+      const sTrack = liveKitService.getRemoteScreenShareTrack();
+      if (sTrack && !sTrack.isMuted) {
+        if (remoteScreenShareRef.current) sTrack.attach(remoteScreenShareRef.current);
+        setIsRemoteScreenShareActive(true);
+      }
+    };
+
+    liveKitService.on('trackSubscribed', handleTrackSubscribed);
+    liveKitService.on('trackUnsubscribed', handleTrackUnsubscribed);
+    liveKitService.on('cameraChanged', handleCameraChanged);
+    liveKitService.on('screenShareChanged', handleScreenShareChanged);
+    liveKitService.on('remoteScreenShareChanged', handleRemoteScreenShareChanged);
+    liveKitService.on('connected', handleConnected);
+
+    if (liveKitService.isConnected) {
+      handleConnected();
+    }
+
+    return () => {
+      liveKitService.off('trackSubscribed', handleTrackSubscribed);
+      liveKitService.off('trackUnsubscribed', handleTrackUnsubscribed);
+      liveKitService.off('cameraChanged', handleCameraChanged);
+      liveKitService.off('screenShareChanged', handleScreenShareChanged);
+      liveKitService.off('remoteScreenShareChanged', handleRemoteScreenShareChanged);
+      liveKitService.off('connected', handleConnected);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (remoteVideoRef.current) {
+        try { liveKitService.getRemoteVideoTrack()?.detach(remoteVideoRef.current); } catch {}
+      }
+      if (remoteScreenShareRef.current) {
+        try { liveKitService.getRemoteScreenShareTrack()?.detach(remoteScreenShareRef.current); } catch {}
+      }
+      if (localVideoRef.current) {
+        try { liveKitService.getLocalVideoTrack()?.detach(localVideoRef.current); } catch {}
+      }
+      if (localScreenShareRef.current) {
+        try { liveKitService.getScreenShareTrack()?.detach(localScreenShareRef.current); } catch {}
+      }
+      liveKitService.disconnect().catch(() => {});
+    };
+  }, []);
+
+  const handleToggleMic = async () => {
+    const next = !isMicEnabled;
+    setCallData((prev) => (prev ? { ...prev, isMicEnabled: next } : prev));
+    if (next) {
+      await liveKitService.enableMicrophone();
+    } else {
+      await liveKitService.disableMicrophone();
+    }
+    sendAction('toggleMic', next);
+  };
+
+  const handleToggleVideo = async () => {
+    const next = !isVideoEnabled;
+    setCallData((prev) => (prev ? { ...prev, isVideoEnabled: next } : prev));
+    if (next) {
+      await liveKitService.enableCamera();
+    } else {
+      await liveKitService.disableCamera();
+    }
+    sendAction('toggleVideo', next);
+  };
+
+  const handleToggleScreenShare = async () => {
+    if (isLocalScreenShareActive || isScreenSharing) {
+      await liveKitService.stopScreenShare();
+      setIsLocalScreenShareActive(false);
+      setCallData((prev) => (prev ? { ...prev, isScreenSharing: false } : prev));
+      sendAction('stopScreenShare');
+    } else {
+      setIsScreenPickerOpen(true);
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const hasStream = isRemoteScreenShareActive || isRemoteVideoActive || isLocalScreenShareActive || (isLocalVideoActive && !isRemoteVideoActive);
 
   return (
     <div
-      className="w-full h-full min-h-screen flex flex-col justify-between overflow-hidden select-none"
+      className="w-full h-full min-h-screen flex flex-col justify-between overflow-hidden select-none relative"
       style={{
         backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-main, #ffffff)',
@@ -310,7 +458,9 @@ export const CallWindowView = () => {
         ['--title-bar-bg' as any]: 'transparent',
       }}
     >
-      <TitleBar />
+      <div className="relative z-50">
+        <TitleBar />
+      </div>
 
       <div className="h-7 flex items-center justify-center flex-shrink-0 relative z-30">
         {isConnected && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
@@ -318,63 +468,157 @@ export const CallWindowView = () => {
         )}
       </div>
 
-      {isVideoEnabled && (
-        hasCamera ? (
-          <div className="absolute top-12 right-5 z-40 w-32 h-44 sm:w-36 sm:h-48 rounded-2xl overflow-hidden shadow-2xl bg-black/70 border-0 select-none">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover -scale-x-100"
-            />
+      {isLocalVideoActive && (isRemoteVideoActive || isRemoteScreenShareActive) && (
+        <div className="absolute top-12 right-5 z-40 w-32 h-44 sm:w-36 sm:h-48 rounded-2xl overflow-hidden shadow-2xl bg-black/70 border-0 select-none">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover -scale-x-100"
+          />
+          <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[10px] font-semibold text-white/90">
+            {t('call.you')}
           </div>
-        ) : (
-          <div className="absolute top-12 right-5 z-40 w-48 h-36 rounded-2xl shadow-2xl bg-black/80 backdrop-blur-md p-4 flex flex-col items-center justify-center text-center border-0 select-none">
-            <VideoOff size={28} className="text-amber-400 mb-2" />
-            <span className="text-[13px] font-medium text-white/90 leading-snug">
-              {t('call.no_camera_available')}
-            </span>
-          </div>
-        )
+        </div>
       )}
 
-      <div className="flex flex-col items-center justify-center flex-1 py-4">
-        <div className="w-[150px] h-[150px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-lg pointer-events-none">
-          {otherName ? (
-            <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '54px' }} />
-          ) : (
-            <div className="w-full h-full rounded-full bg-white/5 animate-pulse" />
-          )}
+      {isVideoEnabled && !hasCamera && (
+        <div className="absolute top-12 right-5 z-40 w-44 h-32 rounded-2xl shadow-2xl bg-black/80 backdrop-blur-md p-3 flex flex-col items-center justify-center text-center border-0 select-none">
+          <VideoOff size={24} className="text-amber-400 mb-1.5" />
+          <span className="text-[12px] font-medium text-white/90 leading-snug">
+            {t('call.no_camera_available')}
+          </span>
         </div>
+      )}
 
-        <h2
-          className="mt-7 text-xl font-bold tracking-tight text-center px-4 truncate max-w-full min-h-[28px]"
-          style={{ color: 'var(--text-main, #ffffff)' }}
-        >
-          {otherName}
-        </h2>
+      <div className="flex flex-col items-center justify-center flex-1 py-2 z-10 w-full relative">
+        {hasStream ? (
+          <>
+            {(isRemoteVideoActive || isLocalVideoActive) && (
+              <video
+                ref={bgVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-125 pointer-events-none z-0"
+              />
+            )}
+            {otherAvatar && !isRemoteVideoActive && !isLocalVideoActive && (
+              <img
+                src={otherAvatar}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125 pointer-events-none z-0"
+              />
+            )}
 
-        {isIncoming ? (
-          <p className="mt-1 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-            {t('call.calling_you')}
-          </p>
-        ) : isPreparing ? (
-          <p className="mt-1 text-sm text-center max-w-sm px-4" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-            {t('call.video_call_hint')}
-          </p>
-        ) : isConnected ? (
-          <p
-            className="mt-1 text-sm tabular-nums font-semibold text-center"
-            style={{ color: 'var(--accent-light, #a995ec)' }}
-          >
-            {formatDuration(duration)}
-          </p>
-        ) : statusMessage ? (
-          <p className="mt-1 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-            {statusMessage}
-          </p>
-        ) : null}
+            <div
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
+                isExpanded
+                  ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
+                  : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
+              }`}
+              style={{
+                borderRadius: isExpanded ? 0 : '24px',
+              }}
+            >
+              <video
+                ref={remoteScreenShareRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+                style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
+              />
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+                style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
+              />
+              <video
+                ref={localScreenShareRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-contain opacity-80"
+                style={{ display: !isRemoteScreenShareActive && !isRemoteVideoActive && isLocalScreenShareActive ? 'block' : 'none' }}
+              />
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover -scale-x-100"
+                style={{ display: !isRemoteScreenShareActive && !isRemoteVideoActive && !isLocalScreenShareActive && isLocalVideoActive ? 'block' : 'none' }}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+                aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+                className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+              >
+                {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+            </div>
+
+            {!isExpanded && (
+              <div className="flex flex-col items-center mt-3 select-none">
+                <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white">
+                  {otherName}
+                </h2>
+                <p
+                  className="mt-0.5 text-sm tabular-nums font-semibold text-center"
+                  style={{ color: 'var(--accent-light, #a995ec)' }}
+                >
+                  {formatDuration(duration)}
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="w-[150px] h-[150px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-lg pointer-events-none">
+              {otherName ? (
+                <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '54px' }} />
+              ) : (
+                <div className="w-full h-full rounded-full bg-white/5 animate-pulse" />
+              )}
+            </div>
+
+            <h2
+              className="mt-7 text-xl font-bold tracking-tight text-center px-4 truncate max-w-full min-h-[28px]"
+              style={{ color: 'var(--text-main, #ffffff)' }}
+            >
+              {otherName}
+            </h2>
+
+            {isIncoming ? (
+              <p className="mt-1 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                {t('call.calling_you')}
+              </p>
+            ) : isPreparing ? (
+              <p className="mt-1 text-sm text-center max-w-sm px-4" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                {t('call.video_call_hint')}
+              </p>
+            ) : isConnected ? (
+              <p
+                className="mt-1 text-sm tabular-nums font-semibold text-center"
+                style={{ color: 'var(--accent-light, #a995ec)' }}
+              >
+                {formatDuration(duration)}
+              </p>
+            ) : statusMessage ? (
+              <p className="mt-1 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                {statusMessage}
+              </p>
+            ) : null}
+          </>
+        )}
       </div>
 
       {isScreenSharing && (
@@ -394,7 +638,7 @@ export const CallWindowView = () => {
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-5 pb-5 pt-1">
+      <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex items-center justify-center gap-5`}>
         {isIncoming ? (
           <>
             <button
@@ -523,7 +767,10 @@ export const CallWindowView = () => {
 
             <button
               type="button"
-              onClick={() => sendAction('endCall')}
+              onClick={() => {
+                liveKitService.disconnect().catch(() => {});
+                sendAction('endCall');
+              }}
               aria-label={t('call.hang_up')}
               className="flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none"
             >
@@ -539,6 +786,7 @@ export const CallWindowView = () => {
           <button
             type="button"
             onClick={() => {
+              liveKitService.disconnect().catch(() => {});
               sendAction('cancelCall');
               try { (window as any).orbita?.closeCallWindow?.(); } catch {}
             }}
@@ -558,9 +806,14 @@ export const CallWindowView = () => {
       <ScreenSharePickerModal
         isOpen={isScreenPickerOpen}
         onClose={() => setIsScreenPickerOpen(false)}
-        onStart={(options) => {
+        onStart={async (options) => {
           setIsScreenPickerOpen(false);
-          sendAction('startScreenShareWithOptions', options);
+          const success = await liveKitService.startScreenShare(options);
+          if (success) {
+            setIsLocalScreenShareActive(true);
+            setCallData((prev) => (prev ? { ...prev, isScreenSharing: true } : prev));
+            sendAction('syncMediaState', { isScreenSharing: true });
+          }
         }}
       />
     </div>

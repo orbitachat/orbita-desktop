@@ -39,6 +39,8 @@ export interface ActiveCall {
   verificationSecret?: string;
   verificationSalt?: string;
   verificationEmojis?: string[];
+  token?: string;
+  url?: string;
 }
 
 interface CallStore {
@@ -548,12 +550,17 @@ export const useCallStore = create<CallStore>((set, get) => {
       try {
         const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
         const { token, url } = await fetchLivekitToken(roomName, myNickname);
-        console.log(`${LOG_PREFIX} Connecting to LiveKit (outgoing):`, url);
-        await liveKitService.connect(roomName, token, url, sessionKey);
-        console.log(`${LOG_PREFIX} LiveKit connected (outgoing)`);
-        const cs = get().callState;
-        if (cs !== 'ringing' && cs !== 'connecting') return;
-        if (liveKitService.remoteParticipants.length > 0) activateConnected();
+        const act = get().activeCall;
+        if (act) set({ activeCall: { ...act, token, url } });
+        const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+        if (!isElectronSeparateCallWindow) {
+          console.log(`${LOG_PREFIX} Connecting to LiveKit (outgoing):`, url);
+          await liveKitService.connect(roomName, token, url, sessionKey);
+          console.log(`${LOG_PREFIX} LiveKit connected (outgoing)`);
+          const cs = get().callState;
+          if (cs !== 'ringing' && cs !== 'connecting') return;
+          if (liveKitService.remoteParticipants.length > 0) activateConnected();
+        }
       } catch (err) {
         console.warn(`${LOG_PREFIX} Initial LiveKit connect warning (outgoing):`, err);
       }
@@ -606,12 +613,17 @@ export const useCallStore = create<CallStore>((set, get) => {
           token = res.token;
           url = res.url;
         }
-        console.log(`${LOG_PREFIX} Answering, connecting to LiveKit:`, url);
-        await liveKitService.connect(roomName, token, url, sessionKey);
-        console.log(`${LOG_PREFIX} LiveKit connected (incoming)`);
-        if (get().callState !== 'connecting') return;
-        set({ callState: 'connecting', statusMessage: 'Соединение...' });
-        if (liveKitService.remoteParticipants.length > 0) activateConnected();
+        const actCurrent = get().activeCall;
+        if (actCurrent) set({ activeCall: { ...actCurrent, token, url } });
+        const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+        if (!isElectronSeparateCallWindow) {
+          console.log(`${LOG_PREFIX} Answering, connecting to LiveKit:`, url);
+          await liveKitService.connect(roomName, token, url, sessionKey);
+          console.log(`${LOG_PREFIX} LiveKit connected (incoming)`);
+          if (get().callState !== 'connecting') return;
+          set({ callState: 'connecting', statusMessage: 'Соединение...' });
+          if (liveKitService.remoteParticipants.length > 0) activateConnected();
+        }
       } catch (err) {
         console.error(`${LOG_PREFIX} LiveKit connect error (incoming):`, err);
         if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
@@ -910,6 +922,14 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
         if (action.payload.kind === 'audioinput') useChatStore.getState().setSelectedMicrophoneId(action.payload.deviceId);
         if (action.payload.kind === 'audiooutput') useChatStore.getState().setSelectedSpeakerId(action.payload.deviceId);
       }
+      break;
+    case 'syncMediaState':
+      if (action.payload) {
+        useCallStore.setState(action.payload);
+      }
+      break;
+    case 'activateConnected':
+      store.handleConnected(action.payload);
       break;
   }
 };

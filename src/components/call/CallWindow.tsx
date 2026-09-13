@@ -58,6 +58,7 @@ export const CallWindow = () => {
   const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
   const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [hasCamera, setHasCamera] = useState<boolean>(false);
   useEffect(() => {
     const checkDevices = async () => {
@@ -89,6 +90,7 @@ export const CallWindow = () => {
 
   const remoteAudioContainerRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteScreenShareRef = useRef<HTMLVideoElement>(null);
   const localScreenShareRef = useRef<HTMLVideoElement>(null);
@@ -130,6 +132,9 @@ export const CallWindow = () => {
           }
         } else if (remoteVideoRef.current) {
           track.attach(remoteVideoRef.current);
+          if (bgVideoRef.current) {
+            track.attach(bgVideoRef.current);
+          }
           setIsRemoteVideoActive(true);
         }
       }
@@ -145,6 +150,9 @@ export const CallWindow = () => {
         } else {
           if (remoteVideoRef.current) {
             track.detach(remoteVideoRef.current);
+          }
+          if (bgVideoRef.current) {
+            track.detach(bgVideoRef.current);
           }
           setIsRemoteVideoActive(false);
         }
@@ -162,6 +170,9 @@ export const CallWindow = () => {
       const track = liveKitService.getRemoteVideoTrack();
       if (track && remoteVideoRef.current) {
         track.attach(remoteVideoRef.current);
+        if (bgVideoRef.current) {
+          track.attach(bgVideoRef.current);
+        }
         setIsRemoteVideoActive(true);
       }
       const sTrack = liveKitService.getRemoteScreenShareTrack();
@@ -187,6 +198,9 @@ export const CallWindow = () => {
         const track = liveKitService.getRemoteVideoTrack();
         if (track) {
           track.detach(remoteVideoRef.current);
+          if (bgVideoRef.current) {
+            track.detach(bgVideoRef.current);
+          }
         }
       }
       if (remoteScreenShareRef.current) {
@@ -207,6 +221,9 @@ export const CallWindow = () => {
     const track = liveKitService.getRemoteVideoTrack();
     if (track && !track.isMuted && remoteVideoRef.current) {
       track.attach(remoteVideoRef.current);
+      if (bgVideoRef.current) {
+        track.attach(bgVideoRef.current);
+      }
       setIsRemoteVideoActive(true);
     }
     const sTrack = liveKitService.getRemoteScreenShareTrack();
@@ -416,6 +433,7 @@ export const CallWindow = () => {
 
   return (
     <div
+      ref={callContainerRef}
       className="fixed inset-0 z-[400] flex flex-col justify-between overflow-hidden select-none"
       style={{
         display: isMinimized ? 'none' : 'flex',
@@ -445,48 +463,6 @@ export const CallWindow = () => {
         </div>
       )}
 
-      <div
-        ref={callContainerRef}
-        className="absolute inset-0 z-0 overflow-hidden flex items-center justify-center bg-[#09080e]"
-      >
-        <video
-          ref={remoteScreenShareRef}
-          autoPlay
-          playsInline
-          className="w-full h-full object-contain transition-opacity duration-300"
-          style={{
-            display: isRemoteScreenShareActive ? 'block' : 'none',
-          }}
-        />
-
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover transition-opacity duration-300"
-          style={{
-            display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none',
-          }}
-        />
-
-        {isScreenSharing && !isRemoteScreenShareActive && !isRemoteVideoActive && (
-          <video
-            ref={localScreenShareRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-contain opacity-75"
-          />
-        )}
-
-        {(isRemoteVideoActive || isRemoteScreenShareActive) && (
-          <>
-            <div className="absolute top-0 inset-x-0 h-36 bg-gradient-to-b from-black/80 via-black/30 to-transparent pointer-events-none z-10" />
-            <div className="absolute bottom-0 inset-x-0 h-44 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none z-10" />
-          </>
-        )}
-      </div>
-
       {isRemoteScreenShareActive && (
         <div className="absolute top-14 left-16 z-30 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -505,7 +481,7 @@ export const CallWindow = () => {
       )}
 
       {isScreenSharing && (
-        <div className="absolute top-14 left-16 z-30 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[12px] font-medium text-white/90">
             {t('call.sharing_your_screen')}
@@ -522,7 +498,7 @@ export const CallWindow = () => {
       )}
 
       <AnimatePresence>
-        {isLocalVideoActive && (
+        {(isRemoteVideoActive || isRemoteScreenShareActive) && isLocalVideoActive && (
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -559,52 +535,128 @@ export const CallWindow = () => {
         )}
       </AnimatePresence>
 
-      {isRemoteVideoActive ? (
-        <div className="relative z-30 flex flex-col items-center pt-8 pb-4 pointer-events-none select-none">
-          <h2 className="text-xl font-bold tracking-tight text-white drop-shadow-md">
-            {otherName}
-          </h2>
-          {isConnected && (
-            <p className="text-sm font-semibold tabular-nums text-white/90 drop-shadow-sm mt-0.5">
-              {formatDuration(duration)}
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center flex-1 relative z-10 p-6">
-          <div className="relative w-[150px] h-[150px] flex items-center justify-center select-none">
-            {isConnected && (
-              <div
-                className="absolute inset-0 rounded-full animate-ping opacity-20 pointer-events-none"
-                style={{ backgroundColor: 'var(--accent-color, #7C3AED)' }}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
+        {(isRemoteVideoActive || isRemoteScreenShareActive || (isConnected && isVideoEnabled && isLocalVideoActive) || isScreenSharing) ? (
+          <>
+            <video
+              ref={bgVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-125 pointer-events-none z-0"
+            />
+            {otherAvatar && !isRemoteVideoActive && !isLocalVideoActive && (
+              <img
+                src={otherAvatar}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125 pointer-events-none z-0"
               />
             )}
-            <div className="w-[150px] h-[150px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-xl pointer-events-none border-2 border-white/10 relative z-10">
-              <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '54px' }} />
+
+            <div
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
+                isExpanded
+                  ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
+                  : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
+              }`}
+              style={{
+                borderRadius: isExpanded ? 0 : '24px',
+              }}
+            >
+              <video
+                ref={remoteScreenShareRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+                style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
+              />
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+                style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
+              />
+              <video
+                ref={localScreenShareRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-contain opacity-80"
+                style={{ display: !isRemoteScreenShareActive && !isRemoteVideoActive && isScreenSharing ? 'block' : 'none' }}
+              />
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover -scale-x-100"
+                style={{ display: !isRemoteScreenShareActive && !isRemoteVideoActive && !isScreenSharing && isLocalVideoActive ? 'block' : 'none' }}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+                aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+                className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+              >
+                {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
             </div>
-          </div>
 
-          <h2 className="mt-7 text-2xl font-bold tracking-tight text-center px-4" style={{ color: 'var(--text-main)' }}>
-            {otherName}
-          </h2>
+            {!isExpanded && (
+              <div className="flex flex-col items-center mt-3 select-none">
+                <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white">
+                  {otherName}
+                </h2>
+                <p
+                  className="mt-0.5 text-sm tabular-nums font-semibold text-center"
+                  style={{ color: 'var(--accent-light, #a995ec)' }}
+                >
+                  {formatDuration(duration)}
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="relative w-[150px] h-[150px] flex items-center justify-center select-none">
+              {isConnected && (
+                <div
+                  className="absolute inset-0 rounded-full animate-ping opacity-20 pointer-events-none"
+                  style={{ backgroundColor: 'var(--accent-color, #7C3AED)' }}
+                />
+              )}
+              <div className="w-[150px] h-[150px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-xl pointer-events-none border-2 border-white/10 relative z-10">
+                <Avatar src={otherAvatar} alt={otherName} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '54px' }} />
+              </div>
+            </div>
 
-          {isPreparing ? (
-            <p className="mt-1.5 text-sm text-center max-w-sm px-4" style={{ color: 'var(--text-dim)' }}>
-              {t('call.video_call_hint')}
-            </p>
-          ) : isConnected ? (
-            <p className="mt-1.5 text-sm tabular-nums text-center" style={{ color: 'var(--accent-light)', fontWeight: 600 }}>
-              {formatDuration(duration)}
-            </p>
-          ) : statusMessage ? (
-            <p className="mt-1.5 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-              {statusMessage}
-            </p>
-          ) : null}
-        </div>
-      )}
+            <h2 className="mt-7 text-2xl font-bold tracking-tight text-center px-4" style={{ color: 'var(--text-main)' }}>
+              {otherName}
+            </h2>
 
-      <div className="flex items-center justify-center gap-5 pb-5 pt-1 relative z-30">
+            {isPreparing ? (
+              <p className="mt-1.5 text-sm text-center max-w-sm px-4" style={{ color: 'var(--text-dim)' }}>
+                {t('call.video_call_hint')}
+              </p>
+            ) : isConnected ? (
+              <p className="mt-1.5 text-sm tabular-nums text-center" style={{ color: 'var(--accent-light)', fontWeight: 600 }}>
+                {formatDuration(duration)}
+              </p>
+            ) : statusMessage ? (
+              <p className="mt-1.5 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                {statusMessage}
+              </p>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-30'} flex items-center justify-center gap-5`}>
         {isPreparing ? (
           <>
             <button

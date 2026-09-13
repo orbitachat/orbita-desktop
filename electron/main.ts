@@ -26,6 +26,7 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import * as sqlite3 from 'sqlite3';
 import { autoUpdater } from 'electron-updater';
+import { spawn } from 'child_process';
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
@@ -2832,66 +2833,174 @@ function sendUpdaterStatus(payload: {
   }
 }
 
+let latestGitHubRelease: {
+  version: string;
+  releaseNotes?: string;
+  downloadUrl?: string;
+  fileName?: string;
+} | null = null;
+let downloadedInstallerPath: string | null = null;
+let isDownloadingUpdate = false;
+
+function compareVersions(v1: string, v2: string): number {
+  const p1 = v1.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const p2 = v2.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const maxLen = Math.max(p1.length, p2.length);
+  for (let i = 0; i < maxLen; i++) {
+    const a = p1[i] || 0;
+    const b = p2[i] || 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  return 0;
+}
+
+async function fetchLatestGitHubRelease(): Promise<{
+  hasUpdate: boolean;
+  version: string;
+  releaseNotes?: string;
+  downloadUrl?: string;
+  fileName?: string;
+}> {
+  const res = await electronNet.fetch('https://api.github.com/repos/orbitachat/orbita-desktop/releases/latest', {
+    headers: {
+      'User-Agent': `Orbita-Desktop/${app.getVersion()}`,
+      'Accept': 'application/vnd.github.v3+json',
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`GitHub API error: ${res.status}`);
+  }
+  const data: any = await res.json();
+  const remoteTag = (data?.tag_name || '').replace(/^v/, '');
+  if (!remoteTag) {
+    throw new Error('No tag found in release');
+  }
+  const currentVersion = app.getVersion();
+  const exeAsset = Array.isArray(data?.assets)
+    ? data.assets.find((a: any) => typeof a?.name === 'string' && a.name.endsWith('.exe'))
+    : null;
+
+  latestGitHubRelease = {
+    version: remoteTag,
+    releaseNotes: typeof data?.body === 'string' ? data.body : undefined,
+    downloadUrl: exeAsset?.browser_download_url,
+    fileName: exeAsset?.name,
+  };
+
+  const hasUpdate = compareVersions(remoteTag, currentVersion) > 0;
+  return {
+    hasUpdate,
+    version: remoteTag,
+    releaseNotes: latestGitHubRelease.releaseNotes,
+    downloadUrl: latestGitHubRelease.downloadUrl,
+    fileName: latestGitHubRelease.fileName,
+  };
+}
+
+async function downloadUpdateAsset(url: string, fileName: string): Promise<string> {
+  const targetDir = app.getPath('temp');
+  const targetPath = path.join(targetDir, fileName || 'orbita_update.exe');
+  const response = await electronNet.fetch(url, {
+    headers: {
+      'User-Agent': `Orbita-Desktop/${app.getVersion()}`,
+    },
+  });
+  if (!response.ok || !response.body) {
+    throw new Error(`Download failed: ${response.status}`);
+  }
+  const contentLength = Number(response.headers.get('content-length') || '0');
+  let receivedBytes = 0;
+  let lastTime = Date.now();
+  let lastBytes = 0;
+
+  const fileStream = fs.createWriteStream(targetPath);
+  const reader = response.body.getReader();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      fileStream.write(Buffer.from(value));
+      receivedBytes += value.length;
+      const now = Date.now();
+      const elapsed = (now - lastTime) / 1000;
+      if (elapsed >= 0.5 || receivedBytes === contentLength) {
+        const bytesPerSec = elapsed > 0 ? Math.round((receivedBytes - lastBytes) / elapsed) : 0;
+        const percent = contentLength > 0 ? Math.round((receivedBytes / contentLength) * 100) : 0;
+        sendUpdaterStatus({
+          status: 'downloading',
+          percent,
+          transferred: receivedBytes,
+          total: contentLength,
+          bytesPerSecond: bytesPerSec,
+        });
+        lastTime = now;
+        lastBytes = receivedBytes;
+      }
+    }
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    fileStream.end((err?: Error | null) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+  return targetPath;
+}
+
 function setupAutoUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on('checking-for-update', () => {
-    sendUpdaterStatus({ status: 'checking' });
-  });
-
-  autoUpdater.on('update-available', (info) => {
-    sendUpdaterStatus({
-      status: 'available',
-      version: info?.version,
-      releaseNotes: typeof info?.releaseNotes === 'string' ? info.releaseNotes : undefined,
-    });
-    if (autoDownloadEnabled) {
-      autoUpdater.downloadUpdate().catch((err: any) => {
-        sendUpdaterStatus({ status: 'error', error: err?.message || String(err) });
-      });
+  const startManualDownload = async () => {
+    if (isDownloadingUpdate) return;
+    if (!latestGitHubRelease?.downloadUrl) {
+      sendUpdaterStatus({ status: 'error', error: 'No download URL' });
+      return;
     }
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    sendUpdaterStatus({
-      status: 'not-available',
-      version: info?.version || app.getVersion(),
-    });
-  });
-
-  autoUpdater.on('error', (err) => {
-    sendUpdaterStatus({
-      status: 'error',
-      error: err?.message || String(err),
-    });
-  });
-
-  autoUpdater.on('download-progress', (progress) => {
-    sendUpdaterStatus({
-      status: 'downloading',
-      percent: Math.round(progress.percent || 0),
-      transferred: progress.transferred,
-      total: progress.total,
-      bytesPerSecond: progress.bytesPerSecond,
-    });
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    sendUpdaterStatus({
-      status: 'downloaded',
-      version: info?.version,
-    });
-  });
+    isDownloadingUpdate = true;
+    try {
+      sendUpdaterStatus({ status: 'downloading', percent: 0 });
+      const savedPath = await downloadUpdateAsset(
+        latestGitHubRelease.downloadUrl,
+        latestGitHubRelease.fileName || `setup_${latestGitHubRelease.version}.exe`
+      );
+      downloadedInstallerPath = savedPath;
+      sendUpdaterStatus({
+        status: 'downloaded',
+        version: latestGitHubRelease.version,
+      });
+    } catch (err: any) {
+      sendUpdaterStatus({ status: 'error', error: err?.message || String(err) });
+    } finally {
+      isDownloadingUpdate = false;
+    }
+  };
 
   ipcMain.handle('orbita:checkForUpdates', async () => {
     try {
-      if (!app.isPackaged) {
-        sendUpdaterStatus({ status: 'dev-mode', version: app.getVersion() });
-        return { status: 'dev-mode', currentVersion: app.getVersion() };
+      sendUpdaterStatus({ status: 'checking' });
+      const releaseInfo = await fetchLatestGitHubRelease();
+      if (releaseInfo.hasUpdate) {
+        sendUpdaterStatus({
+          status: 'available',
+          version: releaseInfo.version,
+          releaseNotes: releaseInfo.releaseNotes,
+        });
+        if (autoDownloadEnabled && app.isPackaged && releaseInfo.downloadUrl) {
+          void startManualDownload();
+        }
+        return { status: 'available', version: releaseInfo.version };
+      } else {
+        sendUpdaterStatus({
+          status: 'not-available',
+          version: app.getVersion(),
+        });
+        return { status: 'not-available', currentVersion: app.getVersion() };
       }
-      const result = await autoUpdater.checkForUpdates();
-      return { status: 'ok', updateInfo: result?.updateInfo };
     } catch (err: any) {
       sendUpdaterStatus({ status: 'error', error: err?.message || String(err) });
       return { status: 'error', error: err?.message || String(err) };
@@ -2899,20 +3008,21 @@ function setupAutoUpdater() {
   });
 
   ipcMain.handle('orbita:downloadUpdate', async () => {
-    try {
-      if (!app.isPackaged) {
-        return { status: 'dev-mode' };
-      }
-      await autoUpdater.downloadUpdate();
-      return { status: 'ok' };
-    } catch (err: any) {
-      sendUpdaterStatus({ status: 'error', error: err?.message || String(err) });
-      return { status: 'error', error: err?.message || String(err) };
+    if (!app.isPackaged) {
+      sendUpdaterStatus({ status: 'dev-mode' });
+      return { status: 'dev-mode' };
     }
+    await startManualDownload();
+    return { status: 'ok' };
   });
 
   ipcMain.handle('orbita:quitAndInstallUpdate', () => {
-    autoUpdater.quitAndInstall(false, true);
+    if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+      spawn(downloadedInstallerPath, [], { detached: true, stdio: 'ignore' }).unref();
+      app.quit();
+    } else {
+      autoUpdater.quitAndInstall(false, true);
+    }
   });
 
   ipcMain.handle('orbita:setAutoDownloadUpdates', (_event, enabled: boolean) => {
@@ -2926,7 +3036,20 @@ function setupAutoUpdater() {
 
   if (app.isPackaged) {
     setTimeout(() => {
-      autoUpdater.checkForUpdates().catch(() => {});
+      fetchLatestGitHubRelease()
+        .then((info) => {
+          if (info.hasUpdate) {
+            sendUpdaterStatus({
+              status: 'available',
+              version: info.version,
+              releaseNotes: info.releaseNotes,
+            });
+            if (autoDownloadEnabled && info.downloadUrl) {
+              void startManualDownload();
+            }
+          }
+        })
+        .catch(() => {});
     }, 7000);
   }
 }
