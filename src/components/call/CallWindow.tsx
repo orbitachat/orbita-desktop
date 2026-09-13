@@ -104,6 +104,33 @@ export const CallWindow = () => {
   const isConnected = callState === 'connected';
   const isEnded = callState === 'ended';
 
+  const hasLocalScreenShare = (isConnected || isConnecting) && isScreenSharing;
+
+  const currentRoomName = activeCall?.roomName;
+  const prevRoomRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (currentRoomName !== prevRoomRef.current) {
+      prevRoomRef.current = currentRoomName || null;
+      setIsRemoteVideoActive(false);
+      setIsLocalVideoActive(false);
+      setIsRemoteScreenShareActive(false);
+      setIsFullscreen(false);
+      setIsExpanded(false);
+      setLocalDuration(0);
+    }
+  }, [currentRoomName]);
+
+  useEffect(() => {
+    if (!isConnected && !isConnecting) {
+      setIsRemoteVideoActive(false);
+      setIsLocalVideoActive(false);
+      setIsRemoteScreenShareActive(false);
+      setIsFullscreen(false);
+      setIsExpanded(false);
+    }
+  }, [isConnected, isConnecting]);
+
   const [localDuration, setLocalDuration] = useState<number>(0);
 
   useEffect(() => {
@@ -695,7 +722,7 @@ export const CallWindow = () => {
       </div>
 
       <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-30'} flex flex-col items-center gap-3 select-none`}>
-        {isScreenSharing && (
+        {hasLocalScreenShare && (
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md shadow-lg select-none border-0">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[12px] font-medium text-white/90">
@@ -800,9 +827,9 @@ export const CallWindow = () => {
               >
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95 flex-shrink-0"
-                  style={neutralButtonStyle(isScreenSharing)}
+                  style={neutralButtonStyle(hasLocalScreenShare)}
                 >
-                  {isScreenSharing ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
+                  {hasLocalScreenShare ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
                 </div>
                 <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                   {t('call.screen_share')}

@@ -177,20 +177,58 @@ export const CallWindowView = () => {
 
     if (orbita?.getCallState) {
       orbita.getCallState().then((state: CallStatePayload | null) => {
-        if (state) setCallData(state);
+        if (state) {
+          setCallData(state);
+        } else {
+          setCallData(null);
+          setIsLocalScreenShareActive(false);
+          setIsRemoteScreenShareActive(false);
+          setIsRemoteVideoActive(false);
+          setIsLocalVideoActive(false);
+          setIsExpanded(false);
+          setIsScreenPickerOpen(false);
+        }
       }).catch(() => {});
     }
 
-    const unsubState = orbita?.onCallState?.((state: CallStatePayload) => {
-      if (state) setCallData(state);
+    const unsubState = orbita?.onCallState?.((state: CallStatePayload | null) => {
+      if (state) {
+        setCallData(state);
+      } else {
+        setCallData(null);
+        setIsLocalScreenShareActive(false);
+        setIsRemoteScreenShareActive(false);
+        setIsRemoteVideoActive(false);
+        setIsLocalVideoActive(false);
+        setIsExpanded(false);
+        setIsScreenPickerOpen(false);
+      }
     });
 
     let broadcastChannel: BroadcastChannel | null = null;
     try {
       broadcastChannel = new BroadcastChannel('orbita-call-channel');
       broadcastChannel.onmessage = (event) => {
-        if (event.data?.type === 'CALL_STATE_UPDATE' && event.data.payload) {
-          setCallData(event.data.payload);
+        if (event.data?.type === 'CALL_STATE_UPDATE') {
+          if (event.data.payload) {
+            setCallData(event.data.payload);
+            if (event.data.payload.callState === 'idle' || event.data.payload.callState === 'ended') {
+              setIsLocalScreenShareActive(false);
+              setIsRemoteScreenShareActive(false);
+              setIsRemoteVideoActive(false);
+              setIsLocalVideoActive(false);
+              setIsExpanded(false);
+              setIsScreenPickerOpen(false);
+            }
+          } else {
+            setCallData(null);
+            setIsLocalScreenShareActive(false);
+            setIsRemoteScreenShareActive(false);
+            setIsRemoteVideoActive(false);
+            setIsLocalVideoActive(false);
+            setIsExpanded(false);
+            setIsScreenPickerOpen(false);
+          }
         }
       };
       broadcastChannel.postMessage({ type: 'REQUEST_CALL_STATE' });
@@ -199,7 +237,9 @@ export const CallWindowView = () => {
     const handleFocusSync = () => {
       if (orbita?.getCallState) {
         orbita.getCallState().then((state: CallStatePayload | null) => {
-          if (state) setCallData(state);
+          if (state) {
+            setCallData(state);
+          }
         }).catch(() => {});
       }
     };
@@ -276,9 +316,16 @@ export const CallWindowView = () => {
   const activeCall = callData?.activeCall;
   const incomingCall = callData?.incomingCall;
   const callState = callData?.callState || 'idle';
+  const isConnected = callState === 'connected';
+  const isPreparing = callState === 'preparing';
+  const isRinging = callState === 'ringing';
+  const isConnecting = callState === 'connecting';
+  const isEnded = callState === 'ended';
+
   const isMicEnabled = callData?.isMicEnabled ?? false;
   const isVideoEnabled = callData?.isVideoEnabled ?? (activeCall?.callType === 'video');
-  const isScreenSharing = callData?.isScreenSharing ?? false;
+  const isScreenSharing = (isConnected || isConnecting) && (callData?.isScreenSharing ?? false);
+  const hasLocalScreenShare = (isConnected || isConnecting) && (isLocalScreenShareActive || isScreenSharing);
   const duration = callData?.duration ?? 0;
   const statusMessage = callData?.statusMessage ?? '';
 
@@ -286,11 +333,59 @@ export const CallWindowView = () => {
   const otherName = activeCall?.otherName || incomingCall?.otherName || incomingCall?.from || activeCall?.chatId || '';
   const otherAvatar = activeCall?.otherAvatar || incomingCall?.otherAvatar || null;
 
-  const isConnected = callState === 'connected';
-  const isPreparing = callState === 'preparing';
-  const isRinging = callState === 'ringing';
-  const isConnecting = callState === 'connecting';
-  const isEnded = callState === 'ended';
+  const currentRoomName = activeCall?.roomName;
+  const prevRoomRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (currentRoomName !== prevRoomRef.current) {
+      prevRoomRef.current = currentRoomName || null;
+      setIsLocalScreenShareActive(false);
+      setIsRemoteScreenShareActive(false);
+      setIsRemoteVideoActive(false);
+      setIsLocalVideoActive(false);
+      setIsExpanded(false);
+      setIsScreenPickerOpen(false);
+      setLocalDuration(0);
+      try {
+        void liveKitService.stopScreenShare();
+      } catch {}
+    }
+  }, [currentRoomName]);
+
+  useEffect(() => {
+    if (!isConnected && !isConnecting) {
+      setIsLocalScreenShareActive(false);
+      setIsRemoteScreenShareActive(false);
+      setIsRemoteVideoActive(false);
+      setIsLocalVideoActive(false);
+      setIsExpanded(false);
+      setIsScreenPickerOpen(false);
+      try {
+        void liveKitService.stopScreenShare();
+      } catch {}
+    }
+  }, [isConnected, isConnecting]);
+
+  const handleHangupOrCancel = async (action: 'cancelCall' | 'endCall' | 'rejectCall') => {
+    try {
+      await liveKitService.stopScreenShare();
+    } catch {}
+    try {
+      await liveKitService.disconnect();
+    } catch {}
+    setIsLocalScreenShareActive(false);
+    setIsRemoteScreenShareActive(false);
+    setIsRemoteVideoActive(false);
+    setIsLocalVideoActive(false);
+    setIsExpanded(false);
+    setIsScreenPickerOpen(false);
+    setLocalDuration(0);
+    setCallData(null);
+    sendAction(action);
+    if (action === 'cancelCall' || action === 'rejectCall') {
+      try { (window as any).orbita?.closeCallWindow?.(); } catch {}
+    }
+  };
 
   const [localDuration, setLocalDuration] = useState<number>(0);
 
@@ -555,11 +650,12 @@ export const CallWindowView = () => {
   };
 
   const handleToggleScreenShare = async () => {
-    if (isLocalScreenShareActive || isScreenSharing) {
+    if (hasLocalScreenShare) {
       await liveKitService.stopScreenShare();
       setIsLocalScreenShareActive(false);
       setCallData((prev) => (prev ? { ...prev, isScreenSharing: false } : prev));
       sendAction('stopScreenShare');
+      sendAction('syncMediaState', { isScreenSharing: false });
     } else {
       setIsScreenPickerOpen(true);
     }
@@ -754,7 +850,7 @@ export const CallWindowView = () => {
       </div>
 
       <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex flex-col items-center gap-3`}>
-        {(isLocalScreenShareActive || isScreenSharing) && (
+        {hasLocalScreenShare && (
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md shadow-lg select-none border-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[12px] font-medium text-white/90">
@@ -768,7 +864,7 @@ export const CallWindowView = () => {
           <>
             <button
               type="button"
-              onClick={() => sendAction('rejectCall')}
+              onClick={() => handleHangupOrCancel('rejectCall')}
               aria-label={t('call.reject')}
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
@@ -815,10 +911,7 @@ export const CallWindowView = () => {
 
             <button
               type="button"
-              onClick={() => {
-                sendAction('cancelCall');
-                try { (window as any).orbita?.closeCallWindow?.(); } catch {}
-              }}
+              onClick={() => handleHangupOrCancel('cancelCall')}
               aria-label={t('call.cancel')}
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
@@ -883,9 +976,9 @@ export const CallWindowView = () => {
               >
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center shadow-md flex-shrink-0"
-                  style={neutralButtonStyle(isLocalScreenShareActive || isScreenSharing)}
+                  style={neutralButtonStyle(hasLocalScreenShare)}
                 >
-                  {isLocalScreenShareActive || isScreenSharing ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
+                  {hasLocalScreenShare ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
                 </div>
                 <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
                   {t('call.screen_share')}
@@ -895,10 +988,7 @@ export const CallWindowView = () => {
 
             <button
               type="button"
-              onClick={() => {
-                liveKitService.disconnect().catch(() => {});
-                sendAction('endCall');
-              }}
+              onClick={() => handleHangupOrCancel('endCall')}
               aria-label={t('call.hang_up')}
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
@@ -913,11 +1003,7 @@ export const CallWindowView = () => {
         ) : isEnded ? (
           <button
             type="button"
-            onClick={() => {
-              liveKitService.disconnect().catch(() => {});
-              sendAction('cancelCall');
-              try { (window as any).orbita?.closeCallWindow?.(); } catch {}
-            }}
+            onClick={() => handleHangupOrCancel('cancelCall')}
             aria-label={t('call.close')}
             className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
           >

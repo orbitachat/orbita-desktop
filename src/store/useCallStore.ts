@@ -514,6 +514,8 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (state.isBusy()) return;
       if (!useChatStore.getState().voiceCallsEnabled) return;
       try { useAudioStore.getState().pause(); } catch {}
+      try { await liveKitService.stopScreenShare(); } catch {}
+      try { localStorage.removeItem('orbita_active_call_state'); } catch {}
       const roomName = `call-${chatId}-${Date.now()}`;
       const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
       const verificationSecret = chat?.type === 'private' ? chat.sharedSecret : undefined;
@@ -522,7 +524,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       set({
         myNickname,
         activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
-        callState: 'preparing', isMicEnabled: true, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', duration: 0, statusMessage: '', isEnding: false,
+        callState: 'preparing', isMicEnabled: true, isVideoEnabled: isVideo, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, connectionQuality: 'unknown', duration: 0, statusMessage: '', isEnding: false,
       });
     },
 
@@ -579,7 +581,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       set({
         myNickname, incomingCall: null, callState: 'connecting', statusMessage: i18n.t('call.connecting'),
         activeCall: { chatId, roomName, direction: 'incoming', callType: callType || 'audio', startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
-        isMicEnabled: true, isVideoEnabled: isVideo, duration: 0, isEnding: false,
+        isMicEnabled: true, isVideoEnabled: isVideo, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, duration: 0, isEnding: false,
       });
       callSoundService.play('connect');
 
@@ -675,11 +677,13 @@ export const useCallStore = create<CallStore>((set, get) => {
         }
       }
       if (signalType) sendCallSignalReliable(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName });
+      try { void liveKitService.stopScreenShare(); } catch {}
       liveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} disconnect error:`, err));
       clearAllTimers();
       activationInProgress = false;
       if (endedStatus !== null && state.myNickname) createCallMessage(chatId, direction, duration, endedStatus);
       console.log(`${LOG_PREFIX} Call ended. status=${endedStatus} duration=${duration}s`);
+      try { localStorage.removeItem('orbita_active_call_state'); } catch {}
       set({ activeCall: null, incomingCall: null, callState: 'idle', duration: 0, isMicEnabled: false, isVideoEnabled: false, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, statusMessage: '', isEnding: false, isMinimized: false });
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
     },
@@ -878,7 +882,7 @@ const syncCallState = (state: CallStore) => {
     noiseSuppressionMode: useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'standard' : 'none'),
   };
   try {
-    if (state.callState !== 'idle') {
+    if (state.callState !== 'idle' && state.callState !== 'ended') {
       localStorage.setItem('orbita_active_call_state', JSON.stringify(payload));
     } else {
       localStorage.removeItem('orbita_active_call_state');
@@ -893,7 +897,7 @@ const syncCallState = (state: CallStore) => {
   lastKnownCallState = state.callState;
   if (state.callState !== 'idle' && (prevCallState === 'idle' || state.callState === 'ringing' || state.callState === 'preparing')) {
     try { (window as any).orbita?.openCallWindow?.(payload); } catch {}
-  } else if (state.callState === 'idle') {
+  } else if (state.callState === 'idle' || state.callState === 'ended') {
     try { (window as any).orbita?.closeCallWindow?.(); } catch {}
   }
 };
@@ -904,8 +908,16 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
     case 'initiateCall': store.initiateCall(); break;
     case 'answerCall': store.answerCall(store.myNickname || action.payload || 'Пользователь'); break;
     case 'rejectCall': store.rejectCall(); break;
-    case 'cancelCall': lastKnownCallState = 'idle'; store.endCall(true); try { (window as any).orbita?.closeCallWindow?.(); } catch {} break;
-    case 'endCall': store.endCall(false); break;
+    case 'cancelCall':
+      lastKnownCallState = 'idle';
+      try { void liveKitService.stopScreenShare(); } catch {}
+      store.endCall(true);
+      try { (window as any).orbita?.closeCallWindow?.(); } catch {}
+      break;
+    case 'endCall':
+      try { void liveKitService.stopScreenShare(); } catch {}
+      store.endCall(false);
+      break;
     case 'toggleMic': store.toggleMic(); break;
     case 'toggleVideo': store.toggleVideo(action.payload); break;
     case 'toggleScreenShare': store.toggleScreenShare(); break;

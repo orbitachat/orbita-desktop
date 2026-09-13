@@ -631,26 +631,25 @@ class LiveKitService extends EventEmitter {
   }
 
   public async stopScreenShare(): Promise<void> {
-    if (!this.localParticipant) {
-      return;
-    }
     if (this.screenShareAudioTrack) {
       try {
-        await this.localParticipant.unpublishTrack(this.screenShareAudioTrack);
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(this.screenShareAudioTrack);
         this.screenShareAudioTrack.stop();
       } catch {}
       this.screenShareAudioTrack = null;
     }
     if (this.screenShareTrack) {
       try {
-        await this.localParticipant.unpublishTrack(this.screenShareTrack);
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(this.screenShareTrack);
         this.screenShareTrack.stop();
       } catch {}
       this.screenShareTrack = null;
     }
-    try {
-      await this.localParticipant.setScreenShareEnabled(false);
-    } catch {}
+    if (this.localParticipant) {
+      try {
+        await this.localParticipant.setScreenShareEnabled(false);
+      } catch {}
+    }
     this.screenShareTrack = null;
     this.screenShareAudioTrack = null;
     this.emit('screenShareChanged', false, null);
