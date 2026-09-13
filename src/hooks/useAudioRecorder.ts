@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
-import type { NoiseSuppressionMode } from '../services/neuralAudioProcessor';
 
 export interface RecordedAudioData {
   blob: Blob;
@@ -103,11 +102,9 @@ export function useAudioRecorder() {
       cleanupAudioContext();
       clearTimer();
 
-      const noiseMode: NoiseSuppressionMode = useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'standard' : 'none');
-      const isNoiseSuppression = noiseMode !== 'none';
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          noiseSuppression: isNoiseSuppression,
+          noiseSuppression: true,
           echoCancellation: true,
           autoGainControl: true,
           channelCount: 1,

@@ -2248,7 +2248,6 @@ export const SettingsScreen = () => {
     mediaCacheLimit, setMediaCacheLimit,
     cacheCleanupAge, setCacheCleanupAge,
     autoLoadMedia, setAutoLoadMedia,
-    noiseSuppressionMode, setNoiseSuppressionMode,
     callSoundsEnabled, setCallSoundsEnabled,
     alwaysRelayCalls, setAlwaysRelayCalls,
     selectedCameraId, setSelectedCameraId,
@@ -2637,46 +2636,9 @@ export const SettingsScreen = () => {
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 0',
-              gap: 16,
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>
-                {t('settings.noise_suppression_title')}
-              </div>
-              <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2, lineHeight: 1.4 }}>
-                {noiseSuppressionMode === 'none'
-                  ? t('settings.noise_suppression_none_desc')
-                  : t('settings.noise_suppression_standard_desc')}
-              </div>
-            </div>
-
-            <OrbitaSelect
-              value={noiseSuppressionMode === 'none' ? 'none' : 'standard'}
-              onChange={(val) => {
-                const mode = val as any;
-                setNoiseSuppressionMode(mode);
-                liveKitService.setNoiseSuppressionMode(mode).catch(() => {});
-              }}
-              ariaLabel={t('settings.noise_suppression_title')}
-              minWidth={150}
-              options={[
-                { value: 'standard', label: t('settings.noise_suppression_standard') },
-                { value: 'none', label: t('settings.noise_suppression_none') },
-              ]}
-            />
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
               flexDirection: 'column',
               padding: '14px 0',
               gap: 8,
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -3583,44 +3545,6 @@ export const SettingsScreen = () => {
                     </button>
                   )}
                 </div>
-              </div>
-            </PreferencesGroup>
-
-            <PreferencesGroup title={t('settings.voice_section')}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '16px 0',
-                  gap: 16,
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>
-                    {t('settings.noise_suppression_title')}
-                  </div>
-                  <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2, lineHeight: 1.4 }}>
-                    {noiseSuppressionMode === 'none'
-                      ? t('settings.noise_suppression_none_desc')
-                      : t('settings.noise_suppression_standard_desc')}
-                  </div>
-                </div>
-
-                <OrbitaSelect
-                  value={noiseSuppressionMode === 'none' ? 'none' : 'standard'}
-                  onChange={(val) => {
-                    const mode = val as any;
-                    setNoiseSuppressionMode(mode);
-                    liveKitService.setNoiseSuppressionMode(mode).catch(() => {});
-                  }}
-                  ariaLabel={t('settings.noise_suppression_title')}
-                  minWidth={150}
-                  options={[
-                    { value: 'standard', label: t('settings.noise_suppression_standard') },
-                    { value: 'none', label: t('settings.noise_suppression_none') },
-                  ]}
-                />
               </div>
             </PreferencesGroup>
 

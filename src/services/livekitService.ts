@@ -197,7 +197,6 @@ class LiveKitService extends EventEmitter {
       }
     }
 
-    const isNoiseSuppression = useChatStore.getState().noiseSuppression;
     const alwaysRelay = useChatStore.getState().alwaysRelayCalls;
     const selectedMicId = useChatStore.getState().selectedMicrophoneId;
     const selectedCamId = useChatStore.getState().selectedCameraId;
@@ -211,7 +210,7 @@ class LiveKitService extends EventEmitter {
         deviceId: selectedMicId || undefined,
         autoGainControl: true,
         echoCancellation: true,
-        noiseSuppression: isNoiseSuppression,
+        noiseSuppression: true,
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
@@ -350,14 +349,12 @@ class LiveKitService extends EventEmitter {
     }
 
     try {
-      const mode: NoiseSuppressionMode = useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'standard' : 'none');
-      const isNoiseSuppression = mode !== 'none';
       const selectedMicId = useChatStore.getState().selectedMicrophoneId;
       await this.localParticipant.setMicrophoneEnabled(true, {
         deviceId: selectedMicId || undefined,
         autoGainControl: true,
         echoCancellation: true,
-        noiseSuppression: isNoiseSuppression,
+        noiseSuppression: true,
         channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
@@ -401,8 +398,6 @@ class LiveKitService extends EventEmitter {
   }
 
   public async updateAudioConstraints(): Promise<void> {
-    const mode: NoiseSuppressionMode = useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'standard' : 'none');
-    const isNoiseSuppression = mode !== 'none';
     const selectedMicId = useChatStore.getState().selectedMicrophoneId;
 
     if (this.desiredMicEnabled && this.localParticipant) {
@@ -411,7 +406,7 @@ class LiveKitService extends EventEmitter {
           deviceId: selectedMicId || undefined,
           autoGainControl: true,
           echoCancellation: true,
-          noiseSuppression: isNoiseSuppression,
+          noiseSuppression: true,
           channelCount: 1,
           sampleRate: 48000,
           sampleSize: 16,
@@ -430,7 +425,7 @@ class LiveKitService extends EventEmitter {
     if (this.localAudioTrack && this.localAudioTrack.mediaStreamTrack) {
       try {
         await this.localAudioTrack.mediaStreamTrack.applyConstraints({
-          noiseSuppression: isNoiseSuppression,
+          noiseSuppression: true,
           echoCancellation: true,
           autoGainControl: true,
           channelCount: 1,

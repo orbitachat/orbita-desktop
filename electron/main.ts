@@ -2366,7 +2366,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#14111d',
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -2433,12 +2433,8 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
   const win = initOrGetCallWindow(initialPayload);
 
   if (win.isMinimized()) win.restore();
-  win.setAlwaysOnTop(true, 'screen-saver');
-  win.setVisibleOnAllWorkspaces?.(true, { visibleOnFullScreen: true });
   win.show();
   win.focus();
-  win.moveTop();
-  win.flashFrame(false);
 
   if (currentCallStateCache && !win.isDestroyed()) {
     if (win.webContents.isLoading()) {
