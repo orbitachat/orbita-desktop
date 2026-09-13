@@ -1,4 +1,3 @@
-// src/components/chat/ChatWindow.tsx
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,7 +54,7 @@ import { type ConfirmActionType } from '../common/ActionConfirmModal';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useAudioStore } from '../../store/useAudioStore';
 import { type MediaViewerItem } from './TelegramMediaViewer';
-import { channelService } from '../../services/channelService';
+import { channelService, type ChannelPost } from '../../services/channelService';
 import { EmojiPicker } from './EmojiPicker';
 import { DiscordFileLimitModal } from './DiscordFileLimitModal';
 import { SendAsTxtModal } from './SendAsTxtModal';
@@ -565,6 +564,7 @@ const MessageContextMenu = ({
   onSaveAs,
   onSelect,
   onSelectReaction,
+  canManageMessages,
 }: {
   menu: ContextMenuState;
   setMenu: React.Dispatch<React.SetStateAction<ContextMenuState>>;
@@ -578,6 +578,7 @@ const MessageContextMenu = ({
   onSaveAs?: () => void;
   onSelect: () => void;
   onSelectReaction?: (emoji: string) => void;
+  canManageMessages?: boolean;
 }) => {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -615,13 +616,15 @@ const MessageContextMenu = ({
 
   const items: { label: string; onClick: () => void; icon: React.ReactNode }[] = [];
 
-  items.push({
-    label: t('common.reply'),
-    onClick: onReply,
-    icon: <CustomReplyIcon size={16} style={{ color: iconColor }} />,
-  });
+  if (canManageMessages !== false) {
+    items.push({
+      label: t('common.reply'),
+      onClick: onReply,
+      icon: <CustomReplyIcon size={16} style={{ color: iconColor }} />,
+    });
+  }
 
-  if (menu.isOwn && menu.type === 'text') {
+  if (canManageMessages !== false && menu.isOwn && menu.type === 'text') {
     items.push({
       label: t('common.edit'),
       onClick: onEdit,
@@ -629,15 +632,17 @@ const MessageContextMenu = ({
     });
   }
 
-  items.push({
-    label: isPinned ? t('common.unpin') : t('common.pin'),
-    onClick: onPin,
-    icon: isPinned ? (
-      <CustomUnpinIcon size={16} style={{ color: iconColor }} />
-    ) : (
-      <CustomPinIcon size={16} style={{ color: iconColor }} />
-    ),
-  });
+  if (canManageMessages !== false) {
+    items.push({
+      label: isPinned ? t('common.unpin') : t('common.pin'),
+      onClick: onPin,
+      icon: isPinned ? (
+        <CustomUnpinIcon size={16} style={{ color: iconColor }} />
+      ) : (
+        <CustomPinIcon size={16} style={{ color: iconColor }} />
+      ),
+    });
+  }
 
   if (menu.type === 'text') {
     items.push({
@@ -664,11 +669,13 @@ const MessageContextMenu = ({
     });
   }
 
-  items.push({
-    label: t('common.delete'),
-    onClick: onDelete,
-    icon: <Trash size={16} style={{ color: iconColor }} />,
-  });
+  if (canManageMessages !== false) {
+    items.push({
+      label: t('common.delete'),
+      onClick: onDelete,
+      icon: <Trash size={16} style={{ color: iconColor }} />,
+    });
+  }
 
   items.push({
     label: t('common.select'),
@@ -691,7 +698,6 @@ const MessageContextMenu = ({
         width: '224px',
       }}
     >
-      {/* 1. Плашка управления сообщением - СТАЦИОНАРНО на месте top: 50px (zIndex 1) */}
       <motion.div
         ref={menuCardRef}
         animate={{
@@ -726,7 +732,6 @@ const MessageContextMenu = ({
         ))}
       </motion.div>
 
-      {/* 2. Плашка реакций - zIndex 2, плавно увеличивается вниз ровно до низа меню */}
       <div className="relative z-[2]">
         <QuickReactionHeader
           onSelectReaction={onSelectReaction}
@@ -1923,7 +1928,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   });
 
   const activeChat = useMemo(() => chats.find((c) => c.id === activeChatId), [chats, activeChatId]);
-  const sharedSecret = useMemo(() => activeChat?.sharedSecret, [activeChat?.sharedSecret]);
+  const sharedSecret = useMemo(() => {
+    if (activeChat?.type === 'channel') {
+      return activeChat.sharedSecret || deriveChannelKey(activeChat.id);
+    }
+    return activeChat?.sharedSecret;
+  }, [activeChat?.id, activeChat?.type, activeChat?.sharedSecret]);
 
   const chatMediaViewerItems = useMemo(() => {
     const list: MediaViewerItem[] = [];
@@ -2323,6 +2333,49 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const currentChat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
     if (currentChat?.type !== 'channel') return;
 
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cachedStr = window.localStorage.getItem(`orbita_channel_posts_${activeChatId}`);
+        if (cachedStr) {
+          const cachedPosts: ChannelPost[] = JSON.parse(cachedStr);
+          if (Array.isArray(cachedPosts) && cachedPosts.length > 0) {
+            const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId];
+            if (!currentMsgs || currentMsgs.length === 0) {
+              const myNick = myNickname;
+              useChatStore.setState((state) => ({
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: cachedPosts.map((post) => {
+                    const isMine = myNick ? post.sender === myNick : false;
+                    return {
+                      id: post.id,
+                      sender: post.sender,
+                      text: post.text,
+                      time: post.time,
+                      read: true,
+                      status: isMine ? 'read' : undefined,
+                      isOutgoing: isMine,
+                      mediaType: post.mediaType || undefined,
+                      mediaUrl: post.mediaUrl || undefined,
+                      mediaName: post.mediaName || undefined,
+                      mime: post.mime || undefined,
+                      duration: post.duration || undefined,
+                      width: post.width || undefined,
+                      height: post.height || undefined,
+                      waveform: post.waveform || undefined,
+                      audioMetadata: post.audioMetadata || undefined,
+                      linkPreview: post.linkPreview || undefined,
+                      reactions: post.reactions || undefined,
+                    };
+                  }),
+                },
+              }));
+            }
+          }
+        }
+      }
+    } catch {}
+
     channelService.getChannelPosts(activeChatId).then((posts) => {
       if (posts) {
         useChatStore.setState((state) => {
@@ -2402,9 +2455,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (activeChat.role === 'owner') return true;
     const myNick = myNickname?.trim().toLowerCase();
     if (myNick && activeChat.creatorNickname?.trim().toLowerCase() === myNick) return true;
-    if (messages.some((m) => m.isOutgoing || (m.sender && myNick && m.sender.trim().toLowerCase() === myNick))) return true;
     return false;
-  }, [activeChat, myNickname, messages]);
+  }, [activeChat, myNickname]);
 
   useEffect(() => {
     if (activeChat?.type === 'channel' && !activeChat.isOwner && isChannelOwner) {
@@ -3562,8 +3614,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const triggerEditMessage = async (index: number, newText: string) => {
     if (!activeChatId || !sharedSecret) return;
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
 
-    // Immediately update local store for instant UI save
     const updatedMessages = [...messages];
     if (updatedMessages[index]) {
       updatedMessages[index] = { ...updatedMessages[index], text: newText };
@@ -3609,6 +3661,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const triggerDeleteMessage = (index: number) => {
     if (!activeChatId) return;
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     const targetMsg = messages[index];
     const targetMsgId = targetMsg?.id;
     if (activeChatId === 'notes') {
@@ -3675,6 +3728,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const triggerPinMessage = (index: number) => {
     if (!activeChatId || !sharedSecret) return;
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     const pinnedMsg = messages[index];
     if (!pinnedMsg) return;
     const pinData = {
@@ -3691,7 +3745,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     const pusher = getPusher();
-    const channel = pusher.subscribe(`private-chat-${activeChatId}`);
+    const channel = pusher.subscribe(
+      activeChat?.type === 'channel'
+        ? `public-channel-${activeChatId}`
+        : `private-chat-${activeChatId}`
+    );
     const send = () => {
       channel.trigger('client-message', { sender: myNickname, text: pinnedMsg.text, type: 'pin', pinData });
       updateChat(activeChatId, { pinnedMessage: pinData });
@@ -3702,6 +3760,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const triggerUnpinMessage = () => {
     if (!activeChatId || !sharedSecret) return;
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     if (activeChatId === 'notes') {
       updateChat(activeChatId, { pinnedMessage: null });
       setContextMenu(prev => ({ ...prev, visible: false }));
@@ -3709,12 +3768,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     const pusher = getPusher();
-    const channel = pusher.subscribe(`private-chat-${activeChatId}`);
+    const channel = pusher.subscribe(
+      activeChat?.type === 'channel'
+        ? `public-channel-${activeChatId}`
+        : `private-chat-${activeChatId}`
+    );
     const send = () => { channel.trigger('client-message', { sender: myNickname, type: 'unpin', text: '' }); updateChat(activeChatId, { pinnedMessage: null }); };
     if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
   };
 
   const requestDeleteMessage = (index: number) => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     setContextMenu(prev => ({ ...prev, visible: false }));
     setConfirmModal({
       isOpen: true,
@@ -3724,6 +3788,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   const requestDeleteSelected = () => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     const idsToDelete = Array.from(selection.selectedIds);
     const indicesToDelete: number[] = [];
     messages.forEach((msg, idx) => {
@@ -3740,6 +3805,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   const requestPinMessage = (index: number) => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     setContextMenu(prev => ({ ...prev, visible: false }));
     setConfirmModal({
       isOpen: true,
@@ -3749,6 +3815,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   const requestUnpinMessage = () => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     setContextMenu(prev => ({ ...prev, visible: false }));
     setConfirmModal({
       isOpen: true,
@@ -4097,6 +4164,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   const handleReply = (index: number) => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     const originalMessage = messages[index];
     const cleanText = originalMessage.text.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ').trim();
     const originalSenderId = originalMessage.senderId || (originalMessage.sender === myNickname ? myCode : activeChat?.peerCode);
@@ -4112,6 +4180,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   const handleEdit = (index: number) => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
     const msg = messages[index];
     if (msg.mediaType) {
       const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm', 'mkv', 'm4v', 'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'opus', 'wma', 'ape', 'alac', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp', 'csv', 'md', 'log', 'json', 'xml', 'yaml', 'yml', 'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'exe', 'dmg', 'apk', 'iso'];
@@ -6023,13 +6092,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       {selection.isSelectionMode && (
         <SelectionPanel
           selectedCount={selection.selectedIds.size}
-          onDelete={requestDeleteSelected}
+          onDelete={activeChat?.type === 'channel' && !isChannelOwner ? undefined : requestDeleteSelected}
           onCancel={selection.exitSelectionMode}
           height={headerHeight}
         />
       )}
-
-      {/* Removed old top floating date location */}
 
       {pinnedMessage && (
         <div
@@ -6073,15 +6140,18 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             </div>
           </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              requestUnpinMessage();
-            }}
-            className="p-1.5 rounded-full text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors flex-shrink-0"
-          >
-            <X size={18} />
-          </button>
+          {(activeChat?.type !== 'channel' || isChannelOwner) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                requestUnpinMessage();
+              }}
+              className="p-1.5 rounded-full text-[var(--text-dim)] hover:text-[var(--text-main)] transition-colors flex-shrink-0"
+              aria-label={t('common.unpin')}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       )}
 
@@ -6374,6 +6444,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               }
             }}
             onForwardMessage={(msgId) => {
+              if (activeChat?.type === 'channel' && !isChannelOwner) return;
               const msg = messages.find((m) => m.id === msgId);
               if (msg) {
                 setReplyingTo({
@@ -6386,6 +6457,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               }
             }}
             onDeleteMessage={(msgId) => {
+              if (activeChat?.type === 'channel' && !isChannelOwner) return;
               if (activeChatId) {
                 useChatStore.getState().deleteMessage(activeChatId, msgId);
                 const payload = {
@@ -6544,6 +6616,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               onSaveAs={() => handleSaveAs(contextMenu.messageIndex)}
               onSelect={handleSelectFromMenu}
               onSelectReaction={(emoji) => triggerReactionMessage(contextMenu.messageId ?? contextMenu.messageIndex, emoji)}
+              canManageMessages={activeChat?.type !== 'channel' || isChannelOwner}
             />
           </AnimatePresence>,
           document.body

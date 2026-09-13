@@ -676,10 +676,8 @@ export const useChatStore = create<ChatState>()(
         if (previousActiveId && previousActiveId !== id) {
           const prevChat = get().chats.find(c => c.id === previousActiveId);
           if (prevChat && prevChat.type === 'channel' && !prevChat.isOwner && prevChat.isSubscribed === false) {
-            const { [previousActiveId]: _, ...remainingMessages } = get().messagesByChatId;
             set({
               chats: get().chats.filter(c => c.id !== previousActiveId),
-              messagesByChatId: remainingMessages,
             });
           }
         }

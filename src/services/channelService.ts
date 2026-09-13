@@ -4,6 +4,7 @@ import { ablyService } from './ablyService';
 import { generateChannelId } from '../lib/codes';
 import { getVercelBaseUrl } from './gatewayManager';
 import { deriveChannelKey, encryptMessage, decryptMessage } from '../lib/crypto';
+import { mediaManager } from './mediaManager';
 
 export interface ChannelInfo {
   id: string;
@@ -289,7 +290,7 @@ class ChannelService {
       } catch {}
     }
 
-    return Promise.all(
+    const decryptedPosts = await Promise.all(
       rawPosts.map(async (p) => {
         let decryptedText = p.text || '';
         if (decryptedText.startsWith('orb_e2e:')) {
@@ -304,6 +305,35 @@ class ChannelService {
         };
       })
     );
+
+    if (decryptedPosts.length > 0) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(`orbita_channel_posts_${cleanId}`, JSON.stringify(decryptedPosts));
+        }
+      } catch {}
+
+      decryptedPosts.forEach((p) => {
+        if (p.mediaUrl) {
+          mediaManager.getMedia(p.mediaUrl, channelKey, p.mediaName || undefined, cleanId, p.id).catch(() => {});
+        }
+      });
+      return decryptedPosts;
+    }
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cachedStr = window.localStorage.getItem(`orbita_channel_posts_${cleanId}`);
+        if (cachedStr) {
+          const cached = JSON.parse(cachedStr);
+          if (Array.isArray(cached) && cached.length > 0) {
+            return cached;
+          }
+        }
+      }
+    } catch {}
+
+    return decryptedPosts;
   }
 
   async publishPost(
@@ -373,6 +403,17 @@ class ChannelService {
             text: text || '',
           };
           try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              const cachedStr = window.localStorage.getItem(`orbita_channel_posts_${cleanId}`);
+              const cachedList = cachedStr ? JSON.parse(cachedStr) : [];
+              if (Array.isArray(cachedList) && !cachedList.some((p: any) => p.id === postObj.id)) {
+                cachedList.push(postObj);
+                cachedList.sort((a: any, b: any) => a.time - b.time);
+                window.localStorage.setItem(`orbita_channel_posts_${cleanId}`, JSON.stringify(cachedList));
+              }
+            }
+          } catch {}
+          try {
             ablyService.sendMessage(`public-channel-${cleanId}`, {
               type: 'channel-post',
               post: { ...data.post, text: cipherText },
@@ -440,6 +481,17 @@ class ChannelService {
           reactions: directRow.reactions,
         };
         try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            const cachedStr = window.localStorage.getItem(`orbita_channel_posts_${cleanId}`);
+            const cachedList = cachedStr ? JSON.parse(cachedStr) : [];
+            if (Array.isArray(cachedList) && !cachedList.some((p: any) => p.id === postObj.id)) {
+              cachedList.push(postObj);
+              cachedList.sort((a: any, b: any) => a.time - b.time);
+              window.localStorage.setItem(`orbita_channel_posts_${cleanId}`, JSON.stringify(cachedList));
+            }
+          }
+        } catch {}
+        try {
           ablyService.sendMessage(`public-channel-${cleanId}`, {
             type: 'channel-post',
             post: { ...postObj, text: cipherText },
@@ -455,6 +507,17 @@ class ChannelService {
   async deletePost(channelId: string, postId: string): Promise<boolean> {
     const cleanChanId = channelId.trim();
     const cleanPostId = postId.trim();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cached = window.localStorage.getItem(`orbita_channel_posts_${cleanChanId}`);
+        if (cached) {
+          const posts = JSON.parse(cached);
+          if (Array.isArray(posts)) {
+            window.localStorage.setItem(`orbita_channel_posts_${cleanChanId}`, JSON.stringify(posts.filter((p: any) => p.id !== cleanPostId)));
+          }
+        }
+      }
+    } catch {}
     try {
       const res = await fetch(`${W}/channels/delete-post`, {
         method: 'POST',
