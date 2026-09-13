@@ -2528,12 +2528,18 @@ ipcMain.handle('window:close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   if (win && !win.isDestroyed()) {
     if (callWindow && win === callWindow) {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('orbita:call-action', { type: 'cancelCall' });
+      const state = currentCallStateCache?.callState;
+      const isCallActive = state === 'ringing' || state === 'connecting' || state === 'connected' || !!currentCallStateCache?.incomingCall;
+      if (isCallActive) {
+        win.minimize();
+      } else {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('orbita:call-action', { type: 'cancelCall' });
+        }
+        currentCallStateCache = null;
+        callWindow.webContents.send('orbita:call-state', null);
+        callWindow.hide();
       }
-      currentCallStateCache = null;
-      callWindow.webContents.send('orbita:call-state', null);
-      callWindow.hide();
     } else if (win === mainWindow) {
       if (showInTraySetting) {
         mainWindow.hide();

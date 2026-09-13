@@ -4,7 +4,7 @@ import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
 import { liveKitService } from '../../services/livekitService';
 import { useTranslation } from 'react-i18next';
-import { Phone, PhoneOff, Mic, MicOff, ChevronLeft, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2 } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2 } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
@@ -41,7 +41,6 @@ export const CallWindow = () => {
   const activeCall = useCallStore((state) => state.activeCall);
   const callState = useCallStore((state) => state.callState);
   const isMinimized = useCallStore((state) => state.isMinimized);
-  const setMinimized = useCallStore((state) => state.setMinimized);
   const duration = useCallStore((state) => state.duration);
   const isMicEnabled = useCallStore((state) => state.isMicEnabled);
   const isVideoEnabled = useCallStore((state) => state.isVideoEnabled);
@@ -428,27 +427,6 @@ export const CallWindow = () => {
       <StaticBackground />
 
       <div style={{ height: '30px' }} className="w-full flex-shrink-0" />
-
-      <button
-        type="button"
-        onClick={() => setMinimized(true)}
-        aria-label={t('call.close')}
-        className="absolute z-50 p-0 bg-transparent border-0 outline-none transition-colors cursor-pointer flex items-center justify-center flex-shrink-0"
-        style={{
-          top: '53px',
-          left: '24px',
-          width: '24px',
-          height: '24px',
-          minWidth: '24px',
-          minHeight: '24px',
-          color: 'var(--text-dim, #8a96a3)',
-          background: 'transparent',
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, #8a96a3)')}
-      >
-        <ChevronLeft size={24} className="flex-shrink-0" />
-      </button>
 
       <div ref={remoteAudioContainerRef} style={{ display: 'none' }} />
 
