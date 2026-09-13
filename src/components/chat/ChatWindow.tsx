@@ -4932,25 +4932,34 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (isBotChat) {
       const shouldGroup = group && uploadedFiles.length > 1;
       if (shouldGroup) {
-        const localMessage: Message = {
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          senderId: myCode,
-          sender: myNickname,
-          isOutgoing: true,
-          text: caption || '',
-          time: Date.now(),
-          read: true,
-          status: 'sent',
-          mediaItems: uploadedFiles,
-        };
-        addMessage(activeChatId, localMessage);
-        updateChat(activeChatId, { lastMsg: caption || '[MediaGroup]' });
-        const mediaSummary = uploadedFiles.map((f) => `[${f.type}] ${f.name} (${f.url})`).join('\n');
-        const fullText = caption ? `${caption}\n\n${mediaSummary}` : mediaSummary;
-        if (activeChatId === 'system_support') {
-          supportService.handleUserMessage(fullText, t, uploadedFiles[0].url, uploadedFiles[0].type);
-        } else {
-          orbitosService.handleUserMessage(fullText, t, uploadedFiles[0].url, uploadedFiles[0].type, uploadedFiles[0].mime);
+        const CHUNK_SIZE = 10;
+        const chunks: typeof uploadedFiles[] = [];
+        for (let i = 0; i < uploadedFiles.length; i += CHUNK_SIZE) {
+          chunks.push(uploadedFiles.slice(i, i + CHUNK_SIZE));
+        }
+        for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
+          const chunkFiles = chunks[cIdx];
+          const chunkCaption = cIdx === 0 ? (caption || '') : '';
+          const localMessage: Message = {
+            id: `msg_${Date.now()}_${cIdx}_${Math.random().toString(36).substr(2, 9)}`,
+            senderId: myCode,
+            sender: myNickname,
+            isOutgoing: true,
+            text: chunkCaption,
+            time: Date.now() + cIdx,
+            read: true,
+            status: 'sent',
+            mediaItems: chunkFiles,
+          };
+          addMessage(activeChatId, localMessage);
+          updateChat(activeChatId, { lastMsg: chunkCaption || '[MediaGroup]' });
+          const mediaSummary = chunkFiles.map((f) => `[${f.type}] ${f.name} (${f.url})`).join('\n');
+          const fullText = chunkCaption ? `${chunkCaption}\n\n${mediaSummary}` : mediaSummary;
+          if (activeChatId === 'system_support') {
+            supportService.handleUserMessage(fullText, t, chunkFiles[0].url, chunkFiles[0].type);
+          } else {
+            orbitosService.handleUserMessage(fullText, t, chunkFiles[0].url, chunkFiles[0].type, chunkFiles[0].mime);
+          }
         }
       } else {
         for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
@@ -5000,70 +5009,80 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const shouldGroup = group && uploadedFiles.length > 1;
 
     if (shouldGroup) {
-      const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const messageData = {
-        id: messageId,
-        senderId: myCode,
-        text: caption || '',
-        mediaItems: uploadedFiles.map(f => ({
-          ...f,
-          type: f.type,
-          key: f.key,
-          audioMetadata: f.audioMetadata ? {
-            title: f.audioMetadata.title,
-            artist: f.audioMetadata.artist,
-            duration: f.audioMetadata.duration,
-            size: f.audioMetadata.size,
-          } : undefined,
-        })),
-      };
-      const plaintext = JSON.stringify(messageData);
-      const { ciphertext, index, dhPublicKey: groupDhPublicKey } = await ratchet.encrypt(plaintext);
+      const CHUNK_SIZE = 10;
+      const chunks: typeof uploadedFiles[] = [];
+      for (let i = 0; i < uploadedFiles.length; i += CHUNK_SIZE) {
+        chunks.push(uploadedFiles.slice(i, i + CHUNK_SIZE));
+      }
 
-      const localMessage: Message = {
-        id: messageId,
-        senderId: myCode,
-        sender: myNickname,
-        isOutgoing: true,
-        text: caption || '',
-        time: Date.now(),
-        read: false,
-        status: 'sent',
-        encryptedText: ciphertext,
-        index,
-        mediaItems: uploadedFiles,
-      };
-      addMessage(activeChatId, localMessage);
-      updateChat(activeChatId, { ratchetState: ratchet.getState() });
-
-      const pusher = getPusher();
-      const channel = pusher.subscribe(`private-chat-${activeChatId}`);
-      const send = () => {
-        channel.trigger('client-message', {
-          type: 'message',
-          ciphertext,
-          index,
-          dhPublicKey: groupDhPublicKey,
-          messageId,
-          chatId: activeChatId,
-          sender: myNickname,
-          senderCode: myCode,
+      for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
+        const chunkFiles = chunks[cIdx];
+        const chunkCaption = cIdx === 0 ? (caption || '') : '';
+        const messageId = `msg_${Date.now()}_${cIdx}_${Math.random().toString(36).substr(2, 9)}`;
+        const messageData = {
+          id: messageId,
           senderId: myCode,
-        });
-      };
-      if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+          text: chunkCaption,
+          mediaItems: chunkFiles.map(f => ({
+            ...f,
+            type: f.type,
+            key: f.key,
+            audioMetadata: f.audioMetadata ? {
+              title: f.audioMetadata.title,
+              artist: f.audioMetadata.artist,
+              duration: f.audioMetadata.duration,
+              size: f.audioMetadata.size,
+            } : undefined,
+          })),
+        };
+        const plaintext = JSON.stringify(messageData);
+        const { ciphertext, index, dhPublicKey: groupDhPublicKey } = await ratchet.encrypt(plaintext);
 
-      try {
-        const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
-        if (activeChat?.type === 'private') {
-          for (const rId of recipientTargets) {
-            await supabaseService.sendOfflineMessage(
-              activeChatId, myNickname, rId, ciphertext, index, groupDhPublicKey, messageId
-            );
+        const localMessage: Message = {
+          id: messageId,
+          senderId: myCode,
+          sender: myNickname,
+          isOutgoing: true,
+          text: chunkCaption,
+          time: Date.now() + cIdx,
+          read: false,
+          status: 'sent',
+          encryptedText: ciphertext,
+          index,
+          mediaItems: chunkFiles,
+        };
+        addMessage(activeChatId, localMessage);
+        updateChat(activeChatId, { ratchetState: ratchet.getState() });
+
+        const pusher = getPusher();
+        const channel = pusher.subscribe(`private-chat-${activeChatId}`);
+        const send = () => {
+          channel.trigger('client-message', {
+            type: 'message',
+            ciphertext,
+            index,
+            dhPublicKey: groupDhPublicKey,
+            messageId,
+            chatId: activeChatId,
+            sender: myNickname,
+            senderCode: myCode,
+            senderId: myCode,
+          });
+        };
+        if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+
+        try {
+          const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+          if (activeChat?.type === 'private') {
+            for (const rId of recipientTargets) {
+              await supabaseService.sendOfflineMessage(
+                activeChatId, myNickname, rId, ciphertext, index, groupDhPublicKey, messageId
+              );
+            }
           }
+        } catch (err) {
+          console.error('Failed to save offline message:', err);
         }
-      } catch (err) {
-        console.error('Failed to save offline message:', err);
       }
     } else {
       for (const file of uploadedFiles) {
@@ -5373,34 +5392,49 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     if (hasPhotoOrVideo) {
-      const viewerItems: MediaViewerItem[] = mediaItems.map((item, idx) => ({
-        id: `${msg.id || 'msg'}_${idx}_${item.url}`,
-        url: item.url,
-        type: (item.type === 'video' || item.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '')) ? 'video' : 'photo',
-        fileName: item.name,
-        mime: item.mime,
-        key: item.key || msg.mediaKey,
-        sharedSecret: item.key || msg.mediaKey || sharedSecret,
-        duration: item.duration,
-        sender: msg.sender,
-        time: msg.time,
-        messageId: msg.id,
-      }));
+      const CHUNK_SIZE = 10;
+      const chunks: MediaItem[][] = [];
+      for (let i = 0; i < mediaItems.length; i += CHUNK_SIZE) {
+        chunks.push(mediaItems.slice(i, i + CHUNK_SIZE));
+      }
 
       return (
-        <TelegramAlbumGrid
-          items={mediaItems}
-          sharedSecret={sharedSecret}
-          msg={msg}
-          timeNode={timeBadge(msg, isMessagePinned(index))}
-          onMediaClick={(tileIdx) => {
-            const clicked = viewerItems[tileIdx];
-            if (clicked) {
-              openMediaViewer(clicked.url, msg.id, viewerItems, tileIdx);
-            }
-          }}
-          maxWidth={440}
-        />
+        <div className="flex flex-col gap-1 w-full">
+          {chunks.map((chunkItems, cIdx) => {
+            const chunkViewerItems: MediaViewerItem[] = chunkItems.map((item, idx) => ({
+              id: `${msg.id || 'msg'}_${cIdx * CHUNK_SIZE + idx}_${item.url}`,
+              url: item.url,
+              type: (item.type === 'video' || item.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '')) ? 'video' : 'photo',
+              fileName: item.name,
+              mime: item.mime,
+              key: item.key || msg.mediaKey,
+              sharedSecret: item.key || msg.mediaKey || sharedSecret,
+              duration: item.duration,
+              sender: msg.sender,
+              time: msg.time,
+              messageId: msg.id,
+            }));
+
+            const isLastChunk = cIdx === chunks.length - 1;
+
+            return (
+              <TelegramAlbumGrid
+                key={cIdx}
+                items={chunkItems}
+                sharedSecret={sharedSecret}
+                msg={isLastChunk ? msg : { ...msg, text: '' }}
+                timeNode={isLastChunk ? timeBadge(msg, isMessagePinned(index)) : undefined}
+                onMediaClick={(tileIdx) => {
+                  const clicked = chunkViewerItems[tileIdx];
+                  if (clicked) {
+                    openMediaViewer(clicked.url, msg.id, chunkViewerItems, tileIdx);
+                  }
+                }}
+                maxWidth={440}
+              />
+            );
+          })}
+        </div>
       );
     }
 
