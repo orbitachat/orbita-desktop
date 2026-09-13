@@ -120,21 +120,6 @@ export const ChatPlaceholder = () => {
         </div>
       </div>
 
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '24px',
-          left: '16px',
-          right: '16px',
-          fontSize: '13px',
-          color: 'var(--text-dim, rgba(255, 255, 255, 0.45))',
-          textAlign: 'center',
-          letterSpacing: '0.1px',
-          lineHeight: '18px',
-        }}
-      >
-        {t('chatPlaceholder.footer', 'Orbita — полностью бесплатный и независимый мессенджер')}
-      </div>
 
       {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>

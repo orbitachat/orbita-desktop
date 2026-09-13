@@ -269,12 +269,11 @@
       "whatsNew": "what's new",
       "seeWhatsNewSuffix": " in this update",
       "whatsNewTitle": "What's new",
-      "whatsNewChange1": "Unified video and voice calls in a separate window",
-      "whatsNewChange2": "Camera is requested and enabled only during video calls",
-      "whatsNewChange3": "Microphone is enabled by default during calls",
-      "whatsNewChange4": "Updated welcome screen with minimalist design",
-      "understand": "I understand",
-      "footer": "Orbita is a completely free and independent messenger"
+      "whatsNewChange1": "Completely reworked call logic: instant connection and no errors",
+      "whatsNewChange2": "Updated call window interface with background blur and new buttons",
+      "whatsNewChange3": "Fixed screen sharing: peer now sees your broadcast stably",
+      "whatsNewChange4": "Performance optimized: reduced CPU load during calls",
+      "understand": "I understand"
     },
     "chatSearch": {
       "in_chat": "Search in chat:",
