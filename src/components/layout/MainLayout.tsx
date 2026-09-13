@@ -36,6 +36,7 @@ import { MessageStatus } from '../../components/MessageStatus';
 import { channelService, type ChannelInfo } from '../../services/channelService';
 import { deriveChannelKey } from '../../lib/crypto';
 import { useCallStore } from '../../store/useCallStore';
+import { callSoundService } from '../../services/callSoundService';
 import { ResizableSidebar } from './ResizableSidebar';
 import { supabaseService } from '../../services/supabaseService';
 import { gatewayManager } from '../../services/gatewayManager';
@@ -3004,6 +3005,7 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'call-reject') {
+        callSoundService.stop();
         if (data.roomName) {
           useCallStore.getState().addProcessedRoomName(data.roomName);
         }
@@ -3012,11 +3014,13 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'call-busy') {
+        callSoundService.stop();
         useCallStore.getState().handleBusy();
         return;
       }
 
       if (data.type === 'call-cancel') {
+        callSoundService.stop();
         if (data.roomName) {
           useCallStore.getState().addProcessedRoomName(data.roomName);
         }
@@ -3025,6 +3029,7 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'call-hangup') {
+        callSoundService.stop();
         useCallStore.getState().handleHangup();
         return;
       }

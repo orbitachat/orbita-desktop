@@ -7,6 +7,9 @@ class CallSoundService {
   private currentSource: AudioBufferSourceNode | null = null;
   private gainNode: GainNode | null = null;
   private currentAudioElement: HTMLAudioElement | null = null;
+  private activeAudios: Set<HTMLAudioElement> = new Set();
+  private activeSources: Set<AudioBufferSourceNode> = new Set();
+  private activeGains: Set<GainNode> = new Set();
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private isCurrentlyPlaying = false;
   private currentPlayId = 0;
@@ -94,12 +97,19 @@ class CallSoundService {
           source.loop = isLoop;
 
           const gainNode = ctx.createGain();
-          gainNode.gain.value = 1.0;
+          gainNode.gain.setValueAtTime(1.0, ctx.currentTime);
 
           source.connect(gainNode);
           gainNode.connect(ctx.destination);
 
+          this.activeSources.add(source);
+          this.activeGains.add(gainNode);
+
           source.onended = () => {
+            this.activeSources.delete(source);
+            this.activeGains.delete(gainNode);
+            try { source.disconnect(); } catch {}
+            try { gainNode.disconnect(); } catch {}
             if (this.currentSource === source) {
               this.currentSource = null;
               this.isCurrentlyPlaying = false;
@@ -130,7 +140,10 @@ class CallSoundService {
         } catch {}
       }
 
+      this.activeAudios.add(audio);
+
       audio.onended = () => {
+        this.activeAudios.delete(audio);
         if (this.currentAudioElement === audio) {
           this.currentAudioElement = null;
           this.isCurrentlyPlaying = false;
@@ -147,26 +160,58 @@ class CallSoundService {
 
   stop(): void {
     this.currentPlayId++;
+
+    for (const gain of this.activeGains) {
+      try {
+        if (this.ctx) gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        gain.disconnect();
+      } catch {}
+    }
+    this.activeGains.clear();
+
+    for (const src of this.activeSources) {
+      try {
+        src.stop(0);
+        src.disconnect();
+      } catch {}
+    }
+    this.activeSources.clear();
+
     if (this.currentSource) {
       try {
-        this.currentSource.stop();
+        this.currentSource.stop(0);
         this.currentSource.disconnect();
       } catch {}
       this.currentSource = null;
     }
     if (this.gainNode) {
       try {
+        if (this.ctx) this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
         this.gainNode.disconnect();
       } catch {}
       this.gainNode = null;
     }
+
+    for (const audio of this.activeAudios) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.removeAttribute('src');
+        audio.load();
+      } catch {}
+    }
+    this.activeAudios.clear();
+
     if (this.currentAudioElement) {
       try {
         this.currentAudioElement.pause();
         this.currentAudioElement.currentTime = 0;
+        this.currentAudioElement.removeAttribute('src');
+        this.currentAudioElement.load();
       } catch {}
       this.currentAudioElement = null;
     }
+
     this.isCurrentlyPlaying = false;
   }
 

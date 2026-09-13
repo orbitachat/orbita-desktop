@@ -2372,7 +2372,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: true,
+      backgroundThrottling: false,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Call',
@@ -2464,8 +2464,9 @@ ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
 
 ipcMain.handle('orbita:close-call-window', () => {
   if (callWindow && !callWindow.isDestroyed()) {
-    callWindow.destroy();
-    callWindow = null;
+    currentCallStateCache = null;
+    callWindow.webContents.send('orbita:call-state', null);
+    callWindow.hide();
   }
   return { success: true };
 });
@@ -2526,8 +2527,9 @@ ipcMain.handle('window:close', (event) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('orbita:call-action', { type: 'cancelCall' });
       }
-      callWindow.destroy();
-      callWindow = null;
+      currentCallStateCache = null;
+      callWindow.webContents.send('orbita:call-state', null);
+      callWindow.hide();
     } else if (win === mainWindow) {
       if (showInTraySetting) {
         mainWindow.hide();
@@ -3010,6 +3012,10 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  if (callWindow && !callWindow.isDestroyed()) {
+    callWindow.destroy();
+    callWindow = null;
+  }
   destroyTray();
 });
 

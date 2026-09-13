@@ -37,6 +37,7 @@ interface CallStatePayload {
   myNickname: string | null;
   peerVolume?: number;
   micVolume?: number;
+  noiseSuppressionMode?: 'krisp' | 'standard' | 'none';
 }
 
 const accentButtonStyle: React.CSSProperties = {
@@ -216,11 +217,55 @@ export const CallWindowView = () => {
   });
   const [isVolumeOpen, setIsVolumeOpen] = useState<boolean>(false);
   const volumeMenuRef = useRef<HTMLDivElement>(null);
+  const [noiseSuppressionMode, setNoiseSuppressionModeState] = useState<'krisp' | 'standard' | 'none'>(() => {
+    try {
+      const saved = localStorage.getItem('orbita_noise_suppression_mode');
+      return (saved as any) || 'standard';
+    } catch {
+      return 'standard';
+    }
+  });
+  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMicId, setSelectedMicId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('orbita_selected_mic_id') || '';
+    } catch {
+      return '';
+    }
+  });
 
   useEffect(() => {
     if (callData?.peerVolume !== undefined) setPeerVolumeState(callData.peerVolume);
     if (callData?.micVolume !== undefined) setMicVolumeState(callData.micVolume);
-  }, [callData?.peerVolume, callData?.micVolume]);
+    if (callData?.noiseSuppressionMode !== undefined) setNoiseSuppressionModeState(callData.noiseSuppressionMode);
+  }, [callData?.peerVolume, callData?.micVolume, callData?.noiseSuppressionMode]);
+
+  useEffect(() => {
+    const loadAudioInputs = async () => {
+      try {
+        if (!navigator.mediaDevices?.enumerateDevices) return;
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setAudioInputs(devices.filter((d) => d.kind === 'audioinput'));
+      } catch {}
+    };
+    loadAudioInputs();
+    navigator.mediaDevices?.addEventListener?.('devicechange', loadAudioInputs);
+    return () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', loadAudioInputs);
+    };
+  }, []);
+
+  const handleSetNoiseSuppressionMode = (mode: 'krisp' | 'standard' | 'none') => {
+    setNoiseSuppressionModeState(mode);
+    try { localStorage.setItem('orbita_noise_suppression_mode', mode); } catch {}
+    sendAction('setNoiseSuppressionMode', mode);
+  };
+
+  const handleSelectMic = (id: string) => {
+    setSelectedMicId(id);
+    try { localStorage.setItem('orbita_selected_mic_id', id); } catch {}
+    sendAction('switchAudioDevice', { kind: 'audioinput', deviceId: id });
+  };
 
   useEffect(() => {
     if (!isVolumeOpen) return;
@@ -688,6 +733,65 @@ export const CallWindowView = () => {
                         <span>200%</span>
                       </div>
                     </div>
+
+                    <div className="flex flex-col gap-1.5 pt-2 border-t border-white/10">
+                      <div className="flex items-center justify-between text-xs">
+                        <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                          {t('settings.noise_suppression_title')}
+                        </span>
+                        <span className="font-semibold text-xs" style={{ color: 'var(--text-main, #ffffff)' }}>
+                          {noiseSuppressionMode === 'krisp'
+                            ? t('settings.noise_suppression_krisp')
+                            : noiseSuppressionMode === 'standard'
+                            ? t('settings.noise_suppression_standard')
+                            : t('settings.noise_suppression_none')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {(['none', 'standard', 'krisp'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => handleSetNoiseSuppressionMode(mode)}
+                            aria-label={t(`settings.noise_suppression_${mode}`)}
+                            className="flex-1 py-1 px-1 rounded-lg text-xs font-medium transition-colors border-0 cursor-pointer"
+                            style={{
+                              backgroundColor: noiseSuppressionMode === mode
+                                ? 'color-mix(in srgb, var(--accent-color, #7C3AED) 28%, transparent)'
+                                : 'rgba(255, 255, 255, 0.06)',
+                              color: noiseSuppressionMode === mode
+                                ? 'var(--accent-color, #a995ec)'
+                                : 'var(--text-dim, #8a96a3)',
+                            }}
+                          >
+                            {t(`settings.noise_suppression_${mode}`)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {audioInputs.length > 1 && (
+                      <div className="flex flex-col gap-1 pt-2 border-t border-white/10">
+                        <span className="text-[11px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                          {t('settings.microphone_device')}
+                        </span>
+                        <select
+                          value={selectedMicId}
+                          onChange={(e) => handleSelectMic(e.target.value)}
+                          aria-label={t('settings.microphone_device')}
+                          className="w-full text-xs p-1.5 rounded-lg bg-white/5 border border-white/10 text-white outline-none cursor-pointer"
+                        >
+                          <option value="" className="bg-neutral-900 text-white">
+                            {t('settings.default_device')}
+                          </option>
+                          {audioInputs.map((d) => (
+                            <option key={d.deviceId} value={d.deviceId} className="bg-neutral-900 text-white">
+                              {d.label || `${t('settings.microphone_device')} ${d.deviceId.slice(0, 4)}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

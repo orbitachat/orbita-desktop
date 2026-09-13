@@ -64,6 +64,11 @@ export const CallWindow = () => {
   const micVolume = useCallStore((state) => state.micVolume);
   const setPeerVolume = useCallStore((state) => state.setPeerVolume);
   const setMicVolume = useCallStore((state) => state.setMicVolume);
+  const noiseSuppressionMode = useChatStore((state) => state.noiseSuppressionMode);
+  const setNoiseSuppressionMode = useChatStore((state) => state.setNoiseSuppressionMode);
+  const selectedMicrophoneId = useChatStore((state) => state.selectedMicrophoneId);
+  const setSelectedMicrophoneId = useChatStore((state) => state.setSelectedMicrophoneId);
+  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
   const [isVolumeOpen, setIsVolumeOpen] = useState<boolean>(false);
   const volumeMenuRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +84,7 @@ export const CallWindow = () => {
   }, [isVolumeOpen]);
 
   useEffect(() => {
-    const checkCamera = async () => {
+    const checkDevices = async () => {
       try {
         if (!navigator.mediaDevices?.enumerateDevices) {
           setHasCamera(false);
@@ -87,16 +92,18 @@ export const CallWindow = () => {
         }
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+        const audioIn = devices.filter((d) => d.kind === 'audioinput');
         setHasCamera(videoInputs.length > 0);
+        setAudioInputs(audioIn);
       } catch {
         setHasCamera(false);
       }
     };
 
-    checkCamera();
-    navigator.mediaDevices?.addEventListener?.('devicechange', checkCamera);
+    checkDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', checkDevices);
     return () => {
-      navigator.mediaDevices?.removeEventListener?.('devicechange', checkCamera);
+      navigator.mediaDevices?.removeEventListener?.('devicechange', checkDevices);
     };
   }, []);
 
@@ -972,6 +979,85 @@ export const CallWindow = () => {
                           ))}
                         </div>
                       </div>
+
+                      <div
+                        className="flex flex-col gap-2 p-3 rounded-2xl transition-colors"
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.035)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                            {t('settings.noise_suppression_title')}
+                          </span>
+                          <span className="text-xs font-bold" style={{ color: 'var(--text-main, #ffffff)' }}>
+                            {noiseSuppressionMode === 'krisp'
+                              ? t('settings.noise_suppression_krisp')
+                              : noiseSuppressionMode === 'standard'
+                              ? t('settings.noise_suppression_standard')
+                              : t('settings.noise_suppression_none')}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 pt-0.5">
+                          {(['none', 'standard', 'krisp'] as const).map((mode) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => {
+                                setNoiseSuppressionMode(mode);
+                                liveKitService.setNoiseSuppressionMode(mode);
+                              }}
+                              aria-label={t(`settings.noise_suppression_${mode}`)}
+                              className="flex-1 py-1 px-1.5 rounded-md text-[11px] font-semibold transition-colors border-0 cursor-pointer"
+                              style={{
+                                backgroundColor: noiseSuppressionMode === mode
+                                  ? 'color-mix(in srgb, var(--accent-color, #7C3AED) 25%, transparent)'
+                                  : 'rgba(255, 255, 255, 0.05)',
+                                color: noiseSuppressionMode === mode
+                                  ? 'var(--accent-color, #7C3AED)'
+                                  : 'var(--text-dim, #8a96a3)',
+                              }}
+                            >
+                              {t(`settings.noise_suppression_${mode}`)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {audioInputs.length > 1 && (
+                        <div
+                          className="flex flex-col gap-1.5 p-3 rounded-2xl transition-colors"
+                          style={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.035)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                          }}
+                        >
+                          <span className="text-[11px] font-medium" style={{ color: 'var(--text-dim, #8a96a3)' }}>
+                            {t('settings.microphone_device')}
+                          </span>
+                          <select
+                            value={selectedMicrophoneId}
+                            onChange={(e) => {
+                              const id = e.target.value;
+                              setSelectedMicrophoneId(id);
+                              liveKitService.switchDevice('audioinput', id);
+                            }}
+                            aria-label={t('settings.microphone_device')}
+                            className="w-full text-xs p-1.5 rounded-lg bg-white/5 border border-white/10 text-white outline-none cursor-pointer"
+                          >
+                            <option value="" className="bg-neutral-900 text-white">
+                              {t('settings.default_device')}
+                            </option>
+                            {audioInputs.map((d) => (
+                              <option key={d.deviceId} value={d.deviceId} className="bg-neutral-900 text-white">
+                                {d.label || `${t('settings.microphone_device')} ${d.deviceId.slice(0, 4)}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

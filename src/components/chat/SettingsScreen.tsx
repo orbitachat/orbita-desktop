@@ -25,6 +25,7 @@ import { AccountBackupScreen } from '../settings/AccountBackupScreen';
 import { ConnectionSettingsScreen } from '../settings/ConnectionSettingsScreen';
 import { DataMemorySettings } from '../settings/DataMemorySettings';
 import { useConnectionStore } from '../../store/useConnectionStore';
+import { useCallStore } from '../../store/useCallStore';
 import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { LinkCopiedToast } from '../common/LinkCopiedToast';
@@ -2258,6 +2259,10 @@ export const SettingsScreen = () => {
     voiceCallsEnabled, setVoiceCallsEnabled,
   } = useChatStore();
   const { hasCameraPermission, hasMicrophonePermission, setCameraPermission, setMicrophonePermission } = useDevicePermissionStore();
+  const peerVolume = useCallStore((state) => state.peerVolume);
+  const micVolume = useCallStore((state) => state.micVolume);
+  const setPeerVolume = useCallStore((state) => state.setPeerVolume);
+  const setMicVolume = useCallStore((state) => state.setMicVolume);
   const { nickname, avatarUrl, setNickname } = useAuthStore();
   const deleteAccount = useAuthStore((state) => state.deleteAccount);
   const resetChats = useChatStore((state) => state.resetChats);
@@ -2627,6 +2632,125 @@ export const SettingsScreen = () => {
             checked={callSoundsEnabled}
             onChange={() => setCallSoundsEnabled(!callSoundsEnabled)}
           />
+        </PreferencesGroup>
+
+        <PreferencesGroup title={t('settings.voice_section')}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 0',
+              gap: 16,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>
+                {t('settings.noise_suppression_title')}
+              </div>
+              <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2, lineHeight: 1.4 }}>
+                {noiseSuppressionMode === 'krisp'
+                  ? t('settings.noise_suppression_krisp_desc')
+                  : noiseSuppressionMode === 'standard'
+                  ? t('settings.noise_suppression_standard_desc')
+                  : t('settings.noise_suppression_none_desc')}
+              </div>
+            </div>
+
+            <OrbitaSelect
+              value={noiseSuppressionMode || (noiseSuppression ? 'standard' : 'none')}
+              onChange={(val) => {
+                const mode = val as any;
+                setNoiseSuppressionMode(mode);
+                liveKitService.setNoiseSuppressionMode(mode).catch(() => {});
+              }}
+              ariaLabel={t('settings.noise_suppression_title')}
+              minWidth={150}
+              options={[
+                { value: 'krisp', label: t('settings.noise_suppression_krisp') },
+                { value: 'standard', label: t('settings.noise_suppression_standard') },
+                { value: 'none', label: t('settings.noise_suppression_none') },
+              ]}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '14px 0',
+              gap: 8,
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: MD3.onSurface }}>
+                {t('call.peer_volume')}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: peerVolume > 100 ? '#f59e0b' : MD3.primary, fontVariantNumeric: 'tabular-nums' }}>
+                {peerVolume}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="200"
+              step="1"
+              value={peerVolume}
+              onChange={(e) => setPeerVolume(Number(e.target.value))}
+              aria-label={t('call.peer_volume')}
+              style={{
+                width: '100%',
+                height: 6,
+                accentColor: peerVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)',
+                cursor: 'pointer',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: MD3.onSurfaceVar }}>
+              <span>0%</span>
+              <span>100%</span>
+              <span>200%</span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '14px 0',
+              gap: 8,
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: MD3.onSurface }}>
+                {t('call.mic_volume')}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: micVolume > 100 ? '#f59e0b' : MD3.primary, fontVariantNumeric: 'tabular-nums' }}>
+                {micVolume}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="200"
+              step="1"
+              value={micVolume}
+              onChange={(e) => setMicVolume(Number(e.target.value))}
+              aria-label={t('call.mic_volume')}
+              style={{
+                width: '100%',
+                height: 6,
+                accentColor: micVolume > 100 ? '#f59e0b' : 'var(--accent-color, #7C3AED)',
+                cursor: 'pointer',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: MD3.onSurfaceVar }}>
+              <span>0%</span>
+              <span>100%</span>
+              <span>200%</span>
+            </div>
+          </div>
         </PreferencesGroup>
 
         <PreferencesGroup title={t('settings.devices_header')}>
@@ -3494,7 +3618,7 @@ export const SettingsScreen = () => {
                   onChange={(val) => {
                     const mode = val as any;
                     setNoiseSuppressionMode(mode);
-                    liveKitService.updateAudioConstraints().catch(() => {});
+                    liveKitService.setNoiseSuppressionMode(mode).catch(() => {});
                   }}
                   ariaLabel={t('settings.noise_suppression_title')}
                   minWidth={150}

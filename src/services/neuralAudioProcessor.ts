@@ -3,6 +3,52 @@ import type { Track, AudioProcessorOptions, TrackProcessor } from 'livekit-clien
 
 export type NoiseSuppressionMode = 'krisp' | 'standard' | 'none';
 
+class AudioRingBuffer {
+  private buffer: Float32Array;
+  private readIndex: number = 0;
+  private writeIndex: number = 0;
+  private count: number = 0;
+  private capacity: number;
+
+  constructor(capacity: number = 16384) {
+    this.capacity = capacity;
+    this.buffer = new Float32Array(capacity);
+  }
+
+  public write(data: Float32Array): void {
+    const len = data.length;
+    for (let i = 0; i < len; i++) {
+      this.buffer[this.writeIndex] = data[i];
+      this.writeIndex = (this.writeIndex + 1) % this.capacity;
+      if (this.count < this.capacity) {
+        this.count++;
+      } else {
+        this.readIndex = (this.readIndex + 1) % this.capacity;
+      }
+    }
+  }
+
+  public read(output: Float32Array, length: number): number {
+    const toRead = Math.min(length, this.count);
+    for (let i = 0; i < toRead; i++) {
+      output[i] = this.buffer[this.readIndex];
+      this.readIndex = (this.readIndex + 1) % this.capacity;
+    }
+    this.count -= toRead;
+    return toRead;
+  }
+
+  public available(): number {
+    return this.count;
+  }
+
+  public clear(): void {
+    this.readIndex = 0;
+    this.writeIndex = 0;
+    this.count = 0;
+  }
+}
+
 class NeuralAudioProcessorService {
   private module: any = null;
   private rnnoiseState: any = null;
@@ -102,10 +148,11 @@ class NeuralAudioProcessorService {
     const bufferSize = 1024;
     const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
 
-    const inputQueue: number[] = [];
-    const outputQueue: number[] = [];
+    const inputBuffer = new AudioRingBuffer(16384);
+    const outputBuffer = new AudioRingBuffer(16384);
     const chunkIn = new Float32Array(480);
     const chunkOut = new Float32Array(480);
+    const tempBlock = new Float32Array(480);
 
     let smoothedVad = 1.0;
     let currentGain = 1.0;
@@ -114,35 +161,30 @@ class NeuralAudioProcessorService {
       const inputData = e.inputBuffer.getChannelData(0);
       const outputData = e.outputBuffer.getChannelData(0);
 
-      for (let i = 0; i < inputData.length; i++) {
-        inputQueue.push(inputData[i]);
-      }
+      inputBuffer.write(inputData);
 
-      while (inputQueue.length >= 480) {
-        for (let i = 0; i < 480; i++) {
-          chunkIn[i] = inputQueue.shift()!;
-        }
-
+      while (inputBuffer.available() >= 480) {
+        inputBuffer.read(chunkIn, 480);
         const vadProb = this.processChunkSync(chunkIn, chunkOut, mode);
 
         if (mode === 'krisp') {
-          smoothedVad = smoothedVad * 0.82 + vadProb * 0.18;
-          const targetGain = smoothedVad < 0.42 ? 0.001 : 1.0;
-          const attackSpeed = targetGain > currentGain ? 0.35 : 0.08;
+          smoothedVad = smoothedVad * 0.85 + vadProb * 0.15;
+          const targetGain = smoothedVad < 0.05 ? 0.35 : 1.0;
+          const attackSpeed = targetGain > currentGain ? 0.4 : 0.06;
           currentGain = currentGain * (1 - attackSpeed) + targetGain * attackSpeed;
 
           for (let i = 0; i < 480; i++) {
-            outputQueue.push(chunkOut[i] * currentGain);
+            tempBlock[i] = chunkOut[i] * currentGain;
           }
+          outputBuffer.write(tempBlock);
         } else {
-          for (let i = 0; i < 480; i++) {
-            outputQueue.push(chunkOut[i]);
-          }
+          outputBuffer.write(chunkOut);
         }
       }
 
-      for (let i = 0; i < outputData.length; i++) {
-        outputData[i] = outputQueue.length > 0 ? outputQueue.shift()! : 0;
+      const readCount = outputBuffer.read(outputData, outputData.length);
+      if (readCount < outputData.length) {
+        outputData.fill(0, readCount);
       }
     };
 
@@ -166,6 +208,8 @@ class NeuralAudioProcessorService {
         source.disconnect();
         destination.disconnect();
         silentGain.disconnect();
+        inputBuffer.clear();
+        outputBuffer.clear();
         audioCtx.close().catch(() => {});
       } catch {}
     };
@@ -187,10 +231,11 @@ class NeuralAudioProcessorService {
     let activeBoost: BiquadFilterNode | null = null;
     let activeSilentGain: GainNode | null = null;
 
-    const inputQueue: number[] = [];
-    const outputQueue: number[] = [];
+    const inputBuffer = new AudioRingBuffer(16384);
+    const outputBuffer = new AudioRingBuffer(16384);
     const chunkIn = new Float32Array(480);
     const chunkOut = new Float32Array(480);
+    const tempBlock = new Float32Array(480);
     let smoothedVad = 1.0;
     let currentGain = 1.0;
 
@@ -209,8 +254,8 @@ class NeuralAudioProcessorService {
       activeSource = null;
       activeDestination = null;
       activeSilentGain = null;
-      inputQueue.length = 0;
-      outputQueue.length = 0;
+      inputBuffer.clear();
+      outputBuffer.clear();
     };
 
     const processorObj: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> = {
@@ -257,35 +302,30 @@ class NeuralAudioProcessorService {
             return;
           }
 
-          for (let i = 0; i < inData.length; i++) {
-            inputQueue.push(inData[i]);
-          }
+          inputBuffer.write(inData);
 
-          while (inputQueue.length >= 480) {
-            for (let i = 0; i < 480; i++) {
-              chunkIn[i] = inputQueue.shift()!;
-            }
-
+          while (inputBuffer.available() >= 480) {
+            inputBuffer.read(chunkIn, 480);
             const vadProb = this.processChunkSync(chunkIn, chunkOut, currentMode);
 
             if (currentMode === 'krisp') {
-              smoothedVad = smoothedVad * 0.82 + vadProb * 0.18;
-              const targetGain = smoothedVad < 0.42 ? 0.001 : 1.0;
-              const attackSpeed = targetGain > currentGain ? 0.35 : 0.08;
+              smoothedVad = smoothedVad * 0.85 + vadProb * 0.15;
+              const targetGain = smoothedVad < 0.05 ? 0.35 : 1.0;
+              const attackSpeed = targetGain > currentGain ? 0.4 : 0.06;
               currentGain = currentGain * (1 - attackSpeed) + targetGain * attackSpeed;
 
               for (let i = 0; i < 480; i++) {
-                outputQueue.push(chunkOut[i] * currentGain);
+                tempBlock[i] = chunkOut[i] * currentGain;
               }
+              outputBuffer.write(tempBlock);
             } else {
-              for (let i = 0; i < 480; i++) {
-                outputQueue.push(chunkOut[i]);
-              }
+              outputBuffer.write(chunkOut);
             }
           }
 
-          for (let i = 0; i < outData.length; i++) {
-            outData[i] = outputQueue.length > 0 ? outputQueue.shift()! : 0;
+          const readCount = outputBuffer.read(outData, outData.length);
+          if (readCount < outData.length) {
+            outData.fill(0, readCount);
           }
         };
 
