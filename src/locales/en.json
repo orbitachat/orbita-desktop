@@ -983,6 +983,8 @@
       "specify_friend_id": "Enter friend's account ID",
       "invalid_content": "Invalid content",
       "found_community": "Community found",
+      "found_support": "Support Service",
+      "found_bot": "Official Bot",
       "subscribers": "subscribers"
     },
     "callsModal": {

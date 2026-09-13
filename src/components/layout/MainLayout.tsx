@@ -3264,14 +3264,73 @@ export const MainLayout = () => {
     });
   }, [filteredChats, pinnedChatsSet]);
 
+  const isSupportFound = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return false;
+    const name = (t('support.name', 'Техническая поддержка') || '').toLowerCase();
+    if (name.includes(q)) return true;
+    const keywords = [
+      'support',
+      'техподдержка',
+      'поддержка',
+      'поддержк',
+      'саппорт',
+      'суппорт',
+      'помощь',
+      'помощ',
+      'тикет',
+      'ticket',
+      'help',
+      'tech',
+      'служба поддержки',
+      'техническая поддержка',
+      'system_support',
+    ];
+    return keywords.some((kw) => kw.includes(q) || q.includes(kw));
+  }, [searchQuery, t]);
+
+  const isBotFound = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return false;
+    const name = (t('orbitos.name', 'ORBITA') || '').toLowerCase();
+    if (name.includes(q)) return true;
+    const keywords = [
+      'орбита',
+      'orbita',
+      'orbitos',
+      'орбитос',
+      'орбит',
+      'бот',
+      'боты',
+      'bot',
+      'bots',
+      'ии',
+      'ai',
+      'gemini',
+      'помощник',
+      'ассистент',
+      'assistant',
+      'нейросеть',
+      'нейро',
+      'чат-бот',
+      'чатбот',
+      'system_orbitos',
+    ];
+    return keywords.some((kw) => kw.includes(q) || q.includes(kw));
+  }, [searchQuery, t]);
+
   const searchedChats = useMemo(() => {
     if (!searchQuery.trim()) return sortedChats;
     const q = searchQuery.toLowerCase().trim();
-    return sortedChats.filter(chat =>
-      chat.name.toLowerCase().includes(q) ||
-      (chat.id && chat.id.toLowerCase().includes(q))
-    );
-  }, [sortedChats, searchQuery]);
+    return sortedChats.filter(chat => {
+      if (isSupportFound && chat.id === supportService.BOT_ID) return false;
+      if (isBotFound && chat.id === orbitosService.BOT_ID) return false;
+      return (
+        chat.name.toLowerCase().includes(q) ||
+        (chat.id && chat.id.toLowerCase().includes(q))
+      );
+    });
+  }, [sortedChats, searchQuery, isSupportFound, isBotFound]);
 
   const isLightTheme = document.documentElement.getAttribute('data-theme-light') === 'true';
 
@@ -3446,6 +3505,18 @@ export const MainLayout = () => {
     }
     setActiveChat(chatId);
   }, [activeChatId, setActiveChat]);
+
+  const handleSelectFoundSupport = useCallback(() => {
+    supportService.initSupportChat(t, myCode);
+    handleSelectChat(supportService.BOT_ID);
+    setSearchQuery('');
+  }, [t, myCode, handleSelectChat]);
+
+  const handleSelectFoundBot = useCallback(() => {
+    orbitosService.initOrbitosChat(t);
+    handleSelectChat(orbitosService.BOT_ID);
+    setSearchQuery('');
+  }, [t, handleSelectChat]);
 
   const renderChat = useCallback((chat: Chat) => {
     const isActive = activeChatId === chat.id;
@@ -3836,6 +3907,82 @@ export const MainLayout = () => {
                               {chats.some(c => c.id === searchChannelResult.id)
                                 ? t('common.open', 'Открыть')
                                 : t('common.join', 'Вступить')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {isSupportFound && (
+                        <div className="px-2 py-1">
+                          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
+                            {t('createModal.found_support', 'Служба поддержки')}
+                          </div>
+                          <div
+                            onClick={handleSelectFoundSupport}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer"
+                          >
+                            <BotAvatar className="w-11 h-11" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-sm text-[var(--text-main)] truncate">
+                                  {t('support.name', 'Техническая поддержка')}
+                                </span>
+                                <VerifiedBadge size={15} className="flex-shrink-0" />
+                                <span className="px-1.5 py-0.5 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[10px] font-bold">
+                                  Support
+                                </span>
+                              </div>
+                              <div className="text-xs text-[var(--text-dim)] truncate mt-0.5">
+                                {t('support.description', 'Официальная служба технической поддержки мессенджера Orbita')}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectFoundSupport();
+                              }}
+                              aria-label={t('common.open', 'Открыть')}
+                              className="px-3 py-1.5 rounded-lg bg-[var(--accent-color)] text-white text-xs font-semibold hover:opacity-90 transition-opacity border-none outline-none cursor-pointer flex-shrink-0"
+                            >
+                              {t('common.open', 'Открыть')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {isBotFound && (
+                        <div className="px-2 py-1">
+                          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
+                            {t('createModal.found_bot', 'Официальный бот')}
+                          </div>
+                          <div
+                            onClick={handleSelectFoundBot}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer"
+                          >
+                            <BotAvatar className="w-11 h-11" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-sm text-[var(--text-main)] truncate">
+                                  {t('orbitos.name', 'ORBITA')}
+                                </span>
+                                <VerifiedBadge size={15} className="flex-shrink-0" />
+                                <span className="px-1.5 py-0.5 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[10px] font-bold">
+                                  AI
+                                </span>
+                              </div>
+                              <div className="text-xs text-[var(--text-dim)] truncate mt-0.5">
+                                {t('orbitos.description', 'Официальный системный помощник мессенджера Orbita')}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectFoundBot();
+                              }}
+                              aria-label={t('common.open', 'Открыть')}
+                              className="px-3 py-1.5 rounded-lg bg-[var(--accent-color)] text-white text-xs font-semibold hover:opacity-90 transition-opacity border-none outline-none cursor-pointer flex-shrink-0"
+                            >
+                              {t('common.open', 'Открыть')}
                             </button>
                           </div>
                         </div>

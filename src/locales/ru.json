@@ -994,6 +994,8 @@
       "specify_friend_id": "Укажите ID вашего друга",
       "invalid_content": "Неверное содержимое",
       "found_community": "Найдено сообщество",
+      "found_support": "Служба поддержки",
+      "found_bot": "Официальный бот",
       "subscribers": "подписчиков"
     },
     "callsModal": {
