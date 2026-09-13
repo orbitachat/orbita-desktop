@@ -166,7 +166,6 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
     return { type, url: first.url, fileName: first.name, mime: first.mime };
   }
 
-  // 1. Check Voice FIRST: voice is ogg, opus, or voice_*
   const isVoice =
     msg.mediaType === 'voice' ||
     (msg.mime && (msg.mime.includes('ogg') || msg.mime.includes('opus'))) ||
@@ -180,13 +179,13 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
     return { type: 'voice', url, fileName, mime: msg.mime || (fileName.endsWith('.webm') ? 'audio/webm' : 'audio/ogg') };
   }
 
-  if (msg.mediaType && msg.mediaUrl) {
-    if (msg.mediaType === 'photo') return { type: 'image', url: msg.mediaUrl, fileName: msg.mediaName, mime: msg.mime || 'image/jpeg' };
-    if (msg.mediaType === 'video') return { type: 'video', url: msg.mediaUrl, fileName: msg.mediaName, mime: msg.mime || 'video/mp4' };
-    if (msg.mediaType === 'audio') return { type: 'music', url: msg.mediaUrl, fileName: msg.mediaName, mime: msg.mime || 'audio/mpeg' };
-    if (msg.mediaType === 'file') return { type: 'file', url: msg.mediaUrl, fileName: msg.mediaName, mime: msg.mime || 'application/octet-stream' };
-    if (msg.mediaType === ('sticker' as any)) return { type: 'sticker', url: msg.mediaUrl, fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
-    if (msg.mediaType === 'gif') return { type: 'video', url: msg.mediaUrl, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
+  if (msg.mediaType && (msg.mediaUrl || msg.uploading)) {
+    if (msg.mediaType === 'photo') return { type: 'image', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'image/jpeg' };
+    if (msg.mediaType === 'video') return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'video/mp4' };
+    if (msg.mediaType === 'audio') return { type: 'music', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'audio/mpeg' };
+    if (msg.mediaType === 'file') return { type: 'file', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'application/octet-stream' };
+    if (msg.mediaType === ('sticker' as any)) return { type: 'sticker', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
+    if (msg.mediaType === 'gif') return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
   }
 
   const text = msg.text || '';
@@ -4705,22 +4704,18 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       if (!sharedSecret || !chat.ratchetState) return;
     }
 
-    setIsSendingFiles(true);
+    const filesToSend = [...attachedFiles];
+    if (draftDebounceTimerRef.current) {
+      clearTimeout(draftDebounceTimerRef.current);
+      draftDebounceTimerRef.current = null;
+    }
+    if (activeChatId) clearDraft(activeChatId);
+    setAttachedFiles([]);
+    setIsAttachmentModalOpen(false);
+    setIsSendingFiles(false);
+    setInputText('');
 
-    const uploadedFiles: Array<{
-      url: string;
-      key?: string;
-      type: 'photo' | 'video' | 'audio' | 'file' | 'gif';
-      name: string;
-      mime?: string;
-      audioMetadata?: AudioMetadata;
-      size?: number;
-      width?: number;
-      height?: number;
-      duration?: number;
-    }> = [];
-
-    const resolveItemType = (ft: string, fileName?: string) => {
+    const resolveItemType = (ft: string, fileName?: string): 'photo' | 'video' | 'audio' | 'file' | 'gif' => {
       if (asFile) return 'file';
       if (ft === 'photo') return 'photo';
       if (ft === 'video') return 'video';
@@ -4757,11 +4752,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return 'application/octet-stream';
     };
 
-    for (let i = 0; i < attachedFiles.length; i++) {
-      const file = attachedFiles[i];
+    const uploadSingleFile = async (
+      file: typeof filesToSend[0],
+      onProgress?: (uploadedBytes: number) => void
+    ) => {
       if (file.uploadedUrl) {
-        uploadedFiles.push({
+        return {
           url: file.uploadedUrl,
+          key: undefined as string | undefined,
           type: resolveItemType(file.fileType, file.name),
           name: file.name,
           mime: resolveMime(file.fileType, file.name),
@@ -4770,8 +4768,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           width: file.width,
           height: file.height,
           duration: file.duration || file.audioMetadata?.duration,
-        });
-        continue;
+        };
       }
 
       try {
@@ -4813,9 +4810,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           }
         }
 
-        if (!fileArrayBuffer) {
-          throw new Error('Failed to read file');
-        }
+        if (!fileArrayBuffer) return null;
 
         const cleanedBuffer = stripExifMetadata(fileArrayBuffer, file.fileType || file.name);
         let fileKey: string | undefined = undefined;
@@ -4842,29 +4837,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
         const ext = (file.name?.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
         const tempPath = await window.orbita.writeTempFile(fileBase64, isPublic ? ext : undefined);
-        if (!tempPath) throw new Error('Failed to write temp file');
+        if (!tempPath) return null;
 
-        const publicId = `orbita_${Date.now()}_${i}`;
-        setAttachedFiles(prev => prev.map((f, idx) => idx === i ? { ...f, uploading: true } : f));
-
-        const unsubProgress = window.orbita.onUploadProgress(({ publicId: pid, uploadedBytes }) => {
-          if (pid !== publicId) return;
-          setAttachedFiles(prev => prev.map((f, idx) => idx === i ? { ...f, uploadedMb: uploadedBytes / (1024 * 1024) } : f));
+        const publicId = `orbita_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        const unsub = window.orbita.onUploadProgress(({ publicId: pid, uploadedBytes }) => {
+          if (pid === publicId && onProgress) {
+            onProgress(uploadedBytes);
+          }
         });
 
         const result = await window.orbita.uploadToCloudinary(tempPath, publicId);
-        unsubProgress();
+        unsub();
         window.orbita.deleteTempFile?.(tempPath);
 
-        if (!result.success || !result.secure_url) {
-          throw new Error(result.error || 'Upload failed');
-        }
+        if (!result.success || !result.secure_url) return null;
 
         const itemMime = resolveMime(file.fileType, file.name);
         const localBlob = new Blob([cleanedBuffer], { type: itemMime });
         mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey || '', localBlob, itemMime, activeChatId);
 
-        uploadedFiles.push({
+        return {
           url: result.secure_url,
           key: fileKey,
           type: resolveItemType(file.fileType, file.name),
@@ -4875,200 +4867,40 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           width: file.width,
           height: file.height,
           duration: file.duration || file.audioMetadata?.duration,
-        });
-
-        setAttachedFiles(prev => prev.map((f, idx) => idx === i ? { ...f, uploading: false, uploadedUrl: result.secure_url } : f));
+        };
       } catch (err) {
         console.error('Upload error for file', file.name, err);
-        setAttachedFiles(prev => prev.map((f, idx) => idx === i ? { ...f, error: (err as Error).message } : f));
-        continue;
+        return null;
       }
-    }
+    };
 
-    if (uploadedFiles.length === 0) {
-      setIsSendingFiles(false);
-      return;
-    }
-
-    if (chat.type === 'channel') {
-      if (!isChannelOwner) {
-        setIsSendingFiles(false);
-        return;
-      }
-
-      for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
-        const file = uploadedFiles[fIdx];
-        const postCaption = fIdx === 0 ? (caption || '') : '';
-        const optimisticId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const localMessage: Message = {
-          id: optimisticId,
-          senderId: myCode,
-          sender: myNickname,
-          isOutgoing: true,
-          text: postCaption,
-          time: Date.now(),
-          read: true,
-          status: 'sent',
-          mediaType: file.type,
-          mediaUrl: file.url,
-          mediaName: file.name,
-          mediaKey: file.key,
-          mime: file.mime,
-          audioMetadata: file.audioMetadata,
-          width: file.width,
-          height: file.height,
-          duration: file.duration,
-        };
-        addMessage(activeChatId, localMessage);
-        updateChat(activeChatId, { lastMsg: postCaption || file.name || 'Новый медиа-пост' });
-
-        channelService.publishPost(
-          activeChatId,
-          myNickname,
-          postCaption,
-          {
-            type: file.type,
-            url: file.url,
-            name: file.name,
-            mime: file.mime,
-            duration: file.duration,
-            width: file.width,
-            height: file.height,
-            audioMetadata: file.audioMetadata,
-          },
-          undefined,
-          optimisticId
-        ).then((post) => {
-          if (post && post.id !== optimisticId) {
-            useChatStore.setState((state) => {
-              const currentMsgs = state.messagesByChatId[activeChatId] || [];
-              return {
-                messagesByChatId: {
-                  ...state.messagesByChatId,
-                  [activeChatId]: currentMsgs.map((m) =>
-                    m.id === optimisticId ? { ...m, id: post.id, time: post.time || m.time } : m
-                  ),
-                },
-              };
-            });
-          }
-        });
-      }
-
-      setAttachedFiles([]);
-      setIsAttachmentModalOpen(false);
-      setIsSendingFiles(false);
-      return;
-    }
-
-    if (isBotChat) {
-      const shouldGroup = group && uploadedFiles.length > 1;
-      if (shouldGroup) {
-        const CHUNK_SIZE = 10;
-        const chunks: typeof uploadedFiles[] = [];
-        for (let i = 0; i < uploadedFiles.length; i += CHUNK_SIZE) {
-          chunks.push(uploadedFiles.slice(i, i + CHUNK_SIZE));
-        }
-        for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
-          const chunkFiles = chunks[cIdx];
-          const chunkCaption = cIdx === 0 ? (caption || '') : '';
-          const localMessage: Message = {
-            id: `msg_${Date.now()}_${cIdx}_${Math.random().toString(36).substr(2, 9)}`,
-            senderId: myCode,
-            sender: myNickname,
-            isOutgoing: true,
-            text: chunkCaption,
-            time: Date.now() + cIdx,
-            read: true,
-            status: 'sent',
-            mediaItems: chunkFiles,
-          };
-          addMessage(activeChatId, localMessage);
-          updateChat(activeChatId, { lastMsg: chunkCaption || '[MediaGroup]' });
-          const mediaSummary = chunkFiles.map((f) => `[${f.type}] ${f.name} (${f.url})`).join('\n');
-          const fullText = chunkCaption ? `${chunkCaption}\n\n${mediaSummary}` : mediaSummary;
-          if (activeChatId === 'system_support') {
-            supportService.handleUserMessage(fullText, t, chunkFiles[0].url, chunkFiles[0].type);
-          } else {
-            orbitosService.handleUserMessage(fullText, t, chunkFiles[0].url, chunkFiles[0].type, chunkFiles[0].mime);
-          }
-        }
-      } else {
-        for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
-          const file = uploadedFiles[fIdx];
-          const postCaption = fIdx === 0 ? (caption || '') : '';
-          const localMessage: Message = {
-            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            senderId: myCode,
-            sender: myNickname,
-            isOutgoing: true,
-            text: postCaption,
-            time: Date.now(),
-            read: true,
-            status: 'sent',
-            mediaType: file.type,
-            mediaUrl: file.url,
-            mediaName: file.name,
-            mime: file.mime,
-            audioMetadata: file.audioMetadata,
-            width: file.width,
-            height: file.height,
-            duration: file.duration,
-          };
-          addMessage(activeChatId, localMessage);
-          updateChat(activeChatId, { lastMsg: postCaption || file.name || `[${file.type}]` });
-          const fileMsg = postCaption ? `${postCaption}\n[${file.type}] ${file.name} (${file.url})` : `[${file.type}] ${file.name} (${file.url})`;
-          if (activeChatId === 'system_support') {
-            supportService.handleUserMessage(fileMsg, t, file.url, file.type);
-          } else {
-            orbitosService.handleUserMessage(fileMsg, t, file.url, file.type, file.mime);
-          }
-        }
-      }
-      setAttachedFiles([]);
-      setIsAttachmentModalOpen(false);
-      setIsSendingFiles(false);
-      return;
-    }
-
-    if (!chat.ratchetState) {
-      setIsSendingFiles(false);
-      return;
-    }
-
-    const ratchet = DoubleRatchet.fromState(chat.ratchetState);
-
-    const shouldGroup = group && uploadedFiles.length > 1;
+    const shouldGroup = group && filesToSend.length > 1;
 
     if (shouldGroup) {
       const CHUNK_SIZE = 10;
-      const chunks: typeof uploadedFiles[] = [];
-      for (let i = 0; i < uploadedFiles.length; i += CHUNK_SIZE) {
-        chunks.push(uploadedFiles.slice(i, i + CHUNK_SIZE));
+      const chunks: (typeof filesToSend)[] = [];
+      for (let i = 0; i < filesToSend.length; i += CHUNK_SIZE) {
+        chunks.push(filesToSend.slice(i, i + CHUNK_SIZE));
       }
 
       for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
         const chunkFiles = chunks[cIdx];
         const chunkCaption = cIdx === 0 ? (caption || '') : '';
         const messageId = `msg_${Date.now()}_${cIdx}_${Math.random().toString(36).substr(2, 9)}`;
-        const messageData = {
-          id: messageId,
-          senderId: myCode,
-          text: chunkCaption,
-          mediaItems: chunkFiles.map(f => ({
-            ...f,
-            type: f.type,
-            key: f.key,
-            audioMetadata: f.audioMetadata ? {
-              title: f.audioMetadata.title,
-              artist: f.audioMetadata.artist,
-              duration: f.audioMetadata.duration,
-              size: f.audioMetadata.size,
-            } : undefined,
-          })),
-        };
-        const plaintext = JSON.stringify(messageData);
-        const { ciphertext, index, dhPublicKey: groupDhPublicKey } = await ratchet.encrypt(plaintext);
+
+        const initialMediaItems: MediaItem[] = chunkFiles.map((file) => ({
+          url: file.filePath || '',
+          type: resolveItemType(file.fileType, file.name),
+          name: file.name,
+          mime: resolveMime(file.fileType, file.name),
+          audioMetadata: file.audioMetadata,
+          size: file.sizeMb ? file.sizeMb * 1024 * 1024 : file.audioMetadata?.size,
+          width: file.width,
+          height: file.height,
+          duration: file.duration || file.audioMetadata?.duration,
+          uploading: true,
+          uploadedMb: 0,
+        }));
 
         const localMessage: Message = {
           id: messageId,
@@ -5077,137 +4909,411 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           isOutgoing: true,
           text: chunkCaption,
           time: Date.now() + cIdx,
-          read: false,
-          status: 'sent',
-          encryptedText: ciphertext,
-          index,
-          mediaItems: chunkFiles,
+          read: true,
+          status: 'sending',
+          uploading: true,
+          mediaItems: initialMediaItems,
         };
         addMessage(activeChatId, localMessage);
-        updateChat(activeChatId, { ratchetState: ratchet.getState() });
+        updateChat(activeChatId, { lastMsg: chunkCaption || '[MediaGroup]' });
 
-        const pusher = getPusher();
-        const channel = pusher.subscribe(`private-chat-${activeChatId}`);
-        const send = () => {
-          channel.trigger('client-message', {
-            type: 'message',
-            ciphertext,
-            index,
-            dhPublicKey: groupDhPublicKey,
-            messageId,
-            chatId: activeChatId,
-            sender: myNickname,
-            senderCode: myCode,
-            senderId: myCode,
-          });
-        };
-        if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+        (async () => {
+          const uploadedItems: MediaItem[] = [];
+          for (let fIdx = 0; fIdx < chunkFiles.length; fIdx++) {
+            const currentFile = chunkFiles[fIdx];
+            const uploaded = await uploadSingleFile(currentFile, (uploadedBytes) => {
+              const uploadedMb = uploadedBytes / (1024 * 1024);
+              useChatStore.setState((state) => {
+                const msgs = state.messagesByChatId[activeChatId];
+                if (!msgs) return state;
+                return {
+                  messagesByChatId: {
+                    ...state.messagesByChatId,
+                    [activeChatId]: msgs.map((m) => {
+                      if (m.id !== messageId) return m;
+                      const updatedItems = m.mediaItems ? m.mediaItems.map((it, idx) =>
+                        idx === fIdx ? { ...it, uploadedMb } : it
+                      ) : undefined;
+                      return { ...m, mediaItems: updatedItems };
+                    }),
+                  },
+                };
+              });
+            });
 
-        try {
-          const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
-          if (activeChat?.type === 'private') {
-            for (const rId of recipientTargets) {
-              await supabaseService.sendOfflineMessage(
-                activeChatId, myNickname, rId, ciphertext, index, groupDhPublicKey, messageId
+            if (!uploaded) return;
+            uploadedItems.push({
+              ...uploaded,
+              uploading: false,
+            });
+          }
+
+          const isPresent = useChatStore.getState().messagesByChatId[activeChatId]?.some((m) => m.id === messageId);
+          if (!isPresent) return;
+
+          if (isChannel) {
+            useChatStore.setState((state) => {
+              const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: currentMsgs.map((m) =>
+                    m.id === messageId ? { ...m, status: 'sent', uploading: false, mediaItems: uploadedItems } : m
+                  ),
+                },
+              };
+            });
+            for (let fIdx = 0; fIdx < uploadedItems.length; fIdx++) {
+              const f = uploadedItems[fIdx];
+              channelService.publishPost(
+                activeChatId,
+                myNickname,
+                fIdx === 0 ? chunkCaption : '',
+                {
+                  type: f.type,
+                  url: f.url,
+                  name: f.name,
+                  mime: f.mime,
+                  duration: f.duration,
+                  width: f.width,
+                  height: f.height,
+                  audioMetadata: f.audioMetadata,
+                },
+                undefined,
+                messageId
               );
             }
+            return;
           }
-        } catch (err) {
-          console.error('Failed to save offline message:', err);
-        }
+
+          if (isBotChat) {
+            useChatStore.setState((state) => {
+              const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: currentMsgs.map((m) =>
+                    m.id === messageId ? { ...m, status: 'sent', uploading: false, mediaItems: uploadedItems } : m
+                  ),
+                },
+              };
+            });
+            const mediaSummary = uploadedItems.map((f) => `[${f.type}] ${f.name} (${f.url})`).join('\n');
+            const fullText = chunkCaption ? `${chunkCaption}\n\n${mediaSummary}` : mediaSummary;
+            if (activeChatId === 'system_support') {
+              supportService.handleUserMessage(fullText, t, uploadedItems[0]?.url, uploadedItems[0]?.type);
+            } else {
+              orbitosService.handleUserMessage(fullText, t, uploadedItems[0]?.url, uploadedItems[0]?.type, uploadedItems[0]?.mime);
+            }
+            return;
+          }
+
+          const currentChat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
+          if (!currentChat?.ratchetState) return;
+
+          const ratchet = DoubleRatchet.fromState(currentChat.ratchetState);
+          const messageData = {
+            id: messageId,
+            senderId: myCode,
+            text: chunkCaption,
+            mediaItems: uploadedItems.map((f) => ({
+              ...f,
+              type: f.type,
+              key: f.key,
+              audioMetadata: f.audioMetadata ? {
+                title: f.audioMetadata.title,
+                artist: f.audioMetadata.artist,
+                duration: f.audioMetadata.duration,
+                size: f.audioMetadata.size,
+              } : undefined,
+            })),
+          };
+          const plaintext = JSON.stringify(messageData);
+          const { ciphertext, index, dhPublicKey: groupDhPublicKey } = await ratchet.encrypt(plaintext);
+
+          useChatStore.setState((state) => {
+            const currentMsgs = state.messagesByChatId[activeChatId] || [];
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [activeChatId]: currentMsgs.map((m) =>
+                  m.id === messageId
+                    ? {
+                        ...m,
+                        status: 'sent',
+                        uploading: false,
+                        encryptedText: ciphertext,
+                        index,
+                        mediaItems: uploadedItems,
+                      }
+                    : m
+                ),
+              },
+            };
+          });
+          updateChat(activeChatId, { ratchetState: ratchet.getState() });
+
+          const pusher = getPusher();
+          const channel = pusher.subscribe(`private-chat-${activeChatId}`);
+          const send = () => {
+            channel.trigger('client-message', {
+              type: 'message',
+              ciphertext,
+              index,
+              dhPublicKey: groupDhPublicKey,
+              messageId,
+              chatId: activeChatId,
+              sender: myNickname,
+              senderCode: myCode,
+              senderId: myCode,
+            });
+          };
+          if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+
+          try {
+            const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+            if (activeChat?.type === 'private') {
+              for (const rId of recipientTargets) {
+                await supabaseService.sendOfflineMessage(
+                  activeChatId, myNickname, rId, ciphertext, index, groupDhPublicKey, messageId
+                );
+              }
+            }
+          } catch (err) {
+            console.error('Failed to save offline message:', err);
+          }
+        })();
       }
     } else {
-      for (const file of uploadedFiles) {
-        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const networkAudioMetadata = file.audioMetadata ? {
-          title: file.audioMetadata.title,
-          artist: file.audioMetadata.artist,
-          duration: file.audioMetadata.duration,
-          size: file.audioMetadata.size,
-        } : undefined;
-
-        const messageData = {
-          id: messageId,
-          senderId: myCode,
-          text: caption || '',
-          mediaType: file.type,
-          mediaUrl: file.url,
-          mediaName: file.name,
-          mediaKey: file.key,
-          mime: file.mime,
-          audioMetadata: networkAudioMetadata,
-          width: file.width,
-          height: file.height,
-          duration: file.duration,
-        };
-        const plaintext = JSON.stringify(messageData);
-        const { ciphertext, index, dhPublicKey: fileDhPublicKey } = await ratchet.encrypt(plaintext);
+      for (let fIdx = 0; fIdx < filesToSend.length; fIdx++) {
+        const file = filesToSend[fIdx];
+        const postCaption = fIdx === 0 ? (caption || '') : '';
+        const messageId = `msg_${Date.now()}_${fIdx}_${Math.random().toString(36).substr(2, 9)}`;
+        const itemType = resolveItemType(file.fileType, file.name);
+        const itemMime = resolveMime(file.fileType, file.name);
 
         const localMessage: Message = {
           id: messageId,
           senderId: myCode,
           sender: myNickname,
           isOutgoing: true,
-          text: caption || '',
-          time: Date.now(),
-          read: false,
-          status: 'sent',
-          encryptedText: ciphertext,
-          index,
-          mediaType: file.type,
-          mediaUrl: file.url,
+          text: postCaption,
+          time: Date.now() + fIdx,
+          read: true,
+          status: 'sending',
+          uploading: true,
+          uploadedMb: 0,
+          mediaType: itemType,
+          mediaUrl: file.filePath || '',
           mediaName: file.name,
-          mediaKey: file.key,
-          mime: file.mime,
+          mime: itemMime,
           audioMetadata: file.audioMetadata,
           width: file.width,
           height: file.height,
-          duration: file.duration,
+          duration: file.duration || file.audioMetadata?.duration,
         };
         addMessage(activeChatId, localMessage);
-        updateChat(activeChatId, { ratchetState: ratchet.getState() });
+        updateChat(activeChatId, { lastMsg: postCaption || file.name || `[${itemType}]` });
 
-        const pusher = getPusher();
-        const channel = pusher.subscribe(`private-chat-${activeChatId}`);
-        const send = () => {
-          channel.trigger('client-message', {
-            type: 'message',
-            ciphertext,
-            index,
-            dhPublicKey: fileDhPublicKey,
-            messageId,
-            chatId: activeChatId,
-            sender: myNickname,
-            senderCode: myCode,
-            senderId: myCode,
+        (async () => {
+          const uploaded = await uploadSingleFile(file, (uploadedBytes) => {
+            const uploadedMb = uploadedBytes / (1024 * 1024);
+            useChatStore.setState((state) => {
+              const msgs = state.messagesByChatId[activeChatId];
+              if (!msgs) return state;
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: msgs.map((m) =>
+                    m.id === messageId ? { ...m, uploadedMb } : m
+                  ),
+                },
+              };
+            });
           });
-        };
-        if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
 
-        try {
-          const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
-          if (activeChat?.type === 'private') {
-            for (const rId of recipientTargets) {
-              await supabaseService.sendOfflineMessage(
-                activeChatId, myNickname, rId, ciphertext, index, fileDhPublicKey, messageId
-              );
-            }
+          if (!uploaded) return;
+
+          const isPresent = useChatStore.getState().messagesByChatId[activeChatId]?.some((m) => m.id === messageId);
+          if (!isPresent) return;
+
+          if (isChannel) {
+            useChatStore.setState((state) => {
+              const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: currentMsgs.map((m) =>
+                    m.id === messageId
+                      ? {
+                          ...m,
+                          status: 'sent',
+                          uploading: false,
+                          mediaUrl: uploaded.url,
+                          mediaKey: uploaded.key,
+                          mime: uploaded.mime,
+                          audioMetadata: uploaded.audioMetadata,
+                        }
+                      : m
+                  ),
+                },
+              };
+            });
+            channelService.publishPost(
+              activeChatId,
+              myNickname,
+              postCaption,
+              {
+                type: uploaded.type,
+                url: uploaded.url,
+                name: uploaded.name,
+                mime: uploaded.mime,
+                duration: uploaded.duration,
+                width: uploaded.width,
+                height: uploaded.height,
+                audioMetadata: uploaded.audioMetadata,
+              },
+              undefined,
+              messageId
+            ).then((post) => {
+              if (post && post.id !== messageId) {
+                useChatStore.setState((state) => {
+                  const currentMsgs = state.messagesByChatId[activeChatId] || [];
+                  return {
+                    messagesByChatId: {
+                      ...state.messagesByChatId,
+                      [activeChatId]: currentMsgs.map((m) =>
+                        m.id === messageId ? { ...m, id: post.id, time: post.time || m.time } : m
+                      ),
+                    },
+                  };
+                });
+              }
+            });
+            return;
           }
-        } catch (err) {
-          console.error('Failed to save offline message:', err);
-        }
+
+          if (isBotChat) {
+            useChatStore.setState((state) => {
+              const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: currentMsgs.map((m) =>
+                    m.id === messageId
+                      ? {
+                          ...m,
+                          status: 'sent',
+                          uploading: false,
+                          mediaUrl: uploaded.url,
+                          mediaKey: uploaded.key,
+                          mime: uploaded.mime,
+                          audioMetadata: uploaded.audioMetadata,
+                        }
+                      : m
+                  ),
+                },
+              };
+            });
+            const fileMsg = postCaption ? `${postCaption}\n[${uploaded.type}] ${uploaded.name} (${uploaded.url})` : `[${uploaded.type}] ${uploaded.name} (${uploaded.url})`;
+            if (activeChatId === 'system_support') {
+              supportService.handleUserMessage(fileMsg, t, uploaded.url, uploaded.type);
+            } else {
+              orbitosService.handleUserMessage(fileMsg, t, uploaded.url, uploaded.type, uploaded.mime);
+            }
+            return;
+          }
+
+          const currentChat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
+          if (!currentChat?.ratchetState) return;
+
+          const ratchet = DoubleRatchet.fromState(currentChat.ratchetState);
+          const networkAudioMetadata = uploaded.audioMetadata ? {
+            title: uploaded.audioMetadata.title,
+            artist: uploaded.audioMetadata.artist,
+            duration: uploaded.audioMetadata.duration,
+            size: uploaded.audioMetadata.size,
+          } : undefined;
+
+          const messageData = {
+            id: messageId,
+            senderId: myCode,
+            text: postCaption,
+            mediaType: uploaded.type,
+            mediaUrl: uploaded.url,
+            mediaName: uploaded.name,
+            mediaKey: uploaded.key,
+            mime: uploaded.mime,
+            audioMetadata: networkAudioMetadata,
+            width: uploaded.width,
+            height: uploaded.height,
+            duration: uploaded.duration,
+          };
+          const plaintext = JSON.stringify(messageData);
+          const { ciphertext, index, dhPublicKey: fileDhPublicKey } = await ratchet.encrypt(plaintext);
+
+          useChatStore.setState((state) => {
+            const currentMsgs = state.messagesByChatId[activeChatId] || [];
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [activeChatId]: currentMsgs.map((m) =>
+                  m.id === messageId
+                    ? {
+                        ...m,
+                        status: 'sent',
+                        uploading: false,
+                        encryptedText: ciphertext,
+                        index,
+                        mediaType: uploaded.type,
+                        mediaUrl: uploaded.url,
+                        mediaName: uploaded.name,
+                        mediaKey: uploaded.key,
+                        mime: uploaded.mime,
+                        audioMetadata: uploaded.audioMetadata,
+                        width: uploaded.width,
+                        height: uploaded.height,
+                        duration: uploaded.duration,
+                      }
+                    : m
+                ),
+              },
+            };
+          });
+          updateChat(activeChatId, { ratchetState: ratchet.getState() });
+
+          const pusher = getPusher();
+          const channel = pusher.subscribe(`private-chat-${activeChatId}`);
+          const send = () => {
+            channel.trigger('client-message', {
+              type: 'message',
+              ciphertext,
+              index,
+              dhPublicKey: fileDhPublicKey,
+              messageId,
+              chatId: activeChatId,
+              sender: myNickname,
+              senderCode: myCode,
+              senderId: myCode,
+            });
+          };
+          if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+
+          try {
+            const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+            if (activeChat?.type === 'private') {
+              for (const rId of recipientTargets) {
+                await supabaseService.sendOfflineMessage(
+                  activeChatId, myNickname, rId, ciphertext, index, fileDhPublicKey, messageId
+                );
+              }
+            }
+          } catch (err) {
+            console.error('Failed to save offline message:', err);
+          }
+        })();
       }
     }
-
-    if (draftDebounceTimerRef.current) {
-      clearTimeout(draftDebounceTimerRef.current);
-      draftDebounceTimerRef.current = null;
-    }
-    if (activeChatId) clearDraft(activeChatId);
-    setAttachedFiles([]);
-    setIsAttachmentModalOpen(false);
-    setIsSendingFiles(false);
-    setInputText('');
   };
 
   const handleAddMoreFiles = () => {
@@ -5390,8 +5496,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
 
 
-  const renderMediaGroup = useCallback((msg: Message, index: number, customRadius?: string) => {
-    const mediaItems = msg.mediaItems;
+  const renderMediaGroup = useCallback((msg: Message, index: number, customRadius?: string, overrideItems?: MediaItem[]) => {
+    const mediaItems = overrideItems || msg.mediaItems;
     if (!mediaItems || mediaItems.length === 0) return null;
 
     const isAudioItem = (item: MediaItem) =>
@@ -5419,6 +5525,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           msg={msg}
           timeNode={timeBadge(msg, isMessagePinned(index))}
           isOwn={isOwn}
+          onCancelUpload={msg.uploading ? () => {
+            if (activeChatId && msg.id) {
+              useChatStore.getState().deleteMessage(activeChatId, msg.id);
+            }
+          } : undefined}
         />
       );
     }
@@ -5668,45 +5779,59 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     const renderContent = () => {
       const mediaItems = msg.mediaItems;
-    if (mediaItems && mediaItems.length > 0) {
-      return (
-        <div style={{ ...highlightWrapperStyle }}>
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-            <div
-              data-message="true"
-              data-message-id={msg.id}
-              data-sender={msg.sender}
-              data-read={String(msg.read)}
-              data-datelabel={getDateLabel(msg.time)}
-              className={`group relative flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isUnselected ? 'message-unselected' : ''}`}
-              style={{
-                transformOrigin: isOwn ? 'top right' : 'top left',
-                flex: 1,
-                filter: isUnselected ? 'brightness(0.55)' : 'none',
-                transition: 'filter 0.15s ease',
-              }}
-              onClick={(e) => handleMessageClick(e, msg.id!)}
-              onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
-            >
+      const isSingleImageOrVideo = (media.type === 'image' || media.type === 'video') && Boolean(media.url || msg.mediaUrl);
+      const effectiveMediaItems = (mediaItems && mediaItems.length > 0)
+        ? mediaItems
+        : (isSingleImageOrVideo ? [{
+            type: (media.type === 'video' || msg.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(media.fileName || msg.mediaName || '')) ? ('video' as const) : ('photo' as const),
+            url: media.url || msg.mediaUrl || '',
+            name: media.fileName || msg.mediaName || '',
+            mime: msg.mime,
+            key: msg.mediaKey,
+            duration: msg.duration,
+            width: msg.width,
+            height: msg.height,
+          }] : null);
+
+      if (effectiveMediaItems && effectiveMediaItems.length > 0) {
+        return (
+          <div style={{ ...highlightWrapperStyle }}>
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
               <div
-                className="relative"
-                style={bubbleStyle(isOwn, {
-                  borderRadius: customRadius,
-                  padding: '1px 1px 4px 1px',
-                  overflow: 'hidden',
-                  width: 'fit-content',
-                  maxWidth: 'min(440px, 75%)',
-                  boxSizing: 'border-box',
-                })}
+                data-message="true"
+                data-message-id={msg.id}
+                data-sender={msg.sender}
+                data-read={String(msg.read)}
+                data-datelabel={getDateLabel(msg.time)}
+                className={`group relative flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isUnselected ? 'message-unselected' : ''}`}
+                style={{
+                  transformOrigin: isOwn ? 'top right' : 'top left',
+                  flex: 1,
+                  filter: isUnselected ? 'brightness(0.55)' : 'none',
+                  transition: 'filter 0.15s ease',
+                }}
+                onClick={(e) => handleMessageClick(e, msg.id!)}
+                onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
               >
-                {renderMediaGroup(msg, index, customRadius)}
+                <div
+                  className="relative"
+                  style={bubbleStyle(isOwn, {
+                    borderRadius: customRadius,
+                    padding: '1px 1px 4px 1px',
+                    overflow: 'hidden',
+                    width: 'fit-content',
+                    maxWidth: 'min(440px, 75%)',
+                    boxSizing: 'border-box',
+                  })}
+                >
+                  {renderMediaGroup(msg, index, customRadius, effectiveMediaItems)}
+                </div>
+                {renderReactionBadges(msg, index)}
               </div>
-              {renderReactionBadges(msg, index)}
             </div>
           </div>
-        </div>
-      );
-    }
+        );
+      }
 
     if (!media.type) {
       const isPinned = isMessagePinned(index);
@@ -5997,6 +6122,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
                 timeNode={timeBadge(msg, isMessagePinned(index))}
                 isOwn={isOwn}
+                onCancelUpload={msg.uploading ? () => {
+                  if (activeChatId && msg.id) {
+                    useChatStore.getState().deleteMessage(activeChatId, msg.id);
+                  }
+                } : undefined}
               />
             )}
 
@@ -6629,7 +6759,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             setIsAttachmentModalOpen(false);
           }}
           onAddFiles={handleAddMoreFiles}
-          onRemoveFile={(idx) => {
+          onRemoveFile={(idx: number) => {
             setAttachedFiles((prev) => {
               const next = prev.filter((_, i) => i !== idx);
               if (next.length === 0) setIsAttachmentModalOpen(false);

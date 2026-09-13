@@ -96,6 +96,8 @@ export interface MediaItem {
   height?: number;
   duration?: number;
   audioMetadata?: AudioMetadata;
+  uploading?: boolean;
+  uploadedMb?: number;
 }
 
 interface AudioMetadata {
@@ -126,7 +128,9 @@ export interface Message {
   ttlSeconds?: number;
   expiresAt?: number;
   read?: boolean;
-  status?: 'sent' | 'delivered' | 'read';
+  status?: 'sent' | 'delivered' | 'read' | 'pending' | 'sending';
+  uploading?: boolean;
+  uploadedMb?: number;
   mediaType?: 'photo' | 'video' | 'audio' | 'voice' | 'file' | 'call' | 'emoji' | 'gif' | 'sticker' | null;
   mediaUrl?: string;
   mediaName?: string;

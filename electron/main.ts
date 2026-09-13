@@ -1841,8 +1841,11 @@ ipcMain.handle('orbita:getAudioMetadata', async (_event, filePath: string) => {
         const duration = tags.duration || 0;
         const size = fs.statSync(filePath).size;
         let cover: string | null = null;
-
-        cover = null;
+        const picture = tags.picture;
+        if (picture && picture.data && picture.format) {
+          const base64 = Buffer.from(picture.data).toString('base64');
+          cover = `data:${picture.format};base64,${base64}`;
+        }
 
         resolve({ success: true, title, artist, duration, size, cover });
       },

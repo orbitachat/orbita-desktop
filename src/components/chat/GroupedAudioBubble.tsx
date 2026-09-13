@@ -1,5 +1,6 @@
 import { memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { X, Music } from 'lucide-react';
 import { MediaItem, Message } from '../../store/useChatStore';
 import { useAudioStore } from '../../store/useAudioStore';
 import { AudioCoverWithPlay } from '../audio/AudioCoverWithPlay';
@@ -11,6 +12,7 @@ interface GroupedAudioBubbleProps {
   msg: Message;
   timeNode?: React.ReactNode;
   isOwn?: boolean;
+  onCancelUpload?: () => void;
 }
 
 const AudioTrackRow = memo(({
@@ -18,18 +20,21 @@ const AudioTrackRow = memo(({
   sharedSecret,
   isCurrentTrack,
   isPlaying,
-  msgId,
+  msg,
   isOwn = false,
   onPlayToggle,
+  onCancelUpload,
 }: {
   item: MediaItem;
   sharedSecret: string | undefined;
   isCurrentTrack: boolean;
   isPlaying: boolean;
-  msgId?: string;
+  msg: Message;
   isOwn?: boolean;
   onPlayToggle: (resolvedCover: string | null, resolvedDuration: number, resolvedTitle: string, resolvedArtist: string) => void;
+  onCancelUpload?: () => void;
 }) => {
+  const msgId = msg.id;
   const { t } = useTranslation();
   const [cover, setCover] = useState<string | null>(item.audioMetadata?.cover || null);
   const [duration, setDuration] = useState<number>(item.audioMetadata?.duration || item.duration || 0);
@@ -118,9 +123,16 @@ const AudioTrackRow = memo(({
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  const isUploading = Boolean(item.uploading || (isOwn && (msg.status === 'sending' || msg.status === 'pending')));
+
   const handleRowClick = () => {
+    if (isUploading) return;
     onPlayToggle(cover, duration, title, artist);
   };
+
+  const itemTotalSize = item.size || (item.audioMetadata?.size || 0);
+  const sizeMbStr = itemTotalSize > 0 ? (itemTotalSize / (1024 * 1024)).toFixed(1) : '0.0';
+  const uploadedMbStr = (item.uploadedMb || 0).toFixed(1);
 
   return (
     <div
@@ -131,20 +143,48 @@ const AudioTrackRow = memo(({
         WebkitUserSelect: 'none',
       }}
     >
-      <AudioCoverWithPlay
-        cover={cover}
-        isPlayingTrack={isCurrentTrack && isPlaying}
-        size={40}
-        onClick={handleRowClick}
-      />
+      {isUploading ? (
+        <div
+          className="relative flex-shrink-0 cursor-pointer overflow-hidden rounded-full flex items-center justify-center select-none"
+          style={{ width: '40px', height: '40px', minWidth: '40px', minHeight: '40px' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCancelUpload?.();
+          }}
+        >
+          {cover ? (
+            <img src={cover} alt="" className="w-full h-full object-cover select-none pointer-events-none" />
+          ) : (
+            <div className="w-full h-full bg-[var(--surface-container-soft,rgba(255,255,255,0.1))] flex items-center justify-center">
+              <Music size={20} className="text-[var(--text-dim)]" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/45 flex items-center justify-center transition-colors hover:bg-black/60">
+            <X size={18} strokeWidth={2.4} className="text-white" />
+          </div>
+        </div>
+      ) : (
+        <AudioCoverWithPlay
+          cover={cover}
+          isPlayingTrack={isCurrentTrack && isPlaying}
+          size={40}
+          onClick={handleRowClick}
+        />
+      )}
 
       <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">
         <span className="truncate text-[13px] font-semibold leading-snug" style={{ color: isOwn ? '#ffffff' : 'var(--text-main)' }}>
           {artist ? `${artist} – ${title}` : title}
         </span>
-        <span className="text-[11px] font-medium mt-0.5 tabular-nums" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.8)' : 'var(--text-dim)' }}>
-          {formatTime(duration)}
-        </span>
+        {isUploading ? (
+          <span className="text-[11px] font-medium mt-0.5 tabular-nums" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.8)' : 'var(--text-dim)' }}>
+            {`${uploadedMbStr} / ${sizeMbStr} MB`}
+          </span>
+        ) : (
+          <span className="text-[11px] font-medium mt-0.5 tabular-nums" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.8)' : 'var(--text-dim)' }}>
+            {formatTime(duration)}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -158,6 +198,7 @@ export const GroupedAudioBubble = memo(({
   msg,
   timeNode,
   isOwn = false,
+  onCancelUpload,
 }: GroupedAudioBubbleProps) => {
   const currentTrack = useAudioStore((state) => state.currentTrack);
   const isGlobalPlaying = useAudioStore((state) => state.isPlaying);
@@ -209,9 +250,10 @@ export const GroupedAudioBubble = memo(({
 
   return (
     <div
-      className="grouped-audio-bubble flex flex-col w-[260px] select-none"
+      className="grouped-audio-bubble flex flex-col w-[330px] max-w-full select-none"
       style={{
-        width: '260px',
+        width: '330px',
+        maxWidth: '100%',
         padding: '6px 8px 6px 8px',
         position: 'relative',
         boxSizing: 'border-box',
@@ -241,8 +283,9 @@ export const GroupedAudioBubble = memo(({
               sharedSecret={sharedSecret}
               isCurrentTrack={isThisTrack}
               isPlaying={isGlobalPlaying}
-              msgId={msg.id}
+              msg={msg}
               isOwn={isOwn}
+              onCancelUpload={onCancelUpload}
               onPlayToggle={(resolvedCover, resolvedDuration, resolvedTitle, resolvedArtist) =>
                 handlePlayToggle(item, index, resolvedCover, resolvedDuration, resolvedTitle, resolvedArtist)
               }

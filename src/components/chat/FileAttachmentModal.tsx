@@ -31,6 +31,37 @@ export interface AttachedFile {
   duration?: number;
 }
 
+const AudioModalItemCover = ({ file }: { file: AttachedFile }) => {
+  const [cover, setCover] = useState<string | null>(file.audioMetadata?.cover || null);
+
+  useEffect(() => {
+    if (file.audioMetadata?.cover) {
+      setCover(file.audioMetadata.cover);
+      return;
+    }
+    let cancelled = false;
+    if (file.filePath && window.orbita?.getAudioMetadata) {
+      window.orbita.getAudioMetadata(file.filePath).then((meta) => {
+        if (!cancelled && meta?.cover) {
+          setCover(meta.cover);
+          if (file.audioMetadata) file.audioMetadata.cover = meta.cover;
+        }
+      }).catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [file.filePath, file.audioMetadata?.cover]);
+
+  return (
+    <AudioCoverWithPlay
+      cover={cover}
+      isPlayingTrack={false}
+      size={40}
+    />
+  );
+};
+
 interface FileAttachmentModalProps {
   files: AttachedFile[];
   isOpen: boolean;
@@ -59,7 +90,6 @@ export const FileAttachmentModal = ({
   const captionRef = useRef<HTMLTextAreaElement>(null);
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Default group to true when 2+ files
   useEffect(() => {
     if (files.length > 1) {
       setGroup(true);
@@ -100,7 +130,6 @@ export const FileAttachmentModal = ({
   const allPhotosOrVideos = files.every((f) => f.fileType === 'photo' || f.fileType === 'video');
   const showVisualMediaPreview = allPhotosOrVideos && !asFile;
 
-  // Title formatting
   let title = '';
   if (isSingleMedia) {
     if (firstFile.fileType === 'photo') title = t('chatWindow.send_image', 'Отправить изображение');
@@ -166,7 +195,6 @@ export const FileAttachmentModal = ({
               boxShadow: '0 12px 36px rgba(0,0,0,0.65)',
             }}
           >
-            {/* 1. Header */}
             <div className="flex items-center justify-between pb-3">
               <h3 className="text-[15px] font-bold text-[var(--text-main)] truncate tracking-tight">
                 {title}
@@ -181,12 +209,9 @@ export const FileAttachmentModal = ({
               </div>
             </div>
 
-            {/* 2. Content Area */}
             <div className="overflow-y-auto max-h-[340px] custom-scrollbar flex flex-col py-1">
               {showVisualMediaPreview ? (
-                /* Visual Photo/Video Tiles (Single or Multiple Album) */
                 isSingleMedia ? (
-                  /* Single Image / Video Preview */
                   <div className="relative w-full max-h-[280px] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-muted,rgba(0,0,0,0.3))]">
                     {firstFile.preview ? (
                       firstFile.fileType === 'video' ? (
@@ -219,7 +244,6 @@ export const FileAttachmentModal = ({
                     )}
                   </div>
                 ) : (
-                  /* Multiple Photos/Videos Grid (Album Preview) */
                   <div
                     className={`grid gap-2 w-full ${
                       files.length === 2
@@ -263,7 +287,6 @@ export const FileAttachmentModal = ({
                             </div>
                           )}
 
-                          {/* Video Badge */}
                           {file.fileType === 'video' && (
                             <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white px-1.5 py-0.5 rounded text-[11px] font-medium">
                               <Play size={10} fill="white" />
@@ -271,7 +294,6 @@ export const FileAttachmentModal = ({
                             </div>
                           )}
 
-                          {/* Remove button */}
                           {onRemoveFile && (
                             <button
                               type="button"
@@ -287,7 +309,6 @@ export const FileAttachmentModal = ({
                   </div>
                 )
               ) : (
-                /* Multiple / Audio / File Items List */
                 <div className="flex flex-col gap-2 w-full">
                   {files.map((file, idx) => {
                     const isAudio = file.fileType === 'audio';
@@ -299,14 +320,9 @@ export const FileAttachmentModal = ({
                         className="flex items-center gap-3 py-1 px-0 bg-transparent transition-colors"
                         style={{ backgroundColor: 'transparent' }}
                       >
-                        {/* Thumbnail */}
                         <div className="w-10 h-10 flex-shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-[var(--surface-muted,rgba(255,255,255,0.06))]">
                           {isAudio ? (
-                            <AudioCoverWithPlay
-                              cover={file.audioMetadata?.cover || null}
-                              isPlayingTrack={false}
-                              size={40}
-                            />
+                            <AudioModalItemCover file={file} />
                           ) : isPhotoOrVideo && file.preview ? (
                             <img
                               src={file.preview}
@@ -317,8 +333,6 @@ export const FileAttachmentModal = ({
                             <FileText size={22} className="text-[var(--accent-light)]" />
                           )}
                         </div>
-
-                        {/* Title & Size */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <div className="text-[13.5px] font-bold text-[var(--text-main)] truncate leading-snug">
                             {isAudio && file.audioMetadata?.title
@@ -331,7 +345,6 @@ export const FileAttachmentModal = ({
                           </div>
                         </div>
 
-                        {/* Row Action Buttons */}
                         <div className="flex items-center gap-1.5 text-[var(--text-dim)]">
                           <button
                             type="button"
@@ -356,9 +369,7 @@ export const FileAttachmentModal = ({
               )}
             </div>
 
-            {/* 3. Checkboxes Area */}
             <div className="flex flex-col gap-2.5 pt-3 pb-2">
-              {/* Send as file checkbox (for photos/videos) */}
               {allPhotosOrVideos && (
                 <label
                   className="flex items-center gap-3 cursor-pointer select-none"
@@ -389,7 +400,6 @@ export const FileAttachmentModal = ({
                 </label>
               )}
 
-              {/* Remember choice checkbox */}
               {asFile && (
                 <label
                   className="flex items-center gap-3 cursor-pointer select-none"
@@ -420,7 +430,6 @@ export const FileAttachmentModal = ({
                 </label>
               )}
 
-              {/* Group checkbox */}
               {files.length > 1 && (
                 <label
                   className="flex items-center gap-3 cursor-pointer select-none"
@@ -452,7 +461,6 @@ export const FileAttachmentModal = ({
               )}
             </div>
 
-            {/* 4. Caption */}
             <div className="relative pt-2">
               <div
                 style={{
@@ -486,7 +494,6 @@ export const FileAttachmentModal = ({
                 </button>
               </div>
 
-              {/* Emoji Picker Popup */}
               {showEmojiPicker && (
                 <div
                   className="absolute right-0 bottom-12 z-50 shadow-2xl rounded-xl overflow-hidden"
@@ -505,7 +512,6 @@ export const FileAttachmentModal = ({
               )}
             </div>
 
-            {/* 5. Footer Action Text Buttons (No underline on hover!) */}
             <div className="flex items-center justify-between pt-5 pb-1">
               <button
                 type="button"

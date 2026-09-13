@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { X, Music } from 'lucide-react';
 import { Message } from '../../store/useChatStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
 import { useAudioStore } from '../../store/useAudioStore';
@@ -15,6 +16,7 @@ interface AudioMessageBubbleProps {
   onContextMenu?: (e: React.MouseEvent) => void;
   timeNode?: React.ReactNode;
   isOwn?: boolean;
+  onCancelUpload?: () => void;
 }
 
 export const AudioMessageBubble = memo(({
@@ -24,6 +26,7 @@ export const AudioMessageBubble = memo(({
   onContextMenu,
   timeNode,
   isOwn = false,
+  onCancelUpload,
 }: AudioMessageBubbleProps) => {
   const { t } = useTranslation();
   const [cover, setCover] = useState<string | null>(msg.audioMetadata?.cover || null);
@@ -55,7 +58,6 @@ export const AudioMessageBubble = memo(({
     msg.id
   );
 
-  // Если автозагрузка включена, загружаем сразу
   useEffect(() => {
     if (autoLoadMedia && !blobUrl && !isLoading) {
       handleDownload();
@@ -184,6 +186,11 @@ export const AudioMessageBubble = memo(({
 
   const buttonState = !blobUrl ? 'download' : (showPause ? 'pause' : 'play');
 
+  const isUploading = Boolean(msg.uploading || (isOwn && (msg.status === 'sending' || msg.status === 'pending')));
+  const itemTotalSize = msg.audioMetadata?.size || (msg as any).size || 0;
+  const sizeMbStr = itemTotalSize > 0 ? (itemTotalSize / (1024 * 1024)).toFixed(1) : '0.0';
+  const uploadedMbStr = (msg.uploadedMb || 0).toFixed(1);
+
   return (
     <div
       className="group relative flex flex-col cursor-pointer select-none"
@@ -195,7 +202,8 @@ export const AudioMessageBubble = memo(({
         border: 'none',
         padding: '8px 12px 8px 8px',
         position: 'relative',
-        width: '260px',
+        width: '330px',
+        maxWidth: '100%',
         height: '64px',
         boxSizing: 'border-box',
         overflow: 'hidden',
@@ -203,14 +211,36 @@ export const AudioMessageBubble = memo(({
       onContextMenu={onContextMenu}
     >
       <div className="flex items-start gap-2">
-        <AudioCoverWithPlay
-          cover={cover}
-          isPlayingTrack={showPause}
-          size={48}
-          onClick={!blobUrl ? handleDownload : handlePlay}
-          state={buttonState}
-          isOwn={isOwn}
-        />
+        {isUploading ? (
+          <div
+            className="relative flex-shrink-0 cursor-pointer overflow-hidden rounded-full flex items-center justify-center select-none"
+            style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancelUpload?.();
+            }}
+          >
+            {cover ? (
+              <img src={cover} alt="" className="w-full h-full object-cover select-none pointer-events-none" />
+            ) : (
+              <div className="w-full h-full bg-[var(--surface-container-soft,rgba(255,255,255,0.1))] flex items-center justify-center">
+                <Music size={22} className="text-[var(--text-dim)]" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/45 flex items-center justify-center transition-colors hover:bg-black/60">
+              <X size={20} strokeWidth={2.4} className="text-white" />
+            </div>
+          </div>
+        ) : (
+          <AudioCoverWithPlay
+            cover={cover}
+            isPlayingTrack={showPause}
+            size={48}
+            onClick={!blobUrl ? handleDownload : handlePlay}
+            state={buttonState}
+            isOwn={isOwn}
+          />
+        )}
         <div className="flex flex-col min-w-0 flex-1 gap-1 overflow-hidden" style={{ maxWidth: '100%' }}>
           <div
             className="font-semibold truncate"
@@ -227,7 +257,7 @@ export const AudioMessageBubble = memo(({
             {artist ? `${artist} – ${title}` : title}
           </div>
           <div style={{ fontSize: orbitFs(11), color: isOwn ? 'rgba(255, 255, 255, 0.8)' : 'var(--text-dim)' }}>
-            {timeDisplay}
+            {isUploading ? `${uploadedMbStr} / ${sizeMbStr} MB` : timeDisplay}
           </div>
         </div>
       </div>

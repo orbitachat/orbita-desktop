@@ -121,7 +121,8 @@ export const TelegramAlbumGrid = memo(({
   customRadius,
 }: TelegramAlbumGridProps) => {
   const rows = useMemo(() => partitionAlbum(items), [items]);
-  const hasCaption = !!msg.text;
+  const cleanCaption = msg.text ? msg.text.replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*(https?:\/\/[^\s]+)?/i, '').trim() : '';
+  const hasCaption = Boolean(cleanCaption);
 
   const { photoBorderRadius, innerTL, innerTR } = useMemo(() => {
     let tl = 16;
@@ -227,7 +228,7 @@ export const TelegramAlbumGrid = memo(({
           }}
         >
           <div className="text-[13.5px] text-[var(--text-main)] leading-snug break-words flex-1 select-text">
-            {msg.text}
+            {cleanCaption}
           </div>
           <div className="flex items-center justify-end gap-1 flex-shrink-0 select-none">
             {timeNode}
