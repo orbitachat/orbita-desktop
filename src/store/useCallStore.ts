@@ -470,6 +470,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
       if (!call) {
         callSoundService.stop();
+        lastSeenOfferRoom = null;
         set({ incomingCall: null, callState: 'idle', isMinimized: false });
         return;
       }

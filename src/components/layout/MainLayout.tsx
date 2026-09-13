@@ -2956,8 +2956,6 @@ export const MainLayout = () => {
           return;
         }
 
-        useCallStore.getState().addProcessedRoomName(data.roomName);
-
         if (currentState.activeCall || currentState.incomingCall) {
           const pusher = getPusher();
           const channel = pusher.subscribe(`private-chat-${chatId}`);

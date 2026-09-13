@@ -2441,7 +2441,15 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
   win.flashFrame(false);
 
   if (currentCallStateCache && !win.isDestroyed()) {
-    win.webContents.send('orbita:call-state', currentCallStateCache);
+    if (win.webContents.isLoading()) {
+      win.webContents.once('did-finish-load', () => {
+        if (currentCallStateCache && !win.isDestroyed()) {
+          win.webContents.send('orbita:call-state', currentCallStateCache);
+        }
+      });
+    } else {
+      win.webContents.send('orbita:call-state', currentCallStateCache);
+    }
   }
 
   return win;
