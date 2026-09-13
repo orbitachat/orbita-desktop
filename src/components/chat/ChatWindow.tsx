@@ -6252,7 +6252,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               alignItems: 'center',
               justifyContent: 'center',
               width: '100%',
-              maxWidth: 720,
               margin: '0 auto',
             }}
           >
@@ -6262,13 +6261,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               aria-label={t('channel_settings.subscribe', 'Подписаться')}
               style={{
                 width: '100%',
-                padding: '12px 24px',
-                borderRadius: '16px',
+                maxWidth: '280px',
+                padding: '11px 28px',
+                borderRadius: '9999px',
                 border: 'none',
                 outline: 'none',
                 background: 'var(--accent-color, #7C3AED)',
                 color: '#ffffff',
-                fontSize: '15px',
+                fontSize: '14.5px',
                 fontWeight: 600,
                 cursor: isSubscribing ? 'default' : 'pointer',
                 opacity: isSubscribing ? 0.7 : 1,
@@ -6276,6 +6276,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: '0 2px 10px rgba(124, 58, 237, 0.25)',
               }}
               onMouseDown={(e) => {
                 if (!isSubscribing) (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)';
