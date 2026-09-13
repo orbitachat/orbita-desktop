@@ -2059,8 +2059,22 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
+  const savedSelectionRangeRef = useRef<Range | null>(null);
   const readMessageIdsRef = useRef<Set<string>>(new Set());
   const prevMessagesLengthRef = useRef(messages.length);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || !inputRef.current) return;
+      const anchorNode = sel.anchorNode;
+      if (anchorNode && inputRef.current.contains(anchorNode)) {
+        savedSelectionRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
   useEffect(() => {
     setShowScrollDown(false);
@@ -5176,8 +5190,43 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const handleEmojiSelect = (emoji: string) => {
     if (inputRef.current) {
       inputRef.current.focus();
-      document.execCommand('insertText', false, emoji);
-      // Fallback in case execCommand doesn't trigger onInput (it should, but just in case)
+      const sel = window.getSelection();
+      let range: Range | null = null;
+
+      if (
+        savedSelectionRangeRef.current &&
+        inputRef.current.contains(savedSelectionRangeRef.current.commonAncestorContainer)
+      ) {
+        range = savedSelectionRangeRef.current;
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      } else if (sel && sel.rangeCount > 0 && inputRef.current.contains(sel.anchorNode)) {
+        range = sel.getRangeAt(0);
+      } else {
+        range = document.createRange();
+        range.selectNodeContents(inputRef.current);
+        range.collapse(false);
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+
+      if (range) {
+        range.deleteContents();
+        const textNode = document.createTextNode(emoji);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        savedSelectionRangeRef.current = range.cloneRange();
+      }
+
       inputRef.current.dispatchEvent(new Event('input', { bubbles: true }));
     } else {
       if (editingIndex !== null) {

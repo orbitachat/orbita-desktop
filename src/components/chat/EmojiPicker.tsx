@@ -459,6 +459,7 @@ export const EmojiPicker = ({
                           <button
                             key={emoji.id}
                             type="button"
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => handleSelectEmoji(emoji.char)}
                             className="emoji-font flex items-center justify-center active:opacity-70"
                             style={{
