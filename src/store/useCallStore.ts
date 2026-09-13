@@ -352,6 +352,22 @@ export const useCallStore = create<CallStore>((set, get) => {
       }
     });
 
+    liveKitService.on('connected', () => {
+      const current = get();
+      if (current.callState === 'connecting' || current.callState === 'ringing') {
+        if (liveKitService.remoteParticipants.length > 0) {
+          activateConnected();
+        }
+      }
+    });
+
+    liveKitService.on('trackSubscribed', () => {
+      const current = get();
+      if (current.callState === 'connecting' || current.callState === 'ringing') {
+        activateConnected();
+      }
+    });
+
     liveKitService.on('participantJoined', (participant: ParticipantInfo) => {
       console.log(`${LOG_PREFIX} participantJoined:`, participant.identity);
       const act = get().activeCall;

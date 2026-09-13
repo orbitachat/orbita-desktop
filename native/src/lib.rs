@@ -667,6 +667,27 @@ pub fn rust_build_call_query(session: RustCallSession) -> String {
     parts.join("&")
 }
 
+#[napi]
+pub fn rust_should_activate_connected(
+    call_state: String,
+    has_remote_participants: bool,
+    has_subscribed_tracks: bool,
+) -> bool {
+    if call_state == "connecting" || call_state == "ringing" {
+        return has_remote_participants || has_subscribed_tracks;
+    }
+    false
+}
+
+#[napi]
+pub fn rust_verify_call_session(
+    room_name: String,
+    local_identity: String,
+    has_token: bool,
+) -> bool {
+    !room_name.is_empty() && !local_identity.is_empty() && has_token
+}
+
 fn urlencoding_fast(input: &str) -> String {
     let mut encoded = String::with_capacity(input.len() * 2);
     for byte in input.bytes() {

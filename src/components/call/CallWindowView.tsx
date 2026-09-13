@@ -407,7 +407,12 @@ export const CallWindowView = () => {
     if (!activeCall) return;
     const isShouldConnect = callState === 'connected' || callState === 'connecting' || (callState === 'ringing' && activeCall.direction === 'outgoing');
     if (!isShouldConnect) return;
-    if (liveKitService.isConnected) return;
+    if (liveKitService.isConnected) {
+      if (liveKitService.remoteParticipants.length > 0) {
+        sendAction('activateConnected');
+      }
+      return;
+    }
 
     let cancelled = false;
     const doConnect = async () => {
@@ -443,6 +448,9 @@ export const CallWindowView = () => {
         await liveKitService.enableMicrophone();
         if (isVideoEnabled) {
           await liveKitService.enableCamera();
+        }
+        if (liveKitService.remoteParticipants.length > 0) {
+          sendAction('activateConnected');
         }
       } catch {}
     };
@@ -496,6 +504,7 @@ export const CallWindowView = () => {
 
   useEffect(() => {
     const handleTrackSubscribed = (track: RemoteTrack) => {
+      sendAction('activateConnected');
       if (track.kind === 'video') {
         if (track.source === 'screen_share') {
           setIsRemoteScreenShareActive(true);
@@ -582,9 +591,14 @@ export const CallWindowView = () => {
         if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
         if (bgVideoRef.current && (!sTrack || sTrack.isMuted)) rTrack.attach(bgVideoRef.current);
       }
+      if (liveKitService.remoteParticipants.length > 0) {
+        sendAction('activateConnected');
+      }
     };
 
-    const handleParticipantJoined = () => {};
+    const handleParticipantJoined = () => {
+      sendAction('activateConnected');
+    };
 
     liveKitService.on('trackSubscribed', handleTrackSubscribed);
     liveKitService.on('trackUnsubscribed', handleTrackUnsubscribed);
