@@ -2419,6 +2419,9 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
 
   callWindow.on('closed', () => {
     callWindow = null;
+    if (!isQuitting) {
+      initCallWindowPrewarm();
+    }
   });
 
   const queryStr = buildCallUrlQuery(initialPayload || currentCallStateCache);
@@ -2439,20 +2442,20 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
 
   const win = initOrGetCallWindow(initialPayload);
 
+  if (currentCallStateCache && !win.isDestroyed()) {
+    win.webContents.send('orbita:call-state', currentCallStateCache);
+  }
+
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
 
-  if (currentCallStateCache && !win.isDestroyed()) {
-    if (win.webContents.isLoading()) {
-      win.webContents.once('did-finish-load', () => {
-        if (currentCallStateCache && !win.isDestroyed()) {
-          win.webContents.send('orbita:call-state', currentCallStateCache);
-        }
-      });
-    } else {
-      win.webContents.send('orbita:call-state', currentCallStateCache);
-    }
+  if (currentCallStateCache && !win.isDestroyed() && win.webContents.isLoading()) {
+    win.webContents.once('did-finish-load', () => {
+      if (currentCallStateCache && !win.isDestroyed()) {
+        win.webContents.send('orbita:call-state', currentCallStateCache);
+      }
+    });
   }
 
   return win;
@@ -2461,11 +2464,11 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
 function initCallWindowPrewarm() {
   setTimeout(() => {
     try {
-      if (!callWindow || callWindow.isDestroyed()) {
+      if (!isQuitting && (!callWindow || callWindow.isDestroyed())) {
         initOrGetCallWindow();
       }
     } catch { }
-  }, 1000);
+  }, 1200);
 }
 
 ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
@@ -2757,6 +2760,7 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     mainWindow?.webContents.send('window:state-changed', mainWindow.isMaximized());
+    initCallWindowPrewarm();
   });
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
