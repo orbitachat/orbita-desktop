@@ -8,8 +8,6 @@ import {
   LocalVideoTrack,
   LocalAudioTrack,
   Track,
-  ExternalE2EEKeyProvider,
-  isE2EESupported,
   VideoPresets,
   type RoomOptions,
   type RoomConnectOptions,
@@ -48,8 +46,6 @@ class LiveKitService extends EventEmitter {
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
   private isConnecting = false;
   private desiredMicEnabled = false;
-  private keyProvider: ExternalE2EEKeyProvider | null = null;
-  private e2eeWorker: Worker | null = null;
   private attachedAudioElements: Map<string, HTMLMediaElement> = new Map();
   private peerVolume = 1.0;
   private micVolume = 1.0;
@@ -170,31 +166,10 @@ class LiveKitService extends EventEmitter {
     roomName: string,
     token: string,
     url: string,
-    verificationSecret?: string,
+    _verificationSecret?: string,
   ): Promise<void> {
     if (this.room) {
       await this.cleanupRoom();
-    }
-
-    let e2eeOptions: RoomOptions['e2ee'] = undefined;
-
-    if (verificationSecret && isE2EESupported()) {
-      try {
-        const worker = new Worker(new URL('livekit-client/e2ee-worker', import.meta.url), {
-          type: 'module',
-        });
-        this.e2eeWorker = worker;
-        this.keyProvider = new ExternalE2EEKeyProvider();
-        await this.keyProvider.setKey(verificationSecret);
-
-        e2eeOptions = {
-          keyProvider: this.keyProvider,
-          worker,
-        };
-        console.log(`${LOG_PREFIX} SFrame E2EE initialized for room`);
-      } catch (err) {
-        console.warn(`${LOG_PREFIX} Failed to initialize SFrame E2EE worker:`, err);
-      }
     }
 
     const alwaysRelay = useChatStore.getState().alwaysRelayCalls;
@@ -205,7 +180,6 @@ class LiveKitService extends EventEmitter {
       adaptiveStream: false,
       dynacast: false,
       stopLocalTrackOnUnpublish: true,
-      e2ee: e2eeOptions,
       audioCaptureDefaults: {
         deviceId: selectedMicId || undefined,
         autoGainControl: true,
@@ -271,25 +245,9 @@ class LiveKitService extends EventEmitter {
       } catch {}
     }
 
-    if (this.room.hasE2EESetup) {
-      try {
-        await this.room.setE2EEEnabled(true);
-        console.log(`${LOG_PREFIX} SFrame E2EE enabled for room`);
-      } catch (err) {
-        console.warn(`${LOG_PREFIX} Failed to enable room E2EE:`, err);
-      }
-    }
   }
 
-  public async setE2EEKey(secret: string): Promise<void> {
-    if (this.keyProvider) {
-      await this.keyProvider.setKey(secret);
-      if (this.room && this.room.hasE2EESetup && !this.room.isE2EEEnabled) {
-        await this.room.setE2EEEnabled(true);
-      }
-      console.log(`${LOG_PREFIX} SFrame E2EE key updated`);
-    }
-  }
+  public async setE2EEKey(_secret: string): Promise<void> {}
 
   private async cleanupRoom(): Promise<void> {
     if (this.screenShareTrack) {
@@ -308,11 +266,6 @@ class LiveKitService extends EventEmitter {
       try { await this.room.disconnect(); } catch {}
       this.room = null;
     }
-    if (this.e2eeWorker) {
-      try { this.e2eeWorker.terminate(); } catch {}
-      this.e2eeWorker = null;
-    }
-    this.keyProvider = null;
     this.localParticipant = null;
     this.participants.clear();
     this.attachedAudioElements.forEach((el) => {

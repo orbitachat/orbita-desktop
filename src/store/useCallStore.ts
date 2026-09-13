@@ -359,7 +359,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (act.participants.some((p) => p.identity === participant.identity)) return;
       set({ activeCall: { ...act, participants: [...act.participants, participant] } });
       const current = get();
-      if (current.callState === 'connecting' || current.callState === 'ringing') activateConnected();
+      if (current.callState === 'connecting' || current.callState === 'ringing' || current.callState === 'preparing') activateConnected();
     });
 
     liveKitService.on('participantLeft', (identity: string) => {
@@ -558,7 +558,7 @@ export const useCallStore = create<CallStore>((set, get) => {
           await liveKitService.connect(roomName, token, url, sessionKey);
           console.log(`${LOG_PREFIX} LiveKit connected (outgoing)`);
           const cs = get().callState;
-          if (cs !== 'ringing' && cs !== 'connecting') return;
+          if (cs !== 'ringing' && cs !== 'connecting' && cs !== 'preparing') return;
           if (liveKitService.remoteParticipants.length > 0) activateConnected();
         }
       } catch (err) {

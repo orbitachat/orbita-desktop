@@ -305,7 +305,7 @@ export const CallWindowView = () => {
 
   useEffect(() => {
     if (!activeCall) return;
-    const isShouldConnect = callState === 'connected' || callState === 'connecting' || (callState === 'ringing' && activeCall.direction === 'outgoing');
+    const isShouldConnect = callState === 'connected' || callState === 'connecting' || callState === 'preparing' || (callState === 'ringing' && activeCall.direction === 'outgoing');
     if (!isShouldConnect) return;
     if (liveKitService.isConnected) return;
 
@@ -396,6 +396,7 @@ export const CallWindowView = () => {
 
   useEffect(() => {
     const handleTrackSubscribed = (track: RemoteTrack) => {
+      sendAction('activateConnected');
       if (track.kind === 'video') {
         if (track.source === 'screen_share') {
           setIsRemoteScreenShareActive(true);
