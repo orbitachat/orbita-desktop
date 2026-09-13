@@ -364,7 +364,7 @@ const QuickReactionHeader = ({
   onCloseMenu,
   isExpanded,
   setIsExpanded,
-  expandedHeight = 244,
+  expandedHeight = 272,
 }: {
   onSelectReaction?: (emoji: string) => void;
   onCloseMenu: () => void;
@@ -440,12 +440,12 @@ const QuickReactionHeader = ({
         borderRadius: '8px',
       }}
       transition={{ duration: 0.45, ease: [0.5, 1, 0.5, 1] }}
-      className="relative backdrop-blur-xl shadow-2xl select-none overflow-hidden flex flex-col"
+      className="relative backdrop-blur-xl select-none overflow-hidden flex flex-col"
       style={{
         width: '224px',
         backgroundColor: 'var(--settings-bg, var(--bg-secondary))',
         border: 'none',
-        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+        boxShadow: 'none',
         marginBottom: isExpanded ? '0px' : '10px',
       }}
     >
@@ -500,7 +500,6 @@ const QuickReactionHeader = ({
             transition={{ duration: 0.12 }}
             className="flex flex-col h-full w-full p-2 overflow-hidden"
           >
-            {/* Верхняя строка поиска со встроенными категориями и кнопка свернуть */}
             <div className="flex items-center gap-1 mb-2 flex-shrink-0">
               <div className="relative flex-1 flex items-center bg-white/10 rounded-full px-2.5 py-1 border border-white/5">
                 <Search size={14} className="text-white/40 mr-1.5 flex-shrink-0" />
@@ -528,7 +527,6 @@ const QuickReactionHeader = ({
               </button>
             </div>
 
-            {/* Быстрая легкая сетка БЕЗ текста надписей категорий ровно по ширине плашки */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none px-0.5 custom-chat-scrollbar">
               <div className="grid grid-cols-6 gap-1 justify-items-center">
                 {allEmojisList.map((emoji) => (
@@ -705,13 +703,13 @@ const MessageContextMenu = ({
           pointerEvents: isExpanded ? 'none' : 'auto',
         }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className="backdrop-blur-xl select-none overflow-hidden py-1 shadow-2xl absolute top-[50px] left-0 z-[1]"
+        className="backdrop-blur-xl select-none overflow-hidden py-1 absolute top-[50px] left-0 z-[1]"
         style={{
           width: '224px',
           backgroundColor: 'var(--settings-bg, var(--bg-secondary))',
           borderRadius: '8px',
           border: 'none',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+          boxShadow: 'none',
         }}
       >
         {items.map((item, idx) => (
@@ -738,7 +736,7 @@ const MessageContextMenu = ({
           onCloseMenu={close}
           isExpanded={isExpanded}
           setIsExpanded={setIsExpanded}
-          expandedHeight={50 + menuCardHeight}
+          expandedHeight={Math.max(272, 50 + menuCardHeight)}
         />
       </div>
     </motion.div>
@@ -4156,7 +4154,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const handleContextMenu = (e: React.MouseEvent, index: number, isOwn: boolean) => {
     e.preventDefault();
     e.stopPropagation();
-    const { x, y } = clampMenuPosition(e.clientX, e.clientY, 220, 260);
+    const { x, y } = clampMenuPosition(e.clientX, e.clientY, 224, 280);
     const msg = messages[index];
     const type = getMessageMenuType(msg);
     const hasMultipleImages = msg.mediaItems ? msg.mediaItems.filter(item => item.type === 'photo').length > 1 : false;
