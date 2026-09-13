@@ -6142,7 +6142,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         >
           {messages.length === 0 ? (
             activeChat?.type === 'channel' ? (
-              <ChannelEmptyCard chat={activeChat} />
+              <ChannelEmptyCard key={activeChat.id} chat={activeChat} />
             ) : (
               <EmptyChatGreeting
                 onSendGreeting={() => triggerMessage('👋')}

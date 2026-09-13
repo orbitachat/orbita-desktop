@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Avatar } from '../common/Avatar';
 import { type Chat, useChatStore } from '../../store/useChatStore';
@@ -10,25 +9,19 @@ interface ChannelEmptyCardProps {
 }
 
 export const ChannelEmptyCard: React.FC<ChannelEmptyCardProps> = ({ chat }) => {
-  const { t } = useTranslation();
-  const [description, setDescription] = useState<string>(chat.description || '');
+  const updateChat = useChatStore((s) => s.updateChat);
+  const currentChat = useChatStore((s) => s.chats.find((c) => c.id === chat.id)) || chat;
 
   useEffect(() => {
-    if (chat.description) {
-      setDescription(chat.description);
-      return;
-    }
-
     let isMounted = true;
     channelService
       .getChannel(chat.id)
       .then((info) => {
         if (!isMounted || !info) return;
-        if (info.description) {
-          setDescription(info.description);
-          useChatStore.getState().updateChat(chat.id, {
+        if (info.description !== undefined && info.description !== currentChat.description) {
+          updateChat(chat.id, {
             description: info.description,
-            avatarUrl: info.avatarUrl || chat.avatarUrl,
+            avatarUrl: info.avatarUrl || currentChat.avatarUrl,
           });
         }
       })
@@ -37,14 +30,9 @@ export const ChannelEmptyCard: React.FC<ChannelEmptyCardProps> = ({ chat }) => {
     return () => {
       isMounted = false;
     };
-  }, [chat.id, chat.description]);
+  }, [chat.id, currentChat.description, currentChat.avatarUrl, updateChat]);
 
-  const displayDescription =
-    description ||
-    chat.description ||
-    (chat.name === 'Orbita Updates'
-      ? t('channel.orbita_updates_desc')
-      : t('channel.empty_description'));
+  const description = currentChat.description ? currentChat.description.trim() : '';
 
   return (
     <div className="flex-1 w-full h-full flex items-center justify-center p-4 select-none pointer-events-none">
@@ -62,30 +50,32 @@ export const ChannelEmptyCard: React.FC<ChannelEmptyCardProps> = ({ chat }) => {
       >
         <div className="w-[72px] h-[72px] mb-3 flex items-center justify-center flex-shrink-0">
           <Avatar
-            src={chat.avatarUrl}
-            alt={chat.name}
+            src={currentChat.avatarUrl}
+            alt={currentChat.name}
             className="w-[72px] h-[72px] rounded-full object-cover shadow-sm"
             style={{ borderRadius: '50%', width: 72, height: 72 }}
           />
         </div>
 
         <h3
-          className="text-[16px] font-semibold mb-2 leading-snug break-words px-2"
+          className="text-[16px] font-semibold mb-1 leading-snug break-words px-2"
           style={{ color: 'var(--text-main, #ffffff)' }}
         >
-          {chat.name}
+          {currentChat.name}
         </h3>
 
-        <div
-          className="w-full text-left text-[13px] leading-relaxed break-words whitespace-pre-wrap px-1 mt-1"
-          style={{
-            color: 'var(--text-dim, #8e8e93)',
-            textAlign: 'left',
-            lineHeight: 1.45,
-          }}
-        >
-          {displayDescription}
-        </div>
+        {description ? (
+          <div
+            className="w-full text-left text-[13px] leading-relaxed break-words whitespace-pre-wrap px-1 mt-1.5"
+            style={{
+              color: 'var(--text-dim, #8e8e93)',
+              textAlign: 'left',
+              lineHeight: 1.45,
+            }}
+          >
+            {description}
+          </div>
+        ) : null}
       </motion.div>
     </div>
   );
