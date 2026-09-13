@@ -473,6 +473,8 @@ interface ChatState {
   setAutoLoadMedia: (enabled: boolean) => void;
 
   deleteChat: (chatId: string) => void;
+  deletedChatSessions: Record<string, Chat>;
+  restoreDeletedChat: (chatId: string) => Chat | null;
   addIncomingFriendRequest: (req: IncomingFriendRequest) => void;
   removeIncomingFriendRequest: (id: string) => void;
   clearIncomingFriendRequests: () => void;
@@ -493,6 +495,7 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       chats: [],
       pinnedChatIds: [],
+      deletedChatSessions: {},
       activeChatId: null,
       activeProfileChatId: null,
       messagesByChatId: {},
@@ -793,8 +796,15 @@ export const useChatStore = create<ChatState>()(
           chats: state.chats.map(c => c.id === chatId ? { ...c, lastMsg: msg } : c)
         })),
       addMessage: (chatId, message, encryptedText?, index?) => {
-        const state = get();
-        const chat = state.chats.find(c => c.id === chatId);
+        let state = get();
+        let chat = state.chats.find(c => c.id === chatId);
+        if (!chat && state.deletedChatSessions?.[chatId]) {
+          const restored = state.restoreDeletedChat(chatId);
+          if (restored) {
+            state = get();
+            chat = restored;
+          }
+        }
         if (!chat) return;
 
         if (message.id && state.messagesByChatId[chatId]?.some(m => m.id === message.id)) {
@@ -1377,22 +1387,45 @@ export const useChatStore = create<ChatState>()(
 
       deleteChat: (chatId) => {
         const state = get();
-        const chatExists = state.chats.some(c => c.id === chatId);
-        if (!chatExists) return;
+        const targetChat = state.chats.find(c => c.id === chatId);
+        if (!targetChat) return;
 
-        set((state) => {
-          const { [chatId]: _, ...restMessages } = state.messagesByChatId;
+        set((s) => {
+          const { [chatId]: _, ...restMessages } = s.messagesByChatId;
+          const isSaveable = (targetChat.type === 'private' || targetChat.type === 'group') && Boolean(targetChat.sharedSecret);
           return {
-            chats: state.chats.filter(c => c.id !== chatId),
-            activeChatId: state.activeChatId === chatId ? null : state.activeChatId,
+            chats: s.chats.filter(c => c.id !== chatId),
+            activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
             messagesByChatId: restMessages,
-            pinnedChatIds: (state.pinnedChatIds || []).filter((id) => id !== chatId),
+            pinnedChatIds: (s.pinnedChatIds || []).filter((id) => id !== chatId),
+            deletedChatSessions: isSaveable
+              ? { ...(s.deletedChatSessions || {}), [chatId]: { ...targetChat, lastMsg: '', unreadCount: 0 } }
+              : s.deletedChatSessions,
           };
         });
 
         mediaManager.deleteByChatId(chatId).catch(err => {
           console.error('[ChatStore] Failed to delete media cache for chat:', chatId, err);
         });
+      },
+
+      restoreDeletedChat: (chatId) => {
+        const state = get();
+        const saved = state.deletedChatSessions?.[chatId];
+        if (!saved) return null;
+
+        const { [chatId]: _, ...restSessions } = state.deletedChatSessions || {};
+        const restored: Chat = {
+          ...saved,
+          updatedAt: Date.now(),
+        };
+
+        set((s) => ({
+          chats: s.chats.some(c => c.id === chatId) ? s.chats : [restored, ...s.chats],
+          deletedChatSessions: restSessions,
+        }));
+
+        return restored;
       },
     }),
     {
@@ -1401,6 +1434,7 @@ export const useChatStore = create<ChatState>()(
       partialize: (state) => ({
         chats: state.chats,
         pinnedChatIds: state.pinnedChatIds,
+        deletedChatSessions: state.deletedChatSessions,
         messagesByChatId: state.messagesByChatId,
         passcode: state.passcode,
         currentTheme: state.currentTheme,

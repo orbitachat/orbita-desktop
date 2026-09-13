@@ -629,6 +629,7 @@ export const MainLayout = () => {
     closeInChatSearch,
     addChannelChat,
     hideProfileId,
+    deletedChatSessions,
   } = useChatStore(useShallow(state => ({
     chats: state.chats,
     activeChatId: state.activeChatId,
@@ -654,6 +655,7 @@ export const MainLayout = () => {
     closeInChatSearch: state.closeInChatSearch,
     addChannelChat: state.addChannelChat,
     hideProfileId: state.hideProfileId,
+    deletedChatSessions: state.deletedChatSessions,
   })));
   const isServerConnected = useConnectionStore((state) => state.isServerConnected);
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
@@ -1307,7 +1309,17 @@ export const MainLayout = () => {
           }
 
         const currentChats = useChatStore.getState().chats;
-        const chat = currentChats.find(c => c.id === record.chat_id);
+        let chat = currentChats.find(c => c.id === record.chat_id);
+        if (!chat) {
+          const restored = useChatStore.getState().restoreDeletedChat(record.chat_id);
+          if (restored) {
+            chat = restored;
+            if (chat.sharedSecret) {
+              subscribeToChat(chat.id, chat.sharedSecret);
+              subscribeToDeliveryUpdates(chat.id);
+            }
+          }
+        }
         if (!chat || !chat.sharedSecret || !chat.ratchetState) {
           processedMessageIds.current.add(record.id);
           supabaseService.markMessageDelivered(record.id).catch(() => {});
@@ -2537,7 +2549,10 @@ export const MainLayout = () => {
     const channel = pusher.subscribe(`private-chat-${chatId}`);
 
     const handleMessage = (data: any) => {
-      const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
+      let chat = useChatStore.getState().chats.find((c) => c.id === chatId);
+      if (!chat) {
+        chat = useChatStore.getState().restoreDeletedChat(chatId) || undefined;
+      }
       const isSelf = Boolean(
         (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
         (nickname && (data.sender === nickname || data.senderNickname === nickname)) ||
@@ -2666,7 +2681,10 @@ export const MainLayout = () => {
         processedMessageIds.current.add(messageKey);
 
         (async () => {
-          const currentChat = useChatStore.getState().chats.find((c) => c.id === chatId);
+          let currentChat = useChatStore.getState().chats.find((c) => c.id === chatId);
+          if (!currentChat) {
+            currentChat = useChatStore.getState().restoreDeletedChat(chatId) || undefined;
+          }
           if (!currentChat || !currentChat.ratchetState) {
             console.warn('[subscribeToChat] Chat or ratchetState not ready for chatId:', chatId);
             return;
@@ -3067,9 +3085,13 @@ export const MainLayout = () => {
   }, [updateChat]);
 
   useEffect(() => {
-    chats.forEach((chat) => {
+    const allRelevantChats = [
+      ...chats,
+      ...Object.values(deletedChatSessions || {}),
+    ];
+    allRelevantChats.forEach((chat) => {
       if (!chat.id) return;
-      if (chat.id === 'notes') return; // заметки не подписываем на сетевые каналы
+      if (chat.id === 'notes') return;
       if (activeSubscriptions.current.has(chat.id)) return;
       if (chat.type === 'channel') {
         subscribeToPublicChannel(chat.id);
@@ -3081,7 +3103,7 @@ export const MainLayout = () => {
         subscribeToDeliveryUpdates(chat.id);
       }
     });
-  }, [chats, subscribeToChat, subscribeToGroupChat, subscribeToPublicChannel, subscribeToDeliveryUpdates]);
+  }, [chats, deletedChatSessions, subscribeToChat, subscribeToGroupChat, subscribeToPublicChannel, subscribeToDeliveryUpdates]);
 
   useEffect(() => {
     return () => {
@@ -3200,29 +3222,8 @@ export const MainLayout = () => {
         unsub();
         ablyMessageUnsubscribes.current.delete(chatId);
       }
-    } else if (chat.sharedSecret && chat.id !== 'notes') {
-      ablyService.sendMessage(chatId, { sender: nickname, type: 'system', action: 'delete-chat', text: '' }).catch(() => {});
-      const pusher = getPusher();
-      const channel = pusher.subscribe(`private-chat-${chatId}`);
-      const sendSystemMsg = () => channel.trigger('client-message', { sender: nickname, type: 'system', action: 'delete-chat', text: '' });
-      if (channel.subscribed) sendSystemMsg();
-      else channel.bind('pusher:subscription_succeeded', sendSystemMsg);
     }
-    if (activeSubscriptions.current.has(chatId)) {
-      const sub = activeSubscriptions.current.get(chatId)!;
-      sub.channel.unbind_all();
-      getPusher().unsubscribe(chat.type === 'group' ? `presence-group-${chatId}` : `private-chat-${chatId}`);
-      activeSubscriptions.current.delete(chatId);
-    }
-    useChatStore.setState((state) => {
-      const { [chatId]: _, ...rest } = state.messagesByChatId;
-      return {
-        chats: state.chats.filter(c => c.id !== chatId),
-        activeChatId: state.activeChatId === chatId ? null : state.activeChatId,
-        messagesByChatId: rest,
-        pinnedChatIds: (state.pinnedChatIds || []).filter((id) => id !== chatId),
-      };
-    });
+    useChatStore.getState().deleteChat(chatId);
     setChatContextMenu(prev => ({ ...prev, visible: false }));
   };
 

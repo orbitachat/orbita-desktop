@@ -1,5 +1,7 @@
 import { useChatStore, Chat, Message } from '../store/useChatStore';
 import { gatewayManager } from './gatewayManager';
+const ORBITA_UPDATES_CHANNEL_ID = 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9';
+const ORBITOS_SYSTEM_PROMPT = 'Ты — официальный ИИ мессенджера Orbita (ORBITA AI). Твой характер — как у Gemini: дружелюбный, отзывчивый, живой, умный, человечный и поддерживающий. 1. Общайся тепло, позитивно, помогай по делу и экспертно. Ты знаешь всё про Orbita: полное сквозное шифрование Double Ratchet, локальное хранение всех данных строго на устройстве, P2P голосовые и видеозвонки, резервные копии профиля (.orbita) с мнемоникой из 12 слов BIP-39, каналы и группы. 2. Официальный канал новостей и обновлений: Orbita Updates (ID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9). Если советуешь подписаться на официальный канал Orbita Updates или пользователь спрашивает про обновления, новости или канал, обязательно добавь в конец сообщения маркер [BUTTON:ORBITA_UPDATES] — система покажет кнопку для вступления в канал. 3. Отношение к мату и грубости: маты и ненормативная лексика — это НЕ всегда оскорбление (часто это просто эмоции, сленг или слова-связки, восклицания). Не реагируй агрессивно на маты. Будь дружелюбным. ТОЛЬКО если пользователь начинает прямо и адресно тебя оскорблять, унижать или токсично атаковать — только тогда давай жесткий, дерзкий, остроумный отпор и ставь на место. 4. Отвечай емко, метко, понятно и без лишней воды.';
 
 class OrbitosService {
   public readonly BOT_ID = 'system_orbitos';
@@ -127,7 +129,7 @@ class OrbitosService {
     }
   }
 
-  private async askGeminiAI(userText: string): Promise<{ reply: string; buttons?: Message['buttons'] } | null> {
+  private async askGeminiAI(userText: string, t?: any): Promise<{ reply: string; buttons?: Message['buttons'] } | null> {
     const store = useChatStore.getState();
     const history = (store.messagesByChatId[this.BOT_ID] || []).slice(-10).map((m) => ({
       text: m.text,
@@ -142,6 +144,7 @@ class OrbitosService {
         body: JSON.stringify({
           message: userText,
           history,
+          systemPrompt: ORBITOS_SYSTEM_PROMPT,
           ...(userApiKey ? { apiKey: userApiKey } : {}),
         }),
       });
@@ -149,7 +152,23 @@ class OrbitosService {
       if (res.ok) {
         const data = await res.json();
         if (data && data.reply) {
-          return { reply: data.reply };
+          let reply = String(data.reply);
+          let buttons: Message['buttons'] = undefined;
+          const hasButtonTag = reply.includes('[BUTTON:ORBITA_UPDATES]');
+          const mentionsChannel = reply.includes(ORBITA_UPDATES_CHANNEL_ID) || /orbita\s+updates/i.test(reply);
+          if (hasButtonTag || mentionsChannel) {
+            reply = reply.replace(/\[BUTTON:ORBITA_UPDATES\]/g, '').trim();
+            const btnText = t ? t('orbitos.btn_channel', 'Перейти в Orbita Updates') : 'Перейти в Orbita Updates';
+            buttons = [
+              {
+                text: btnText,
+                action: 'open_channel',
+                channelId: ORBITA_UPDATES_CHANNEL_ID,
+                icon: 'channel',
+              },
+            ];
+          }
+          return { reply, buttons };
         }
       }
     } catch {}
@@ -157,7 +176,13 @@ class OrbitosService {
     return null;
   }
 
-  public async handleUserMessage(userText: string, t: any): Promise<void> {
+  public async handleUserMessage(
+    userText: string,
+    t: any,
+    mediaUrl?: string,
+    mediaType?: string,
+    mime?: string
+  ): Promise<void> {
     const raw = userText.trim().toLowerCase();
     let reply = '';
     let buttons: Message['buttons'] = undefined;
@@ -168,7 +193,7 @@ class OrbitosService {
         {
           text: t('orbitos.btn_channel', 'Перейти в Orbita Updates'),
           action: 'open_channel',
-          channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
+          channelId: ORBITA_UPDATES_CHANNEL_ID,
           icon: 'channel',
         },
         {
@@ -183,7 +208,7 @@ class OrbitosService {
         {
           text: t('orbitos.btn_channel', 'Перейти в Orbita Updates'),
           action: 'open_channel',
-          channelId: 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9',
+          channelId: ORBITA_UPDATES_CHANNEL_ID,
           icon: 'channel',
         },
         {
@@ -193,7 +218,11 @@ class OrbitosService {
         },
       ];
     } else {
-      const aiResult = await this.askGeminiAI(userText);
+      const mediaHint = mediaUrl
+        ? `[Медиавложение: ${mediaType || 'файл'}, тип: ${mime || 'auto'}, URL: ${mediaUrl}]`
+        : '';
+      const promptText = [userText, mediaHint].filter(Boolean).join('\n').trim();
+      const aiResult = await this.askGeminiAI(promptText, t);
       if (aiResult && aiResult.reply) {
         reply = aiResult.reply;
         buttons = aiResult.buttons;

@@ -4192,13 +4192,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const handleStartRecording = useCallback(async () => {
     const isBotChat = activeChatId === 'system_orbitos' || activeChatId === 'system_support';
-    if (!isBotChat && (!sharedSecret || !isRatchetReady)) return;
+    const isChannel = activeChat?.type === 'channel';
+    if (!isBotChat && !isChannel && (!sharedSecret || !isRatchetReady)) return;
+    if (isChannel && !isChannelOwner) return;
     try {
       await startAudioRecording();
     } catch (err) {
       showToast(t('chatWindow.mic_permission_error'));
     }
-  }, [activeChatId, sharedSecret, isRatchetReady, startAudioRecording, showToast, t]);
+  }, [activeChatId, activeChat?.type, isChannelOwner, sharedSecret, isRatchetReady, startAudioRecording, showToast, t]);
 
 
   const handleStopRecordingAndSend = useCallback(async () => {
@@ -4206,22 +4208,42 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (!recorded || !recorded.blob) return;
 
     const { blob, duration, waveform } = recorded;
-    if (!sharedSecret || !activeChatId) return;
+    if (!activeChatId) return;
+
+    const isBotChat = activeChatId === 'system_orbitos' || activeChatId === 'system_support';
+    const isChannel = activeChat?.type === 'channel';
+    if (!isBotChat && !isChannel && !sharedSecret) return;
+    if (isChannel && !isChannelOwner) return;
 
     const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'webm';
     const voiceFileName = `voice_${Date.now()}.${ext}`;
 
     try {
-      const arrayBuffer = await blob.arrayBuffer();
-      const fileKey = generateEphemeralKey();
-      const encryptedBlob = await encryptFile(arrayBuffer, fileKey);
-      const encryptedBase64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.readAsDataURL(encryptedBlob);
-      });
+      const isPublic = isBotChat || isChannel;
+      let fileKey: string | undefined = undefined;
+      let encryptedBase64: string;
 
-      const tempPath = await window.orbita.writeTempFile(encryptedBase64);
+      if (isPublic) {
+        const arrayBuffer = await blob.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSz = 8192;
+        for (let j = 0; j < uint8.length; j += chunkSz) {
+          binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(j, j + chunkSz)));
+        }
+        encryptedBase64 = btoa(binary);
+      } else {
+        const arrayBuffer = await blob.arrayBuffer();
+        fileKey = generateEphemeralKey();
+        const encryptedBlob = await encryptFile(arrayBuffer, fileKey);
+        encryptedBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(encryptedBlob);
+        });
+      }
+
+      const tempPath = await window.orbita.writeTempFile(encryptedBase64, isPublic ? ext : undefined);
       if (!tempPath) {
         showToast(t('chatWindow.upload_failed'));
         return;
@@ -4232,7 +4254,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       window.orbita.deleteTempFile?.(tempPath);
 
       if (result.success && result.secure_url) {
-        mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey, blob, blob.type || 'audio/webm;codecs=opus', activeChatId);
+        mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey || '', blob, blob.type || 'audio/webm;codecs=opus', activeChatId);
         await triggerMessage(`[Audio] ${voiceFileName}`, {
           type: 'voice',
           url: result.secure_url,
@@ -4249,7 +4271,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       console.error('Failed to upload recorded audio:', error);
       showToast(t('chatWindow.upload_failed'));
     }
-  }, [sharedSecret, activeChatId, stopAudioRecording, triggerMessage, showToast, t]);
+  }, [sharedSecret, activeChatId, activeChat?.type, isChannelOwner, stopAudioRecording, triggerMessage, showToast, t]);
 
   const getMediaDimensionsForFile = useCallback(async (
     filePath: string,
@@ -4373,8 +4395,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (!chat) return;
 
     const isChannel = chat.type === 'channel';
+    const isBotChat = activeChatId === 'system_orbitos' || activeChatId === 'system_support';
     if (isChannel) {
       if (!isChannelOwner) return;
+    } else if (isBotChat) {
     } else {
       if (!sharedSecret || !chat.ratchetState) return;
     }
@@ -4495,7 +4519,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         let fileKey: string | undefined = undefined;
         let fileBase64: string;
 
-        if (isChannel) {
+        const isPublic = isChannel || isBotChat;
+        if (isPublic) {
           const uint8 = new Uint8Array(cleanedBuffer);
           let binary = '';
           const chunkSz = 8192;
@@ -4514,7 +4539,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
 
         const ext = (file.name?.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
-        const tempPath = await window.orbita.writeTempFile(fileBase64, isChannel ? ext : undefined);
+        const tempPath = await window.orbita.writeTempFile(fileBase64, isPublic ? ext : undefined);
         if (!tempPath) throw new Error('Failed to write temp file');
 
         const publicId = `orbita_${Date.now()}_${i}`;
@@ -4628,6 +4653,67 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         });
       }
 
+      setAttachedFiles([]);
+      setIsAttachmentModalOpen(false);
+      setIsSendingFiles(false);
+      return;
+    }
+
+    if (isBotChat) {
+      const shouldGroup = group && uploadedFiles.length > 1;
+      if (shouldGroup) {
+        const localMessage: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          senderId: myCode,
+          sender: myNickname,
+          isOutgoing: true,
+          text: caption || '',
+          time: Date.now(),
+          read: true,
+          status: 'sent',
+          mediaItems: uploadedFiles,
+        };
+        addMessage(activeChatId, localMessage);
+        updateChat(activeChatId, { lastMsg: caption || '[MediaGroup]' });
+        const mediaSummary = uploadedFiles.map((f) => `[${f.type}] ${f.name} (${f.url})`).join('\n');
+        const fullText = caption ? `${caption}\n\n${mediaSummary}` : mediaSummary;
+        if (activeChatId === 'system_support') {
+          supportService.handleUserMessage(fullText, t, uploadedFiles[0].url, uploadedFiles[0].type);
+        } else {
+          orbitosService.handleUserMessage(fullText, t, uploadedFiles[0].url, uploadedFiles[0].type, uploadedFiles[0].mime);
+        }
+      } else {
+        for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
+          const file = uploadedFiles[fIdx];
+          const postCaption = fIdx === 0 ? (caption || '') : '';
+          const localMessage: Message = {
+            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            senderId: myCode,
+            sender: myNickname,
+            isOutgoing: true,
+            text: postCaption,
+            time: Date.now(),
+            read: true,
+            status: 'sent',
+            mediaType: file.type,
+            mediaUrl: file.url,
+            mediaName: file.name,
+            mime: file.mime,
+            audioMetadata: file.audioMetadata,
+            width: file.width,
+            height: file.height,
+            duration: file.duration,
+          };
+          addMessage(activeChatId, localMessage);
+          updateChat(activeChatId, { lastMsg: postCaption || file.name || `[${file.type}]` });
+          const fileMsg = postCaption ? `${postCaption}\n[${file.type}] ${file.name} (${file.url})` : `[${file.type}] ${file.name} (${file.url})`;
+          if (activeChatId === 'system_support') {
+            supportService.handleUserMessage(fileMsg, t, file.url, file.type);
+          } else {
+            orbitosService.handleUserMessage(fileMsg, t, file.url, file.type, file.mime);
+          }
+        }
+      }
       setAttachedFiles([]);
       setIsAttachmentModalOpen(false);
       setIsSendingFiles(false);
@@ -5049,6 +5135,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   const item = await mediaManager.getMedia(file.url, file.key || msg.mediaKey || sharedSecret || '', file.name, activeChatId || undefined, msg.id);
                   if (item?.blobUrl) {
                     const res = await fetch(item.blobUrl);
+                    const b = await res.blob();
+                    arrayBuffer = await b.arrayBuffer();
+                  }
+                } else {
+                  const item = await mediaManager.getMedia(file.url, '', file.name, activeChatId || undefined, msg.id);
+                  if (item?.blobUrl) {
+                    const res = await fetch(item.blobUrl);
+                    const b = await res.blob();
+                    arrayBuffer = await b.arrayBuffer();
+                  } else {
+                    const res = await fetch(file.url);
                     const b = await res.blob();
                     arrayBuffer = await b.arrayBuffer();
                   }

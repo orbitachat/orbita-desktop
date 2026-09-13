@@ -51,6 +51,25 @@ class SupportService {
     this.ticketsListeners.forEach((fn) => fn(this.cachedTickets));
   }
 
+  public restoreSupportChat(): void {
+    const store = useChatStore.getState();
+    if (store.chats.some((c) => c.id === this.BOT_ID)) return;
+    const chatName = this.t ? this.t('support.name', 'Техническая поддержка') : 'Техническая поддержка';
+    const now = Date.now();
+    const botChat: Chat = {
+      id: this.BOT_ID,
+      type: 'bot',
+      name: chatName,
+      lastMsg: '',
+      online: true,
+      description: this.t ? this.t('support.description', 'Официальная служба технической поддержки мессенджера Orbita') : 'Официальная служба технической поддержки мессенджера Orbita',
+      createdAt: now,
+      updatedAt: now,
+      unreadCount: 1,
+    };
+    store.addChat(botChat);
+  }
+
   public initSupportChat(t: any, userCode?: string): void {
     this.t = t;
     const store = useChatStore.getState();
@@ -301,6 +320,7 @@ class SupportService {
   }
 
   private async handleIncomingTicket(tk: SupportTicketRecord, updateChatHeader: boolean = true): Promise<void> {
+    this.restoreSupportChat();
     const { messageText, adminReply } = await this.decryptTicketPayload(tk);
     const store = useChatStore.getState();
     const existingMsgs = store.messagesByChatId[this.BOT_ID] || [];
@@ -523,7 +543,8 @@ class SupportService {
     }
   }
 
-  public async handleUserMessage(userText: string, t: any): Promise<void> {
+  public async handleUserMessage(userText: string, t: any, mediaUrl?: string, mediaType?: string): Promise<void> {
+    this.restoreSupportChat();
     this.t = t;
     const raw = userText.trim();
     const lower = raw.toLowerCase();
@@ -547,7 +568,10 @@ class SupportService {
       }
 
       if (ticketNum && replyContent) {
-        const ok = await this.replyToTicket(ticketNum, replyContent);
+        const finalReplyContent = mediaUrl
+          ? [replyContent, `[${mediaType || 'вложение'}] ${mediaUrl}`].filter(Boolean).join('\n')
+          : replyContent;
+        const ok = await this.replyToTicket(ticketNum, finalReplyContent);
         if (!ok) {
           const errorMsg: Message = {
             id: `admin_err_${Date.now()}`,
@@ -701,8 +725,11 @@ class SupportService {
     }
 
     const myNickname = useAuthStore.getState().nickname || 'User';
+    const finalUserText = mediaUrl
+      ? [userText, `[${mediaType || 'вложение'}] ${mediaUrl}`].filter(Boolean).join('\n')
+      : userText;
     const ticketKey = deriveTicketKey(ticketNumber);
-    const encryptedText = `orb_e2e:${await encryptMessage(userText, ticketKey)}`;
+    const encryptedText = `orb_e2e:${await encryptMessage(finalUserText, ticketKey)}`;
 
     try {
       await gatewayManager.fetch('/support/ticket', {
@@ -733,6 +760,7 @@ class SupportService {
   }
 
   private sendBotReply(text: string): void {
+    this.restoreSupportChat();
     const store = useChatStore.getState();
     const replyMsg: Message = {
       id: `support_reply_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
@@ -766,6 +794,7 @@ class SupportService {
   }
 
   private async deliverUserReply(ticketNumber: string, adminReply: string, answeredAt?: string): Promise<void> {
+    this.restoreSupportChat();
     let cleanReply = adminReply;
     if (cleanReply && cleanReply.startsWith('orb_e2e:')) {
       const ticketKey = deriveTicketKey(ticketNumber);
