@@ -364,7 +364,7 @@ const QuickReactionHeader = ({
   onCloseMenu,
   isExpanded,
   setIsExpanded,
-  expandedHeight = 272,
+  expandedHeight = 230,
 }: {
   onSelectReaction?: (emoji: string) => void;
   onCloseMenu: () => void;
@@ -374,6 +374,7 @@ const QuickReactionHeader = ({
 }) => {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [displayLimit, setDisplayLimit] = useState(96);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [recentEmojis, setRecentEmojis] = useState<string[]>(() => {
@@ -401,7 +402,10 @@ const QuickReactionHeader = ({
   );
 
   useEffect(() => {
-    if (isExpanded && searchInputRef.current) {
+    if (!isExpanded) {
+      setDisplayLimit(96);
+      setSearchQuery('');
+    } else if (searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [isExpanded]);
@@ -432,6 +436,18 @@ const QuickReactionHeader = ({
     return list;
   }, [isExpanded, searchQuery, recentEmojis]);
 
+  const displayedEmojis = useMemo(() => {
+    if (searchQuery.trim()) return allEmojisList;
+    return allEmojisList.slice(0, displayLimit);
+  }, [allEmojisList, searchQuery, displayLimit]);
+
+  const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      setDisplayLimit((prev) => Math.min(allEmojisList.length, prev + 60));
+    }
+  }, [allEmojisList.length]);
+
   return (
     <motion.div
       initial={false}
@@ -439,7 +455,7 @@ const QuickReactionHeader = ({
         height: isExpanded ? expandedHeight : 40,
         borderRadius: '8px',
       }}
-      transition={{ duration: 0.45, ease: [0.5, 1, 0.5, 1] }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className="relative backdrop-blur-xl select-none overflow-hidden flex flex-col"
       style={{
         width: '224px',
@@ -447,6 +463,7 @@ const QuickReactionHeader = ({
         border: 'none',
         boxShadow: 'none',
         marginBottom: isExpanded ? '0px' : '10px',
+        willChange: 'height',
       }}
     >
       <AnimatePresence initial={false}>
@@ -527,9 +544,12 @@ const QuickReactionHeader = ({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none px-0.5 custom-chat-scrollbar">
+            <div
+              className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none px-0.5 custom-chat-scrollbar"
+              onScroll={handleGridScroll}
+            >
               <div className="grid grid-cols-6 gap-1 justify-items-center">
-                {allEmojisList.map((emoji) => (
+                {displayedEmojis.map((emoji) => (
                   <button
                     key={emoji.id}
                     type="button"
@@ -582,14 +602,6 @@ const MessageContextMenu = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const menuCardRef = useRef<HTMLDivElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [menuCardHeight, setMenuCardHeight] = useState(194);
-
-  React.useLayoutEffect(() => {
-    if (menuCardRef.current) {
-      const h = menuCardRef.current.offsetHeight;
-      if (h > 0) setMenuCardHeight(h);
-    }
-  }, [menu.visible, menu.isOwn, menu.type]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -736,7 +748,7 @@ const MessageContextMenu = ({
           onCloseMenu={close}
           isExpanded={isExpanded}
           setIsExpanded={setIsExpanded}
-          expandedHeight={Math.max(272, 50 + menuCardHeight)}
+          expandedHeight={230}
         />
       </div>
     </motion.div>
