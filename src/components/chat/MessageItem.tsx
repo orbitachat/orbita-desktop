@@ -403,7 +403,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
             </div>
 
             {msg.buttons && msg.buttons.length > 0 && (
-              <div className="flex flex-col gap-1.5 w-full select-none" style={{ maxWidth: '380px', marginTop: '3px' }}>
+              <div className="flex flex-col w-full select-none" style={{ marginTop: '5px', gap: '5px' }}>
                 {msg.buttons.map((btn, bIdx) => (
                   <button
                     key={bIdx}
@@ -416,7 +416,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                     style={{
                       backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255, 255, 255, 0.08)) 80%, var(--accent-color) 12%)',
                       color: 'var(--text-main, #ffffff)',
-                      border: '1px solid color-mix(in srgb, var(--accent-color) 25%, transparent)',
+                      border: 'none',
+                      outline: 'none',
                       backdropFilter: 'blur(8px)',
                     }}
                     onMouseEnter={(e) => {

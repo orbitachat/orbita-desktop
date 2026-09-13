@@ -189,36 +189,35 @@ class SupportService {
         if (data) this.handleIncomingTicket(data);
       });
       channel.bind('ticket-updated', (data: any) => {
-        if (data?.ticketNumber) this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
+        if (data) this.handleIncomingTicket(data);
       });
       channel.bind('ticket-closed', (data: any) => {
-        if (data?.ticketNumber) this.handleTicketClosedLocally(data.ticketNumber);
+        const tNum = data?.ticket_number || data?.ticketNumber;
+        if (tNum) this.handleTicketClosedLocally(tNum);
       });
     } catch {}
 
     try {
       ablyService.subscribeToChatMessages('support-admin', (data: any) => {
         if (!data) return;
-        if (data.type === 'new-ticket' && data.ticket) {
+        if (data.type === 'ticket-closed' || data.event === 'ticket-closed') {
+          const tNum = data.ticket_number || data.ticketNumber;
+          if (tNum) this.handleTicketClosedLocally(tNum);
+        } else if (data.type === 'new-ticket' && data.ticket) {
           this.handleIncomingTicket(data.ticket);
         } else if (data.ticket_number || data.ticketNumber) {
           this.handleIncomingTicket(data);
-        } else if (data.type === 'ticket-updated') {
-          this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
-        } else if (data.type === 'ticket-closed' || data.event === 'ticket-closed') {
-          this.handleTicketClosedLocally(data.ticketNumber);
         }
       });
       ablyService.subscribeToChatMessages('chat:support-admin', (data: any) => {
         if (!data) return;
-        if (data.type === 'new-ticket' && data.ticket) {
+        if (data.type === 'ticket-closed' || data.event === 'ticket-closed') {
+          const tNum = data.ticket_number || data.ticketNumber;
+          if (tNum) this.handleTicketClosedLocally(tNum);
+        } else if (data.type === 'new-ticket' && data.ticket) {
           this.handleIncomingTicket(data.ticket);
         } else if (data.ticket_number || data.ticketNumber) {
           this.handleIncomingTicket(data);
-        } else if (data.type === 'ticket-updated') {
-          this.updateTicketInChat(data.ticketNumber, data.adminReply, data.status);
-        } else if (data.type === 'ticket-closed') {
-          this.handleTicketClosedLocally(data.ticketNumber);
         }
       });
     } catch {}
@@ -294,12 +293,13 @@ class SupportService {
     } catch {}
   }
 
-  private async decryptTicketPayload(tk: SupportTicketRecord): Promise<{ messageText: string; adminReply?: string }> {
-    const ticketKey = deriveTicketKey(tk.ticket_number);
-    const rawText = tk.message_text || '';
-    const parts = rawText.split('\n\n---\n\n');
+  private async decryptTicketPayload(tk: SupportTicketRecord): Promise<{ messageText: string; adminReply?: string; parts: string[] }> {
+    const ticketNum = tk.ticket_number || (tk as any).ticketNumber;
+    const ticketKey = deriveTicketKey(ticketNum);
+    const rawText = tk.message_text || (tk as any).messageText || '';
+    const rawParts = rawText.split('\n\n---\n\n');
     const decryptedParts = await Promise.all(
-      parts.map(async (part) => {
+      rawParts.map(async (part: string) => {
         const trimmed = part.trim();
         if (trimmed.startsWith('orb_e2e:')) {
           const dec = await decryptMessage(trimmed.slice(8), ticketKey);
@@ -310,74 +310,93 @@ class SupportService {
     );
     const messageText = decryptedParts.join('\n\n---\n\n');
 
-    let adminReply = tk.admin_reply;
+    let adminReply = tk.admin_reply || (tk as any).adminReply;
     if (adminReply && adminReply.startsWith('orb_e2e:')) {
       const dec = await decryptMessage(adminReply.slice(8), ticketKey);
       if (dec && dec !== '[ENCRYPTED MESSAGE]') adminReply = dec;
     }
 
-    return { messageText, adminReply };
+    return { messageText, adminReply, parts: decryptedParts };
   }
 
   private async handleIncomingTicket(tk: SupportTicketRecord, updateChatHeader: boolean = true): Promise<void> {
     this.restoreSupportChat();
-    const { messageText, adminReply } = await this.decryptTicketPayload(tk);
+    const ticketNum = tk.ticket_number || (tk as any).ticketNumber;
+    if (!ticketNum) return;
+
+    const { adminReply, parts } = await this.decryptTicketPayload(tk);
     const store = useChatStore.getState();
     const existingMsgs = store.messagesByChatId[this.BOT_ID] || [];
-    const msgId = `ticket_${tk.ticket_number}`;
-    const alreadyExists = existingMsgs.find((m) => m.id === msgId);
 
     const isAnswered = tk.status === 'answered';
     const statusText = isAnswered
       ? (this.t ? this.t('support.status_answered', 'Отвечено') : 'Отвечено')
       : (this.t ? this.t('support.status_pending', 'Ожидает ответа') : 'Ожидает ответа');
 
-    const replySection = adminReply ? `\n\nОтвет: ${adminReply}` : '';
-    const bodyText = `📩 Обращение ${tk.ticket_number}\nОт: ${tk.sender_nickname || 'Пользователь'} (ID: ${tk.user_code})\n\n«${messageText}»\n\nСтатус: ${statusText}${replySection}`;
-
     const replyButtons = [
       ...(!isAnswered ? [{
-        text: `Ответить на ${tk.ticket_number}`,
+        text: `Ответить на ${ticketNum}`,
         action: 'reply_ticket',
-        data: tk.ticket_number,
+        data: ticketNum,
       }] : []),
       {
-        text: `Закрыть ${tk.ticket_number}`,
+        text: `Закрыть ${ticketNum}`,
         action: 'close_ticket',
-        data: tk.ticket_number,
+        data: ticketNum,
       },
     ];
 
-    if (alreadyExists) {
-      useChatStore.setState((state) => ({
-        messagesByChatId: {
-          ...state.messagesByChatId,
-          [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
-            m.id === msgId ? { ...m, text: bodyText, buttons: replyButtons } : m
-          ),
-        },
-      }));
-      if (!isAnswered && updateChatHeader) {
-        store.updateChat(this.BOT_ID, { lastMsg: `Новый вопрос в ${tk.ticket_number}` });
+    let hasNewQuestions = false;
+    let latestQuestionText = '';
+
+    for (let i = 0; i < parts.length; i++) {
+      const partText = parts[i].trim();
+      if (!partText) continue;
+
+      const msgId = i === 0 ? `ticket_${ticketNum}` : `ticket_${ticketNum}_part_${i}`;
+      const existing = existingMsgs.find((m) => m.id === msgId || (i === 0 && m.id === `ticket_${ticketNum}_part_0`));
+
+      const isLastPart = i === parts.length - 1;
+      const replySection = (isLastPart && adminReply) ? `\n\nОтвет: ${adminReply}` : '';
+      const titlePrefix = i === 0
+        ? `📩 Обращение ${ticketNum}`
+        : `📩 Новый вопрос в обращении ${ticketNum} (#${i + 1})`;
+      const senderNick = tk.sender_nickname || (tk as any).senderNickname || 'Пользователь';
+      const uCode = tk.user_code || (tk as any).userCode || 'ANON';
+      const bodyText = `${titlePrefix}\nОт: ${senderNick} (ID: ${uCode})\n\n«${partText}»\n\nСтатус: ${statusText}${replySection}`;
+
+      if (existing) {
+        useChatStore.setState((state) => ({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
+              m.id === existing.id ? { ...m, text: bodyText, buttons: replyButtons } : m
+            ),
+          },
+        }));
+      } else {
+        hasNewQuestions = true;
+        latestQuestionText = partText;
+        const ticketMsg: Message = {
+          id: msgId,
+          senderId: this.BOT_ID,
+          sender: `${senderNick} (${ticketNum})`,
+          isOutgoing: false,
+          text: bodyText,
+          time: tk.created_at ? (new Date(tk.created_at).getTime() + i * 1000) : (Date.now() + i * 1000),
+          read: false,
+          status: 'delivered',
+          buttons: replyButtons,
+        };
+        store.addMessage(this.BOT_ID, ticketMsg);
       }
-      return;
     }
 
-    const ticketMsg: Message = {
-      id: msgId,
-      senderId: this.BOT_ID,
-      sender: `${tk.sender_nickname || 'Пользователь'} (${tk.ticket_number})`,
-      isOutgoing: false,
-      text: bodyText,
-      time: tk.created_at ? new Date(tk.created_at).getTime() : Date.now(),
-      read: false,
-      status: 'delivered',
-      buttons: replyButtons,
-    };
-
-    store.addMessage(this.BOT_ID, ticketMsg);
-    if (updateChatHeader) {
-      store.updateChat(this.BOT_ID, { lastMsg: `Новое обращение ${tk.ticket_number}` });
+    if (hasNewQuestions && updateChatHeader) {
+      const headerMsg = parts.length > 1
+        ? `Новый вопрос в ${ticketNum}: «${latestQuestionText}»`
+        : `Новое обращение ${ticketNum}: «${latestQuestionText}»`;
+      store.updateChat(this.BOT_ID, { lastMsg: headerMsg });
     }
   }
 
@@ -389,20 +408,10 @@ class SupportService {
       if (dec && dec !== '[ENCRYPTED MESSAGE]') cleanReply = dec;
     }
 
-    const store = useChatStore.getState();
-    const existingMsgs = store.messagesByChatId[this.BOT_ID] || [];
-    const msgId = `ticket_${ticketNumber}`;
-    const target = existingMsgs.find((m) => m.id === msgId);
-    if (!target) return;
-
     const isAnswered = status === 'answered';
     const statusText = isAnswered
       ? (this.t ? this.t('support.status_answered', 'Отвечено') : 'Отвечено')
       : (this.t ? this.t('support.status_pending', 'Ожидает ответа') : 'Ожидает ответа');
-
-    const lines = target.text.split('\n\nСтатус:');
-    const baseText = lines[0] || target.text;
-    const updatedText = `${baseText}\n\nСтатус: ${statusText}\n\nОтвет: ${cleanReply}`;
 
     const updatedButtons = [
       {
@@ -415,9 +424,15 @@ class SupportService {
     useChatStore.setState((state) => ({
       messagesByChatId: {
         ...state.messagesByChatId,
-        [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
-          m.id === msgId ? { ...m, text: updatedText, buttons: updatedButtons } : m
-        ),
+        [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) => {
+          if (m.id && (m.id === `ticket_${ticketNumber}` || m.id.startsWith(`ticket_${ticketNumber}_`))) {
+            const lines = m.text.split('\n\nСтатус:');
+            const baseText = lines[0] || m.text;
+            const updatedText = `${baseText}\n\nСтатус: ${statusText}\n\nОтвет: ${cleanReply}`;
+            return { ...m, text: updatedText, buttons: updatedButtons };
+          }
+          return m;
+        }),
       },
     }));
 
@@ -429,19 +444,20 @@ class SupportService {
 
   private handleTicketClosedLocally(ticketNumber: string): void {
     const store = useChatStore.getState();
-    const msgId = `ticket_${ticketNumber}`;
     useChatStore.setState((state) => ({
       messagesByChatId: {
         ...state.messagesByChatId,
-        [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
-          m.id === msgId
-            ? {
-                ...m,
-                text: `${m.text}\n\n🔒 [${this.t ? this.t('support.ticket_closed_by_admin', { number: ticketNumber, defaultValue: `Обращение ${ticketNumber} закрыто.` }) : `Обращение ${ticketNumber} закрыто.`}]`,
-                buttons: undefined,
-              }
-            : m
-        ),
+        [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) => {
+          if (m.id && (m.id === `ticket_${ticketNumber}` || m.id.startsWith(`ticket_${ticketNumber}_`))) {
+            const closedNotice = `\n\n🔒 [${this.t ? this.t('support.ticket_closed_by_admin', { number: ticketNumber, defaultValue: `Обращение ${ticketNumber} закрыто.` }) : `Обращение ${ticketNumber} закрыто.`}]`;
+            return {
+              ...m,
+              text: m.text.includes('🔒') ? m.text : `${m.text}${closedNotice}`,
+              buttons: undefined,
+            };
+          }
+          return m;
+        }),
       },
     }));
 

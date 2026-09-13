@@ -627,9 +627,13 @@ module.exports = async function handler(req, res) {
 
         const payload = {
           ticket_number: ticketNumber,
+          ticketNumber: ticketNumber,
           user_code: existingTicket.user_code,
+          userCode: existingTicket.user_code,
           sender_nickname: senderNickname || existingTicket.sender_nickname,
+          senderNickname: senderNickname || existingTicket.sender_nickname,
           message_text: updatedMessage,
+          messageText: updatedMessage,
           status: 'sent',
           admin_reply: existingTicket.admin_reply,
           created_at: new Date().toISOString(),
@@ -1274,17 +1278,18 @@ module.exports = async function handler(req, res) {
         parts: [{ text: userMessage }],
       });
 
-      const defaultSystemPrompt = 'Ты — официальный ИИ мессенджера Orbita (ORBITA AI). Твой характер — как у Gemini: дружелюбный, отзывчивый, живой, умный, человечный и поддерживающий. 1. Общайся тепло, позитивно, помогай по делу и экспертно. Ты знаешь всё про Orbita: полное сквозное шифрование Double Ratchet, локальное хранение всех данных строго на устройстве, P2P голосовые и видеозвонки, резервные копии профиля (.orbita) с мнемоникой из 12 слов BIP-39, каналы и группы. 2. Официальный канал новостей и обновлений: Orbita Updates (ID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9). Если советуешь подписаться на официальный канал Orbita Updates или пользователь спрашивает про обновления, новости или канал, обязательно добавь в конец сообщения маркер [BUTTON:ORBITA_UPDATES] — система покажет кнопку для вступления в канал. 3. Отношение к мату и грубости: маты и ненормативная лексика — это НЕ всегда оскорбление (часто это просто эмоции, сленг или слова-связки, восклицания). Не реагируй агрессивно на маты. Будь дружелюбным. ТОЛЬКО если пользователь начинает прямо и адресно тебя оскорблять, унижать или токсично атаковать — только тогда давай жесткий, дерзкий, остроумный отпор и ставь на место. 4. Отвечай емко, метко, понятно и без лишней воды.';
+      const defaultSystemPrompt = 'Ты — официальный ИИ мессенджера Orbita (ORBITA AI). Твой характер — как у Gemini: дружелюбный, отзывчивый, живой, умный, человечный и поддерживающий. 1. Общайся тепло, позитивно, помогай по делу и экспертно. Ты знаешь всё про Orbita: полное сквозное шифрование Double Ratchet, локальное хранение всех данных строго на устройстве, P2P голосовые и видеозвонки, резервные копии профиля (.orbita) с мнемоникой из 12 слов BIP-39, каналы и группы. 2. Официальный канал новостей и обновлений: Orbita Updates (ID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9). Если советуешь подписаться на официальный канал Orbita Updates или пользователь спрашивает про обновления, новости или канал, обязательно добавь в конец сообщения маркер [BUTTON:ORBITA_UPDATES] — система покажет кнопку для вступления в канал. 3. Отношение к мату и грубости: маты и ненормативная лексика — это НЕ всегда оскорбление (часто это просто эмоции, сленг или слова-связки, восклицания). Не реагируй агрессивно на маты. Будь дружелюбным. ТОЛЬКО если пользователь начинает прямо и адресно тебя оскорблять, унижать или токсично атаковать — только тогда давай жесткий, дерзкий, остроумный отпор и ставь на место. 4. Отвечай емко, метко, понятно и без лишней воды. 5. СТРОГИЙ ЗАПРЕТ НА ЭМОДЗИ: Категорически запрещено использовать любые эмодзи, смайлики и графические символы в ответе. Пиши чистым текстом без смайлов. 6. Отвечай максимально быстро, конкретно и лаконично.';
       const systemInstruction = (body && body.systemPrompt) || defaultSystemPrompt;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
+      const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       const payload = {
         system_instruction: {
           parts: [{ text: systemInstruction }],
         },
         contents,
         generationConfig: {
-          temperature: 0.92,
-          maxOutputTokens: 800,
+          temperature: 0.8,
+          maxOutputTokens: 400,
         },
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1295,25 +1300,21 @@ module.exports = async function handler(req, res) {
       };
 
       let lastErr = '';
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (attempt > 0) {
-          await new Promise((r) => setTimeout(r, 400 * attempt));
-        }
-        const aiRes = await fetch(url, {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const targetUrl = attempt === 0 ? primaryUrl : fallbackUrl;
+        const aiRes = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         if (aiRes.ok) {
           const aiData = await aiRes.json();
-          const replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          let replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          replyText = replyText.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{1FA00}-\u{1FAFF}\u{FE00}-\u{FE0F}]/gu, '').trim();
           return sendJson(res, { reply: replyText });
         }
         const errText = await aiRes.text();
         lastErr = errText;
-        if (aiRes.status !== 503 && aiRes.status !== 429) {
-          return sendError(res, `Gemini API error: ${errText}`, aiRes.status);
-        }
       }
       return sendError(res, `Gemini API error: ${lastErr}`, 503);
     }

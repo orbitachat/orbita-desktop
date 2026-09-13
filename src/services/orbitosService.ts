@@ -1,7 +1,12 @@
 import { useChatStore, Chat, Message } from '../store/useChatStore';
 import { gatewayManager } from './gatewayManager';
 const ORBITA_UPDATES_CHANNEL_ID = 'VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9';
-const ORBITOS_SYSTEM_PROMPT = 'Ты — официальный ИИ мессенджера Orbita (ORBITA AI). Твой характер — как у Gemini: дружелюбный, отзывчивый, живой, умный, человечный и поддерживающий. 1. Общайся тепло, позитивно, помогай по делу и экспертно. Ты знаешь всё про Orbita: полное сквозное шифрование Double Ratchet, локальное хранение всех данных строго на устройстве, P2P голосовые и видеозвонки, резервные копии профиля (.orbita) с мнемоникой из 12 слов BIP-39, каналы и группы. 2. Официальный канал новостей и обновлений: Orbita Updates (ID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9). Если советуешь подписаться на официальный канал Orbita Updates или пользователь спрашивает про обновления, новости или канал, обязательно добавь в конец сообщения маркер [BUTTON:ORBITA_UPDATES] — система покажет кнопку для вступления в канал. 3. Отношение к мату и грубости: маты и ненормативная лексика — это НЕ всегда оскорбление (часто это просто эмоции, сленг или слова-связки, восклицания). Не реагируй агрессивно на маты. Будь дружелюбным. ТОЛЬКО если пользователь начинает прямо и адресно тебя оскорблять, унижать или токсично атаковать — только тогда давай жесткий, дерзкий, остроумный отпор и ставь на место. 4. Отвечай емко, метко, понятно и без лишней воды.';
+const stripEmojis = (text: string): string => {
+  return text
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{1FA00}-\u{1FAFF}\u{FE00}-\u{FE0F}]/gu, '')
+    .trim();
+};
+const ORBITOS_SYSTEM_PROMPT = 'Ты — официальный ИИ мессенджера Orbita (ORBITA AI). Твой характер — как у Gemini: дружелюбный, отзывчивый, живой, умный, человечный и поддерживающий. 1. Общайся тепло, позитивно, помогай по делу и экспертно. Ты знаешь всё про Orbita: полное сквозное шифрование Double Ratchet, локальное хранение всех данных строго на устройстве, P2P голосовые и видеозвонки, резервные копии профиля (.orbita) с мнемоникой из 12 слов BIP-39, каналы и группы. 2. Официальный канал новостей и обновлений: Orbita Updates (ID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9). Если советуешь подписаться на официальный канал Orbita Updates или пользователь спрашивает про обновления, новости или канал, обязательно добавь в конец сообщения маркер [BUTTON:ORBITA_UPDATES] — система покажет кнопку для вступления в канал. 3. Отношение к мату и грубости: маты и ненормативная лексика — это НЕ всегда оскорбление (часто это просто эмоции, сленг или слова-связки, восклицания). Не реагируй агрессивно на маты. Будь дружелюбным. ТОЛЬКО если пользователь начинает прямо и адресно тебя оскорблять, унижать или токсично атаковать — только тогда давай жесткий, дерзкий, остроумный отпор и ставь на место. 4. Отвечай емко, метко, понятно и без лишней воды. 5. СТРОГИЙ ЗАПРЕТ НА ЭМОДЗИ: Категорически запрещено использовать любые эмодзи, смайлики и графические символы в ответе. Пиши чистым текстом без смайлов. 6. Отвечай максимально быстро, конкретно и лаконично.';
 
 class OrbitosService {
   public readonly BOT_ID = 'system_orbitos';
@@ -152,7 +157,7 @@ class OrbitosService {
       if (res.ok) {
         const data = await res.json();
         if (data && data.reply) {
-          let reply = String(data.reply);
+          let reply = stripEmojis(String(data.reply));
           let buttons: Message['buttons'] = undefined;
           const hasButtonTag = reply.includes('[BUTTON:ORBITA_UPDATES]');
           const mentionsChannel = reply.includes(ORBITA_UPDATES_CHANNEL_ID) || /orbita\s+updates/i.test(reply);
@@ -224,12 +229,14 @@ class OrbitosService {
       const promptText = [userText, mediaHint].filter(Boolean).join('\n').trim();
       const aiResult = await this.askGeminiAI(promptText, t);
       if (aiResult && aiResult.reply) {
-        reply = aiResult.reply;
+        reply = stripEmojis(aiResult.reply);
         buttons = aiResult.buttons;
       } else {
-        reply = t('orbitos.temp_error', 'Хм, что-то пошло не так на моей стороне 🤔 Попробуй ещё раз — обычно это быстро проходит.');
+        reply = t('orbitos.temp_error', 'Хм, что-то пошло не так на моей стороне. Попробуй ещё раз — обычно это быстро проходит.');
       }
     }
+
+    reply = stripEmojis(reply);
 
     const store = useChatStore.getState();
     const replyMsg: Message = {
