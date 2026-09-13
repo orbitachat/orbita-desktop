@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff, Volume2 } from 'lucide-react';
+import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff } from 'lucide-react';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
@@ -199,98 +199,6 @@ export const CallWindowView = () => {
 
   const [hasCamera, setHasCamera] = useState<boolean>(false);
   const [isScreenPickerOpen, setIsScreenPickerOpen] = useState<boolean>(false);
-  const [peerVolume, setPeerVolumeState] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('orbita_call_peer_volume');
-      return saved ? Number(saved) : 100;
-    } catch {
-      return 100;
-    }
-  });
-  const [micVolume, setMicVolumeState] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('orbita_call_mic_volume');
-      return saved ? Number(saved) : 100;
-    } catch {
-      return 100;
-    }
-  });
-  const [isVolumeOpen, setIsVolumeOpen] = useState<boolean>(false);
-  const volumeMenuRef = useRef<HTMLDivElement>(null);
-  const [noiseSuppressionMode, setNoiseSuppressionModeState] = useState<'krisp' | 'standard' | 'none'>(() => {
-    try {
-      const saved = localStorage.getItem('orbita_noise_suppression_mode');
-      return (saved as any) || 'standard';
-    } catch {
-      return 'standard';
-    }
-  });
-  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
-  const [selectedMicId, setSelectedMicId] = useState<string>(() => {
-    try {
-      return localStorage.getItem('orbita_selected_mic_id') || '';
-    } catch {
-      return '';
-    }
-  });
-
-  useEffect(() => {
-    if (callData?.peerVolume !== undefined) setPeerVolumeState(callData.peerVolume);
-    if (callData?.micVolume !== undefined) setMicVolumeState(callData.micVolume);
-    if (callData?.noiseSuppressionMode !== undefined) setNoiseSuppressionModeState(callData.noiseSuppressionMode);
-  }, [callData?.peerVolume, callData?.micVolume, callData?.noiseSuppressionMode]);
-
-  useEffect(() => {
-    const loadAudioInputs = async () => {
-      try {
-        if (!navigator.mediaDevices?.enumerateDevices) return;
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        setAudioInputs(devices.filter((d) => d.kind === 'audioinput'));
-      } catch {}
-    };
-    loadAudioInputs();
-    navigator.mediaDevices?.addEventListener?.('devicechange', loadAudioInputs);
-    return () => {
-      navigator.mediaDevices?.removeEventListener?.('devicechange', loadAudioInputs);
-    };
-  }, []);
-
-  const handleSetNoiseSuppressionMode = (mode: 'krisp' | 'standard' | 'none') => {
-    setNoiseSuppressionModeState(mode);
-    try { localStorage.setItem('orbita_noise_suppression_mode', mode); } catch {}
-    sendAction('setNoiseSuppressionMode', mode);
-  };
-
-  const handleSelectMic = (id: string) => {
-    setSelectedMicId(id);
-    try { localStorage.setItem('orbita_selected_mic_id', id); } catch {}
-    sendAction('switchAudioDevice', { kind: 'audioinput', deviceId: id });
-  };
-
-  useEffect(() => {
-    if (!isVolumeOpen) return;
-    const handleOutside = (e: MouseEvent) => {
-      if (volumeMenuRef.current && !volumeMenuRef.current.contains(e.target as Node)) {
-        setIsVolumeOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
-  }, [isVolumeOpen]);
-
-  const handleSetPeerVolume = (vol: number) => {
-    const clamped = Math.max(0, Math.min(200, Math.round(vol)));
-    setPeerVolumeState(clamped);
-    try { localStorage.setItem('orbita_call_peer_volume', String(clamped)); } catch {}
-    sendAction('setPeerVolume', clamped);
-  };
-
-  const handleSetMicVolume = (vol: number) => {
-    const clamped = Math.max(0, Math.min(200, Math.round(vol)));
-    setMicVolumeState(clamped);
-    try { localStorage.setItem('orbita_call_mic_volume', String(clamped)); } catch {}
-    sendAction('setMicVolume', clamped);
-  };
 
   useEffect(() => {
     const checkCameraAvailability = async () => {
@@ -364,7 +272,7 @@ export const CallWindowView = () => {
 
     if (!showWebcam) {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop());
         streamRef.current = null;
       }
       return;
@@ -378,7 +286,7 @@ export const CallWindowView = () => {
       })
       .then((stream) => {
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+          stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
           return;
         }
         streamRef.current = stream;
@@ -392,7 +300,7 @@ export const CallWindowView = () => {
     return () => {
       cancelled = true;
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop());
         streamRef.current = null;
       }
     };
@@ -621,180 +529,6 @@ export const CallWindowView = () => {
                   {isScreenSharing ? t('call.stop_screen_share') : t('call.screen_share')}
                 </span>
               </button>
-            )}
-
-            {isConnected && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsVolumeOpen(!isVolumeOpen)}
-                  aria-label={t('call.volume_settings')}
-                  className="flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none"
-                >
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-md" style={neutralButtonStyle(isVolumeOpen)}>
-                    <Volume2 size={24} />
-                  </div>
-                  <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '12px', fontWeight: 500 }}>
-                    {t('call.volume')}
-                  </span>
-                </button>
-
-                {isVolumeOpen && (
-                  <div
-                    ref={volumeMenuRef}
-                    className="absolute bottom-20 left-1/2 -translate-x-1/2 w-72 p-4 rounded-2xl shadow-2xl flex flex-col gap-4 z-50 select-none"
-                    style={{
-                      backgroundColor: 'var(--surface-container, #1e1e24)',
-                      border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
-                      backdropFilter: 'blur(20px)',
-                    }}
-                  >
-                    <div className="flex items-center justify-between pb-1 border-b border-white/10">
-                      <div className="flex items-center gap-2">
-                        <Volume2 size={16} style={{ color: 'var(--accent-color, #7C3AED)' }} />
-                        <span className="text-sm font-semibold" style={{ color: 'var(--text-main, #ffffff)' }}>
-                          {t('call.volume_settings')}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsVolumeOpen(false)}
-                        aria-label={t('call.close')}
-                        className="p-1 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors border-0 bg-transparent cursor-pointer"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                          {t('call.peer_volume')}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {peerVolume > 100 && (
-                            <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-amber-500/20 text-amber-300">
-                              {t('call.volume_boost')}
-                            </span>
-                          )}
-                          <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
-                            {peerVolume}%
-                          </span>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="200"
-                        step="1"
-                        value={peerVolume}
-                        onChange={(e) => handleSetPeerVolume(Number(e.target.value))}
-                        aria-label={t('call.peer_volume')}
-                        className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
-                        style={{ accentColor: 'var(--accent-color, #7C3AED)' }}
-                      />
-                      <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                        <span>0%</span>
-                        <span style={{ color: peerVolume === 100 ? 'var(--accent-color, #7C3AED)' : undefined }}>100%</span>
-                        <span>200%</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                          {t('call.mic_volume')}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {micVolume > 100 && (
-                            <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-amber-500/20 text-amber-300">
-                              {t('call.volume_boost')}
-                            </span>
-                          )}
-                          <span className="font-semibold tabular-nums" style={{ color: 'var(--text-main, #ffffff)' }}>
-                            {micVolume}%
-                          </span>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="200"
-                        step="1"
-                        value={micVolume}
-                        onChange={(e) => handleSetMicVolume(Number(e.target.value))}
-                        aria-label={t('call.mic_volume')}
-                        className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
-                        style={{ accentColor: 'var(--accent-color, #7C3AED)' }}
-                      />
-                      <div className="flex justify-between text-[10px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                        <span>0%</span>
-                        <span style={{ color: micVolume === 100 ? 'var(--accent-color, #7C3AED)' : undefined }}>100%</span>
-                        <span>200%</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5 pt-2 border-t border-white/10">
-                      <div className="flex items-center justify-between text-xs">
-                        <span style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                          {t('settings.noise_suppression_title')}
-                        </span>
-                        <span className="font-semibold text-xs" style={{ color: 'var(--text-main, #ffffff)' }}>
-                          {noiseSuppressionMode === 'krisp'
-                            ? t('settings.noise_suppression_krisp')
-                            : noiseSuppressionMode === 'standard'
-                            ? t('settings.noise_suppression_standard')
-                            : t('settings.noise_suppression_none')}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {(['none', 'standard', 'krisp'] as const).map((mode) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            onClick={() => handleSetNoiseSuppressionMode(mode)}
-                            aria-label={t(`settings.noise_suppression_${mode}`)}
-                            className="flex-1 py-1 px-1 rounded-lg text-xs font-medium transition-colors border-0 cursor-pointer"
-                            style={{
-                              backgroundColor: noiseSuppressionMode === mode
-                                ? 'color-mix(in srgb, var(--accent-color, #7C3AED) 28%, transparent)'
-                                : 'rgba(255, 255, 255, 0.06)',
-                              color: noiseSuppressionMode === mode
-                                ? 'var(--accent-color, #a995ec)'
-                                : 'var(--text-dim, #8a96a3)',
-                            }}
-                          >
-                            {t(`settings.noise_suppression_${mode}`)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {audioInputs.length > 1 && (
-                      <div className="flex flex-col gap-1 pt-2 border-t border-white/10">
-                        <span className="text-[11px]" style={{ color: 'var(--text-dim, #8a96a3)' }}>
-                          {t('settings.microphone_device')}
-                        </span>
-                        <select
-                          value={selectedMicId}
-                          onChange={(e) => handleSelectMic(e.target.value)}
-                          aria-label={t('settings.microphone_device')}
-                          className="w-full text-xs p-1.5 rounded-lg bg-white/5 border border-white/10 text-white outline-none cursor-pointer"
-                        >
-                          <option value="" className="bg-neutral-900 text-white">
-                            {t('settings.default_device')}
-                          </option>
-                          {audioInputs.map((d) => (
-                            <option key={d.deviceId} value={d.deviceId} className="bg-neutral-900 text-white">
-                              {d.label || `${t('settings.microphone_device')} ${d.deviceId.slice(0, 4)}`}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
             )}
 
             <button

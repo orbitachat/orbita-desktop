@@ -13,13 +13,11 @@ import {
   VideoPresets,
   type RoomOptions,
   type RoomConnectOptions,
-  type TrackProcessor,
-  type AudioProcessorOptions,
 } from 'livekit-client';
 import { EventEmitter } from 'events';
 import { useChatStore } from '../store/useChatStore';
 import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
-import { neuralAudioProcessor, type NoiseSuppressionMode } from './neuralAudioProcessor';
+import type { NoiseSuppressionMode } from './neuralAudioProcessor';
 
 export type CallStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
@@ -53,7 +51,6 @@ class LiveKitService extends EventEmitter {
   private keyProvider: ExternalE2EEKeyProvider | null = null;
   private e2eeWorker: Worker | null = null;
   private attachedAudioElements: Map<string, HTMLMediaElement> = new Map();
-  private neuralProcessor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null = null;
   private peerVolume = 1.0;
   private micVolume = 1.0;
 
@@ -212,7 +209,7 @@ class LiveKitService extends EventEmitter {
       e2ee: e2eeOptions,
       audioCaptureDefaults: {
         deviceId: selectedMicId || undefined,
-        autoGainControl: false,
+        autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: isNoiseSuppression,
         channelCount: 1,
@@ -371,11 +368,6 @@ class LiveKitService extends EventEmitter {
         try {
           (this.localAudioTrack as any).setVolume?.(this.micVolume);
         } catch {}
-        if (mode === 'krisp' && (this.localAudioTrack as any).setProcessor) {
-          const processor = neuralAudioProcessor.createLiveKitProcessor(() => useChatStore.getState().noiseSuppressionMode);
-          await (this.localAudioTrack as any).setProcessor(processor).catch(() => {});
-          this.neuralProcessor = processor;
-        }
       }
       this.emit('micChanged', true);
       return true;
@@ -388,13 +380,6 @@ class LiveKitService extends EventEmitter {
 
   public async disableMicrophone(): Promise<void> {
     this.desiredMicEnabled = false;
-
-    if (this.neuralProcessor) {
-      if ((this.localAudioTrack as any)?.stopProcessor) {
-        await (this.localAudioTrack as any).stopProcessor().catch(() => {});
-      }
-      this.neuralProcessor = null;
-    }
 
     if (!this.localParticipant) {
       return;
@@ -416,19 +401,32 @@ class LiveKitService extends EventEmitter {
   }
 
   public async updateAudioConstraints(): Promise<void> {
-    if (this.desiredMicEnabled && this.localParticipant) {
-      if (this.neuralProcessor) {
-        try {
-          await (this.localAudioTrack as any)?.stopProcessor?.();
-        } catch {}
-        this.neuralProcessor = null;
-      }
-      await this.disableMicrophone();
-      await this.enableMicrophone();
-      return;
-    }
     const mode: NoiseSuppressionMode = useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'standard' : 'none');
     const isNoiseSuppression = mode !== 'none';
+    const selectedMicId = useChatStore.getState().selectedMicrophoneId;
+
+    if (this.desiredMicEnabled && this.localParticipant) {
+      try {
+        await this.localParticipant.setMicrophoneEnabled(true, {
+          deviceId: selectedMicId || undefined,
+          autoGainControl: true,
+          echoCancellation: true,
+          noiseSuppression: isNoiseSuppression,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16,
+        });
+        const pub = this.localParticipant.getTrackPublication(Track.Source.Microphone);
+        if (pub?.track) {
+          this.localAudioTrack = pub.track as LocalTrack;
+          try {
+            (this.localAudioTrack as any).setVolume?.(this.micVolume);
+          } catch {}
+        }
+      } catch {}
+      return;
+    }
+
     if (this.localAudioTrack && this.localAudioTrack.mediaStreamTrack) {
       try {
         await this.localAudioTrack.mediaStreamTrack.applyConstraints({

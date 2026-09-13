@@ -2248,7 +2248,6 @@ export const SettingsScreen = () => {
     mediaCacheLimit, setMediaCacheLimit,
     cacheCleanupAge, setCacheCleanupAge,
     autoLoadMedia, setAutoLoadMedia,
-    noiseSuppression,
     noiseSuppressionMode, setNoiseSuppressionMode,
     callSoundsEnabled, setCallSoundsEnabled,
     alwaysRelayCalls, setAlwaysRelayCalls,
@@ -2649,16 +2648,14 @@ export const SettingsScreen = () => {
                 {t('settings.noise_suppression_title')}
               </div>
               <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2, lineHeight: 1.4 }}>
-                {noiseSuppressionMode === 'krisp'
-                  ? t('settings.noise_suppression_krisp_desc')
-                  : noiseSuppressionMode === 'standard'
-                  ? t('settings.noise_suppression_standard_desc')
-                  : t('settings.noise_suppression_none_desc')}
+                {noiseSuppressionMode === 'none'
+                  ? t('settings.noise_suppression_none_desc')
+                  : t('settings.noise_suppression_standard_desc')}
               </div>
             </div>
 
             <OrbitaSelect
-              value={noiseSuppressionMode || (noiseSuppression ? 'standard' : 'none')}
+              value={noiseSuppressionMode === 'none' ? 'none' : 'standard'}
               onChange={(val) => {
                 const mode = val as any;
                 setNoiseSuppressionMode(mode);
@@ -2667,7 +2664,6 @@ export const SettingsScreen = () => {
               ariaLabel={t('settings.noise_suppression_title')}
               minWidth={150}
               options={[
-                { value: 'krisp', label: t('settings.noise_suppression_krisp') },
                 { value: 'standard', label: t('settings.noise_suppression_standard') },
                 { value: 'none', label: t('settings.noise_suppression_none') },
               ]}
@@ -3605,16 +3601,14 @@ export const SettingsScreen = () => {
                     {t('settings.noise_suppression_title')}
                   </div>
                   <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2, lineHeight: 1.4 }}>
-                    {noiseSuppressionMode === 'krisp'
-                      ? t('settings.noise_suppression_krisp_desc')
-                      : noiseSuppressionMode === 'standard'
-                      ? t('settings.noise_suppression_standard_desc')
-                      : t('settings.noise_suppression_none_desc')}
+                    {noiseSuppressionMode === 'none'
+                      ? t('settings.noise_suppression_none_desc')
+                      : t('settings.noise_suppression_standard_desc')}
                   </div>
                 </div>
 
                 <OrbitaSelect
-                  value={noiseSuppressionMode || (noiseSuppression ? 'standard' : 'none')}
+                  value={noiseSuppressionMode === 'none' ? 'none' : 'standard'}
                   onChange={(val) => {
                     const mode = val as any;
                     setNoiseSuppressionMode(mode);
@@ -3623,7 +3617,6 @@ export const SettingsScreen = () => {
                   ariaLabel={t('settings.noise_suppression_title')}
                   minWidth={150}
                   options={[
-                    { value: 'krisp', label: t('settings.noise_suppression_krisp') },
                     { value: 'standard', label: t('settings.noise_suppression_standard') },
                     { value: 'none', label: t('settings.noise_suppression_none') },
                   ]}

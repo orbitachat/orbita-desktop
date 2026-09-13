@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
-import { neuralAudioProcessor, NoiseSuppressionMode } from '../services/neuralAudioProcessor';
+import type { NoiseSuppressionMode } from '../services/neuralAudioProcessor';
 
 export interface RecordedAudioData {
   blob: Blob;
@@ -22,7 +22,6 @@ export function useAudioRecorder() {
   const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<number | null>(null);
-  const neuralCleanupRef = useRef<(() => void) | null>(null);
 
   // Web Audio API refs for live visualizer and waveform data
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -52,10 +51,6 @@ export function useAudioRecorder() {
   }, []);
 
   const cleanupStream = useCallback(() => {
-    if (neuralCleanupRef.current) {
-      neuralCleanupRef.current();
-      neuralCleanupRef.current = null;
-    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -114,20 +109,14 @@ export function useAudioRecorder() {
         audio: {
           noiseSuppression: isNoiseSuppression,
           echoCancellation: true,
-          autoGainControl: false,
+          autoGainControl: true,
           channelCount: 1,
           sampleRate: 48000,
         },
       });
       streamRef.current = stream;
 
-      let recordStream = stream;
-
-      if (isNoiseSuppression) {
-        const { stream: procStream, cleanup } = await neuralAudioProcessor.processStream(stream, noiseMode);
-        neuralCleanupRef.current = cleanup;
-        recordStream = procStream;
-      }
+      const recordStream = stream;
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       const audioCtx = new AudioCtx();
