@@ -73,7 +73,7 @@ interface CallStore {
   handleCancel: () => void;
   handleHangup: () => void;
   toggleMic: () => Promise<void>;
-  toggleVideo: () => Promise<void>;
+  toggleVideo: (explicitVal?: boolean) => Promise<void>;
   openScreenPicker: () => void;
   closeScreenPicker: () => void;
   startScreenShareWithOptions: (options: { sourceId?: string; quality: '240p' | '360p' | '720p' | '1080p'; fps: 15 | 30 | 45 | 60; audio: boolean }) => Promise<void>;
@@ -374,9 +374,11 @@ export const useCallStore = create<CallStore>((set, get) => {
 
     liveKitService.on('micChanged', (enabled: boolean) => { set({ isMicEnabled: enabled }); });
     liveKitService.on('cameraChanged', (enabled: boolean) => {
-      set({ isVideoEnabled: enabled });
-      const act = get().activeCall;
-      if (act) set({ activeCall: { ...act, isVideoEnabled: enabled } });
+      if (enabled) {
+        set({ isVideoEnabled: true });
+        const act = get().activeCall;
+        if (act) set({ activeCall: { ...act, isVideoEnabled: true } });
+      }
     });
     liveKitService.on('screenShareChanged', (enabled: boolean) => {
       set({ isScreenSharing: enabled });
@@ -529,9 +531,10 @@ export const useCallStore = create<CallStore>((set, get) => {
       const myNickname = state.myNickname;
       if (!myNickname) return;
       try { useAudioStore.getState().pause(); } catch {}
-      set({ callState: 'ringing', statusMessage: i18n.t('call.calling') });
+      const effectiveCallType = state.isVideoEnabled ? 'video' : (callType || 'audio');
+      set({ callState: 'ringing', statusMessage: i18n.t('call.calling'), activeCall: { ...state.activeCall, callType: effectiveCallType } });
       callSoundService.play('outgoing');
-      sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: callType || 'audio', roomName, verificationSalt, text: '' });
+      sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: effectiveCallType, roomName, verificationSalt, text: '' });
       noAnswerTimer = setTimeout(() => {
         if (get().callState === 'ringing') {
           const act = get().activeCall;
@@ -782,9 +785,9 @@ export const useCallStore = create<CallStore>((set, get) => {
       } catch (err) { console.error(`${LOG_PREFIX} toggleMic failed:`, err); }
     },
 
-    toggleVideo: async () => {
+    toggleVideo: async (explicitVal?: boolean) => {
       const state = get();
-      const next = !state.isVideoEnabled;
+      const next = typeof explicitVal === 'boolean' ? explicitVal : !state.isVideoEnabled;
       set({ isVideoEnabled: next });
       if (state.activeCall) set({ activeCall: { ...state.activeCall, isVideoEnabled: next } });
       try {
@@ -891,7 +894,7 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
     case 'cancelCall': lastKnownCallState = 'idle'; store.endCall(true); try { (window as any).orbita?.closeCallWindow?.(); } catch {} break;
     case 'endCall': store.endCall(false); break;
     case 'toggleMic': store.toggleMic(); break;
-    case 'toggleVideo': store.toggleVideo(); break;
+    case 'toggleVideo': store.toggleVideo(action.payload); break;
     case 'toggleScreenShare': store.toggleScreenShare(); break;
     case 'startScreenShareWithOptions': store.startScreenShareWithOptions(action.payload); break;
     case 'stopScreenShare': store.stopScreenShare(); break;

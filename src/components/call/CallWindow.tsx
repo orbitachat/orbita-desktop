@@ -571,10 +571,10 @@ export const CallWindow = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute top-16 right-6 z-40 w-40 h-28 rounded-2xl shadow-2xl bg-black/75 backdrop-blur-md p-3 flex flex-col items-center justify-center text-center border-0 select-none"
+            className="absolute top-16 right-6 z-40 w-48 h-36 rounded-2xl shadow-2xl bg-black/80 backdrop-blur-md p-4 flex flex-col items-center justify-center text-center border-0 select-none"
           >
-            <VideoOff size={22} className="text-amber-400 mb-1.5" />
-            <span className="text-[11px] font-medium text-white/80">
+            <VideoOff size={28} className="text-amber-400 mb-2" />
+            <span className="text-[13px] font-medium text-white/90 leading-snug">
               {t('call.no_camera_available')}
             </span>
           </motion.div>
@@ -631,7 +631,7 @@ export const CallWindow = () => {
           <>
             <button
               type="button"
-              onClick={toggleVideo}
+              onClick={() => toggleVideo()}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
@@ -642,7 +642,7 @@ export const CallWindow = () => {
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <VideoOff size={20} color="#ffffff" />}
               </div>
               <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.enable_video')}
+                {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
 
@@ -698,7 +698,7 @@ export const CallWindow = () => {
 
             <button
               type="button"
-              onClick={toggleVideo}
+              onClick={() => toggleVideo()}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
@@ -709,7 +709,7 @@ export const CallWindow = () => {
                 {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
               </div>
               <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.camera')}
+                {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
 

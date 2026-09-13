@@ -219,9 +219,7 @@ export const CallWindowView = () => {
   const handleToggleVideo = () => {
     const next = !isVideoEnabled;
     setCallData((prev) => (prev ? { ...prev, isVideoEnabled: next } : prev));
-    if (hasCamera) {
-      sendAction('toggleVideo', next);
-    }
+    sendAction('toggleVideo', next);
   };
 
   const handleToggleScreenShare = () => {
@@ -352,9 +350,9 @@ export const CallWindowView = () => {
             />
           </div>
         ) : (
-          <div className="absolute top-12 right-5 z-40 w-40 h-28 rounded-2xl shadow-2xl bg-black/75 backdrop-blur-md p-3 flex flex-col items-center justify-center text-center border-0 select-none">
-            <VideoOff size={22} className="text-amber-400 mb-1.5" />
-            <span className="text-[11px] font-medium text-white/80">
+          <div className="absolute top-12 right-5 z-40 w-48 h-36 rounded-2xl shadow-2xl bg-black/80 backdrop-blur-md p-4 flex flex-col items-center justify-center text-center border-0 select-none">
+            <VideoOff size={28} className="text-amber-400 mb-2" />
+            <span className="text-[13px] font-medium text-white/90 leading-snug">
               {t('call.no_camera_available')}
             </span>
           </div>
@@ -462,7 +460,7 @@ export const CallWindowView = () => {
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <VideoOff size={20} color="#ffffff" />}
               </div>
               <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.enable_video')}
+                {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
 
@@ -523,7 +521,7 @@ export const CallWindowView = () => {
                 {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
               </div>
               <span style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
-                {isVideoEnabled ? t('call.camera_off') : t('call.camera')}
+                {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
 
