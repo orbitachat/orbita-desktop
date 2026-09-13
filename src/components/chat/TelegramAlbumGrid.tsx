@@ -140,7 +140,7 @@ export const TelegramAlbumGrid = memo(({
         className="flex flex-col w-full overflow-hidden"
         style={{
           width: '100%',
-          gap: '1.5px',
+          gap: '1px',
           borderRadius: 'calc(var(--bubble-radius, 16px) - 2px) calc(var(--bubble-radius, 16px) - 2px) 4px 4px',
         }}
       >
@@ -163,7 +163,7 @@ export const TelegramAlbumGrid = memo(({
               className="flex w-full overflow-hidden"
               style={{
                 width: '100%',
-                gap: '1.5px',
+                gap: '1px',
                 aspectRatio: rowAspectRatio,
                 maxHeight: rowCount === 1 && items.length === 1 ? '340px' : undefined,
               }}
@@ -175,7 +175,6 @@ export const TelegramAlbumGrid = memo(({
                     key={itemIdx}
                     style={{
                       flex: 1,
-                      width: `${100 / rowCount}%`,
                       height: '100%',
                       minWidth: 0,
                     }}

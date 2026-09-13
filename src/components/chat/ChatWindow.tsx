@@ -5639,7 +5639,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 className="relative"
                 style={bubbleStyle(isOwn, {
                   borderRadius: customRadius,
-                  padding: '1.5px 1.5px 4px 1.5px',
+                  padding: '1px 1px 4px 1px',
                   overflow: 'hidden',
                   width: 'fit-content',
                   maxWidth: 'min(440px, 75%)',
