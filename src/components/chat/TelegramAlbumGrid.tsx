@@ -1,4 +1,3 @@
-// src/components/chat/TelegramAlbumGrid.tsx
 import { memo, useMemo } from 'react';
 import { MediaItem, Message } from '../../store/useChatStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
@@ -86,7 +85,6 @@ const AlbumTile = memo(({
 
 AlbumTile.displayName = 'AlbumTile';
 
-// Layout partition helper
 function partitionAlbum(items: MediaItem[]): number[][] {
   const count = items.length;
   if (count <= 1) return [[0]];
@@ -98,9 +96,8 @@ function partitionAlbum(items: MediaItem[]): number[][] {
   if (count === 7) return [[0], [1, 2, 3], [4, 5, 6]];
   if (count === 8) return [[0, 1], [2, 3, 4], [5, 6, 7]];
   if (count === 9) return [[0, 1, 2], [3, 4, 5], [6, 7, 8]];
-  if (count === 10) return [[0], [1, 2], [3, 4, 5], [6, 7, 8, 9]];
+  if (count === 10) return [[0, 1, 2], [3, 4, 5], [6, 7, 8, 9]];
 
-  // Fallback for > 10: rows of 3
   const rows: number[][] = [];
   let curr: number[] = [];
   for (let i = 0; i < count; i++) {

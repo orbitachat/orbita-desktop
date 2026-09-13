@@ -875,7 +875,8 @@ export const useChatStore = create<ChatState>()(
       deleteMessage: (chatId, messageId) => {
         const state = get();
         const messages = state.messagesByChatId[chatId] || [];
-        const updated = messages.filter(m => m.id !== messageId);
+        const baseId = messageId.replace(/_part_\d+$/, '');
+        const updated = messages.filter(m => m.id !== messageId && m.id !== baseId);
         set({
           messagesByChatId: {
             ...state.messagesByChatId,
@@ -922,7 +923,7 @@ export const useChatStore = create<ChatState>()(
 
         const updated = messages.map((m, idx) => {
           const isMatch =
-            (m.id && m.id === targetStr) ||
+            (m.id && (m.id === targetStr || m.id === targetStr.replace(/_part_\d+$/, ''))) ||
             (typeof messageIndexOrId === 'number' && idx === messageIndexOrId);
           if (!isMatch) return m;
           matchFound = true;

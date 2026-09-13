@@ -1716,12 +1716,44 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const { t, i18n } = useTranslation();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const chats = useChatStore((s) => s.chats);
-  const messages = useChatStore(useShallow((s) => {
+  const rawMessages = useChatStore(useShallow((s) => {
     const chatId = activeChatId || '';
     return chatId ? s.messagesByChatId[chatId] || EMPTY_ARRAY : EMPTY_ARRAY;
   }));
 
-  // Batch windowing pagination state (Telegram / Signal style) with responsive adaptive batching
+  const messages = useMemo(() => {
+    let hasAnyLargeMediaGroup = false;
+    for (let i = 0; i < rawMessages.length; i++) {
+      const m = rawMessages[i];
+      if (m.mediaItems && m.mediaItems.length > 10) {
+        hasAnyLargeMediaGroup = true;
+        break;
+      }
+    }
+    if (!hasAnyLargeMediaGroup) return rawMessages;
+
+    const result: Message[] = [];
+    for (let i = 0; i < rawMessages.length; i++) {
+      const msg = rawMessages[i];
+      if (msg.mediaItems && msg.mediaItems.length > 10) {
+        for (let j = 0; j < msg.mediaItems.length; j += 10) {
+          const chunk = msg.mediaItems.slice(j, j + 10);
+          const isFirst = j === 0;
+          result.push({
+            ...msg,
+            id: isFirst ? msg.id : `${msg.id}_part_${Math.floor(j / 10)}`,
+            mediaItems: chunk,
+            text: isFirst ? msg.text : '',
+            time: msg.time + Math.floor(j / 10),
+          });
+        }
+      } else {
+        result.push(msg);
+      }
+    }
+    return result;
+  }, [rawMessages]);
+
   const [renderedCount, setRenderedCount] = useState<number>(getOptimalMessageBatchSize);
   const prevScrollHeightRef = useRef<number | null>(null);
   const prevScrollTopRef = useRef<number | null>(null);
@@ -5392,49 +5424,35 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     if (hasPhotoOrVideo) {
-      const CHUNK_SIZE = 10;
-      const chunks: MediaItem[][] = [];
-      for (let i = 0; i < mediaItems.length; i += CHUNK_SIZE) {
-        chunks.push(mediaItems.slice(i, i + CHUNK_SIZE));
-      }
+      const itemsToRender = mediaItems.slice(0, 10);
+      const viewerItems: MediaViewerItem[] = itemsToRender.map((item, idx) => ({
+        id: `${msg.id || 'msg'}_${idx}_${item.url}`,
+        url: item.url,
+        type: (item.type === 'video' || item.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '')) ? 'video' : 'photo',
+        fileName: item.name,
+        mime: item.mime,
+        key: item.key || msg.mediaKey,
+        sharedSecret: item.key || msg.mediaKey || sharedSecret,
+        duration: item.duration,
+        sender: msg.sender,
+        time: msg.time,
+        messageId: msg.id,
+      }));
 
       return (
-        <div className="flex flex-col gap-1 w-full">
-          {chunks.map((chunkItems, cIdx) => {
-            const chunkViewerItems: MediaViewerItem[] = chunkItems.map((item, idx) => ({
-              id: `${msg.id || 'msg'}_${cIdx * CHUNK_SIZE + idx}_${item.url}`,
-              url: item.url,
-              type: (item.type === 'video' || item.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '')) ? 'video' : 'photo',
-              fileName: item.name,
-              mime: item.mime,
-              key: item.key || msg.mediaKey,
-              sharedSecret: item.key || msg.mediaKey || sharedSecret,
-              duration: item.duration,
-              sender: msg.sender,
-              time: msg.time,
-              messageId: msg.id,
-            }));
-
-            const isLastChunk = cIdx === chunks.length - 1;
-
-            return (
-              <TelegramAlbumGrid
-                key={cIdx}
-                items={chunkItems}
-                sharedSecret={sharedSecret}
-                msg={isLastChunk ? msg : { ...msg, text: '' }}
-                timeNode={isLastChunk ? timeBadge(msg, isMessagePinned(index)) : undefined}
-                onMediaClick={(tileIdx) => {
-                  const clicked = chunkViewerItems[tileIdx];
-                  if (clicked) {
-                    openMediaViewer(clicked.url, msg.id, chunkViewerItems, tileIdx);
-                  }
-                }}
-                maxWidth={440}
-              />
-            );
-          })}
-        </div>
+        <TelegramAlbumGrid
+          items={itemsToRender}
+          sharedSecret={sharedSecret}
+          msg={msg}
+          timeNode={timeBadge(msg, isMessagePinned(index))}
+          onMediaClick={(tileIdx) => {
+            const clicked = viewerItems[tileIdx];
+            if (clicked) {
+              openMediaViewer(clicked.url, msg.id, viewerItems, tileIdx);
+            }
+          }}
+          maxWidth={440}
+        />
       );
     }
 
