@@ -11,6 +11,7 @@ interface TelegramAlbumGridProps {
   isOwn?: boolean;
   onMediaClick: (index: number) => void;
   maxWidth?: number;
+  customRadius?: string;
 }
 
 const AlbumTile = memo(({
@@ -117,9 +118,32 @@ export const TelegramAlbumGrid = memo(({
   timeNode,
   onMediaClick,
   maxWidth = 440,
+  customRadius,
 }: TelegramAlbumGridProps) => {
   const rows = useMemo(() => partitionAlbum(items), [items]);
   const hasCaption = !!msg.text;
+
+  const { photoBorderRadius, innerTL, innerTR } = useMemo(() => {
+    let tl = 16;
+    let tr = 16;
+    if (customRadius) {
+      const parts = customRadius.trim().split(/\s+/);
+      const parseVal = (v?: string) => {
+        if (!v) return 16;
+        const n = parseFloat(v);
+        return isNaN(n) ? 16 : n;
+      };
+      tl = parseVal(parts[0]);
+      tr = parseVal(parts[1] || parts[0]);
+    }
+    const cTL = Math.max(0, tl - 1);
+    const cTR = Math.max(0, tr - 1);
+    return {
+      photoBorderRadius: `${cTL}px ${cTR}px 4px 4px`,
+      innerTL: cTL,
+      innerTR: cTR,
+    };
+  }, [customRadius]);
 
   return (
     <div
@@ -127,7 +151,6 @@ export const TelegramAlbumGrid = memo(({
       style={{
         width: '100%',
         maxWidth: `${maxWidth}px`,
-        borderRadius: 'var(--bubble-radius, 16px)',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         boxSizing: 'border-box',
@@ -138,7 +161,7 @@ export const TelegramAlbumGrid = memo(({
         style={{
           width: '100%',
           gap: '1px',
-          borderRadius: 'calc(var(--bubble-radius, 16px) - 2px) calc(var(--bubble-radius, 16px) - 2px) 4px 4px',
+          borderRadius: photoBorderRadius,
         }}
       >
         {rows.map((rowIndices, rIdx) => {
@@ -165,8 +188,12 @@ export const TelegramAlbumGrid = memo(({
                 maxHeight: rowCount === 1 && items.length === 1 ? '340px' : undefined,
               }}
             >
-              {rowIndices.map((itemIdx) => {
+              {rowIndices.map((itemIdx, colIdx) => {
                 const item = items[itemIdx];
+                const isTopRow = rIdx === 0;
+                const isFirstCol = colIdx === 0;
+                const isLastCol = colIdx === rowCount - 1;
+                const tileRadius = `${isTopRow && isFirstCol ? innerTL : 0}px ${isTopRow && isLastCol ? innerTR : 0}px 0 0`;
                 return (
                   <div
                     key={itemIdx}
@@ -174,13 +201,15 @@ export const TelegramAlbumGrid = memo(({
                       flex: 1,
                       height: '100%',
                       minWidth: 0,
+                      borderRadius: tileRadius,
+                      overflow: 'hidden',
                     }}
                   >
                     <AlbumTile
                       item={item}
                       sharedSecret={sharedSecret}
                       onClick={() => onMediaClick(itemIdx)}
-                      style={{ width: '100%', height: '100%' }}
+                      style={{ width: '100%', height: '100%', borderRadius: tileRadius }}
                     />
                   </div>
                 );

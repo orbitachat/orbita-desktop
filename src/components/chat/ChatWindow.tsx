@@ -5390,7 +5390,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
 
 
-  const renderMediaGroup = useCallback((msg: Message, index: number) => {
+  const renderMediaGroup = useCallback((msg: Message, index: number, customRadius?: string) => {
     const mediaItems = msg.mediaItems;
     if (!mediaItems || mediaItems.length === 0) return null;
 
@@ -5445,6 +5445,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           sharedSecret={sharedSecret}
           msg={msg}
           timeNode={timeBadge(msg, isMessagePinned(index))}
+          customRadius={customRadius}
           onMediaClick={(tileIdx) => {
             const clicked = viewerItems[tileIdx];
             if (clicked) {
@@ -5698,7 +5699,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   boxSizing: 'border-box',
                 })}
               >
-                {renderMediaGroup(msg, index)}
+                {renderMediaGroup(msg, index, customRadius)}
               </div>
               {renderReactionBadges(msg, index)}
             </div>
@@ -5884,7 +5885,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             {media.type === 'image' && (
               <div
                 className="max-w-[min(440px, 75%)] w-fit relative rounded-xl overflow-hidden shadow-lg cursor-pointer"
-                style={{ border: 'none', maxWidth: 'min(440px, 75%)', width: 'fit-content', borderRadius: bubbleRadius }}
+                style={{ border: 'none', maxWidth: 'min(440px, 75%)', width: 'fit-content', borderRadius: customRadius || bubbleRadius }}
               >
                 <EncryptedMedia
                   url={media.url!}
@@ -5905,7 +5906,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             {media.type === 'video' && (
               <div
                 className="max-w-[min(440px, 75%)] w-fit relative rounded-xl overflow-hidden shadow-lg cursor-pointer"
-                style={{ border: 'none', maxWidth: 'min(440px, 75%)', width: 'fit-content', borderRadius: bubbleRadius }}
+                style={{ border: 'none', maxWidth: 'min(440px, 75%)', width: 'fit-content', borderRadius: customRadius || bubbleRadius }}
               >
                 <EncryptedMedia
                   url={media.url!}
