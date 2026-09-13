@@ -354,6 +354,19 @@ class SupportService {
       const existing = existingMsgs.find((m) => m.id === msgId || (i === 0 && m.id === `ticket_${ticketNum}_part_0`));
 
       if (existing) {
+        if (existing.text && (existing.text.includes('\n\nСтатус:') || existing.text.includes('\n\nОтвет:'))) {
+          const cleanedText = existing.text.split('\n\nСтатус:')[0].split('\n\nОтвет:')[0].trim();
+          if (cleanedText && cleanedText !== existing.text) {
+            useChatStore.setState((state) => ({
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [this.BOT_ID]: (state.messagesByChatId[this.BOT_ID] || []).map((m) =>
+                  m.id === existing.id ? { ...m, text: cleanedText } : m
+                ),
+              },
+            }));
+          }
+        }
         continue;
       }
 

@@ -1288,8 +1288,11 @@ module.exports = async function handler(req, res) {
         },
         contents,
         generationConfig: {
-          temperature: 0.8,
-          maxOutputTokens: 400,
+          temperature: 0.7,
+          maxOutputTokens: 250,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
         },
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -1302,14 +1305,23 @@ module.exports = async function handler(req, res) {
       let lastErr = '';
       for (let attempt = 0; attempt < 2; attempt++) {
         const targetUrl = attempt === 0 ? primaryUrl : fallbackUrl;
+        const currentPayload = attempt === 0 ? payload : {
+          ...payload,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 250,
+          },
+        };
         const aiRes = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(currentPayload),
         });
         if (aiRes.ok) {
           const aiData = await aiRes.json();
-          let replyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const parts = aiData?.candidates?.[0]?.content?.parts || [];
+          const answerPart = parts.find((p) => !p.thought && p.text) || parts[parts.length - 1] || {};
+          let replyText = answerPart.text || '';
           replyText = replyText.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{1FA00}-\u{1FAFF}\u{FE00}-\u{FE0F}]/gu, '').trim();
           return sendJson(res, { reply: replyText });
         }

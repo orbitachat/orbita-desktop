@@ -1761,6 +1761,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const [isSupportTicketsModalOpen, setIsSupportTicketsModalOpen] = useState(false);
   const [unsafeLinkData, setUnsafeLinkData] = useState<{ isOpen: boolean; url: string }>({ isOpen: false, url: '' });
 
+  useEffect(() => {
+    const handleReplyTicketEvent = (e: any) => {
+      const tNum = e?.detail?.ticketNumber;
+      if (tNum) {
+        setInputText(`/reply ${tNum} `);
+      }
+    };
+    window.addEventListener('orbita:reply-ticket', handleReplyTicketEvent);
+    return () => window.removeEventListener('orbita:reply-ticket', handleReplyTicketEvent);
+  }, []);
+
   const emojiHoverOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const emojiHoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
