@@ -573,6 +573,20 @@ export const CallWindowView = () => {
 
   const hasRemoteStream = isRemoteScreenShareActive || isRemoteVideoActive;
 
+  useEffect(() => {
+    if (hasRemoteStream && bgVideoRef.current) {
+      const sTrack = liveKitService.getRemoteScreenShareTrack();
+      if (sTrack && !sTrack.isMuted) {
+        sTrack.attach(bgVideoRef.current);
+      } else {
+        const rTrack = liveKitService.getRemoteVideoTrack();
+        if (rTrack && !rTrack.isMuted) {
+          rTrack.attach(bgVideoRef.current);
+        }
+      }
+    }
+  }, [hasRemoteStream]);
+
   return (
     <div
       className="w-full h-full min-h-screen flex flex-col justify-between overflow-hidden select-none relative"
@@ -584,41 +598,28 @@ export const CallWindowView = () => {
         ['--title-bar-bg' as any]: 'transparent',
       }}
     >
-      <div
-        className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
-        style={{ contain: 'strict' }}
-      >
-        <video
-          ref={bgVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover pointer-events-none"
-          style={{
-            display: hasRemoteStream ? 'block' : 'none',
-            filter: 'blur(30px)',
-            transform: 'scale(1.15) translate3d(0, 0, 0)',
-            willChange: 'transform',
-            opacity: 0.35,
-            backfaceVisibility: 'hidden',
-          }}
-        />
-        {otherAvatar && !hasRemoteStream && (
-          <img
-            src={otherAvatar}
-            alt=""
+      {hasRemoteStream && (
+        <div
+          className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
+          style={{ contain: 'strict' }}
+        >
+          <video
+            ref={bgVideoRef}
+            autoPlay
+            playsInline
+            muted
             className="w-full h-full object-cover pointer-events-none"
             style={{
               filter: 'blur(30px)',
               transform: 'scale(1.15) translate3d(0, 0, 0)',
               willChange: 'transform',
-              opacity: 0.25,
+              opacity: 0.35,
               backfaceVisibility: 'hidden',
             }}
           />
-        )}
-        <div className="absolute inset-0 bg-black/45 pointer-events-none" />
-      </div>
+          <div className="absolute inset-0 bg-black/45 pointer-events-none" />
+        </div>
+      )}
 
       <div className="relative z-50">
         <TitleBar />
@@ -752,24 +753,17 @@ export const CallWindowView = () => {
         )}
       </div>
 
-      {(isLocalScreenShareActive || isScreenSharing) && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[12px] font-medium text-white/90">
-            {t('call.sharing_your_screen', 'Вы транслируете свой экран')}
-          </span>
-          <button
-            type="button"
-            onClick={handleToggleScreenShare}
-            aria-label={t('call.stop_screen_share')}
-            className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors border-0 cursor-pointer ml-1"
-          >
-            {t('call.stop_screen_share', 'Остановить')}
-          </button>
-        </div>
-      )}
+      <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex flex-col items-center gap-3`}>
+        {(isLocalScreenShareActive || isScreenSharing) && (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md shadow-lg select-none border-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[12px] font-medium text-white/90">
+              {t('call.sharing_your_screen', 'Вы транслируете свой экран')}
+            </span>
+          </div>
+        )}
 
-      <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex items-center justify-center gap-5`}>
+        <div className="flex items-center justify-center gap-5">
         {isIncoming ? (
           <>
             <button
@@ -935,6 +929,7 @@ export const CallWindowView = () => {
             </span>
           </button>
         ) : null}
+        </div>
       </div>
 
       <ScreenSharePickerModal

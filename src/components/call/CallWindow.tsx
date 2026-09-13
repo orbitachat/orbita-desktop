@@ -505,41 +505,28 @@ export const CallWindow = () => {
         WebkitUserSelect: 'none',
       }}
     >
-      <div
-        className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
-        style={{ contain: 'strict' }}
-      >
-        <video
-          ref={bgVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover pointer-events-none"
-          style={{
-            display: (isRemoteVideoActive || isRemoteScreenShareActive) ? 'block' : 'none',
-            filter: 'blur(30px)',
-            transform: 'scale(1.15) translate3d(0, 0, 0)',
-            willChange: 'transform',
-            opacity: 0.35,
-            backfaceVisibility: 'hidden',
-          }}
-        />
-        {otherAvatar && !(isRemoteVideoActive || isRemoteScreenShareActive) && (
-          <img
-            src={otherAvatar}
-            alt=""
+      {(isRemoteVideoActive || isRemoteScreenShareActive) && (
+        <div
+          className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
+          style={{ contain: 'strict' }}
+        >
+          <video
+            ref={bgVideoRef}
+            autoPlay
+            playsInline
+            muted
             className="w-full h-full object-cover pointer-events-none"
             style={{
               filter: 'blur(30px)',
               transform: 'scale(1.15) translate3d(0, 0, 0)',
               willChange: 'transform',
-              opacity: 0.25,
+              opacity: 0.35,
               backfaceVisibility: 'hidden',
             }}
           />
-        )}
-        <div className="absolute inset-0 bg-black/45 pointer-events-none" />
-      </div>
+          <div className="absolute inset-0 bg-black/45 pointer-events-none" />
+        </div>
+      )}
 
       <div style={{ height: '30px' }} className="w-full flex-shrink-0" />
 
@@ -577,22 +564,6 @@ export const CallWindow = () => {
         </div>
       )}
 
-      {isScreenSharing && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[12px] font-medium text-white/90">
-            {t('call.sharing_your_screen')}
-          </span>
-          <button
-            type="button"
-            onClick={toggleScreenShare}
-            aria-label={t('call.stop_screen_share')}
-            className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors border-0 cursor-pointer ml-1"
-          >
-            {t('call.stop_screen_share')}
-          </button>
-        </div>
-      )}
 
       <AnimatePresence>
         {(isRemoteVideoActive || isRemoteScreenShareActive) && isLocalVideoActive && (
@@ -723,7 +694,17 @@ export const CallWindow = () => {
         )}
       </div>
 
-      <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-30'} flex items-center justify-center gap-5`}>
+      <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-30'} flex flex-col items-center gap-3 select-none`}>
+        {isScreenSharing && (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md shadow-lg select-none border-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[12px] font-medium text-white/90">
+              {t('call.sharing_your_screen')}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-center gap-5">
         {isPreparing ? (
           <>
             <button
@@ -858,6 +839,7 @@ export const CallWindow = () => {
             </span>
           </button>
         ) : null}
+        </div>
       </div>
 
       <ScreenSharePickerModal />
