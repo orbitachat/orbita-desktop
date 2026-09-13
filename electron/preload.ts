@@ -92,6 +92,16 @@ contextBridge.exposeInMainWorld('orbita', {
     ipcRenderer.send('orbita:set-current-font', fontFamily);
   },
 
+  getCurrentFont: () => {
+    return ipcRenderer.invoke('orbita:get-current-font');
+  },
+
+  onFontChanged: (callback: (fontFamily: string) => void) => {
+    const handler = (_event: unknown, fontFamily: string) => callback(fontFamily);
+    ipcRenderer.on('orbita:font-changed', handler);
+    return () => ipcRenderer.removeListener('orbita:font-changed', handler);
+  },
+
   getCurrentTheme: () => {
     return ipcRenderer.invoke('orbita:get-current-theme');
   },

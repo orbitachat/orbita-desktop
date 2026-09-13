@@ -15,18 +15,19 @@ export const CallVerificationBadge: React.FC<CallVerificationBadgeProps> = ({
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center select-none px-3 py-1.5 rounded-2xl shadow-md ${className}`}
+      className={`relative inline-flex items-center justify-center select-none px-4 py-2 rounded-full shadow-md ${className}`}
       style={{
-        backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 8%, rgba(255, 255, 255, 0.16))',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        backgroundColor: 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
         ...style,
       }}
     >
       <div
-        className="flex items-center gap-2 select-none"
+        className="flex items-center gap-2.5 select-none"
         style={{
-          fontSize: '18px',
+          fontSize: '22px',
           lineHeight: 1,
         }}
       >

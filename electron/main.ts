@@ -1917,6 +1917,18 @@ ipcMain.on('orbita:set-current-theme', (_event, { themeId, themeVars }) => {
   }
 });
 
+let currentFontFamily = 'system';
+ipcMain.on('orbita:set-current-font', (_event, fontFamily: string) => {
+  currentFontFamily = fontFamily || 'system';
+  if (callWindow && !callWindow.isDestroyed()) {
+    callWindow.webContents.send('orbita:font-changed', currentFontFamily);
+  }
+});
+
+ipcMain.handle('orbita:get-current-font', () => {
+  return currentFontFamily;
+});
+
 let currentAppIconName = 'orbita1';
 let currentNotifIconName = 'orbita1';
 
@@ -2028,14 +2040,6 @@ function parseColorToBgr(colorStr: string, defaultBgr: number): number {
   }
   return defaultBgr;
 }
-
-let currentFontFamily = 'Segoe UI';
-
-ipcMain.on('orbita:set-current-font', (_event, font: string) => {
-  if (typeof font === 'string') {
-    currentFontFamily = font;
-  }
-});
 
 function showTrayContextMenu() {
   if (!trayInstance) return;
@@ -2340,7 +2344,9 @@ function buildCallUrlQuery(payload?: any): string {
     if (payload.activeCall?.direction) params.set('direction', payload.activeCall.direction);
     if (payload.activeCall?.callType) params.set('type', payload.activeCall.callType);
     if (payload.activeCall?.chatId) params.set('chatId', payload.activeCall.chatId);
+    if (payload.myNickname) params.set('myNickname', payload.myNickname);
   }
+  if (currentFontFamily) params.set('font', currentFontFamily);
   return params.toString();
 }
 

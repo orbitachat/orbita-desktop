@@ -234,6 +234,27 @@ export const CallWindow = () => {
   }, [isConnected]);
 
   useEffect(() => {
+    if (isRemoteScreenShareActive && remoteScreenShareRef.current) {
+      const track = liveKitService.getRemoteScreenShareTrack();
+      if (track) {
+        track.attach(remoteScreenShareRef.current);
+      }
+    }
+  }, [isRemoteScreenShareActive]);
+
+  useEffect(() => {
+    if (isRemoteVideoActive && remoteVideoRef.current) {
+      const track = liveKitService.getRemoteVideoTrack();
+      if (track) {
+        track.attach(remoteVideoRef.current);
+        if (bgVideoRef.current) {
+          track.attach(bgVideoRef.current);
+        }
+      }
+    }
+  }, [isRemoteVideoActive]);
+
+  useEffect(() => {
     if (remoteScreenShareTrack && remoteScreenShareRef.current) {
       remoteScreenShareTrack.attach(remoteScreenShareRef.current);
       setIsRemoteScreenShareActive(true);
@@ -536,7 +557,7 @@ export const CallWindow = () => {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
-        {(isRemoteVideoActive || isRemoteScreenShareActive || (isConnected && isVideoEnabled && isLocalVideoActive) || isScreenSharing) ? (
+        {(isRemoteVideoActive || isRemoteScreenShareActive) ? (
           <>
             <video
               ref={bgVideoRef}
@@ -545,7 +566,7 @@ export const CallWindow = () => {
               muted
               className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-125 pointer-events-none z-0"
             />
-            {otherAvatar && !isRemoteVideoActive && !isLocalVideoActive && (
+            {otherAvatar && !isRemoteVideoActive && (
               <img
                 src={otherAvatar}
                 alt=""
@@ -577,22 +598,6 @@ export const CallWindow = () => {
                 playsInline
                 className="w-full h-full object-cover"
                 style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
-              />
-              <video
-                ref={localScreenShareRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-contain opacity-80"
-                style={{ display: !isRemoteScreenShareActive && !isRemoteVideoActive && isScreenSharing ? 'block' : 'none' }}
-              />
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover -scale-x-100"
-                style={{ display: !isRemoteScreenShareActive && !isRemoteVideoActive && !isScreenSharing && isLocalVideoActive ? 'block' : 'none' }}
               />
               <button
                 type="button"
@@ -663,15 +668,15 @@ export const CallWindow = () => {
               type="button"
               onClick={() => toggleVideo()}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0"
                 style={isVideoEnabled ? accentButtonStyle : neutralButtonStyle(false)}
               >
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <VideoOff size={20} color="#ffffff" />}
               </div>
-              <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -680,12 +685,12 @@ export const CallWindow = () => {
               type="button"
               onClick={handleCancel}
               aria-label={t('call.cancel')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95" style={rejectButtonStyle}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
                 <X size={20} color="#ffffff" />
               </div>
-              <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.cancel')}
               </span>
             </button>
@@ -694,15 +699,15 @@ export const CallWindow = () => {
               type="button"
               onClick={handleCall}
               aria-label={t('call.call')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95"
+                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0"
                 style={accentButtonStyle}
               >
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <Phone size={20} color="#ffffff" />}
               </div>
-              <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.call')}
               </span>
             </button>
@@ -713,15 +718,15 @@ export const CallWindow = () => {
               type="button"
               onClick={toggleMic}
               aria-label={isMicEnabled ? t('call.mic') : t('call.mic_off')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95"
+                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95 flex-shrink-0"
                 style={neutralButtonStyle(isMicEnabled)}
               >
                 {isMicEnabled ? <Mic size={20} /> : <MicOff size={20} />}
               </div>
-              <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {isMicEnabled ? t('call.mic') : t('call.mic_off')}
               </span>
             </button>
@@ -730,15 +735,15 @@ export const CallWindow = () => {
               type="button"
               onClick={() => toggleVideo()}
               aria-label={isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95"
+                className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95 flex-shrink-0"
                 style={neutralButtonStyle(isVideoEnabled)}
               >
                 {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
               </div>
-              <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -747,17 +752,17 @@ export const CallWindow = () => {
               <button
                 type="button"
                 onClick={toggleScreenShare}
-                aria-label={isScreenSharing ? t('call.stop_screen_share') : t('call.screen_share')}
-                className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+                aria-label={t('call.screen_share')}
+                className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
               >
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95"
+                  className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95 flex-shrink-0"
                   style={neutralButtonStyle(isScreenSharing)}
                 >
                   {isScreenSharing ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
                 </div>
-                <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
-                  {isScreenSharing ? t('call.stop_screen_share') : t('call.screen_share')}
+                <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+                  {t('call.screen_share')}
                 </span>
               </button>
             )}
@@ -766,12 +771,12 @@ export const CallWindow = () => {
               type="button"
               onClick={handleCancel}
               aria-label={t('call.hang_up')}
-              className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+              className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95" style={rejectButtonStyle}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
                 <PhoneOff size={20} color="#ffffff" />
               </div>
-              <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.hang_up')}
               </span>
             </button>
@@ -781,12 +786,12 @@ export const CallWindow = () => {
             type="button"
             onClick={handleCancel}
             aria-label={t('call.close')}
-            className="flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
+            className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
           >
-            <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95" style={rejectButtonStyle}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
               <X size={20} color="#ffffff" />
             </div>
-            <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+            <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
               {t('call.close')}
             </span>
           </button>

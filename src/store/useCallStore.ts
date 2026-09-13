@@ -721,7 +721,8 @@ export const useCallStore = create<CallStore>((set, get) => {
         }
       }, CONNECTING_TIMEOUT_MS);
 
-      if (liveKitService.status !== 'connected' && liveKitService.status !== 'connecting') {
+      const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+      if (!isElectronSeparateCallWindow && liveKitService.status !== 'connected' && liveKitService.status !== 'connecting') {
         try {
           const { roomName, verificationSalt, verificationSecret } = state.activeCall;
           const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
@@ -732,7 +733,7 @@ export const useCallStore = create<CallStore>((set, get) => {
         }
       }
 
-      if (liveKitService.remoteParticipants.length > 0) activateConnected();
+      if (!isElectronSeparateCallWindow && liveKitService.remoteParticipants.length > 0) activateConnected();
     },
 
     handleConnected: (syncedConnectedAt?: number) => {
