@@ -1987,9 +1987,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     return list;
   }, [messages, sharedSecret]);
 
-  const openMediaViewer = useCallback((url: string, messageId?: string, customItems?: MediaViewerItem[]) => {
+  const openMediaViewer = useCallback((url: string, messageId?: string, customItems?: MediaViewerItem[], explicitIndex?: number) => {
     const items = customItems || chatMediaViewerItems;
-    const index = items.findIndex((it) => it.url === url || (messageId && it.messageId === messageId));
+    let index = typeof explicitIndex === 'number' && explicitIndex >= 0 ? explicitIndex : -1;
+    if (index === -1) {
+      if (url) {
+        index = items.findIndex((it) => it.url === url);
+      }
+      if (index === -1 && messageId) {
+        index = items.findIndex((it) => it.messageId === messageId);
+      }
+    }
     setMediaViewerState({
       isOpen: true,
       initialIndex: index !== -1 ? index : 0,
@@ -5097,7 +5105,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           onMediaClick={(tileIdx) => {
             const clicked = viewerItems[tileIdx];
             if (clicked) {
-              openMediaViewer(clicked.url, msg.id, viewerItems);
+              openMediaViewer(clicked.url, msg.id, viewerItems, tileIdx);
             }
           }}
           maxWidth={440}
@@ -5965,8 +5973,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             height: '100%',
             padding: '6px 0 0 0',
             boxSizing: 'border-box',
-            transform: 'translateZ(0)',
-            willChange: 'scroll-position',
             overscrollBehaviorY: 'contain',
             userSelect: 'text',
             WebkitUserSelect: 'text',

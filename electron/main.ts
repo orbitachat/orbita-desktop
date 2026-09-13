@@ -76,6 +76,7 @@ app.commandLine.appendSwitch('disk-cache-size', '33554432');
 app.commandLine.appendSwitch('media-cache-size', '33554432');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --expose-gc');
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('enable-features', 'RunLoopCallbackWorkOnWindows,DwmFlushOnResize');
 
 // Load optional native module
 let nativeModule: any = null;
@@ -2738,7 +2739,7 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: true,
+      backgroundThrottling: false,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Desktop',
