@@ -135,17 +135,24 @@ class LiveKitService extends EventEmitter {
     }
 
     this.isConnecting = true;
+    this.currentRoomId++;
+    const targetRoomId = this.currentRoomId;
     let lastError: unknown = null;
 
     try {
       for (let attempt = 1; attempt <= MAX_CONNECT_RETRIES; attempt++) {
+        if (this.currentRoomId !== targetRoomId) {
+          console.log(`${LOG_PREFIX} Connection aborted by disconnect`);
+          return;
+        }
         this.emit('connectAttempt', attempt, MAX_CONNECT_RETRIES);
         try {
-          await this.attemptConnect(roomName, token, url, verificationSecret);
+          await this.attemptConnect(roomName, token, url, verificationSecret, targetRoomId);
           console.log(`${LOG_PREFIX} Connected successfully (attempt ${attempt})`);
           this.emit('connectSuccess', attempt, MAX_CONNECT_RETRIES);
           return;
         } catch (err) {
+          if (this.currentRoomId !== targetRoomId) return;
           lastError = err;
           console.error(`${LOG_PREFIX} Connection attempt ${attempt}/${MAX_CONNECT_RETRIES} failed:`, err);
           if (attempt < MAX_CONNECT_RETRIES) {
@@ -157,7 +164,9 @@ class LiveKitService extends EventEmitter {
       }
       throw lastError instanceof Error ? lastError : new Error('LiveKit connection failed after retries');
     } finally {
-      this.isConnecting = false;
+      if (this.currentRoomId === targetRoomId) {
+        this.isConnecting = false;
+      }
     }
   }
 
@@ -167,12 +176,13 @@ class LiveKitService extends EventEmitter {
     token: string,
     url: string,
     _verificationSecret?: string,
+    targetRoomId?: number,
   ): Promise<void> {
-    this.currentRoomId++;
-
     if (this.room) {
       await this.cleanupRoom();
     }
+    
+    if (targetRoomId !== undefined && this.currentRoomId !== targetRoomId) return;
 
     const alwaysRelay = useChatStore.getState().alwaysRelayCalls;
     const selectedMicId = useChatStore.getState().selectedMicrophoneId;
@@ -311,6 +321,7 @@ class LiveKitService extends EventEmitter {
 
     this.currentRoomId++;
     const roomIdToDisconnect = this.currentRoomId;
+    this.isConnecting = false;
 
     await this.cleanupRoom();
 
