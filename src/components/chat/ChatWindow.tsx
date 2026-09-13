@@ -2879,7 +2879,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const floatingDateRef = useRef<string | null>(null);
 
   const scrollRafRef = useRef<number | null>(null);
-  const lastDateCheckTimeRef = useRef<number>(0);
 
   const [chatThumb, setChatThumb] = useState<{ top: number; height: number } | null>(null);
   const [isChatActive, setIsChatActive] = useState(false);
@@ -2958,57 +2957,70 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     floatingDateTimeoutRef.current = setTimeout(() => {
       setShowFloatingDate(false);
       setFloatingDateOffsetY(0);
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.querySelectorAll<HTMLElement>('[data-date-divider]').forEach((d) => {
+          d.style.opacity = '1';
+        });
+      }
     }, 1200);
 
-    const now = performance.now();
-    if (now - lastDateCheckTimeRef.current > 30) {
-      lastDateCheckTimeRef.current = now;
-      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
-      scrollRafRef.current = requestAnimationFrame(() => {
-        if (!messagesContainerRef.current) return;
-        const rect = messagesContainerRef.current.getBoundingClientRect();
-        const y = rect.top + 50;
-        const target =
-          document.elementFromPoint(rect.left + rect.width / 2, y)?.closest('[data-datelabel]') ||
-          document.elementFromPoint(rect.left + 40, y)?.closest('[data-datelabel]') ||
-          document.elementFromPoint(rect.right - 40, y)?.closest('[data-datelabel]');
-        const activeDate = target?.getAttribute('data-datelabel') || floatingDateRef.current;
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      if (!messagesContainerRef.current) return;
+      const container = messagesContainerRef.current;
+      const rect = container.getBoundingClientRect();
+      const TARGET_TOP = 12;
 
-        if (activeDate) {
-          floatingDateRef.current = activeDate;
-          setFloatingDate(activeDate);
+      const allDividers = Array.from(container.querySelectorAll<HTMLElement>('[data-date-divider]'));
+      const passedDividers: { el: HTMLElement; label: string; top: number }[] = [];
+      const upcomingDividers: { el: HTMLElement; label: string; top: number }[] = [];
 
-          const allDividers = Array.from(messagesContainerRef.current.querySelectorAll('[data-date-divider]'));
-          const currentDivider = allDividers.find((d) => d.getAttribute('data-date-divider') === activeDate);
-          let isCurrentDividerVisible = false;
-          if (currentDivider) {
-            const divRect = currentDivider.getBoundingClientRect();
-            if (divRect.bottom > rect.top + 6 && divRect.top < rect.bottom - 10) {
-              isCurrentDividerVisible = true;
-            }
-          }
-
-          if (isCurrentDividerVisible) {
-            setShowFloatingDate(false);
-            setFloatingDateOffsetY(0);
-          } else {
-            setShowFloatingDate(true);
-            let pushOffsetY = 0;
-            for (const div of allDividers) {
-              if (div.getAttribute('data-date-divider') === activeDate) continue;
-              const r = div.getBoundingClientRect();
-              const distFromTop = r.top - rect.top;
-              if (distFromTop > 0 && distFromTop < 42) {
-                pushOffsetY = distFromTop - 42;
-                break;
-              }
-            }
-            setFloatingDateOffsetY(pushOffsetY);
-          }
+      for (const div of allDividers) {
+        const pill = div.querySelector<HTMLElement>('.date-badge-pill') || div;
+        const top = pill.getBoundingClientRect().top - rect.top;
+        const label = div.getAttribute('data-date-divider') || '';
+        if (top <= TARGET_TOP) {
+          passedDividers.push({ el: div, label, top });
+        } else {
+          upcomingDividers.push({ el: div, label, top });
         }
-      });
-    }
-  }, [handleIsScrolling, hasMoreAbove, loadMoreAbove, startIndex]);
+      }
+
+      let activeDate: string | null = null;
+      let pushOffsetY = 0;
+
+      if (passedDividers.length > 0) {
+        const current = passedDividers[passedDividers.length - 1];
+        activeDate = current.label;
+      } else if (startIndex > 0 && visibleMessages.length > 0) {
+        activeDate = getDateLabel(visibleMessages[0].time);
+      }
+
+      if (upcomingDividers.length > 0 && activeDate) {
+        const nextDist = upcomingDividers[0].top;
+        if (nextDist < 42) {
+          pushOffsetY = nextDist - 42;
+        }
+      }
+
+      if (activeDate) {
+        floatingDateRef.current = activeDate;
+        setFloatingDate(activeDate);
+        setShowFloatingDate(true);
+        setFloatingDateOffsetY(pushOffsetY);
+        for (const div of allDividers) {
+          const isHidden = div.getAttribute('data-date-divider') === activeDate;
+          div.style.opacity = isHidden ? '0' : '1';
+        }
+      } else {
+        setShowFloatingDate(false);
+        setFloatingDateOffsetY(0);
+        for (const div of allDividers) {
+          div.style.opacity = '1';
+        }
+      }
+    });
+  }, [handleIsScrolling, hasMoreAbove, loadMoreAbove, startIndex, visibleMessages, getDateLabel]);
 
   // Read receipts observer & focus/visibility sync (batched and stabilized)
   useEffect(() => {
@@ -5577,7 +5589,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       <div
         data-date-divider={dateLabel}
         className="flex justify-center items-center w-full my-2.5 select-none pointer-events-none date-badge"
-        style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+        style={{ userSelect: 'none', WebkitUserSelect: 'none', transition: 'opacity 0.15s ease' }}
       >
         <div
           className="date-badge-pill select-none"
