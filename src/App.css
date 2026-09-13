@@ -753,12 +753,31 @@ video {
   -webkit-user-select: none !important;
 }
 
-.select-text,
-.select-text *,
-.message-bubble-selectable,
-.message-bubble-selectable * {
+.select-text {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.selectable-message-text,
+.selectable-message-text * {
   user-select: text !important;
   -webkit-user-select: text !important;
+}
+
+.select-none,
+.select-none *,
+.message-time-badge,
+.message-time-badge *,
+.date-badge,
+.date-badge *,
+.date-badge-pill,
+.date-badge-pill *,
+[data-date-divider],
+[data-date-divider] *,
+.message-sender-name,
+.message-sender-name * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 ::selection {
@@ -766,10 +785,25 @@ video {
   color: inherit !important;
 }
 
-.select-text::selection,
-.select-text *::selection,
-.message-bubble-selectable::selection,
-.message-bubble-selectable *::selection {
+.selectable-message-text::selection,
+.selectable-message-text *::selection,
+.select-text::selection {
   background: rgba(92, 84, 229, 0.45) !important;
+  color: inherit !important;
+}
+
+.select-none::selection,
+.select-none *::selection,
+.message-time-badge::selection,
+.message-time-badge *::selection,
+.date-badge::selection,
+.date-badge *::selection,
+.date-badge-pill::selection,
+.date-badge-pill *::selection,
+[data-date-divider]::selection,
+[data-date-divider] *::selection,
+.message-sender-name::selection,
+.message-sender-name *::selection {
+  background: transparent !important;
   color: inherit !important;
 }

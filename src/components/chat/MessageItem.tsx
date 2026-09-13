@@ -56,7 +56,7 @@ const MessageText = ({
 
   return (
     <div
-      className={`select-text ${isOwn ? 'select-text-own' : 'select-text-incoming'}`}
+      className={`${isOwn ? 'select-text-own' : 'select-text-incoming'}`}
       style={{
         fontSize: 'inherit',
         lineHeight: 1.3,
@@ -64,12 +64,9 @@ const MessageText = ({
         whiteSpace: 'pre-wrap',
         width: '100%',
         position: 'relative',
-        userSelect: 'text',
-        WebkitUserSelect: 'text',
-        cursor: 'text',
       }}
     >
-      <span style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}>
+      <span className="selectable-message-text" style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}>
         <span 
           style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}
           dangerouslySetInnerHTML={{ __html: markdownToHtml(text, isOwn ? '#ffffff' : (themeColor || 'var(--accent-color)')) }} 
@@ -79,7 +76,7 @@ const MessageText = ({
       {timeNode && (
         <span
           aria-hidden
-          className="flex-shrink-0 select-none"
+          className="flex-shrink-0 select-none message-time-badge"
           style={{
             float: 'right',
             marginLeft: '10px',
@@ -138,18 +135,20 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
 
     const timeBadge = (
       <span
-        className="tabular-nums select-none"
+        className="tabular-nums select-none message-time-badge"
         style={{
           color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-dim)',
           fontSize: '11px',
           display: 'inline-flex',
           alignItems: 'center',
           lineHeight: 1,
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
         }}
       >
-        {timeStr}
+        <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{timeStr}</span>
         {isOwn && msg.status && (
-          <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
+          <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end', userSelect: 'none', WebkitUserSelect: 'none' }}>
             <MessageStatus status={msg.status} isOwn={isOwn} />
           </span>
         )}
@@ -192,7 +191,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               {parsed.body}
             </span>
             <div
-              className="select-none tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-150 mt-1"
+              className="select-none tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-150 mt-1 message-time-badge"
               style={{
                 backgroundColor: 'rgba(0, 0, 0, 0.55)',
                 borderRadius: '8px',
@@ -203,11 +202,13 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 alignItems: 'center',
                 lineHeight: 1,
                 zIndex: 1,
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
               }}
             >
-              <span>{timeStr}</span>
+              <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{timeStr}</span>
               {isOwn && msg.status && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0, userSelect: 'none', WebkitUserSelect: 'none' }}>
                   <MessageStatus status={msg.status} isOwn={isOwn} />
                 </span>
               )}
@@ -228,7 +229,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
             }`}
           >
             <div
-              className="w-full relative flex flex-col message-bubble-selectable"
+              className="w-full relative flex flex-col"
               style={{
                 padding: '6.5px 12px 6.5px 11px',
                 borderRadius: bubbleRadius,
@@ -239,18 +240,18 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                   ? '#ffffff'
                   : 'var(--chat-bubble-incoming-text, var(--text-main, #ffffff))',
                 fontSize: bubbleFontSize,
-                userSelect: 'text',
-                WebkitUserSelect: 'text',
               }}
             >
             {!isOwn && isGroup && msg.sender && (
-              <div className="flex items-center mb-1">
+              <div className="flex items-center mb-1 select-none message-sender-name" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                 <span
-                  className="truncate font-semibold select-none"
+                  className="truncate font-semibold select-none message-sender-name"
                   style={{
                     color: themeColor || 'var(--accent-color, #7C3AED)',
                     fontSize: '12.5px',
                     lineHeight: '1.2',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
                   }}
                 >
                   {msg.sender}
@@ -260,7 +261,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
             )}
 
             {parsed.quotes.length > 0 && (
-              <div className="flex flex-col min-w-0 mb-1" style={{ gap: '4px' }}>
+              <div className="flex flex-col min-w-0 mb-1 select-none" style={{ gap: '4px', userSelect: 'none', WebkitUserSelect: 'none' }}>
                 {parsed.quotes.map((q, depth) => (
                   <div
                     key={`${depth}-${q.time}`}
@@ -380,13 +381,13 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               )}
 
               {hasLinkPreview && !hasReactions && (
-                <div className="flex justify-end items-center mt-1 -mb-0.5 select-none">
+                <div className="flex justify-end items-center mt-1 -mb-0.5 select-none message-time-badge" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                   {timeBadge}
                 </div>
               )}
 
               {hasReactions && (
-                <div className="flex items-end justify-between gap-2 mt-1 min-w-0 w-full">
+                <div className="flex items-end justify-between gap-2 mt-1 min-w-0 w-full select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                   <div className="flex-1 min-w-0">
                     <MessageReactions
                       reactions={msg.reactions}
@@ -395,7 +396,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                       isSmallMessage={isShortMessage}
                     />
                   </div>
-                  <div className="flex-shrink-0 ml-auto flex items-center gap-1 self-end pb-0.5">
+                  <div className="flex-shrink-0 ml-auto flex items-center gap-1 self-end pb-0.5 select-none message-time-badge" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                     {timeBadge}
                   </div>
                 </div>

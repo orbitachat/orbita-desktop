@@ -1079,7 +1079,7 @@ const MessageText = ({
         position: 'relative',
       }}
     >
-      <span>
+      <span className="selectable-message-text" style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}>
         {processedNodes}
         <span
           aria-hidden
@@ -1089,18 +1089,20 @@ const MessageText = ({
             height: 1,
             pointerEvents: 'none',
             userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         />
       </span>
       <span
         aria-hidden
-        className="flex-shrink-0"
+        className="flex-shrink-0 select-none message-time-badge"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '4px',
           pointerEvents: 'none',
           userSelect: 'none',
+          WebkitUserSelect: 'none',
           lineHeight: 1,
           position: 'absolute',
           bottom: '0px',
@@ -5032,13 +5034,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const timeBadge = useCallback((msg: Message, isPinned?: boolean) => {
     const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
     return (
-      <span className="tabular-nums select-none" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-dim)', fontSize: orbitFs(11), display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+      <span className="tabular-nums select-none message-time-badge" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-dim)', fontSize: orbitFs(11), display: 'inline-flex', alignItems: 'center', lineHeight: 1, userSelect: 'none', WebkitUserSelect: 'none' }}>
         {isPinned && (
-          <CustomPinIcon size={12} style={{ color: isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--accent-color, #7C3AED)' }} className="flex-shrink-0" />
+          <CustomPinIcon size={12} style={{ color: isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--accent-color, #7C3AED)', userSelect: 'none' }} className="flex-shrink-0 select-none" />
         )}
-        {formatTime(msg.time)}
+        <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{formatTime(msg.time)}</span>
         {isOwn && msg.status && (
-          <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end' }}>
+          <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end', userSelect: 'none', WebkitUserSelect: 'none' }}>
             <MessageStatus status={msg.status} isOwn={isOwn} />
           </span>
         )}
@@ -5419,9 +5421,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const dateDividerNode = isFirstOfDay ? (
       <div
         data-date-divider={dateLabel}
-        className="flex justify-center items-center w-full my-2.5 select-none pointer-events-none"
+        className="flex justify-center items-center w-full my-2.5 select-none pointer-events-none date-badge"
+        style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
       >
         <div
+          className="date-badge-pill select-none"
           style={{
             backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255,255,255,0.06)) 92%, #000)',
             color: 'var(--text-main, #ffffff)',
@@ -5433,6 +5437,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         >
           {dateLabel}
@@ -5554,7 +5560,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     position: 'relative',
                   }}
                 >
-                  <span>
+                  <span className="selectable-message-text" style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}>
                     {mainText}
                     <span
                       aria-hidden
@@ -5564,18 +5570,20 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                         height: 1,
                         pointerEvents: 'none',
                         userSelect: 'none',
+                        WebkitUserSelect: 'none',
                       }}
                     />
                   </span>
                   <span
                     aria-hidden
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 select-none message-time-badge"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
                       pointerEvents: 'none',
                       userSelect: 'none',
+                      WebkitUserSelect: 'none',
                       lineHeight: 1,
                       position: 'absolute',
                       bottom: '0px',
@@ -5628,7 +5636,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     loading="lazy"
                   />
                   <div
-                    className="absolute bottom-0.5 right-0.5 select-none tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                    className="absolute bottom-0.5 right-0.5 select-none tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-150 message-time-badge"
                     style={{
                       backgroundColor: 'rgba(0, 0, 0, 0.55)',
                       borderRadius: '8px',
@@ -5639,11 +5647,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                       alignItems: 'center',
                       lineHeight: 1,
                       zIndex: 2,
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
                     }}
                   >
-                    <span>{formatTimeOfDay(msg.time)}</span>
+                    <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{formatTimeOfDay(msg.time)}</span>
                     {isOwn && msg.status && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0, userSelect: 'none', WebkitUserSelect: 'none' }}>
                         <MessageStatus status={msg.status} isOwn={isOwn} />
                       </span>
                     )}
@@ -6061,10 +6071,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               animate={{ opacity: 1, y: floatingDateOffsetY }}
               exit={{ opacity: 0 }}
               transition={{ opacity: { duration: 0.1 }, y: { duration: 0 } }}
-              className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none"
-              style={{ top: '12px' }}
+              className="absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none date-badge"
+              style={{ top: '12px', userSelect: 'none', WebkitUserSelect: 'none' }}
             >
               <div
+                className="date-badge-pill select-none"
                 style={{
                   backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255,255,255,0.06)) 92%, #000)',
                   color: 'var(--text-main, #ffffff)',
@@ -6076,6 +6087,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   alignItems: 'center',
                   justifyContent: 'center',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
                 }}
               >
                 {floatingDate}
@@ -6087,7 +6100,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         <div
           ref={messagesContainerRef}
           onScroll={handleScroll}
-          className="chat-list-scrollbar flex-1 min-h-0 overflow-y-scroll overflow-x-hidden flex flex-col select-text"
+          className="chat-list-scrollbar flex-1 min-h-0 overflow-y-scroll overflow-x-hidden flex flex-col"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -6098,8 +6111,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             transform: 'translateZ(0)',
             willChange: 'scroll-position',
             overscrollBehaviorY: 'contain',
-            userSelect: 'text',
-            WebkitUserSelect: 'text',
           }}
         >
           {messages.length === 0 ? (
@@ -6509,8 +6520,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
       <style>{`
         :focus-within { outline: none; }
-        .select-text::selection { background-color: var(--selection-bg, rgba(124,58,237,0.3)); color: var(--text-main, #ffffff); }
-        .select-text::-moz-selection { background-color: var(--selection-bg, rgba(124,58,237,0.3)); color: var(--text-main, #ffffff); }
+        .selectable-message-text::selection, .select-text::selection { background-color: var(--selection-bg, rgba(124,58,237,0.3)); color: var(--text-main, #ffffff); }
+        .selectable-message-text::-moz-selection, .select-text::-moz-selection { background-color: var(--selection-bg, rgba(124,58,237,0.3)); color: var(--text-main, #ffffff); }
+        .select-none::selection, .message-time-badge::selection, .date-badge::selection, .date-badge-pill::selection, [data-date-divider]::selection { background-color: transparent !important; color: inherit !important; }
+        .select-none::-moz-selection, .message-time-badge::-moz-selection, .date-badge::-moz-selection, .date-badge-pill::-moz-selection, [data-date-divider]::-moz-selection { background-color: transparent !important; color: inherit !important; }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
         .input-textarea::placeholder { color: var(--text-dim); }
