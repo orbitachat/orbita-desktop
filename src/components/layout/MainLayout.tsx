@@ -2993,12 +2993,12 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'call-accept') {
-        useCallStore.getState().handleAccept();
+        useCallStore.getState().handleAccept(data.roomName);
         return;
       }
 
       if (data.type === 'call-connected') {
-        useCallStore.getState().handleConnected(data.connectedAt);
+        useCallStore.getState().handleConnected(data.connectedAt, data.roomName);
         return;
       }
 
@@ -3007,13 +3007,13 @@ export const MainLayout = () => {
         if (data.roomName) {
           useCallStore.getState().addProcessedRoomName(data.roomName);
         }
-        useCallStore.getState().handleReject();
+        useCallStore.getState().handleReject(data.roomName);
         return;
       }
 
       if (data.type === 'call-busy') {
         callSoundService.stop();
-        useCallStore.getState().handleBusy();
+        useCallStore.getState().handleBusy(data.roomName);
         return;
       }
 
@@ -3022,13 +3022,13 @@ export const MainLayout = () => {
         if (data.roomName) {
           useCallStore.getState().addProcessedRoomName(data.roomName);
         }
-        useCallStore.getState().handleCancel();
+        useCallStore.getState().handleCancel(data.roomName);
         return;
       }
 
       if (data.type === 'call-hangup') {
         callSoundService.stop();
-        useCallStore.getState().handleHangup();
+        useCallStore.getState().handleHangup(data.roomName);
         return;
       }
     };

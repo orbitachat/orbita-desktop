@@ -175,18 +175,26 @@ export const CallWindowView = () => {
       }).catch(() => {});
     }
 
+    const resetCallStateAndDisconnect = () => {
+      setCallData(null);
+      setIsLocalScreenShareActive(false);
+      setIsRemoteScreenShareActive(false);
+      setIsRemoteVideoActive(false);
+      setIsLocalVideoActive(false);
+      setIsExpanded(false);
+      setIsScreenPickerOpen(false);
+      liveKitService.disconnect().catch(() => {});
+    };
+
     if (orbita?.getCallState) {
       orbita.getCallState().then((state: CallStatePayload | null) => {
         if (state) {
           setCallData(state);
+          if (state.callState === 'idle' || state.callState === 'ended') {
+            resetCallStateAndDisconnect();
+          }
         } else {
-          setCallData(null);
-          setIsLocalScreenShareActive(false);
-          setIsRemoteScreenShareActive(false);
-          setIsRemoteVideoActive(false);
-          setIsLocalVideoActive(false);
-          setIsExpanded(false);
-          setIsScreenPickerOpen(false);
+          resetCallStateAndDisconnect();
         }
       }).catch(() => {});
     }
@@ -194,14 +202,11 @@ export const CallWindowView = () => {
     const unsubState = orbita?.onCallState?.((state: CallStatePayload | null) => {
       if (state) {
         setCallData(state);
+        if (state.callState === 'idle' || state.callState === 'ended') {
+          resetCallStateAndDisconnect();
+        }
       } else {
-        setCallData(null);
-        setIsLocalScreenShareActive(false);
-        setIsRemoteScreenShareActive(false);
-        setIsRemoteVideoActive(false);
-        setIsLocalVideoActive(false);
-        setIsExpanded(false);
-        setIsScreenPickerOpen(false);
+        resetCallStateAndDisconnect();
       }
     });
 
@@ -213,21 +218,10 @@ export const CallWindowView = () => {
           if (event.data.payload) {
             setCallData(event.data.payload);
             if (event.data.payload.callState === 'idle' || event.data.payload.callState === 'ended') {
-              setIsLocalScreenShareActive(false);
-              setIsRemoteScreenShareActive(false);
-              setIsRemoteVideoActive(false);
-              setIsLocalVideoActive(false);
-              setIsExpanded(false);
-              setIsScreenPickerOpen(false);
+              resetCallStateAndDisconnect();
             }
           } else {
-            setCallData(null);
-            setIsLocalScreenShareActive(false);
-            setIsRemoteScreenShareActive(false);
-            setIsRemoteVideoActive(false);
-            setIsLocalVideoActive(false);
-            setIsExpanded(false);
-            setIsScreenPickerOpen(false);
+            resetCallStateAndDisconnect();
           }
         }
       };

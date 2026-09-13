@@ -68,12 +68,12 @@ interface CallStore {
   answerCall: (myNickname: string) => Promise<void>;
   rejectCall: (silent?: boolean) => void;
   endCall: (forceClose?: boolean) => void;
-  handleBusy: () => void;
-  handleReject: () => void;
-  handleAccept: () => void;
-  handleConnected: (connectedAt?: number) => void;
-  handleCancel: () => void;
-  handleHangup: () => void;
+  handleBusy: (roomName?: string) => void;
+  handleReject: (roomName?: string) => void;
+  handleAccept: (roomName?: string) => Promise<void>;
+  handleConnected: (connectedAt?: number, roomName?: string) => void;
+  handleCancel: (roomName?: string) => void;
+  handleHangup: (roomName?: string) => void;
   toggleMic: () => Promise<void>;
   toggleVideo: (explicitVal?: boolean) => Promise<void>;
   openScreenPicker: () => void;
@@ -704,27 +704,27 @@ export const useCallStore = create<CallStore>((set, get) => {
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
     },
 
-    handleBusy: () => {
+    handleBusy: (roomName?: string) => {
       const state = get();
-      if (!state.activeCall) return;
+      if (!state.activeCall || (roomName && state.activeCall.roomName !== roomName)) return;
       clearSignalRetryTimers();
       set({ callState: 'ended', statusMessage: i18n.t('call.busy'), activeCall: { ...state.activeCall, endedStatus: 'busy' } });
       callSoundService.stop(); callSoundService.play('end');
       get().endCall(false);
     },
 
-    handleReject: () => {
+    handleReject: (roomName?: string) => {
       const state = get();
-      if (!state.activeCall) return;
+      if (!state.activeCall || (roomName && state.activeCall.roomName !== roomName)) return;
       clearSignalRetryTimers();
       set({ callState: 'ended', statusMessage: i18n.t('call.rejected'), activeCall: { ...state.activeCall, endedStatus: 'rejected' } });
       callSoundService.stop(); callSoundService.play('end');
       get().endCall(false);
     },
 
-    handleAccept: async () => {
+    handleAccept: async (roomName?: string) => {
       const state = get();
-      if (!state.activeCall) return;
+      if (!state.activeCall || (roomName && state.activeCall.roomName !== roomName)) return;
       clearSignalRetryTimers();
       console.log(`${LOG_PREFIX} handleAccept: callee accepted`);
       callSoundService.stop(); callSoundService.play('connect');
@@ -744,10 +744,10 @@ export const useCallStore = create<CallStore>((set, get) => {
       const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
       if (!isElectronSeparateCallWindow && liveKitService.status !== 'connected' && liveKitService.status !== 'connecting') {
         try {
-          const { roomName, verificationSalt, verificationSecret } = state.activeCall;
+          const { roomName: actRoomName, verificationSalt, verificationSecret } = state.activeCall;
           const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
-          const { token, url } = await fetchLivekitToken(roomName, state.myNickname || 'YOU');
-          await liveKitService.connect(roomName, token, url, sessionKey);
+          const { token, url } = await fetchLivekitToken(actRoomName, state.myNickname || 'YOU');
+          await liveKitService.connect(actRoomName, token, url, sessionKey);
         } catch (err) {
           console.error(`${LOG_PREFIX} Caller LiveKit connect error on accept:`, err);
         }
@@ -756,24 +756,25 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (!isElectronSeparateCallWindow && liveKitService.remoteParticipants.length > 0) activateConnected();
     },
 
-    handleConnected: (syncedConnectedAt?: number) => {
+    handleConnected: (syncedConnectedAt?: number, roomName?: string) => {
       console.log(`${LOG_PREFIX} handleConnected with ts:`, syncedConnectedAt);
       const state = get();
-      if (!state.activeCall) return;
+      if (!state.activeCall || (roomName && state.activeCall.roomName !== roomName)) return;
       clearSignalRetryTimers();
       if (state.callState === 'connected' && !syncedConnectedAt) return;
       activateConnected(syncedConnectedAt);
     },
 
-    handleCancel: () => {
+    handleCancel: (roomName?: string) => {
       console.log(`${LOG_PREFIX} Remote cancelled`);
       const state = get();
+      if (roomName && state.activeCall?.roomName !== roomName && state.incomingCall?.roomName !== roomName) return;
       clearSignalRetryTimers();
       callSoundService.stop();
       const room = state.activeCall?.roomName || state.incomingCall?.roomName;
       if (room) get().addProcessedRoomName(room);
       if (!state.activeCall && !state.incomingCall) return;
-      if (state.incomingCall && !state.activeCall) {
+      if (state.incomingCall && (!state.activeCall || (roomName && state.incomingCall.roomName === roomName))) {
         if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
         callSoundService.play('end');
         set({ incomingCall: null, callState: 'idle', statusMessage: '', isEnding: false });
@@ -785,15 +786,16 @@ export const useCallStore = create<CallStore>((set, get) => {
       get().endCall(false);
     },
 
-    handleHangup: () => {
+    handleHangup: (roomName?: string) => {
       console.log(`${LOG_PREFIX} Remote hung up`);
       const state = get();
+      if (roomName && state.activeCall?.roomName !== roomName && state.incomingCall?.roomName !== roomName) return;
       clearSignalRetryTimers();
       callSoundService.stop();
       const room = state.activeCall?.roomName || state.incomingCall?.roomName;
       if (room) get().addProcessedRoomName(room);
       if (!state.activeCall && !state.incomingCall) return;
-      if (state.incomingCall && !state.activeCall) {
+      if (state.incomingCall && (!state.activeCall || (roomName && state.incomingCall.roomName === roomName))) {
         if (incomingAutoRejectTimer) { clearTimeout(incomingAutoRejectTimer); incomingAutoRejectTimer = null; }
         callSoundService.play('end');
         set({ incomingCall: null, callState: 'idle', statusMessage: '', isEnding: false });

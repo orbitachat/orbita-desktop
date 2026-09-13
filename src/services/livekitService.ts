@@ -168,6 +168,8 @@ class LiveKitService extends EventEmitter {
     url: string,
     _verificationSecret?: string,
   ): Promise<void> {
+    this.currentRoomId++;
+
     if (this.room) {
       await this.cleanupRoom();
     }
@@ -249,23 +251,48 @@ class LiveKitService extends EventEmitter {
 
   public async setE2EEKey(_secret: string): Promise<void> {}
 
+  private currentRoomId = 0;
+
   private async cleanupRoom(): Promise<void> {
-    if (this.screenShareTrack) {
-      try { await this.stopScreenShare(); } catch {}
+    const roomToDisconnect = this.room;
+    this.room = null;
+
+    const oldScreenShareTrack = this.screenShareTrack;
+    this.screenShareTrack = null;
+    const oldScreenShareAudioTrack = this.screenShareAudioTrack;
+    this.screenShareAudioTrack = null;
+    
+    const oldAudioTrack = this.localAudioTrack;
+    this.localAudioTrack = null;
+    
+    const oldVideoTrack = this.localVideoTrack;
+    this.localVideoTrack = null;
+
+    if (oldScreenShareAudioTrack) {
+      try {
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(oldScreenShareAudioTrack);
+        oldScreenShareAudioTrack.stop();
+      } catch {}
     }
-    if (this.localAudioTrack) {
-      try { await this.localAudioTrack.stop(); } catch {}
-      this.localAudioTrack = null;
+    if (oldScreenShareTrack) {
+      try {
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(oldScreenShareTrack);
+        oldScreenShareTrack.stop();
+      } catch {}
     }
-    if (this.localVideoTrack) {
-      try { await this.localVideoTrack.stop(); } catch {}
-      this.localVideoTrack = null;
+
+    if (oldAudioTrack) {
+      try { await oldAudioTrack.stop(); } catch {}
     }
-    if (this.room) {
-      this.room.removeAllListeners();
-      try { await this.room.disconnect(); } catch {}
-      this.room = null;
+    if (oldVideoTrack) {
+      try { await oldVideoTrack.stop(); } catch {}
     }
+
+    if (roomToDisconnect) {
+      roomToDisconnect.removeAllListeners();
+      try { await roomToDisconnect.disconnect(); } catch {}
+    }
+
     this.localParticipant = null;
     this.participants.clear();
     this.attachedAudioElements.forEach((el) => {
@@ -282,9 +309,14 @@ class LiveKitService extends EventEmitter {
     this.connectionAttempts = 0;
     this.desiredMicEnabled = false;
 
+    this.currentRoomId++;
+    const roomIdToDisconnect = this.currentRoomId;
+
     await this.cleanupRoom();
 
-    this.emit('disconnected');
+    if (this.currentRoomId === roomIdToDisconnect) {
+      this.emit('disconnected');
+    }
   }
 
   public async enableMicrophone(): Promise<boolean> {
