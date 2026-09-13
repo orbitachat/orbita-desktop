@@ -2366,7 +2366,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#14111d',
-    alwaysOnTop: false,
+    alwaysOnTop: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -2384,6 +2384,18 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
   if (screenProtectionSetting) {
     callWindow.setContentProtection(true);
   }
+
+  callWindow.on('minimize', () => {
+    if (callWindow && !callWindow.isDestroyed()) {
+      callWindow.setAlwaysOnTop(false);
+    }
+  });
+
+  callWindow.on('restore', () => {
+    if (callWindow && !callWindow.isDestroyed()) {
+      callWindow.setAlwaysOnTop(true);
+    }
+  });
 
   callWindow.on('resize', () => {
     if (callWindow && !callWindow.isDestroyed()) {
@@ -2432,9 +2444,13 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
 
   const win = initOrGetCallWindow(initialPayload);
 
+  try {
+    win.setAlwaysOnTop(true);
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  } catch { }
+
   if (win.isMinimized()) win.restore();
-  win.show();
-  win.focus();
+  win.showInactive();
 
   if (currentCallStateCache && !win.isDestroyed()) {
     if (win.webContents.isLoading()) {
@@ -2469,6 +2485,7 @@ ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-call-window', () => {
   if (callWindow && !callWindow.isDestroyed()) {
     currentCallStateCache = null;
+    try { callWindow.setAlwaysOnTop(false); } catch { }
     callWindow.webContents.send('orbita:call-state', null);
     callWindow.hide();
   }
@@ -2532,6 +2549,7 @@ ipcMain.handle('window:close', (event) => {
         mainWindow.webContents.send('orbita:call-action', { type: 'cancelCall' });
       }
       currentCallStateCache = null;
+      try { callWindow.setAlwaysOnTop(false); } catch { }
       callWindow.webContents.send('orbita:call-state', null);
       callWindow.hide();
     } else if (win === mainWindow) {

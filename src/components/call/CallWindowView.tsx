@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff } from 'lucide-react';
+import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff, ChevronLeft } from 'lucide-react';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
@@ -155,11 +155,6 @@ export const CallWindowView = () => {
     window.addEventListener('focus', handleFocusSync);
     document.addEventListener('visibilitychange', handleFocusSync);
 
-    const handleBeforeUnload = () => {
-      sendAction('cancelCall');
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     const unsubThemeChanged = orbita?.onThemeChanged?.((data: any) => {
       if (data?.themeVars) {
         applyVars(data.themeVars);
@@ -172,7 +167,6 @@ export const CallWindowView = () => {
       broadcastChannel?.close();
       window.removeEventListener('focus', handleFocusSync);
       document.removeEventListener('visibilitychange', handleFocusSync);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
 
@@ -319,6 +313,26 @@ export const CallWindowView = () => {
       }}
     >
       <TitleBar />
+
+      <button
+        type="button"
+        onClick={() => {
+          try { (window as any).orbita?.minimizeWindow?.(); } catch {}
+        }}
+        aria-label={t('call.close')}
+        className="absolute z-50 p-0 bg-transparent border-0 outline-none transition-colors cursor-pointer flex items-center justify-center flex-shrink-0"
+        style={{
+          top: '36px',
+          left: '16px',
+          width: '24px',
+          height: '24px',
+          color: 'var(--text-dim, #8a96a3)',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, #8a96a3)')}
+      >
+        <ChevronLeft size={22} className="flex-shrink-0" />
+      </button>
 
       <div className="h-7 flex items-center justify-center flex-shrink-0 relative z-30">
         {isConnected && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (

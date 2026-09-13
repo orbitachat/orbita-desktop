@@ -861,6 +861,13 @@ const syncCallState = (state: CallStore) => {
     peerVolume: state.peerVolume, micVolume: state.micVolume,
     noiseSuppressionMode: useChatStore.getState().noiseSuppressionMode || (useChatStore.getState().noiseSuppression ? 'standard' : 'none'),
   };
+  try {
+    if (state.callState !== 'idle') {
+      localStorage.setItem('orbita_active_call_state', JSON.stringify(payload));
+    } else {
+      localStorage.removeItem('orbita_active_call_state');
+    }
+  } catch {}
   try { (window as any).orbita?.sendCallState?.(payload); } catch {}
   try {
     if (!persistentBc) persistentBc = new BroadcastChannel('orbita-call-channel');
@@ -868,7 +875,7 @@ const syncCallState = (state: CallStore) => {
   } catch {}
   const prevCallState = lastKnownCallState;
   lastKnownCallState = state.callState;
-  if (state.callState !== 'idle' && prevCallState === 'idle') {
+  if (state.callState !== 'idle' && (prevCallState === 'idle' || state.callState === 'ringing' || state.callState === 'preparing')) {
     try { (window as any).orbita?.openCallWindow?.(payload); } catch {}
   } else if (state.callState === 'idle') {
     try { (window as any).orbita?.closeCallWindow?.(); } catch {}
