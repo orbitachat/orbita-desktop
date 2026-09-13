@@ -148,6 +148,7 @@ export const TelegramAlbumGrid = memo(({
   onMediaClick,
   maxWidth = 440,
   customRadius,
+  isOwn,
 }: TelegramAlbumGridProps) => {
   const rows = useMemo(() => partitionAlbum(items), [items]);
   const cleanCaption = msg.text ? msg.text.replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*(https?:\/\/[^\s]+)?/i, '').trim() : '';
@@ -166,8 +167,8 @@ export const TelegramAlbumGrid = memo(({
       tl = parseVal(parts[0]);
       tr = parseVal(parts[1] || parts[0]);
     }
-    const cTL = Math.max(0, tl - 1);
-    const cTR = Math.max(0, tr - 1);
+    const cTL = Math.max(0, tl - 2);
+    const cTR = Math.max(0, tr - 2);
     return {
       photoBorderRadius: `${cTL}px ${cTR}px 4px 4px`,
       innerTL: cTL,
@@ -187,10 +188,10 @@ export const TelegramAlbumGrid = memo(({
       }}
     >
       <div
-        className="relative flex flex-col w-full overflow-hidden"
+        className="flex flex-col w-full overflow-hidden"
         style={{
           width: '100%',
-          gap: '1px',
+          gap: '2px',
           borderRadius: photoBorderRadius,
         }}
       >
@@ -219,7 +220,7 @@ export const TelegramAlbumGrid = memo(({
               className="flex w-full overflow-hidden"
               style={{
                 width: '100%',
-                gap: '1px',
+                gap: '2px',
                 aspectRatio: rowAspectRatio,
                 maxHeight: rowCount === 1 && items.length === 1 ? '380px' : undefined,
               }}
@@ -253,36 +254,11 @@ export const TelegramAlbumGrid = memo(({
             </div>
           );
         })}
-
-        {!hasCaption && timeNode && (
-          <div
-            className="absolute select-none tabular-nums message-time-badge pointer-events-none floating-photo-time-badge"
-            style={{
-              bottom: '5px',
-              right: '5px',
-              backgroundColor: 'rgba(0, 0, 0, 0.45)',
-              backdropFilter: 'blur(4px)',
-              WebkitBackdropFilter: 'blur(4px)',
-              borderRadius: '10px',
-              padding: '2px 6px',
-              color: 'rgba(255, 255, 255, 0.95)',
-              fontSize: '11px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              lineHeight: 1,
-              zIndex: 10,
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-            }}
-          >
-            {timeNode}
-          </div>
-        )}
       </div>
 
-      {hasCaption && (
+      {hasCaption ? (
         <div
-          className="flex items-end justify-between gap-3 px-2.5 pt-1 pb-1"
+          className="flex items-end justify-between gap-3 px-2 pt-1 pb-0.5 select-none"
           style={{
             backgroundColor: 'inherit',
           }}
@@ -290,7 +266,37 @@ export const TelegramAlbumGrid = memo(({
           <div className="text-[13.5px] text-[var(--text-main)] leading-snug break-words flex-1 select-text">
             {cleanCaption}
           </div>
-          <div className="flex items-center justify-end gap-1 flex-shrink-0 select-none">
+          <div
+            className="flex items-center justify-end gap-1 flex-shrink-0 select-none message-time-badge"
+            style={{
+              marginRight: isOwn ? '1px' : '3px',
+              marginBottom: '-2px',
+            }}
+          >
+            {timeNode}
+          </div>
+        </div>
+      ) : (
+        <div
+          className="flex items-center justify-end select-none"
+          style={{
+            backgroundColor: 'inherit',
+            paddingTop: '2px',
+            paddingBottom: '0px',
+            paddingLeft: '4px',
+            paddingRight: '1px',
+          }}
+        >
+          <div
+            className="flex items-center justify-end gap-1 select-none message-time-badge"
+            style={{
+              lineHeight: 1,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              marginRight: isOwn ? '1px' : '3px',
+              marginBottom: '-1px',
+            }}
+          >
             {timeNode}
           </div>
         </div>

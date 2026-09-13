@@ -5647,6 +5647,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           msg={msg}
           timeNode={timeBadge(msg, isMessagePinned(index))}
           customRadius={customRadius}
+          isOwn={isOwn}
           onMediaClick={(tileIdx) => {
             const clicked = viewerItems[tileIdx];
             if (clicked) {
@@ -5888,8 +5889,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       if (effectiveMediaItems && effectiveMediaItems.length > 0) {
         const isPhotoGroup = effectiveMediaItems.some((it) => it.type === 'photo' || it.type === 'video');
         const isAudioGroup = effectiveMediaItems.every((it) => it.type === 'audio' || it.mime?.startsWith('audio/'));
-        const cleanCaption = msg.text ? msg.text.replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*(https?:\/\/[^\s]+)?/i, '').trim() : '';
-        const hasCaption = Boolean(cleanCaption);
 
         return (
           <div style={{ ...highlightWrapperStyle }}>
@@ -5914,7 +5913,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   className="relative"
                   style={bubbleStyle(isOwn, {
                     borderRadius: customRadius,
-                    padding: isPhotoGroup ? (hasCaption ? '1px 1px 4px 1px' : '1px') : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
+                    padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
                     overflow: 'hidden',
                     width: 'fit-content',
                     maxWidth: 'min(440px, 75%)',
