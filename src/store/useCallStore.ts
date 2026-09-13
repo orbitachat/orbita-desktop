@@ -359,7 +359,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (act.participants.some((p) => p.identity === participant.identity)) return;
       set({ activeCall: { ...act, participants: [...act.participants, participant] } });
       const current = get();
-      if (current.callState === 'connecting' || current.callState === 'ringing' || current.callState === 'preparing') activateConnected();
+      if (current.callState === 'connecting' || current.callState === 'ringing') activateConnected();
     });
 
     liveKitService.on('participantLeft', (identity: string) => {

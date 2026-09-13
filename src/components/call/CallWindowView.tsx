@@ -111,7 +111,12 @@ export const CallWindowView = () => {
         };
       }
       const saved = localStorage.getItem('orbita_active_call_state');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.callState && parsed.callState !== 'idle' && parsed.callState !== 'ended') {
+          return parsed;
+        }
+      }
     } catch {}
     return null;
   });
@@ -305,7 +310,7 @@ export const CallWindowView = () => {
 
   useEffect(() => {
     if (!activeCall) return;
-    const isShouldConnect = callState === 'connected' || callState === 'connecting' || callState === 'preparing' || (callState === 'ringing' && activeCall.direction === 'outgoing');
+    const isShouldConnect = callState === 'connected' || callState === 'connecting' || (callState === 'ringing' && activeCall.direction === 'outgoing');
     if (!isShouldConnect) return;
     if (liveKitService.isConnected) return;
 
