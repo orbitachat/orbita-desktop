@@ -5973,6 +5973,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             height: '100%',
             padding: '6px 0 0 0',
             boxSizing: 'border-box',
+            transform: 'translateZ(0)',
+            willChange: 'scroll-position',
             overscrollBehaviorY: 'contain',
             userSelect: 'text',
             WebkitUserSelect: 'text',
