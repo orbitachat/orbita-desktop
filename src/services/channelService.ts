@@ -491,15 +491,27 @@ class ChannelService {
   }
 
   async joinChannel(channelId: string, nickname?: string): Promise<number | null> {
+    const cleanId = channelId.trim();
     try {
       const res = await fetch(`${W}/channels/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: channelId.trim(), nickname }),
+        body: JSON.stringify({ channelId: cleanId, nickname }),
       });
       if (res.ok) {
         const data = (await res.json()) as { subscribersCount: number };
-        return typeof data.subscribersCount === 'number' ? data.subscribersCount : null;
+        if (typeof data.subscribersCount === 'number') {
+          try {
+            ablyService.sendMessage(`public-channel-${cleanId}`, {
+              type: 'subscribers-updated',
+              channelId: cleanId,
+              subscribersCount: data.subscribersCount,
+              action: 'join',
+              nickname,
+            }).catch(() => {});
+          } catch {}
+          return data.subscribersCount;
+        }
       }
     } catch (err) {
       console.warn('[ChannelService] Failed to join channel:', err);
@@ -508,15 +520,27 @@ class ChannelService {
   }
 
   async leaveChannel(channelId: string, nickname?: string): Promise<number | null> {
+    const cleanId = channelId.trim();
     try {
       const res = await fetch(`${W}/channels/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: channelId.trim(), nickname }),
+        body: JSON.stringify({ channelId: cleanId, nickname }),
       });
       if (res.ok) {
         const data = (await res.json()) as { subscribersCount: number };
-        return typeof data.subscribersCount === 'number' ? data.subscribersCount : null;
+        if (typeof data.subscribersCount === 'number') {
+          try {
+            ablyService.sendMessage(`public-channel-${cleanId}`, {
+              type: 'subscribers-updated',
+              channelId: cleanId,
+              subscribersCount: data.subscribersCount,
+              action: 'leave',
+              nickname,
+            }).catch(() => {});
+          } catch {}
+          return data.subscribersCount;
+        }
       }
     } catch (err) {
       console.warn('[ChannelService] Failed to leave channel:', err);

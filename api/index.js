@@ -1172,6 +1172,13 @@ module.exports = async function handler(req, res) {
         action: 'join',
         nickname: body.nickname || 'Unknown',
       });
+      await triggerAblyEvent(`chat:public-channel-${channelId}`, 'client-message', {
+        type: 'subscribers-updated',
+        channelId,
+        subscribersCount: newCount,
+        action: 'join',
+        nickname: body.nickname || 'Unknown',
+      });
       return sendJson(res, { status: 'ok', subscribersCount: newCount });
     }
 
@@ -1189,6 +1196,13 @@ module.exports = async function handler(req, res) {
         } catch {}
       }
       await triggerPusherEvent(`public-channel-${channelId}`, 'subscribers-updated', {
+        channelId,
+        subscribersCount: newCount,
+        action: 'leave',
+        nickname: body.nickname || 'Unknown',
+      });
+      await triggerAblyEvent(`chat:public-channel-${channelId}`, 'client-message', {
+        type: 'subscribers-updated',
         channelId,
         subscribersCount: newCount,
         action: 'leave',

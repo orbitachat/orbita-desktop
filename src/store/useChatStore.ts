@@ -194,6 +194,7 @@ export interface Chat {
   subscribersCount?: number;
   isOwner?: boolean;
   isOfficial?: boolean;
+  isSubscribed?: boolean;
   channelKey?: string;
   peerCode?: string;
   isBlocked?: boolean;
@@ -487,6 +488,7 @@ interface ChatState {
     isOwner?: boolean;
     isOfficial?: boolean;
     subscribersCount?: number;
+    isSubscribed?: boolean;
   }) => void;
 }
 
@@ -670,6 +672,17 @@ export const useChatStore = create<ChatState>()(
       setCodeRotationSpeed: (speed) => set({ codeRotationSpeed: speed }),
       setNextCodeRotationTime: (time) => set({ nextCodeRotationTime: time }),
       setActiveChat: (id) => {
+        const previousActiveId = get().activeChatId;
+        if (previousActiveId && previousActiveId !== id) {
+          const prevChat = get().chats.find(c => c.id === previousActiveId);
+          if (prevChat && prevChat.type === 'channel' && !prevChat.isOwner && prevChat.isSubscribed === false) {
+            const { [previousActiveId]: _, ...remainingMessages } = get().messagesByChatId;
+            set({
+              chats: get().chats.filter(c => c.id !== previousActiveId),
+              messagesByChatId: remainingMessages,
+            });
+          }
+        }
         set({ activeChatId: id });
         if (id) {
           const chat = get().chats.find(c => c.id === id);
@@ -733,6 +746,7 @@ export const useChatStore = create<ChatState>()(
           isOwner: channel.isOwner ?? false,
           isOfficial: channel.isOfficial ?? false,
           subscribersCount: channel.subscribersCount || 1,
+          isSubscribed: channel.isSubscribed ?? (channel.isOwner ?? true),
           createdAt: Date.now(),
           unreadCount: 0,
           lastReadTimestamp: Date.now(),
@@ -1546,10 +1560,12 @@ export const useChatStore = create<ChatState>()(
           state.pinnedChatIds = [];
         }
         if (state && Array.isArray(state.chats)) {
-          state.chats = state.chats.map((c) => ({
-            ...c,
-            online: false,
-          }));
+          state.chats = state.chats
+            .filter((c) => !(c.type === 'channel' && !c.isOwner && c.isSubscribed === false))
+            .map((c) => ({
+              ...c,
+              online: false,
+            }));
         }
         if (state && typeof window !== 'undefined' && (window as any).orbita) {
           if (typeof state.screenProtectionEnabled === 'boolean' && (window as any).orbita.setScreenProtection) {

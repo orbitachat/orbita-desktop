@@ -2326,6 +2326,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               return {
                 ...m,
                 id: fetched.id,
+                text: fetched.text || m.text,
                 time: fetched.time || m.time,
                 reactions: fetched.reactions || m.reactions,
               };
@@ -2389,6 +2390,79 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
   }, [activeChat?.id, activeChat?.type, activeChat?.isOwner, isChannelOwner]);
 
+  const isSubscribed = useMemo(() => {
+    if (activeChat?.type !== 'channel') return true;
+    if (isChannelOwner) return true;
+    return activeChat?.isSubscribed !== false;
+  }, [activeChat?.type, activeChat?.isSubscribed, isChannelOwner]);
+
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  const handleSubscribeToChannel = useCallback(async () => {
+    if (!activeChatId || isSubscribing) return;
+    setIsSubscribing(true);
+    try {
+      const newCount = await channelService.joinChannel(activeChatId, myNickname || 'User');
+      const currentCount = activeChat?.subscribersCount || 1;
+      const finalCount = typeof newCount === 'number' ? newCount : currentCount + 1;
+      useChatStore.getState().updateChat(activeChatId, {
+        isSubscribed: true,
+        subscribersCount: finalCount,
+      });
+      try {
+        ablyService.sendMessage(`public-channel-${activeChatId}`, {
+          type: 'subscribers-updated',
+          channelId: activeChatId,
+          subscribersCount: finalCount,
+          action: 'join',
+          nickname: myNickname,
+        }).catch(() => {});
+      } catch {}
+    } catch {} finally {
+      setIsSubscribing(false);
+    }
+  }, [activeChatId, isSubscribing, myNickname, activeChat?.subscribersCount]);
+
+  useEffect(() => {
+    if (activeChat?.type !== 'channel' || !activeChatId) return;
+    const encryptedMsgs = messages.filter((m) => m.text?.startsWith('orb_e2e:'));
+    if (encryptedMsgs.length === 0) return;
+
+    const channelKey = deriveChannelKey(activeChatId);
+    Promise.all(
+      encryptedMsgs.map(async (m) => {
+        const plain = await decryptMessage(m.text.slice(8), channelKey);
+        return {
+          id: m.id,
+          text: plain && plain !== '[ENCRYPTED MESSAGE]' ? plain : m.text,
+        };
+      })
+    ).then((decryptedList) => {
+      const decMap = new Map(decryptedList.map((d) => [d.id, d.text]));
+      useChatStore.setState((state) => {
+        const list = state.messagesByChatId[activeChatId] || [];
+        let hasChanges = false;
+        const updated = list.map((m) => {
+          if (decMap.has(m.id)) {
+            const newText = decMap.get(m.id)!;
+            if (newText !== m.text) {
+              hasChanges = true;
+              return { ...m, text: newText };
+            }
+          }
+          return m;
+        });
+        if (!hasChanges) return state;
+        return {
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [activeChatId]: updated,
+          },
+        };
+      });
+    });
+  }, [activeChatId, activeChat?.type, messages]);
+
   const handleMessageButtonClick = useCallback((btn: { text: string; action: string; channelId?: string; url?: string; data?: string }) => {
     if (btn.action === 'open_channel' && btn.channelId) {
       const channelId = btn.channelId.trim();
@@ -2406,6 +2480,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               creatorNickname: info.creatorNickname,
               subscribersCount: info.subscribersCount,
               isOfficial: info.isOfficial,
+              isOwner: false,
+              isSubscribed: false,
             });
             useChatStore.getState().setActiveChat(channelId);
           } else {
@@ -3748,7 +3824,19 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             }
           }
           const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-          if (!currentMsgs.some((m) => m.id === post.id)) {
+          const existing = currentMsgs.find((m) => m.id === post.id);
+          if (existing) {
+            if (existing.text !== postText && !postText.startsWith('orb_e2e:')) {
+              useChatStore.setState((state) => ({
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: (state.messagesByChatId[activeChatId] || []).map((m) =>
+                    m.id === post.id ? { ...m, text: postText } : m
+                  ),
+                },
+              }));
+            }
+          } else {
             useChatStore.getState().addMessage(activeChatId, {
               id: post.id,
               sender: post.sender || post.senderNickname || 'Channel',
@@ -3770,6 +3858,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             });
           }
         }
+      } else if (data?.type === 'subscribers-updated' && typeof data?.subscribersCount === 'number') {
+        useChatStore.getState().updateChat(activeChatId, {
+          subscribersCount: data.subscribersCount,
+        });
       } else if (data?.type === 'reaction-updated' && data?.postId && data?.reactions) {
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[activeChatId] || [];
@@ -3845,33 +3937,53 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
     };
 
-    const handleChannelPost = (post: any) => {
+    const handleChannelPost = async (post: any) => {
       if (!post || !post.id) return;
-      const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-      if (!currentMsgs.some((m) => m.id === post.id)) {
-        const sender = post.sender || post.senderNickname || 'Channel';
-        const isMine = myNickname ? sender === myNickname : false;
-        useChatStore.getState().addMessage(activeChatId, {
-          id: post.id,
-          sender,
-          text: post.text || '',
-          time: post.time || Date.now(),
-          read: true,
-          status: isMine ? 'read' : undefined,
-          isOutgoing: isMine,
-          mediaType: post.mediaType || undefined,
-          mediaUrl: post.mediaUrl || undefined,
-          mediaName: post.mediaName || undefined,
-          mime: post.mime || undefined,
-          duration: post.duration || undefined,
-          width: post.width || undefined,
-          height: post.height || undefined,
-          waveform: post.waveform || undefined,
-          audioMetadata: post.audioMetadata || undefined,
-          linkPreview: post.linkPreview || undefined,
-          reactions: post.reactions || undefined,
-        });
+      let postText = post.text || '';
+      if (postText.startsWith('orb_e2e:')) {
+        const channelKey = deriveChannelKey(activeChatId);
+        const decrypted = await decryptMessage(postText.slice(8), channelKey);
+        if (decrypted && decrypted !== '[ENCRYPTED MESSAGE]') {
+          postText = decrypted;
+        }
       }
+      const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+      const existing = currentMsgs.find((m) => m.id === post.id);
+      if (existing) {
+        if (existing.text !== postText && !postText.startsWith('orb_e2e:')) {
+          useChatStore.setState((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: (state.messagesByChatId[activeChatId] || []).map((m) =>
+                m.id === post.id ? { ...m, text: postText } : m
+              ),
+            },
+          }));
+        }
+        return;
+      }
+      const sender = post.sender || post.senderNickname || 'Channel';
+      const isMine = myNickname ? sender === myNickname : false;
+      useChatStore.getState().addMessage(activeChatId, {
+        id: post.id,
+        sender,
+        text: postText,
+        time: post.time || Date.now(),
+        read: true,
+        status: isMine ? 'read' : undefined,
+        isOutgoing: isMine,
+        mediaType: post.mediaType || undefined,
+        mediaUrl: post.mediaUrl || undefined,
+        mediaName: post.mediaName || undefined,
+        mime: post.mime || undefined,
+        duration: post.duration || undefined,
+        width: post.width || undefined,
+        height: post.height || undefined,
+        waveform: post.waveform || undefined,
+        audioMetadata: post.audioMetadata || undefined,
+        linkPreview: post.linkPreview || undefined,
+        reactions: post.reactions || undefined,
+      });
     };
 
     const handleChannelReaction = (data: any) => {
@@ -3890,10 +4002,19 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
     };
 
+    const handleSubscribersUpdated = (data: any) => {
+      if (typeof data?.subscribersCount === 'number') {
+        useChatStore.getState().updateChat(activeChatId, {
+          subscribersCount: data.subscribersCount,
+        });
+      }
+    };
+
     channel.bind('reaction', handleReaction);
     channel.bind('client-message', handleClientMessage);
     channel.bind('new-post', handleChannelPost);
     channel.bind('reaction-updated', handleChannelReaction);
+    channel.bind('subscribers-updated', handleSubscribersUpdated);
 
     return () => {
       unsubAbly();
@@ -3901,6 +4022,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       channel.unbind('client-message', handleClientMessage);
       channel.unbind('new-post', handleChannelPost);
       channel.unbind('reaction-updated', handleChannelReaction);
+      channel.unbind('subscribers-updated', handleSubscribersUpdated);
     };
   }, [activeChatId, activeChat?.type, myNickname]);
 
@@ -6079,7 +6201,55 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         </button>
       </div>
 
-      {activeChat?.type === 'channel' && !isChannelOwner ? null : (
+      {activeChat?.type === 'channel' && !isChannelOwner ? (
+        !isSubscribed ? (
+          <div
+            style={{
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              maxWidth: 720,
+              margin: '0 auto',
+            }}
+          >
+            <button
+              onClick={handleSubscribeToChannel}
+              disabled={isSubscribing}
+              aria-label={t('channel_settings.subscribe', 'Подписаться')}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                borderRadius: '16px',
+                border: 'none',
+                outline: 'none',
+                background: 'var(--accent-color, #7C3AED)',
+                color: '#ffffff',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: isSubscribing ? 'default' : 'pointer',
+                opacity: isSubscribing ? 0.7 : 1,
+                transition: 'background 0.2s ease, opacity 0.2s ease, transform 0.1s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onMouseDown={(e) => {
+                if (!isSubscribing) (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)';
+              }}
+              onMouseUp={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+              }}
+            >
+              {t('channel_settings.subscribe', 'Подписаться')}
+            </button>
+          </div>
+        ) : null
+      ) : (
         <MessageInput
           inputText={inputText}
           setInputText={handleSetInputText}

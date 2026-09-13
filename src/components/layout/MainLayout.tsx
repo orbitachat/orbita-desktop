@@ -2314,22 +2314,28 @@ export const MainLayout = () => {
       );
 
       if (existingMatch) {
-        if (existingMatch.id !== post.id) {
-          useChatStore.setState((state) => {
-            const list = state.messagesByChatId[channelId] || [];
-            return {
-              messagesByChatId: {
-                ...state.messagesByChatId,
-                [channelId]: list.map((m) =>
-                  m.id === existingMatch.id ? { ...m, id: post.id, time: post.time || m.time } : m
-                ),
-              },
-            };
-          });
-        }
+        useChatStore.setState((state) => {
+          const list = state.messagesByChatId[channelId] || [];
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [channelId]: list.map((m) =>
+                m.id === existingMatch.id
+                  ? {
+                      ...m,
+                      id: post.id,
+                      text: postText || m.text,
+                      time: post.time || m.time,
+                    }
+                  : m
+              ),
+            },
+          };
+        });
       } else {
         addMessage(channelId, newMsg);
       }
+      useChatStore.getState().updateChat(channelId, { lastMsg: postText || 'Новый пост' });
 
       if (!isViewingThisChannel) {
         let notifBody = post.text;
@@ -2404,6 +2410,8 @@ export const MainLayout = () => {
           handleReaction(data);
         } else if (data?.type === 'channel-updated') {
           handleChannelUpdated(data);
+        } else if (data?.type === 'subscribers-updated' && typeof data?.subscribersCount === 'number') {
+          useChatStore.getState().updateChat(channelId, { subscribersCount: data.subscribersCount });
         } else if (data?.id) {
           handleNewPost(data);
         }
@@ -2475,6 +2483,7 @@ export const MainLayout = () => {
               return {
                 ...m,
                 id: fetched.id,
+                text: fetched.text || m.text,
                 time: fetched.time || m.time,
                 reactions: fetched.reactions || m.reactions,
               };
@@ -3381,14 +3390,6 @@ export const MainLayout = () => {
   const handleSelectFoundChannel = useCallback(async (channel: ChannelInfo) => {
     const exists = chats.some(c => c.id === channel.id);
     if (!exists) {
-      if (channel.creatorNickname !== nickname && !channel.isOfficial) {
-        try {
-          const newCount = await channelService.joinChannel(channel.id, nickname || 'User');
-          if (newCount !== null) {
-            channel.subscribersCount = newCount;
-          }
-        } catch {}
-      }
       addChannelChat({
         id: channel.id,
         name: channel.name,
@@ -3398,12 +3399,13 @@ export const MainLayout = () => {
         subscribersCount: channel.subscribersCount,
         isOfficial: channel.isOfficial,
         isOwner: false,
+        isSubscribed: false,
       });
     }
     setActiveChat(channel.id);
     setSearchQuery('');
     setSearchChannelResult(null);
-  }, [chats, nickname, addChannelChat, setActiveChat]);
+  }, [chats, addChannelChat, setActiveChat]);
 
   const visibleChats = useMemo(() => {
     return searchedChats.slice(0, renderedChatCount);
