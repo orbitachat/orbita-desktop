@@ -3135,19 +3135,28 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         time: Date.now(),
         read: true,
         status: 'sent',
+        mediaType: mediaPayload?.type as any,
+        mediaUrl: mediaPayload?.url,
+        mediaName: mediaPayload?.name,
+        mediaKey: mediaPayload?.key,
+        mime: mediaPayload?.mime,
+        audioMetadata: mediaPayload?.audioMetadata,
+        duration: mediaPayload?.duration,
+        waveform: mediaPayload?.waveform,
       };
       addMessage(activeChatId, localMessage);
-      updateChat(activeChatId, { lastMsg: text });
+      updateChat(activeChatId, { lastMsg: mediaPayload?.name || text || '📎' });
       setInputText('');
       setReplyingTo(null);
       requestAnimationFrame(() => scrollToBottom(false));
       if (activeChatId === 'system_support') {
-        supportService.handleUserMessage(text, t);
+        supportService.handleUserMessage(text, t, mediaPayload?.url, mediaPayload?.type);
       } else {
-        orbitosService.handleUserMessage(text, t);
+        orbitosService.handleUserMessage(text, t, mediaPayload?.url, mediaPayload?.type, mediaPayload?.mime);
       }
       return;
     }
+
 
     const chat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
 
@@ -4182,13 +4191,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const canSend = (!!inputText.trim() || !!attachedFiles.length) && editingIndex === null && isRatchetReady;
 
   const handleStartRecording = useCallback(async () => {
-    if (!sharedSecret || !isRatchetReady) return;
+    const isBotChat = activeChatId === 'system_orbitos' || activeChatId === 'system_support';
+    if (!isBotChat && (!sharedSecret || !isRatchetReady)) return;
     try {
       await startAudioRecording();
     } catch (err) {
       showToast(t('chatWindow.mic_permission_error'));
     }
-  }, [sharedSecret, isRatchetReady, startAudioRecording, showToast, t]);
+  }, [activeChatId, sharedSecret, isRatchetReady, startAudioRecording, showToast, t]);
+
 
   const handleStopRecordingAndSend = useCallback(async () => {
     const recorded = await stopAudioRecording();
