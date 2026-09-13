@@ -14,21 +14,16 @@ interface TelegramAlbumGridProps {
   maxWidth?: number;
 }
 
-// Single Tile Component
 const AlbumTile = memo(({
   item,
   sharedSecret,
   onClick,
   style,
-  isLast,
-  floatingTimeNode,
 }: {
   item: MediaItem;
   sharedSecret: string | undefined;
   onClick: () => void;
   style: React.CSSProperties;
-  isLast?: boolean;
-  floatingTimeNode?: React.ReactNode;
 }) => {
   const { blobUrl } = useDecryptedMedia(item.url, item.key || sharedSecret, item.name, item.mime);
   const isVideo = item.type === 'video';
@@ -73,7 +68,6 @@ const AlbumTile = memo(({
         </div>
       )}
 
-      {/* Video Overlay */}
       {isVideo && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
           <div className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white">
@@ -84,16 +78,6 @@ const AlbumTile = memo(({
               {formatDuration(item.duration)}
             </div>
           ) : null}
-        </div>
-      )}
-
-      {/* Floating Time on last photo if no caption */}
-      {isLast && floatingTimeNode && (
-        <div
-          className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md flex items-center gap-1 pointer-events-none"
-          style={{ color: '#ffffff' }}
-        >
-          {floatingTimeNode}
         </div>
       )}
     </div>
@@ -152,12 +136,12 @@ export const TelegramAlbumGrid = memo(({
         boxSizing: 'border-box',
       }}
     >
-      {/* Photo / Video Collage */}
       <div
-        className="flex flex-col w-full"
+        className="flex flex-col w-full overflow-hidden"
         style={{
           width: '100%',
-          gap: '2px',
+          gap: '1.5px',
+          borderRadius: 'calc(var(--bubble-radius, 16px) - 2px) calc(var(--bubble-radius, 16px) - 2px) 4px 4px',
         }}
       >
         {rows.map((rowIndices, rIdx) => {
@@ -179,14 +163,13 @@ export const TelegramAlbumGrid = memo(({
               className="flex w-full overflow-hidden"
               style={{
                 width: '100%',
-                gap: '2px',
+                gap: '1.5px',
                 aspectRatio: rowAspectRatio,
                 maxHeight: rowCount === 1 && items.length === 1 ? '340px' : undefined,
               }}
             >
               {rowIndices.map((itemIdx) => {
                 const item = items[itemIdx];
-                const isLastItem = itemIdx === items.length - 1;
                 return (
                   <div
                     key={itemIdx}
@@ -202,8 +185,6 @@ export const TelegramAlbumGrid = memo(({
                       sharedSecret={sharedSecret}
                       onClick={() => onMediaClick(itemIdx)}
                       style={{ width: '100%', height: '100%' }}
-                      isLast={isLastItem}
-                      floatingTimeNode={!hasCaption ? timeNode : undefined}
                     />
                   </div>
                 );
@@ -213,10 +194,9 @@ export const TelegramAlbumGrid = memo(({
         })}
       </div>
 
-      {/* Caption & Timestamp Container (Single compact row matching Telegram) */}
-      {hasCaption && (
+      {hasCaption ? (
         <div
-          className="flex items-end justify-between gap-3 px-3 py-1.5"
+          className="flex items-end justify-between gap-3 px-2.5 pt-1 pb-0.5"
           style={{
             backgroundColor: 'inherit',
           }}
@@ -224,7 +204,18 @@ export const TelegramAlbumGrid = memo(({
           <div className="text-[13.5px] text-[var(--text-main)] leading-snug break-words flex-1 select-text">
             {msg.text}
           </div>
-          <div className="flex items-center justify-end gap-1 flex-shrink-0 mb-0.5 select-none">
+          <div className="flex items-center justify-end gap-1 flex-shrink-0 select-none">
+            {timeNode}
+          </div>
+        </div>
+      ) : (
+        <div
+          className="flex items-center justify-end px-2 pt-1 pb-0.5"
+          style={{
+            backgroundColor: 'inherit',
+          }}
+        >
+          <div className="flex items-center justify-end gap-1 select-none">
             {timeNode}
           </div>
         </div>
