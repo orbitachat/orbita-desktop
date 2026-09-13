@@ -76,7 +76,7 @@ interface CallStore {
   toggleVideo: () => Promise<void>;
   openScreenPicker: () => void;
   closeScreenPicker: () => void;
-  startScreenShareWithOptions: (options: { sourceId?: string; quality: '720p' | '1080p'; fps: 30 | 60; audio: boolean }) => Promise<void>;
+  startScreenShareWithOptions: (options: { sourceId?: string; quality: '240p' | '360p' | '720p' | '1080p'; fps: 15 | 30 | 45 | 60; audio: boolean }) => Promise<void>;
   stopScreenShare: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
   updateParticipants: (participants: ParticipantInfo[]) => void;

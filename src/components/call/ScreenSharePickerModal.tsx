@@ -14,8 +14,8 @@ interface DesktopSource {
 
 export interface ScreenShareOptions {
   sourceId?: string;
-  quality: '720p' | '1080p';
-  fps: 30 | 60;
+  quality: '240p' | '360p' | '720p' | '1080p';
+  fps: 15 | 30 | 45 | 60;
   audio: boolean;
 }
 
@@ -43,8 +43,8 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
   const [sources, setSources] = useState<DesktopSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [quality, setQuality] = useState<'720p' | '1080p'>('720p');
-  const [fps, setFps] = useState<30 | 60>(30);
+  const [quality, setQuality] = useState<'240p' | '360p' | '720p'>('720p');
+  const [fps, setFps] = useState<15 | 30 | 45>(45);
   const [shareAudio, setShareAudio] = useState<boolean>(true);
 
   const fetchSources = useCallback(async () => {
@@ -325,30 +325,21 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
                     {t('call.quality')}:
                   </span>
                   <div className="flex items-center rounded-lg p-0.5 bg-[var(--surface-container,rgba(255,255,255,0.06))]">
-                    <button
-                      type="button"
-                      onClick={() => setQuality('720p')}
-                      aria-label="720p"
-                      className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
-                      style={{
-                        backgroundColor: quality === '720p' ? 'var(--accent-color, #7C3AED)' : 'transparent',
-                        color: quality === '720p' ? '#ffffff' : 'var(--text-dim, #8a96a3)',
-                      }}
-                    >
-                      720p
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setQuality('1080p')}
-                      aria-label="1080p"
-                      className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
-                      style={{
-                        backgroundColor: quality === '1080p' ? 'var(--accent-color, #7C3AED)' : 'transparent',
-                        color: quality === '1080p' ? '#ffffff' : 'var(--text-dim, #8a96a3)',
-                      }}
-                    >
-                      1080p
-                    </button>
+                    {(['240p', '360p', '720p'] as const).map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setQuality(q)}
+                        aria-label={q}
+                        className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
+                        style={{
+                          backgroundColor: quality === q ? 'var(--accent-color, #7C3AED)' : 'transparent',
+                          color: quality === q ? '#ffffff' : 'var(--text-dim, #8a96a3)',
+                        }}
+                      >
+                        {q}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -357,30 +348,21 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
                     {t('call.framerate')}:
                   </span>
                   <div className="flex items-center rounded-lg p-0.5 bg-[var(--surface-container,rgba(255,255,255,0.06))]">
-                    <button
-                      type="button"
-                      onClick={() => setFps(30)}
-                      aria-label="30 FPS"
-                      className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
-                      style={{
-                        backgroundColor: fps === 30 ? 'var(--accent-color, #7C3AED)' : 'transparent',
-                        color: fps === 30 ? '#ffffff' : 'var(--text-dim, #8a96a3)',
-                      }}
-                    >
-                      30 FPS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFps(60)}
-                      aria-label="60 FPS"
-                      className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
-                      style={{
-                        backgroundColor: fps === 60 ? 'var(--accent-color, #7C3AED)' : 'transparent',
-                        color: fps === 60 ? '#ffffff' : 'var(--text-dim, #8a96a3)',
-                      }}
-                    >
-                      60 FPS
-                    </button>
+                    {([15, 30, 45] as const).map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => setFps(rate)}
+                        aria-label={`${rate} FPS`}
+                        className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
+                        style={{
+                          backgroundColor: fps === rate ? 'var(--accent-color, #7C3AED)' : 'transparent',
+                          color: fps === rate ? '#ffffff' : 'var(--text-dim, #8a96a3)',
+                        }}
+                      >
+                        {rate} FPS
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

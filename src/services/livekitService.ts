@@ -581,13 +581,23 @@ class LiveKitService extends EventEmitter {
     return null;
   }
 
-  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: 30 | 60; audio?: boolean }): Promise<boolean> {
+  public async startScreenShare(options?: { sourceId?: string; quality?: '240p' | '360p' | '720p' | '1080p'; fps?: 15 | 30 | 45 | 60; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) {
       return false;
     }
-    const width = options?.quality === '1080p' ? 1920 : 1280;
-    const height = options?.quality === '1080p' ? 1080 : 720;
-    const frameRate = options?.fps || 30;
+    let width = 1280;
+    let height = 720;
+    if (options?.quality === '1080p') {
+      width = 1920;
+      height = 1080;
+    } else if (options?.quality === '360p') {
+      width = 640;
+      height = 360;
+    } else if (options?.quality === '240p') {
+      width = 426;
+      height = 240;
+    }
+    const frameRate = options?.fps || 45;
     const includeAudio = !!options?.audio;
 
     try {
