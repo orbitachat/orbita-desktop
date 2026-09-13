@@ -780,7 +780,7 @@ const CallMessage = memo(
     const directionPart = parts[0].replace(/^\[Call\]\s/, '');
     const durationStr = parts[1] || '';
 
-    const isOutgoing = directionPart.includes(t('call.outgoing'));
+    const isOutgoing = isOwn || directionPart.toLowerCase().includes('исходящ') || directionPart.toLowerCase().includes('outgoing');
     const status = msg.mediaName || 'completed';
     const displayStatus = status === 'busy' ? 'rejected' : status;
 

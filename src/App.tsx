@@ -259,7 +259,7 @@ function App() {
     return (
       <ThemeProvider theme={md3Theme}>
         <CssBaseline />
-        <div className="h-screen w-screen bg-[var(--bg-primary)]" style={{ paddingTop: '30px', boxSizing: 'border-box' }}>
+        <div className="h-full w-full bg-[var(--bg-primary)]" style={{ paddingTop: '30px', boxSizing: 'border-box' }}>
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999999 }}>
             <TitleBar />
           </div>
@@ -271,7 +271,7 @@ function App() {
   return (
     <ThemeProvider theme={md3Theme}>
       <CssBaseline />
-      <div className="h-screen w-screen overflow-hidden bg-[var(--bg-primary)]" style={{ paddingTop: '30px', boxSizing: 'border-box' }}>
+      <div className="h-full w-full overflow-hidden bg-[var(--bg-primary)]" style={{ paddingTop: '30px', boxSizing: 'border-box' }}>
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999999 }}>
           <TitleBar />
         </div>

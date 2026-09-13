@@ -75,6 +75,7 @@ if (process.platform === 'win32') {
 app.commandLine.appendSwitch('disk-cache-size', '33554432');
 app.commandLine.appendSwitch('media-cache-size', '33554432');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --expose-gc');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 // Load optional native module
 let nativeModule: any = null;
@@ -2371,7 +2372,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
     minHeight: 480,
     resizable: true,
     frame: false,
-    titleBarStyle: 'hidden',
+    thickFrame: true,
     backgroundColor: '#14111d',
     alwaysOnTop: false,
     webPreferences: {
@@ -2731,7 +2732,7 @@ function createMainWindow() {
     minWidth: 360,
     minHeight: 600,
     frame: false,
-    titleBarStyle: 'hidden',
+    thickFrame: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -2741,7 +2742,7 @@ function createMainWindow() {
       devTools: !app.isPackaged,
     },
     title: 'Orbita Desktop',
-    backgroundColor: '#000000',
+    backgroundColor: '#121212',
     autoHideMenuBar: true,
     show: false,
     icon: loadNativeAppIcon(),
