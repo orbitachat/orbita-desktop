@@ -257,48 +257,51 @@ export const CallWindow = () => {
       setIsRemoteScreenShareActive(false);
       return;
     }
+    const sTrack = liveKitService.getRemoteScreenShareTrack();
+    if (sTrack && !sTrack.isMuted && remoteScreenShareRef.current) {
+      sTrack.attach(remoteScreenShareRef.current);
+      if (bgVideoRef.current) sTrack.attach(bgVideoRef.current);
+      setIsRemoteScreenShareActive(true);
+    }
     const track = liveKitService.getRemoteVideoTrack();
     if (track && !track.isMuted && remoteVideoRef.current) {
       track.attach(remoteVideoRef.current);
-      if (bgVideoRef.current) {
+      if (bgVideoRef.current && (!sTrack || sTrack.isMuted)) {
         track.attach(bgVideoRef.current);
       }
       setIsRemoteVideoActive(true);
     }
-    const sTrack = liveKitService.getRemoteScreenShareTrack();
-    if (sTrack && !sTrack.isMuted && remoteScreenShareRef.current) {
-      sTrack.attach(remoteScreenShareRef.current);
-      setIsRemoteScreenShareActive(true);
-    }
   }, [isConnected]);
 
   useEffect(() => {
-    if (isRemoteScreenShareActive && remoteScreenShareRef.current) {
-      const track = liveKitService.getRemoteScreenShareTrack();
-      if (track) {
-        track.attach(remoteScreenShareRef.current);
+    if (!bgVideoRef.current) return;
+    if (isRemoteScreenShareActive) {
+      const sTrack = liveKitService.getRemoteScreenShareTrack();
+      if (sTrack) {
+        if (remoteScreenShareRef.current) sTrack.attach(remoteScreenShareRef.current);
+        sTrack.attach(bgVideoRef.current);
       }
-    }
-  }, [isRemoteScreenShareActive]);
-
-  useEffect(() => {
-    if (isRemoteVideoActive && remoteVideoRef.current) {
+    } else if (isRemoteVideoActive) {
       const track = liveKitService.getRemoteVideoTrack();
       if (track) {
-        track.attach(remoteVideoRef.current);
-        if (bgVideoRef.current) {
-          track.attach(bgVideoRef.current);
-        }
+        if (remoteVideoRef.current) track.attach(remoteVideoRef.current);
+        track.attach(bgVideoRef.current);
       }
     }
-  }, [isRemoteVideoActive]);
+  }, [isRemoteScreenShareActive, isRemoteVideoActive]);
 
   useEffect(() => {
-    if (remoteScreenShareTrack && remoteScreenShareRef.current) {
-      remoteScreenShareTrack.attach(remoteScreenShareRef.current);
+    if (remoteScreenShareTrack) {
+      if (remoteScreenShareRef.current) remoteScreenShareTrack.attach(remoteScreenShareRef.current);
+      if (bgVideoRef.current) remoteScreenShareTrack.attach(bgVideoRef.current);
       setIsRemoteScreenShareActive(true);
-    } else if (!remoteScreenShareTrack && remoteScreenShareRef.current) {
+    } else {
       setIsRemoteScreenShareActive(false);
+      if (bgVideoRef.current) {
+        bgVideoRef.current.srcObject = null;
+        const rTrack = liveKitService.getRemoteVideoTrack();
+        if (rTrack && !rTrack.isMuted) rTrack.attach(bgVideoRef.current);
+      }
     }
   }, [remoteScreenShareTrack]);
 
@@ -502,7 +505,41 @@ export const CallWindow = () => {
         WebkitUserSelect: 'none',
       }}
     >
-      <StaticBackground />
+      <div
+        className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
+        style={{ contain: 'strict' }}
+      >
+        <video
+          ref={bgVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover pointer-events-none"
+          style={{
+            display: (isRemoteVideoActive || isRemoteScreenShareActive) ? 'block' : 'none',
+            filter: 'blur(30px)',
+            transform: 'scale(1.15) translate3d(0, 0, 0)',
+            willChange: 'transform',
+            opacity: 0.35,
+            backfaceVisibility: 'hidden',
+          }}
+        />
+        {otherAvatar && !(isRemoteVideoActive || isRemoteScreenShareActive) && (
+          <img
+            src={otherAvatar}
+            alt=""
+            className="w-full h-full object-cover pointer-events-none"
+            style={{
+              filter: 'blur(30px)',
+              transform: 'scale(1.15) translate3d(0, 0, 0)',
+              willChange: 'transform',
+              opacity: 0.25,
+              backfaceVisibility: 'hidden',
+            }}
+          />
+        )}
+        <div className="absolute inset-0 bg-black/45 pointer-events-none" />
+      </div>
 
       <div style={{ height: '30px' }} className="w-full flex-shrink-0" />
 
@@ -596,23 +633,6 @@ export const CallWindow = () => {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
-        {isRemoteVideoActive && (
-          <video
-            ref={bgVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-125 pointer-events-none z-0"
-          />
-        )}
-        {otherAvatar && !isRemoteVideoActive && (
-          <img
-            src={otherAvatar}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125 pointer-events-none z-0"
-          />
-        )}
-
         <div
           onClick={() => setIsExpanded(!isExpanded)}
           className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${

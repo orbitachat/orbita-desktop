@@ -364,16 +364,15 @@ export const CallWindowView = () => {
   }, [isRemoteScreenShareActive]);
 
   useEffect(() => {
-    if (isRemoteVideoActive && remoteVideoRef.current) {
-      const track = liveKitService.getRemoteVideoTrack();
-      if (track) {
-        track.attach(remoteVideoRef.current);
-        if (bgVideoRef.current) {
-          track.attach(bgVideoRef.current);
-        }
-      }
+    if (!bgVideoRef.current) return;
+    if (isRemoteScreenShareActive) {
+      const sTrack = liveKitService.getRemoteScreenShareTrack();
+      if (sTrack) sTrack.attach(bgVideoRef.current);
+    } else if (isRemoteVideoActive) {
+      const rTrack = liveKitService.getRemoteVideoTrack();
+      if (rTrack) rTrack.attach(bgVideoRef.current);
     }
-  }, [isRemoteVideoActive]);
+  }, [isRemoteScreenShareActive, isRemoteVideoActive]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -381,34 +380,37 @@ export const CallWindowView = () => {
       setIsRemoteScreenShareActive(false);
       return;
     }
-    const rTrack = liveKitService.getRemoteVideoTrack();
-    if (rTrack && !rTrack.isMuted) {
-      setIsRemoteVideoActive(true);
-      if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
-      if (bgVideoRef.current) rTrack.attach(bgVideoRef.current);
-    }
     const sTrack = liveKitService.getRemoteScreenShareTrack();
     if (sTrack && !sTrack.isMuted) {
       setIsRemoteScreenShareActive(true);
       if (remoteScreenShareRef.current) sTrack.attach(remoteScreenShareRef.current);
+      if (bgVideoRef.current) sTrack.attach(bgVideoRef.current);
+    }
+    const rTrack = liveKitService.getRemoteVideoTrack();
+    if (rTrack && !rTrack.isMuted) {
+      setIsRemoteVideoActive(true);
+      if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
+      if (bgVideoRef.current && (!sTrack || sTrack.isMuted)) rTrack.attach(bgVideoRef.current);
     }
   }, [isConnected]);
 
   useEffect(() => {
     const handleTrackSubscribed = (track: RemoteTrack) => {
-      sendAction('activateConnected');
       if (track.kind === 'video') {
         if (track.source === 'screen_share') {
           setIsRemoteScreenShareActive(true);
           if (remoteScreenShareRef.current) {
             track.attach(remoteScreenShareRef.current);
           }
+          if (bgVideoRef.current) {
+            track.attach(bgVideoRef.current);
+          }
         } else {
           setIsRemoteVideoActive(true);
           if (remoteVideoRef.current) {
             track.attach(remoteVideoRef.current);
           }
-          if (bgVideoRef.current) {
+          if (bgVideoRef.current && !liveKitService.getRemoteScreenShareTrack()) {
             track.attach(bgVideoRef.current);
           }
         }
@@ -422,12 +424,19 @@ export const CallWindowView = () => {
           if (remoteScreenShareRef.current) {
             track.detach(remoteScreenShareRef.current);
           }
+          if (bgVideoRef.current) {
+            track.detach(bgVideoRef.current);
+            const rTrack = liveKitService.getRemoteVideoTrack();
+            if (rTrack && !rTrack.isMuted) {
+              rTrack.attach(bgVideoRef.current);
+            }
+          }
         } else {
           setIsRemoteVideoActive(false);
           if (remoteVideoRef.current) {
             track.detach(remoteVideoRef.current);
           }
-          if (bgVideoRef.current) {
+          if (bgVideoRef.current && !liveKitService.getRemoteScreenShareTrack()) {
             track.detach(bgVideoRef.current);
           }
         }
@@ -451,29 +460,31 @@ export const CallWindowView = () => {
 
     const handleRemoteScreenShareChanged = (active: boolean, track: any) => {
       setIsRemoteScreenShareActive(active);
-      if (active && track && remoteScreenShareRef.current) {
-        track.attach(remoteScreenShareRef.current);
+      if (active && track) {
+        if (remoteScreenShareRef.current) track.attach(remoteScreenShareRef.current);
+        if (bgVideoRef.current) track.attach(bgVideoRef.current);
+      } else if (!active && bgVideoRef.current) {
+        const rTrack = liveKitService.getRemoteVideoTrack();
+        if (rTrack && !rTrack.isMuted) rTrack.attach(bgVideoRef.current);
       }
     };
 
     const handleConnected = () => {
-      sendAction('activateConnected');
-      const rTrack = liveKitService.getRemoteVideoTrack();
-      if (rTrack && !rTrack.isMuted) {
-        setIsRemoteVideoActive(true);
-        if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
-        if (bgVideoRef.current) rTrack.attach(bgVideoRef.current);
-      }
       const sTrack = liveKitService.getRemoteScreenShareTrack();
       if (sTrack && !sTrack.isMuted) {
         setIsRemoteScreenShareActive(true);
         if (remoteScreenShareRef.current) sTrack.attach(remoteScreenShareRef.current);
+        if (bgVideoRef.current) sTrack.attach(bgVideoRef.current);
+      }
+      const rTrack = liveKitService.getRemoteVideoTrack();
+      if (rTrack && !rTrack.isMuted) {
+        setIsRemoteVideoActive(true);
+        if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
+        if (bgVideoRef.current && (!sTrack || sTrack.isMuted)) rTrack.attach(bgVideoRef.current);
       }
     };
 
-    const handleParticipantJoined = () => {
-      sendAction('activateConnected');
-    };
+    const handleParticipantJoined = () => {};
 
     liveKitService.on('trackSubscribed', handleTrackSubscribed);
     liveKitService.on('trackUnsubscribed', handleTrackUnsubscribed);
@@ -568,6 +579,42 @@ export const CallWindowView = () => {
         ['--title-bar-bg' as any]: 'transparent',
       }}
     >
+      <div
+        className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
+        style={{ contain: 'strict' }}
+      >
+        <video
+          ref={bgVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover pointer-events-none"
+          style={{
+            display: hasRemoteStream ? 'block' : 'none',
+            filter: 'blur(30px)',
+            transform: 'scale(1.15) translate3d(0, 0, 0)',
+            willChange: 'transform',
+            opacity: 0.35,
+            backfaceVisibility: 'hidden',
+          }}
+        />
+        {otherAvatar && !hasRemoteStream && (
+          <img
+            src={otherAvatar}
+            alt=""
+            className="w-full h-full object-cover pointer-events-none"
+            style={{
+              filter: 'blur(30px)',
+              transform: 'scale(1.15) translate3d(0, 0, 0)',
+              willChange: 'transform',
+              opacity: 0.25,
+              backfaceVisibility: 'hidden',
+            }}
+          />
+        )}
+        <div className="absolute inset-0 bg-black/45 pointer-events-none" />
+      </div>
+
       <div className="relative z-50">
         <TitleBar />
       </div>
@@ -603,22 +650,6 @@ export const CallWindowView = () => {
       )}
 
       <div className="flex flex-col items-center justify-center flex-1 py-2 z-10 w-full relative">
-        {isRemoteVideoActive && (
-          <video
-            ref={bgVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-125 pointer-events-none z-0"
-          />
-        )}
-        {otherAvatar && !isRemoteVideoActive && (
-          <img
-            src={otherAvatar}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125 pointer-events-none z-0"
-          />
-        )}
 
         <div
           onClick={() => setIsExpanded(!isExpanded)}
