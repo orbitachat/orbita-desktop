@@ -202,8 +202,8 @@ class LiveKitService extends EventEmitter {
     const selectedCamId = useChatStore.getState().selectedCameraId;
 
     const roomOptions: RoomOptions = {
-      adaptiveStream: true,
-      dynacast: true,
+      adaptiveStream: false,
+      dynacast: false,
       stopLocalTrackOnUnpublish: true,
       e2ee: e2eeOptions,
       audioCaptureDefaults: {
@@ -626,6 +626,7 @@ class LiveKitService extends EventEmitter {
         if (!vTrack) throw new Error('No video track');
 
         const localVTrack = new LocalVideoTrack(vTrack, undefined, false);
+        localVTrack.source = Track.Source.ScreenShare;
         await this.localParticipant.publishTrack(localVTrack, {
           source: Track.Source.ScreenShare,
           name: 'screen_share',

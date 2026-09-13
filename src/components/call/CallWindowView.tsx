@@ -287,6 +287,22 @@ export const CallWindowView = () => {
   const isConnecting = callState === 'connecting';
   const isEnded = callState === 'ended';
 
+  const [localDuration, setLocalDuration] = useState<number>(0);
+
+  useEffect(() => {
+    if (!isConnected) {
+      setLocalDuration(duration);
+      return;
+    }
+    const start = activeCall?.startTime && activeCall.startTime > 0 ? activeCall.startTime : Date.now();
+    const tick = () => {
+      setLocalDuration(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isConnected, activeCall?.startTime, duration]);
+
   useEffect(() => {
     if (!activeCall) return;
     const isShouldConnect = callState === 'connected' || callState === 'connecting' || (callState === 'ringing' && activeCall.direction === 'outgoing');
@@ -440,6 +456,7 @@ export const CallWindowView = () => {
     };
 
     const handleConnected = () => {
+      sendAction('activateConnected');
       const rTrack = liveKitService.getRemoteVideoTrack();
       if (rTrack && !rTrack.isMuted) {
         setIsRemoteVideoActive(true);
@@ -453,12 +470,17 @@ export const CallWindowView = () => {
       }
     };
 
+    const handleParticipantJoined = () => {
+      sendAction('activateConnected');
+    };
+
     liveKitService.on('trackSubscribed', handleTrackSubscribed);
     liveKitService.on('trackUnsubscribed', handleTrackUnsubscribed);
     liveKitService.on('cameraChanged', handleCameraChanged);
     liveKitService.on('screenShareChanged', handleScreenShareChanged);
     liveKitService.on('remoteScreenShareChanged', handleRemoteScreenShareChanged);
     liveKitService.on('connected', handleConnected);
+    liveKitService.on('participantJoined', handleParticipantJoined);
 
     if (liveKitService.isConnected) {
       handleConnected();
@@ -471,6 +493,7 @@ export const CallWindowView = () => {
       liveKitService.off('screenShareChanged', handleScreenShareChanged);
       liveKitService.off('remoteScreenShareChanged', handleRemoteScreenShareChanged);
       liveKitService.off('connected', handleConnected);
+      liveKitService.off('participantJoined', handleParticipantJoined);
     };
   }, []);
 
@@ -579,78 +602,79 @@ export const CallWindowView = () => {
       )}
 
       <div className="flex flex-col items-center justify-center flex-1 py-2 z-10 w-full relative">
-        {hasRemoteStream ? (
-          <>
-            {isRemoteVideoActive && (
-              <video
-                ref={bgVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-125 pointer-events-none z-0"
-              />
-            )}
-            {otherAvatar && !isRemoteVideoActive && (
-              <img
-                src={otherAvatar}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125 pointer-events-none z-0"
-              />
-            )}
+        {isRemoteVideoActive && (
+          <video
+            ref={bgVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-125 pointer-events-none z-0"
+          />
+        )}
+        {otherAvatar && !isRemoteVideoActive && (
+          <img
+            src={otherAvatar}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 scale-125 pointer-events-none z-0"
+          />
+        )}
 
-            <div
-              onClick={() => setIsExpanded(!isExpanded)}
-              className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
-                isExpanded
-                  ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
-                  : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
-              }`}
-              style={{
-                borderRadius: isExpanded ? 0 : '24px',
-              }}
+        <div
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
+            isExpanded
+              ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
+              : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
+          }`}
+          style={{
+            display: hasRemoteStream ? 'flex' : 'none',
+            borderRadius: isExpanded ? 0 : '24px',
+          }}
+        >
+          <video
+            ref={remoteScreenShareRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-contain"
+            style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
+          />
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
+            aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+            className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+          >
+            {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+        </div>
+
+        {hasRemoteStream && !isExpanded && (
+          <div className="flex flex-col items-center mt-3 select-none">
+            <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white">
+              {otherName}
+            </h2>
+            <p
+              className="mt-0.5 text-sm tabular-nums font-semibold text-center"
+              style={{ color: 'var(--accent-light, #a995ec)' }}
             >
-              <video
-                ref={remoteScreenShareRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-contain"
-                style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
-              />
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-                style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
-              />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsExpanded(!isExpanded);
-                }}
-                aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
-                className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
-              >
-                {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-              </button>
-            </div>
+              {formatDuration(localDuration > 0 ? localDuration : duration)}
+            </p>
+          </div>
+        )}
 
-            {!isExpanded && (
-              <div className="flex flex-col items-center mt-3 select-none">
-                <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white">
-                  {otherName}
-                </h2>
-                <p
-                  className="mt-0.5 text-sm tabular-nums font-semibold text-center"
-                  style={{ color: 'var(--accent-light, #a995ec)' }}
-                >
-                  {formatDuration(duration)}
-                </p>
-              </div>
-            )}
-          </>
-        ) : (
+        {!hasRemoteStream && (
           <>
             <div className="w-[150px] h-[150px] rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center select-none shadow-lg pointer-events-none">
               {otherName ? (
@@ -680,7 +704,7 @@ export const CallWindowView = () => {
                 className="mt-1 text-sm tabular-nums font-semibold text-center"
                 style={{ color: 'var(--accent-light, #a995ec)' }}
               >
-                {formatDuration(duration)}
+                {formatDuration(localDuration > 0 ? localDuration : duration)}
               </p>
             ) : statusMessage ? (
               <p className="mt-1 text-sm font-medium text-center" style={{ color: 'var(--text-dim, #8a96a3)' }}>

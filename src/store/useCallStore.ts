@@ -239,7 +239,7 @@ export const useCallStore = create<CallStore>((set, get) => {
     if (durationTimer) { clearInterval(durationTimer); durationTimer = null; }
     durationTimer = setInterval(() => {
       const s = get();
-      if (s.activeCall && s.activeCall.startTime > 0 && s.callState === 'connected' && !s.statusMessage) {
+      if (s.activeCall && s.activeCall.startTime > 0 && s.callState === 'connected') {
         set({ duration: Math.max(0, Math.floor((Date.now() - s.activeCall.startTime) / 1000)) });
       }
     }, 1000);
