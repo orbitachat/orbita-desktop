@@ -64,6 +64,7 @@ import { TelegramMediaViewer } from './TelegramMediaViewer';
 import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { EmptyChatGreeting } from './EmptyChatGreeting';
+import { ChannelEmptyCard } from './ChannelEmptyCard';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { orbitosService } from '../../services/orbitosService';
 import { supportService } from '../../services/supportService';
@@ -2026,6 +2027,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   } = useAudioRecorder();
   const atBottomRef = useRef(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const lastChatSwitchTimeRef = useRef(0);
 
   const unreadCount = useMemo(() => {
     if (!messages || messages.length === 0) return 0;
@@ -2041,8 +2043,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const prevMessagesLengthRef = useRef(messages.length);
 
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    setShowScrollDown(false);
+    atBottomRef.current = true;
+    lastChatSwitchTimeRef.current = performance.now();
+    const el = messagesContainerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          setShowScrollDown(false);
+          atBottomRef.current = true;
+        }
+      });
+      setTimeout(() => {
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          setShowScrollDown(false);
+          atBottomRef.current = true;
+        }
+      }, 50);
     }
     prevMessagesLengthRef.current = messages.length;
   }, [activeChatId]);
@@ -2835,13 +2855,20 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const el = messagesContainerRef.current;
     if (!el) return;
 
+    if (performance.now() - lastChatSwitchTimeRef.current < 250) {
+      setShowScrollDown(false);
+      atBottomRef.current = true;
+      return;
+    }
+
     handleIsScrolling(true);
     triggerChatActive();
 
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 60;
+    const hasOverflow = el.scrollHeight > el.clientHeight + 20;
+    const isAtBottom = !hasOverflow || (el.scrollHeight - el.scrollTop - el.clientHeight <= 60);
     if (atBottomRef.current !== isAtBottom) {
       atBottomRef.current = isAtBottom;
-      setShowScrollDown(!isAtBottom);
+      setShowScrollDown(!isAtBottom && hasOverflow);
     }
 
     const virtualTopHeight = startIndex * 46;
@@ -6114,12 +6141,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           }}
         >
           {messages.length === 0 ? (
-            <EmptyChatGreeting
-              onSendGreeting={() => triggerMessage('👋')}
-              isInitiator={activeChat?.isChatInitiator}
-              isPeerOnline={activeChat?.online}
-              isRatchetReady={Boolean(activeChat?.ratchetState)}
-            />
+            activeChat?.type === 'channel' ? (
+              <ChannelEmptyCard chat={activeChat} />
+            ) : (
+              <EmptyChatGreeting
+                onSendGreeting={() => triggerMessage('👋')}
+                isInitiator={activeChat?.isChatInitiator}
+                isPeerOnline={activeChat?.online}
+                isRatchetReady={Boolean(activeChat?.ratchetState)}
+              />
+            )
           ) : (
             <MessageList
               messages={visibleMessages}

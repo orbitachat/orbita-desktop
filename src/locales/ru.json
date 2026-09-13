@@ -941,7 +941,9 @@
       "subscribers_many": "подписчиков",
       "public_channel": "публичный канал",
       "copied_id": "ID скопирован!",
-      "channel_updated": "Канал успешно обновлен"
+      "channel_updated": "Канал успешно обновлен",
+      "empty_description": "Здесь пока нет описания",
+      "orbita_updates_desc": "Официальный канал мессенджера Orbita. Новости, обновления и важные анонсы."
     },
     "sound_settings": {
       "title": "Настройки звука",

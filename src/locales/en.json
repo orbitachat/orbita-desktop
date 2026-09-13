@@ -930,7 +930,9 @@
       "subscribers_many": "subscribers",
       "public_channel": "public channel",
       "copied_id": "ID copied!",
-      "channel_updated": "Channel updated successfully"
+      "channel_updated": "Channel updated successfully",
+      "empty_description": "No description yet",
+      "orbita_updates_desc": "Official Orbita messenger channel. News, updates and important announcements."
     },
     "sound_settings": {
       "title": "Sound settings",
