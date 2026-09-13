@@ -31,7 +31,6 @@ import { LinkCopiedToast } from '../common/LinkCopiedToast';
 import { QrCodeView } from './QrCodeView';
 import { getInviteLink } from '../../utils/inviteLink';
 import { CHAT_COLOR_PRESETS, DEFAULT_CHAT_COLOR, type ThemeId } from '../../theme';
-import { gatewayManager } from '../../services/gatewayManager';
 
 const QrCodeMiniIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size}>
@@ -2220,7 +2219,7 @@ const HotkeySwitch = ({
   );
 };
 
-type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode' | 'backup' | 'orbitosAi';
+type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode' | 'backup';
 
 export const SettingsScreen = () => {
   const { t } = useTranslation();
@@ -2269,11 +2268,6 @@ export const SettingsScreen = () => {
   const initialSettingsTab = useChatStore((s) => s.initialSettingsTab) as TabId | undefined;
   const [tabStack, setTabStack] = useState<TabId[]>(() => [initialSettingsTab || 'main']);
   const activeTab = tabStack[tabStack.length - 1];
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => (typeof window !== 'undefined' ? (localStorage.getItem('orbita_gemini_api_key') || '') : ''));
-  const [aiKeyInput, setAiKeyInput] = useState<string>(() => (typeof window !== 'undefined' ? (localStorage.getItem('orbita_gemini_api_key') || '') : ''));
-  const [showAiKey, setShowAiKey] = useState(false);
-  const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [aiTestError, setAiTestError] = useState('');
 
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoInputDevices, setVideoInputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -2526,7 +2520,6 @@ export const SettingsScreen = () => {
     preferences:   t('settings.preferences'),
     qrCode:        t('qrModal.title', 'Получить QR-код'),
     backup:        t('backup.menu_item', 'Резервная копия'),
-    orbitosAi:     t('settings.orbitos_ai', 'ИИ-помощник ORBITA'),
   };
 
   const languageDisplayOptions = [
@@ -2838,267 +2831,6 @@ export const SettingsScreen = () => {
     );
   };
 
-  const handleTestAiKey = async () => {
-    const keyToTest = aiKeyInput.trim();
-    if (!keyToTest) return;
-    setAiTestStatus('testing');
-    setAiTestError('');
-    try {
-      const res = await gatewayManager.fetch('/orbitos/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: 'ping',
-          apiKey: keyToTest,
-        }),
-      });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.error || `HTTP ${res.status}`);
-      }
-      setAiTestStatus('success');
-    } catch (err: any) {
-      setAiTestStatus('error');
-      setAiTestError(err?.message || 'Error');
-    }
-  };
-
-  const handleSaveAiKey = () => {
-    const key = aiKeyInput.trim();
-    if (typeof window !== 'undefined') {
-      if (key) {
-        localStorage.setItem('orbita_gemini_api_key', key);
-      } else {
-        localStorage.removeItem('orbita_gemini_api_key');
-      }
-    }
-    setGeminiApiKey(key);
-    setAiTestStatus('success');
-  };
-
-  const handleClearAiKey = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('orbita_gemini_api_key');
-    }
-    setAiKeyInput('');
-    setGeminiApiKey('');
-    setAiTestStatus('idle');
-    setAiTestError('');
-  };
-
-  const renderOrbitosAi = () => {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.18 }}
-        style={{ padding: '0 0 24px', display: 'flex', flexDirection: 'column', gap: 12 }}
-      >
-        <Block>
-          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 12,
-                  backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 18%, transparent)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--accent-color, #7C3AED)',
-                  flexShrink: 0,
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" width="24" height="24">
-                  <path fill="currentColor" d="M896 128q-8 0-18-3L752 252q123 65 197.5 186t74.5 266q0 27-19 45.5T960 768H64q-26 0-45-18.5T0 704q0-145 74.5-266T272 252L146 125q-10 3-18 3q-27 0-45.5-18.5T64 64.5T83 19t45-19t45 19t19 45q0 8-3 18l144 143q88-33 179-33t179 33L835 82q-3-10-3-18q0-26 18.5-45t45-19T941 19t19 45.5t-19 45t-45 18.5M256 448q-26 0-45 19t-19 45.5t19 45t45 18.5t45-18.5t19-45t-19-45.5t-45-19m511.5 128q26.5 0 45.5-18.5t19-45t-19-45.5t-45-19t-45 19t-19 45.5t18.5 45t45 18.5"/>
-                </svg>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: MD3.onSurface }}>
-                  {t('settings.ai_title', 'Google Gemini 1.5 Flash')}
-                </div>
-                <div style={{ fontSize: 12.5, color: MD3.onSurfaceVar, marginTop: 2 }}>
-                  {geminiApiKey ? t('settings.ai_active', 'Активен') : t('settings.ai_status_label', 'Бесплатный официальный ИИ-ассистент')}
-                </div>
-              </div>
-            </div>
-
-            <p style={{ fontSize: 13, color: MD3.onSurfaceVar, margin: 0, lineHeight: 1.5 }}>
-              {t('settings.ai_desc', 'Бот ORBITA использует сверхбыструю модель Gemini 1.5 Flash. Он поможет разобраться с шифрованием, настройками, резервными копиями и ответит на любые вопросы.')}
-            </p>
-
-            <button
-              type="button"
-              onClick={() => {
-                const url = 'https://aistudio.google.com/app/apikey';
-                if ((window as any).orbita?.openExternal) {
-                  (window as any).orbita.openExternal(url);
-                } else {
-                  window.open(url, '_blank');
-                }
-              }}
-              aria-label={t('settings.ai_get_free_key', 'Получить бесплатный ключ в Google AI Studio')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '10px 14px',
-                borderRadius: 10,
-                backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                color: 'var(--accent-color, #9b7dd4)',
-                fontSize: 13,
-                fontWeight: 600,
-                border: '1px solid var(--md-outline, rgba(255,255,255,0.12))',
-                cursor: 'pointer',
-                transition: 'background-color 150ms',
-                width: '100%',
-                boxSizing: 'border-box',
-              }}
-            >
-              <span>{t('settings.ai_get_free_key', 'Получить ключ бесплатно (Google AI Studio)')}</span>
-            </button>
-          </div>
-        </Block>
-
-        <Block>
-          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: MD3.onSurface }}>
-              {t('settings.ai_key_label', 'API-ключ Gemini')}
-            </label>
-
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <input
-                type={showAiKey ? 'text' : 'password'}
-                value={aiKeyInput}
-                onChange={(e) => {
-                  setAiKeyInput(e.target.value);
-                  setAiTestStatus('idle');
-                }}
-                placeholder={t('settings.ai_key_placeholder', 'Вставьте ваш AIzaSy... ключ')}
-                aria-label={t('settings.ai_key_label', 'API-ключ Gemini')}
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '10px 42px 10px 14px',
-                  borderRadius: 10,
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--md-outline, rgba(255,255,255,0.14))',
-                  color: MD3.onSurface,
-                  fontSize: 13,
-                  outline: 'none',
-                  fontFamily: '"JetBrains Mono", Consolas, monospace',
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowAiKey(!showAiKey)}
-                aria-label={showAiKey ? t('common.hide', 'Скрыть') : t('common.show', 'Показать')}
-                style={{
-                  position: 'absolute',
-                  right: 8,
-                  background: 'none',
-                  border: 'none',
-                  color: MD3.onSurfaceVar,
-                  cursor: 'pointer',
-                  padding: 4,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                {showAiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            {aiTestStatus === 'testing' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: MD3.onSurfaceVar }}>
-                <RefreshCw size={15} className="spin" />
-                <span>{t('settings.ai_status_testing', 'Проверка соединения с Gemini...')}</span>
-              </div>
-            )}
-
-            {aiTestStatus === 'success' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#34d399' }}>
-                <CheckCircle2 size={16} />
-                <span>{t('settings.ai_status_success', 'Ключ успешно проверен и готов к работе!')}</span>
-              </div>
-            )}
-
-            {aiTestStatus === 'error' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: MD3.error }}>
-                <XCircle size={16} />
-                <span>{aiTestError || t('settings.ai_status_error', 'Ошибка проверки ключа. Убедитесь в его правильности.')}</span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button
-                type="button"
-                onClick={handleSaveAiKey}
-                aria-label={t('settings.ai_save_btn', 'Сохранить ключ')}
-                style={{
-                  flex: 1,
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  backgroundColor: 'var(--accent-color, #9b7dd4)',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'opacity 150ms',
-                }}
-              >
-                {t('settings.ai_save_btn', 'Сохранить ключ')}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleTestAiKey}
-                disabled={!aiKeyInput.trim() || aiTestStatus === 'testing'}
-                aria-label={t('settings.ai_test_btn', 'Проверить')}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  color: MD3.onSurface,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: '1px solid var(--md-outline, rgba(255,255,255,0.14))',
-                  cursor: !aiKeyInput.trim() || aiTestStatus === 'testing' ? 'not-allowed' : 'pointer',
-                  opacity: !aiKeyInput.trim() || aiTestStatus === 'testing' ? 0.5 : 1,
-                }}
-              >
-                {t('settings.ai_test_btn', 'Проверить')}
-              </button>
-
-              {aiKeyInput && (
-                <button
-                  type="button"
-                  onClick={handleClearAiKey}
-                  aria-label={t('settings.ai_clear_btn', 'Удалить')}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    backgroundColor: 'rgba(255, 89, 90, 0.12)',
-                    color: MD3.error,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
-          </div>
-        </Block>
-      </motion.div>
-    );
-  };
-
   const renderMain = () => (
     <motion.div
       initial={{ opacity: 0 }}
@@ -3281,24 +3013,6 @@ export const SettingsScreen = () => {
           label={t('backup.menu_item')}
           onClick={() => pushTab('backup')}
         />
-
-        <MenuItem
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" width="20" height="20">
-              <path fill="currentColor" d="M896 128q-8 0-18-3L752 252q123 65 197.5 186t74.5 266q0 27-19 45.5T960 768H64q-26 0-45-18.5T0 704q0-145 74.5-266T272 252L146 125q-10 3-18 3q-27 0-45.5-18.5T64 64.5T83 19t45-19t45 19t19 45q0 8-3 18l144 143q88-33 179-33t179 33L835 82q-3-10-3-18q0-26 18.5-45t45-19T941 19t19 45.5t-19 45t-45 18.5M256 448q-26 0-45 19t-19 45.5t19 45t45 18.5t45-18.5t19-45t-19-45.5t-45-19m511.5 128q26.5 0 45.5-18.5t19-45t-19-45.5t-45-19t-45 19t-19 45.5t18.5 45t45 18.5"/>
-            </svg>
-          }
-          label={t('settings.orbitos_ai')}
-          onClick={() => pushTab('orbitosAi')}
-          rightElement={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <span style={{ fontSize: 13, color: geminiApiKey ? 'var(--accent-color, #9b7dd4)' : MD3.onSurfaceVar }}>
-                {geminiApiKey ? t('settings.ai_active') : t('settings.ai_free')}
-              </span>
-              <ChevronRight size={16} color={MD3.onSurfaceVar} />
-            </div>
-          }
-        />
       </Block>
 
       <Block>
@@ -3337,8 +3051,6 @@ export const SettingsScreen = () => {
         return <PrivacySettingsScreen onOpenPassword={() => pushTab('password')} onOpenBackup={() => pushTab('backup')} />;
       case 'backup':
         return <AccountBackupScreen onBack={handleBack} />;
-      case 'orbitosAi':
-        return renderOrbitosAi();
       case 'password':
         return <PasswordSettingsScreen onSaved={() => pushTab('security')} />;
       case 'connection':

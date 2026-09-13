@@ -771,16 +771,19 @@ module.exports = async function handler(req, res) {
 
       const { data: existingTicket } = await supabase
         .from('support_tickets')
-        .select('user_code, message_text')
+        .select('user_code, message_text, admin_reply')
         .eq('ticket_number', ticketNumber)
         .maybeSingle();
 
       const answeredAt = new Date().toISOString();
+      const updatedAdminReply = existingTicket?.admin_reply
+        ? `${existingTicket.admin_reply}\n\n---\n\n${adminReply}`
+        : adminReply;
 
       const { error } = await supabase
         .from('support_tickets')
         .update({
-          admin_reply: adminReply,
+          admin_reply: updatedAdminReply,
           status: 'answered',
           answered_at: answeredAt,
         })
@@ -789,21 +792,18 @@ module.exports = async function handler(req, res) {
       if (error) return sendError(res, error.message, 500);
 
       if (existingTicket?.user_code) {
-        await triggerPusherEvent(`user-${existingTicket.user_code}`, 'ticket-reply', {
+        const userPayload = {
           ticketNumber,
-          adminReply,
+          ticket_number: ticketNumber,
+          adminReply: updatedAdminReply,
+          latestReply: adminReply,
           answeredAt,
-        });
-        await triggerAblyEvent(`user-${existingTicket.user_code}`, 'ticket-reply', {
-          ticketNumber,
-          adminReply,
-          answeredAt,
-        });
+        };
+        await triggerPusherEvent(`user-${existingTicket.user_code}`, 'ticket-reply', userPayload);
+        await triggerAblyEvent(`user-${existingTicket.user_code}`, 'ticket-reply', userPayload);
         await triggerAblyEvent(`chat:user-${existingTicket.user_code}`, 'client-message', {
           type: 'ticket-reply',
-          ticketNumber,
-          adminReply,
-          answeredAt,
+          ...userPayload,
         });
       }
 
@@ -1255,7 +1255,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/orbitos/ai' && req.method === 'POST') {
-      const apiKey = (body && body.apiKey) || ENV.GEMINI_API_KEY;
+      const apiKey = ENV.GEMINI_API_KEY;
       if (!apiKey) {
         return sendError(res, 'GEMINI_API_KEY_NOT_CONFIGURED', 400);
       }

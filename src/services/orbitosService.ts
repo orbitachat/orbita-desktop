@@ -142,7 +142,6 @@ class OrbitosService {
     }));
 
     try {
-      const userApiKey = typeof window !== 'undefined' ? localStorage.getItem('orbita_gemini_api_key') : null;
       const res = await gatewayManager.fetch('/orbitos/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,7 +149,6 @@ class OrbitosService {
           message: userText,
           history,
           systemPrompt: ORBITOS_SYSTEM_PROMPT,
-          ...(userApiKey ? { apiKey: userApiKey } : {}),
         }),
       });
 
