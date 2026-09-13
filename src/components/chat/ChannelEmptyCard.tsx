@@ -76,12 +76,16 @@ export const ChannelEmptyCard: React.FC<ChannelEmptyCardProps> = ({ chat }) => {
           {chat.name}
         </h3>
 
-        <p
-          className="text-[13px] leading-relaxed break-words whitespace-pre-wrap px-2"
-          style={{ color: 'var(--text-dim, #8e8e93)' }}
+        <div
+          className="w-full text-left text-[13px] leading-relaxed break-words whitespace-pre-wrap px-1 mt-1"
+          style={{
+            color: 'var(--text-dim, #8e8e93)',
+            textAlign: 'left',
+            lineHeight: 1.45,
+          }}
         >
           {displayDescription}
-        </p>
+        </div>
       </motion.div>
     </div>
   );
