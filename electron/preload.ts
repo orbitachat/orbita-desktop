@@ -1,9 +1,16 @@
 // electron/preload.ts
 console.log('[Preload] Script started');
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('orbita', {
+  getPathForFile: (file: any) => {
+    try {
+      return webUtils?.getPathForFile?.(file) || file?.path || '';
+    } catch {
+      return file?.path || '';
+    }
+  },
   pickFile: (extensions: string[]) =>
     ipcRenderer.invoke('orbita:pickFile', extensions),
 

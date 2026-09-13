@@ -2761,7 +2761,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     for (let i = 0; i < droppedFiles.length; i++) {
       const file = droppedFiles[i];
-      const rawPath = (file as any).path || '';
+      const rawPath = window.orbita?.getPathForFile?.(file) || (file as any).path || '';
       const fileName = file.name || (rawPath ? rawPath.split(/[\\/]/).pop() : 'file') || 'file';
       const ext = (fileName.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
       let fileType: 'photo' | 'video' | 'audio' | 'document' = 'document';
@@ -2792,6 +2792,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
       let preview: string | null = null;
       let dimensions: { width?: number; height?: number } = {};
+      let blurPreview: string | undefined = undefined;
 
       if (fileType === 'photo') {
         preview = `data:${file.type || 'image/jpeg'};base64,${base64}`;
@@ -2801,6 +2802,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           await new Promise((r) => { img.onload = r; img.onerror = r; });
           if (img.width && img.height) {
             dimensions = { width: img.width, height: img.height };
+            try {
+              const canvas = document.createElement('canvas');
+              const scale = Math.min(24 / img.width, 24 / img.height, 1);
+              canvas.width = Math.max(1, Math.round(img.width * scale));
+              canvas.height = Math.max(1, Math.round(img.height * scale));
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                blurPreview = canvas.toDataURL('image/jpeg', 0.4);
+              }
+            } catch {}
           }
         } catch { }
       } else if (fileType === 'video') {
@@ -2830,6 +2842,49 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             cover: null,
           };
         }
+        if (!audioMetadata.duration) {
+          try {
+            const audioDataUrl = `data:${file.type || 'audio/mpeg'};base64,${base64}`;
+            const dur = await new Promise<number>((res) => {
+              const a = new Audio();
+              a.preload = 'metadata';
+              a.onloadedmetadata = () => res(a.duration || 0);
+              a.onerror = () => res(0);
+              a.src = audioDataUrl;
+            });
+            if (dur > 0) {
+              audioMetadata.duration = Math.round(dur);
+            }
+          } catch {}
+        }
+        if (!audioMetadata.cover && typeof window.jsmediatags !== 'undefined') {
+          try {
+            await new Promise<void>((res) => {
+              window.jsmediatags.read(file, {
+                onSuccess: (tag: any) => {
+                  const tags = tag.tags;
+                  if (tags && audioMetadata) {
+                    if (tags.title && audioMetadata.title === fileName.replace(/\.[^.]+$/, '')) {
+                      audioMetadata.title = tags.title;
+                    }
+                    if (tags.artist && !audioMetadata.artist) {
+                      audioMetadata.artist = tags.artist;
+                    }
+                    const pic = tags.picture;
+                    if (pic && pic.data && pic.format) {
+                      const b64 = btoa(
+                        new Uint8Array(pic.data).reduce((acc, b) => acc + String.fromCharCode(b), '')
+                      );
+                      audioMetadata.cover = `data:${pic.format};base64,${b64}`;
+                    }
+                  }
+                  res();
+                },
+                onError: () => res(),
+              });
+            });
+          } catch {}
+        }
       }
 
       newFiles.push({
@@ -2845,6 +2900,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         audioMetadata,
         width: dimensions.width,
         height: dimensions.height,
+        duration: audioMetadata?.duration,
+        blurPreview,
       });
     }
 
@@ -4577,14 +4634,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const getMediaDimensionsForFile = useCallback(async (
     filePath: string,
     fileType: AttachedFile['fileType']
-  ): Promise<{ width?: number; height?: number; duration?: number }> => {
+  ): Promise<{ width?: number; height?: number; duration?: number; blurPreview?: string }> => {
     if (fileType === 'photo') {
       const dataUrl = await window.orbita.readFileAsDataURL(filePath);
       if (!dataUrl) return {};
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
-          resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          let blurPreview: string | undefined = undefined;
+          try {
+            const canvas = document.createElement('canvas');
+            const scale = Math.min(24 / img.naturalWidth, 24 / img.naturalHeight, 1);
+            canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              blurPreview = canvas.toDataURL('image/jpeg', 0.4);
+            }
+          } catch {}
+          resolve({ width: img.naturalWidth, height: img.naturalHeight, blurPreview });
         };
         img.onerror = () => resolve({});
         img.src = dataUrl;
@@ -4676,6 +4745,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           error: null,
           uploadedUrl: null,
           audioMetadata,
+          duration: audioMetadata?.duration,
           ...dimensions,
         });
       }
@@ -4768,6 +4838,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           width: file.width,
           height: file.height,
           duration: file.duration || file.audioMetadata?.duration,
+          blurPreview: file.blurPreview,
+          thumbnail: file.preview || file.blurPreview,
         };
       }
 
@@ -4867,6 +4939,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           width: file.width,
           height: file.height,
           duration: file.duration || file.audioMetadata?.duration,
+          blurPreview: file.blurPreview,
+          thumbnail: file.preview || file.blurPreview,
         };
       } catch (err) {
         console.error('Upload error for file', file.name, err);
@@ -4889,7 +4963,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         const messageId = `msg_${Date.now()}_${cIdx}_${Math.random().toString(36).substr(2, 9)}`;
 
         const initialMediaItems: MediaItem[] = chunkFiles.map((file) => ({
-          url: file.filePath || '',
+          url: file.filePath || file.preview || '',
           type: resolveItemType(file.fileType, file.name),
           name: file.name,
           mime: resolveMime(file.fileType, file.name),
@@ -4898,6 +4972,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           width: file.width,
           height: file.height,
           duration: file.duration || file.audioMetadata?.duration,
+          blurPreview: file.blurPreview,
+          thumbnail: file.preview || file.blurPreview,
           uploading: true,
           uploadedMb: 0,
         }));
@@ -5104,13 +5180,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           uploading: true,
           uploadedMb: 0,
           mediaType: itemType,
-          mediaUrl: file.filePath || '',
+          mediaUrl: file.filePath || file.preview || '',
           mediaName: file.name,
           mime: itemMime,
           audioMetadata: file.audioMetadata,
           width: file.width,
           height: file.height,
           duration: file.duration || file.audioMetadata?.duration,
+          blurPreview: file.blurPreview,
+          thumbnail: file.preview || file.blurPreview,
         };
         addMessage(activeChatId, localMessage);
         updateChat(activeChatId, { lastMsg: postCaption || file.name || `[${itemType}]` });
@@ -5153,6 +5231,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                           mediaKey: uploaded.key,
                           mime: uploaded.mime,
                           audioMetadata: uploaded.audioMetadata,
+                          width: uploaded.width,
+                          height: uploaded.height,
+                          duration: uploaded.duration,
+                          blurPreview: uploaded.blurPreview,
+                          thumbnail: uploaded.thumbnail,
                         }
                       : m
                   ),
@@ -5209,6 +5292,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                           mediaKey: uploaded.key,
                           mime: uploaded.mime,
                           audioMetadata: uploaded.audioMetadata,
+                          width: uploaded.width,
+                          height: uploaded.height,
+                          duration: uploaded.duration,
+                          blurPreview: uploaded.blurPreview,
+                          thumbnail: uploaded.thumbnail,
                         }
                       : m
                   ),
@@ -5274,6 +5362,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                         width: uploaded.width,
                         height: uploaded.height,
                         duration: uploaded.duration,
+                        blurPreview: uploaded.blurPreview,
+                        thumbnail: uploaded.thumbnail,
                       }
                     : m
                 ),
@@ -5791,9 +5881,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             duration: msg.duration,
             width: msg.width,
             height: msg.height,
+            blurPreview: msg.blurPreview,
+            thumbnail: msg.thumbnail || msg.blurPreview,
           }] : null);
 
       if (effectiveMediaItems && effectiveMediaItems.length > 0) {
+        const isPhotoGroup = effectiveMediaItems.some((it) => it.type === 'photo' || it.type === 'video');
+        const isAudioGroup = effectiveMediaItems.every((it) => it.type === 'audio' || it.mime?.startsWith('audio/'));
+        const cleanCaption = msg.text ? msg.text.replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*(https?:\/\/[^\s]+)?/i, '').trim() : '';
+        const hasCaption = Boolean(cleanCaption);
+
         return (
           <div style={{ ...highlightWrapperStyle }}>
             <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -5817,7 +5914,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   className="relative"
                   style={bubbleStyle(isOwn, {
                     borderRadius: customRadius,
-                    padding: '1px 1px 4px 1px',
+                    padding: isPhotoGroup ? (hasCaption ? '1px 1px 4px 1px' : '1px') : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
                     overflow: 'hidden',
                     width: 'fit-content',
                     maxWidth: 'min(440px, 75%)',
@@ -6883,6 +6980,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         .selectable-message-text::-moz-selection, .select-text::-moz-selection { background-color: var(--selection-bg, rgba(124,58,237,0.3)); color: var(--text-main, #ffffff); }
         .select-none::selection, .message-time-badge::selection, .date-badge::selection, .date-badge-pill::selection, [data-date-divider]::selection { background-color: transparent !important; color: inherit !important; }
         .select-none::-moz-selection, .message-time-badge::-moz-selection, .date-badge::-moz-selection, .date-badge-pill::-moz-selection, [data-date-divider]::-moz-selection { background-color: transparent !important; color: inherit !important; }
+        .floating-photo-time-badge, .floating-photo-time-badge * { color: rgba(255, 255, 255, 0.95) !important; }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
         .input-textarea::placeholder { color: var(--text-dim); }

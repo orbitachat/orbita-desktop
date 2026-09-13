@@ -29,6 +29,7 @@ export interface AttachedFile {
   width?: number;
   height?: number;
   duration?: number;
+  blurPreview?: string;
 }
 
 const AudioModalItemCover = ({ file }: { file: AttachedFile }) => {
@@ -40,18 +41,43 @@ const AudioModalItemCover = ({ file }: { file: AttachedFile }) => {
       return;
     }
     let cancelled = false;
-    if (file.filePath && window.orbita?.getAudioMetadata) {
+    if (file.filePath && window.orbita?.getAudioMetadata && !file.filePath.startsWith('data:')) {
       window.orbita.getAudioMetadata(file.filePath).then((meta) => {
         if (!cancelled && meta?.cover) {
           setCover(meta.cover);
           if (file.audioMetadata) file.audioMetadata.cover = meta.cover;
         }
       }).catch(() => {});
+    } else if (typeof window.jsmediatags !== 'undefined') {
+      const src = file.preview || (file.filePath?.startsWith('data:') ? file.filePath : null);
+      if (src) {
+        fetch(src)
+          .then((res) => res.blob())
+          .then((blob) => {
+            if (cancelled) return;
+            window.jsmediatags?.read(blob, {
+              onSuccess: (tag: any) => {
+                if (cancelled) return;
+                const pic = tag?.tags?.picture;
+                if (pic && pic.data && pic.format) {
+                  const base64 = btoa(
+                    new Uint8Array(pic.data).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                  );
+                  const coverUrl = `data:${pic.format};base64,${base64}`;
+                  setCover(coverUrl);
+                  if (file.audioMetadata) file.audioMetadata.cover = coverUrl;
+                }
+              },
+              onError: () => {},
+            });
+          })
+          .catch(() => {});
+      }
     }
     return () => {
       cancelled = true;
     };
-  }, [file.filePath, file.audioMetadata?.cover]);
+  }, [file.filePath, file.preview, file.audioMetadata?.cover]);
 
   return (
     <AudioCoverWithPlay

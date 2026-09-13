@@ -381,7 +381,16 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               )}
 
               {hasLinkPreview && !hasReactions && (
-                <div className="flex justify-end items-center mt-1 -mb-0.5 select-none message-time-badge" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                <div
+                  className="flex justify-end items-center select-none message-time-badge"
+                  style={{
+                    marginRight: isOwn ? '-9px' : '-6px',
+                    marginBottom: '-4.5px',
+                    marginTop: '4px',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                  }}
+                >
                   {timeBadge}
                 </div>
               )}

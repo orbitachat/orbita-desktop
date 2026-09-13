@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { MediaItem, Message } from '../../store/useChatStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
 import { Play } from 'lucide-react';
@@ -25,6 +25,7 @@ const AlbumTile = memo(({
   onClick: () => void;
   style: React.CSSProperties;
 }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
   const { blobUrl } = useDecryptedMedia(item.url, item.key || sharedSecret, item.name, item.mime);
   const isVideo = item.type === 'video';
 
@@ -35,6 +36,10 @@ const AlbumTile = memo(({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  const isUploading = Boolean(item.uploading);
+  const blurSrc = item.blurPreview || item.thumbnail || (item.url?.startsWith('data:') ? item.url : null);
+  const mediaSrc = blobUrl || (item.url?.startsWith('data:') || item.url?.startsWith('blob:') ? item.url : undefined);
+
   return (
     <div
       onClick={onClick}
@@ -44,32 +49,56 @@ const AlbumTile = memo(({
         position: 'relative',
       }}
     >
-      {blobUrl ? (
+      {blurSrc && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${blurSrc})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(10px)',
+            transform: 'scale(1.12)',
+          }}
+        />
+      )}
+
+      {mediaSrc && (
         isVideo ? (
           <video
-            src={blobUrl}
-            className="w-full h-full object-cover pointer-events-none"
+            src={mediaSrc}
+            className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
+            style={{ opacity: isLoaded ? 1 : 0 }}
+            onLoadedData={() => setIsLoaded(true)}
             muted
             playsInline
             preload="metadata"
           />
         ) : (
           <img
-            src={blobUrl}
+            src={mediaSrc}
             alt={item.name || ''}
-            className="w-full h-full object-cover pointer-events-none"
+            className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
+            style={{ opacity: isLoaded ? 1 : 0 }}
+            onLoad={() => setIsLoaded(true)}
             loading="lazy"
             decoding="async"
           />
         )
-      ) : (
-        <div className="w-full h-full flex items-center justify-center bg-[var(--surface-container-soft)]">
-          <div className="w-6 h-6 rounded-full border-2 border-[var(--accent-color)] border-t-transparent animate-spin" />
+      )}
+
+      {(!isLoaded || isUploading) && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2]">
+          <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white">
+            <svg className="w-5 h-5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          </div>
         </div>
       )}
 
-      {isVideo && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+      {isVideo && isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20 z-[2]">
           <div className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white">
             <Play size={18} fill="white" className="ml-0.5" />
           </div>
@@ -158,7 +187,7 @@ export const TelegramAlbumGrid = memo(({
       }}
     >
       <div
-        className="flex flex-col w-full overflow-hidden"
+        className="relative flex flex-col w-full overflow-hidden"
         style={{
           width: '100%',
           gap: '1px',
@@ -169,7 +198,13 @@ export const TelegramAlbumGrid = memo(({
           const rowCount = rowIndices.length;
           let rowAspectRatio = '2 / 1';
           if (rowCount === 1) {
-            rowAspectRatio = items.length === 1 ? '16 / 11' : '16 / 9';
+            if (items.length === 1 && items[0].width && items[0].height) {
+              const r = items[0].width / items[0].height;
+              const clamped = Math.max(0.6, Math.min(2.2, r));
+              rowAspectRatio = `${clamped} / 1`;
+            } else {
+              rowAspectRatio = items.length === 1 ? '16 / 11' : '16 / 9';
+            }
           } else if (rowCount === 2) {
             rowAspectRatio = '2 / 1';
           } else if (rowCount === 3) {
@@ -186,7 +221,7 @@ export const TelegramAlbumGrid = memo(({
                 width: '100%',
                 gap: '1px',
                 aspectRatio: rowAspectRatio,
-                maxHeight: rowCount === 1 && items.length === 1 ? '340px' : undefined,
+                maxHeight: rowCount === 1 && items.length === 1 ? '380px' : undefined,
               }}
             >
               {rowIndices.map((itemIdx, colIdx) => {
@@ -218,11 +253,36 @@ export const TelegramAlbumGrid = memo(({
             </div>
           );
         })}
+
+        {!hasCaption && timeNode && (
+          <div
+            className="absolute select-none tabular-nums message-time-badge pointer-events-none floating-photo-time-badge"
+            style={{
+              bottom: '5px',
+              right: '5px',
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              borderRadius: '10px',
+              padding: '2px 6px',
+              color: 'rgba(255, 255, 255, 0.95)',
+              fontSize: '11px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              lineHeight: 1,
+              zIndex: 10,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+            }}
+          >
+            {timeNode}
+          </div>
+        )}
       </div>
 
-      {hasCaption ? (
+      {hasCaption && (
         <div
-          className="flex items-end justify-between gap-3 px-2.5 pt-1 pb-0.5"
+          className="flex items-end justify-between gap-3 px-2.5 pt-1 pb-1"
           style={{
             backgroundColor: 'inherit',
           }}
@@ -231,17 +291,6 @@ export const TelegramAlbumGrid = memo(({
             {cleanCaption}
           </div>
           <div className="flex items-center justify-end gap-1 flex-shrink-0 select-none">
-            {timeNode}
-          </div>
-        </div>
-      ) : (
-        <div
-          className="flex items-center justify-end px-2 pt-1 pb-0.5"
-          style={{
-            backgroundColor: 'inherit',
-          }}
-        >
-          <div className="flex items-center justify-end gap-1 select-none">
             {timeNode}
           </div>
         </div>

@@ -305,16 +305,15 @@ export const GroupedAudioBubble = memo(({
         </div>
       ) : (
         <div
+          className="flex items-center justify-end select-none message-time-badge pointer-events-none"
           style={{
-            position: 'absolute',
-            bottom: isOwn ? '2px' : '5px',
-            right: isOwn ? '3px' : '10px',
-            display: 'flex',
-            alignItems: 'center',
+            marginTop: '2px',
+            marginRight: isOwn ? '-2px' : '0px',
+            marginBottom: '-2px',
             gap: '2px',
-            pointerEvents: 'none',
-            userSelect: 'none',
             lineHeight: 1,
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         >
           {timeNode}

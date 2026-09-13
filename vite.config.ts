@@ -26,6 +26,8 @@ export default defineConfig({
                 'module', 'process', 'inspector', 'v8', 'wasi',
                 'sqlite3',
                 'electron-updater',
+                'music-metadata',
+                'jsmediatags',
               ],
               output: {
                 format: 'cjs',

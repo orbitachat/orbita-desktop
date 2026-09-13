@@ -59,6 +59,7 @@ declare global {
       ) => () => void;
       getFileSize: (filePath: string) => Promise<number>;
       getAudioMetadata: (filePath: string) => Promise<AudioMetadata>;
+      getPathForFile?: (file: any) => string;
       showCustomNotification: (payload: OrbitaCustomNotificationPayload) => void;
       clearNotifications: () => void;
       onOpenChat: (callback: (chatId: string) => void) => () => void;

@@ -96,6 +96,8 @@ export interface MediaItem {
   height?: number;
   duration?: number;
   audioMetadata?: AudioMetadata;
+  thumbnail?: string;
+  blurPreview?: string;
   uploading?: boolean;
   uploadedMb?: number;
 }
@@ -138,6 +140,8 @@ export interface Message {
   mime?: string;
   mediaItems?: MediaItem[];
   audioMetadata?: AudioMetadata;
+  thumbnail?: string;
+  blurPreview?: string;
   width?: number;
   height?: number;
   duration?: number;

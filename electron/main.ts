@@ -1832,31 +1832,51 @@ ipcMain.handle('orbita:getFileSize', async (_event, filePath: string) => {
 });
 
 ipcMain.handle('orbita:getAudioMetadata', async (_event, filePath: string) => {
+  const defaultTitle = path.basename(filePath, path.extname(filePath));
+  let fileSize = 0;
+  try {
+    if (fs.existsSync(filePath)) {
+      fileSize = fs.statSync(filePath).size;
+    }
+  } catch {}
+
+  try {
+    const mm = await import('music-metadata');
+    const metadata = await mm.parseFile(filePath);
+    const title = metadata.common.title || defaultTitle;
+    const artist = metadata.common.artist || null;
+    const duration = Math.round(metadata.format.duration || 0);
+    let cover: string | null = null;
+    const pic = metadata.common.picture && metadata.common.picture[0];
+    if (pic && pic.data && pic.format) {
+      const base64 = Buffer.from(pic.data).toString('base64');
+      cover = `data:${pic.format};base64,${base64}`;
+    }
+    return { success: true, title, artist, duration, size: fileSize, cover };
+  } catch {}
+
   return new Promise((resolve) => {
     jsmediatags.read(filePath, {
       onSuccess: (tag: any) => {
         const { tags } = tag;
-        const title = tags.title || path.basename(filePath, path.extname(filePath));
+        const title = tags.title || defaultTitle;
         const artist = tags.artist || null;
         const duration = tags.duration || 0;
-        const size = fs.statSync(filePath).size;
         let cover: string | null = null;
         const picture = tags.picture;
         if (picture && picture.data && picture.format) {
           const base64 = Buffer.from(picture.data).toString('base64');
           cover = `data:${picture.format};base64,${base64}`;
         }
-
-        resolve({ success: true, title, artist, duration, size, cover });
+        resolve({ success: true, title, artist, duration, size: fileSize, cover });
       },
-      onError: (err: any) => {
-        console.error('Failed to parse audio metadata via jsmediatags:', err);
+      onError: () => {
         resolve({
           success: false,
-          title: path.basename(filePath, path.extname(filePath)),
+          title: defaultTitle,
           artist: null,
           duration: 0,
-          size: fs.existsSync(filePath) ? fs.statSync(filePath).size : 0,
+          size: fileSize,
           cover: null,
         });
       },
