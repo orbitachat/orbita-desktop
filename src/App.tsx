@@ -19,6 +19,7 @@ import { FONT_MAP } from './store/useChatStore';
 import { useConnectionStore } from './store/useConnectionStore';
 import { gatewayManager } from './services/gatewayManager';
 import { requestNotificationPermission } from './utils/notification';
+import { initAutoBackupListener } from './services/accountBackupService';
 
 class ErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }> {
   state = { hasError: false };
@@ -45,6 +46,10 @@ function App() {
     });
     return unsub;
   }, [isHydrated]);
+
+  useEffect(() => {
+    initAutoBackupListener();
+  }, []);
 
   const step = useAuthStore((state) => state.step);
   const nickname = useAuthStore((state) => state.nickname);

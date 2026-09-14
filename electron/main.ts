@@ -1551,9 +1551,42 @@ ipcMain.handle('orbita:openFolder', async (_event, folderPath: string) => {
 
 ipcMain.handle('orbita:saveBackupFile', async (_event, folderPath: string, fileName: string, data: Uint8Array | ArrayBuffer) => {
   try {
-    const fullPath = path.join(folderPath, fileName);
+    const defaultBackupsDir = path.join(app.getPath('userData'), 'backups');
+    const targetFolder = folderPath && folderPath.trim() !== '' ? folderPath : defaultBackupsDir;
+
+    if (!fs.existsSync(targetFolder)) {
+      await fs.promises.mkdir(targetFolder, { recursive: true });
+    }
+
+    const fullPath = path.join(targetFolder, fileName);
     const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as any);
     await fs.promises.writeFile(fullPath, buf);
+
+    if (path.resolve(targetFolder) !== path.resolve(defaultBackupsDir)) {
+      if (!fs.existsSync(defaultBackupsDir)) {
+        await fs.promises.mkdir(defaultBackupsDir, { recursive: true });
+      }
+      await fs.promises.writeFile(path.join(defaultBackupsDir, fileName), buf);
+    }
+
+    try {
+      const files = await fs.promises.readdir(defaultBackupsDir);
+      const backupFiles = files
+        .filter((f) => f.endsWith('.orbita'))
+        .map((f) => ({
+          name: f,
+          path: path.join(defaultBackupsDir, f),
+          time: fs.statSync(path.join(defaultBackupsDir, f)).mtimeMs,
+        }))
+        .sort((a, b) => b.time - a.time);
+
+      if (backupFiles.length > 50) {
+        for (let i = 50; i < backupFiles.length; i++) {
+          await fs.promises.unlink(backupFiles[i].path).catch(() => {});
+        }
+      }
+    } catch {}
+
     return { success: true, fullPath };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Failed' };

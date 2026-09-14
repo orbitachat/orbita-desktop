@@ -343,3 +343,106 @@ export const restoreAccountBackup = async (
     myCode: payload.chatStore.myCode || '',
   };
 };
+
+let autoBackupTimer: ReturnType<typeof setTimeout> | null = null;
+let isAutoBackingUp = false;
+let isListenerInitialized = false;
+
+export const triggerAutoBackup = (delayMs: number = 1000): void => {
+  if (typeof window === 'undefined') return;
+  if (autoBackupTimer) {
+    clearTimeout(autoBackupTimer);
+  }
+  autoBackupTimer = setTimeout(async () => {
+    if (isAutoBackingUp) return;
+    try {
+      const authState = useAuthStore.getState();
+      const chatState = useChatStore.getState();
+
+      if (authState.step !== 'main' || !authState.nickname || !authState.nickname.trim()) {
+        return;
+      }
+      if (!chatState.chats || chatState.chats.length === 0) {
+        return;
+      }
+
+      let recoveryKey = authState.recoveryKey;
+      if (!recoveryKey) {
+        recoveryKey = await generateMnemonic();
+        authState.setRecoveryKey(recoveryKey);
+      }
+
+      isAutoBackingUp = true;
+      const backupBytes = await createAccountBackup(recoveryKey);
+      const now = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      const fileName = `orbita_backup_${dateStr}.orbita`;
+
+      if ((window as any).orbita?.saveBackupFile) {
+        const targetFolder = authState.backupFolder || '';
+        await (window as any).orbita.saveBackupFile(targetFolder, fileName, backupBytes);
+      }
+
+      useAuthStore.getState().setBackupConfig({ lastBackupTime: Date.now() });
+    } catch {
+    } finally {
+      isAutoBackingUp = false;
+    }
+  }, delayMs);
+};
+
+export const initAutoBackupListener = (): void => {
+  if (isListenerInitialized || typeof window === 'undefined') return;
+  isListenerInitialized = true;
+
+  setTimeout(() => {
+    useAuthStore.subscribe((state, prev) => {
+      if (
+        (state.nickname && state.nickname !== prev.nickname) ||
+        state.avatarUrl !== prev.avatarUrl
+      ) {
+        triggerAutoBackup(1000);
+      }
+    });
+
+    useChatStore.subscribe((state, prev) => {
+      if (state.chats.length !== prev.chats.length) {
+        triggerAutoBackup(1000);
+        return;
+      }
+
+      if (state.pinnedChatIds !== prev.pinnedChatIds) {
+        triggerAutoBackup(1000);
+        return;
+      }
+
+      if (state.myCode !== prev.myCode && prev.myCode) {
+        triggerAutoBackup(1000);
+        return;
+      }
+
+      const hasStructuralChange = state.chats.some((c) => {
+        const prevChat = prev.chats.find((pc) => pc.id === c.id);
+        if (!prevChat) return true;
+        return (
+          c.name !== prevChat.name ||
+          c.avatarUrl !== prevChat.avatarUrl ||
+          c.sharedSecret !== prevChat.sharedSecret ||
+          c.peerCode !== prevChat.peerCode ||
+          c.role !== prevChat.role ||
+          c.pinnedMessage !== prevChat.pinnedMessage ||
+          c.muted !== prevChat.muted ||
+          c.notificationsEnabled !== prevChat.notificationsEnabled ||
+          c.description !== prevChat.description ||
+          c.isBlocked !== prevChat.isBlocked ||
+          c.inviteCode !== prevChat.inviteCode
+        );
+      });
+
+      if (hasStructuralChange) {
+        triggerAutoBackup(1500);
+      }
+    });
+  }, 3000);
+};
