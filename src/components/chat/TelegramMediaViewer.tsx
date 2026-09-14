@@ -278,12 +278,14 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
   }, [isOpen, resetIdleTimer]);
 
   const prevIsOpenRef = useRef(isOpen);
+  const prevItemsRef = useRef(items);
   const prevInitialIndexRef = useRef(initialIndex);
 
   useEffect(() => {
     const isNewOpen = isOpen && !prevIsOpenRef.current;
+    const isItemsChanged = items !== prevItemsRef.current;
     const isIndexChangedFromOutside = initialIndex !== prevInitialIndexRef.current;
-    if (isOpen && (isNewOpen || isIndexChangedFromOutside)) {
+    if (isOpen && (isNewOpen || isItemsChanged || isIndexChangedFromOutside)) {
       setCurrentIndex(Math.max(0, Math.min(initialIndex, items.length - 1)));
       setRotation(0);
       setZoomScale(1);
@@ -292,8 +294,9 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
       setShowOptionsMenu(false);
     }
     prevIsOpenRef.current = isOpen;
+    prevItemsRef.current = items;
     prevInitialIndexRef.current = initialIndex;
-  }, [isOpen, initialIndex, items.length]);
+  }, [isOpen, initialIndex, items]);
 
   // Reset zoom & pan when index changes
   useEffect(() => {

@@ -2675,23 +2675,12 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
 
   const win = initOrGetMediaWindow(initialPayload);
 
-  const display = mainWindow && !mainWindow.isDestroyed()
-    ? screen.getDisplayMatching(mainWindow.getBounds())
-    : screen.getPrimaryDisplay();
-
-  if (win.isMinimized()) win.restore();
-  const cur = win.getBounds();
-  if (cur.x !== display.bounds.x || cur.y !== display.bounds.y || cur.width !== display.bounds.width || cur.height !== display.bounds.height) {
-    win.setBounds(display.bounds);
-  }
-
   if (currentMediaPayloadCache && !win.isDestroyed()) {
     win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
   }
 
-  if (!win.isVisible()) {
-    win.show();
-  }
+  if (win.isMinimized()) win.restore();
+  win.show();
   win.focus();
 
   if (currentMediaPayloadCache && !win.isDestroyed() && win.webContents.isLoading()) {
@@ -2705,31 +2694,16 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
   return win;
 }
 
-function closeAndPrewarmMediaWindow() {
-  if (mediaWindow && !mediaWindow.isDestroyed()) {
-    currentMediaPayloadCache = null;
-    const oldWin = mediaWindow;
-    mediaWindow = null;
-    try {
-      oldWin.hide();
-    } catch { }
-    setTimeout(() => {
-      try {
-        if (!oldWin.isDestroyed()) {
-          oldWin.destroy();
-        }
-      } catch { }
-    }, 50);
-  }
-}
-
 ipcMain.handle('orbita:open-media-window', (_event, payload?: any) => {
   createOrShowMediaWindow(payload);
   return { success: true };
 });
 
 ipcMain.handle('orbita:close-media-window', () => {
-  closeAndPrewarmMediaWindow();
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    currentMediaPayloadCache = null;
+    mediaWindow.hide();
+  }
   return { success: true };
 });
 
@@ -2812,7 +2786,8 @@ ipcMain.handle('window:close', (event) => {
         callWindow.hide();
       }
     } else if (mediaWindow && win === mediaWindow) {
-      closeAndPrewarmMediaWindow();
+      currentMediaPayloadCache = null;
+      mediaWindow.hide();
     } else if (win === mainWindow) {
       if (showInTraySetting) {
         mainWindow.hide();
