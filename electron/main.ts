@@ -2593,8 +2593,9 @@ function getSavedMediaWindowBounds(): { width: number; height: number; x?: numbe
 function saveMediaWindowBounds(win: BrowserWindow) {
   try {
     if (!win || win.isDestroyed() || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return;
-    const display = screen.getDisplayMatching(win.getBounds());
     const bounds = win.getBounds();
+    if (bounds.x <= -10000 || bounds.y <= -10000) return;
+    const display = screen.getDisplayMatching(bounds);
     if (bounds.width >= display.bounds.width && bounds.height >= display.bounds.height) return;
     fs.writeFileSync(MEDIA_BOUNDS_FILE, JSON.stringify(bounds), 'utf8');
   } catch { }
@@ -2629,6 +2630,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
     hasShadow: false,
     titleBarStyle: 'hidden',
     alwaysOnTop: false,
+    skipTaskbar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -2695,7 +2697,9 @@ function initMediaWindowPrewarm() {
   setTimeout(() => {
     try {
       if (!isQuitting && (!mediaWindow || mediaWindow.isDestroyed())) {
-        initOrGetMediaWindow();
+        const win = initOrGetMediaWindow();
+        win.setPosition(-32000, -32000);
+        win.showInactive();
       }
     } catch { }
   }, 100);
@@ -2708,11 +2712,16 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
 
   const win = initOrGetMediaWindow(initialPayload);
 
+  const display = mainWindow && !mainWindow.isDestroyed()
+    ? screen.getDisplayMatching(mainWindow.getBounds())
+    : screen.getPrimaryDisplay();
+
   if (currentMediaPayloadCache && !win.isDestroyed()) {
     win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
   }
 
   if (win.isMinimized()) win.restore();
+  win.setBounds(display.bounds);
   win.show();
   win.focus();
 
@@ -2736,7 +2745,7 @@ ipcMain.handle('orbita:close-media-window', () => {
   if (mediaWindow && !mediaWindow.isDestroyed()) {
     currentMediaPayloadCache = null;
     mediaWindow.webContents.send('orbita:media-payload', null);
-    mediaWindow.hide();
+    mediaWindow.setPosition(-32000, -32000);
   }
   return { success: true };
 });

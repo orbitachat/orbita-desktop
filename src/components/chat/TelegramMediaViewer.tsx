@@ -154,7 +154,7 @@ const CarouselThumbnail = React.memo(({
         border: 'none',
         opacity: isSelected ? 1 : 0.5,
         filter: isSelected ? 'brightness(1)' : 'brightness(0.65)',
-        transition: 'opacity 0.2s ease, filter 0.2s ease',
+        transition: 'none',
       }}
       className="hover:opacity-100 hover:brightness-100"
     >
@@ -764,9 +764,8 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
           background: 'transparent',
           opacity: areControlsVisible ? 1 : 0,
           pointerEvents: areControlsVisible ? 'auto' : 'none',
-          transition: 'opacity 0.3s ease',
-          // @ts-ignore
-          WebkitAppRegion: areControlsVisible ? 'drag' : 'no-drag',
+          transition: 'none',
+          ...({ WebkitAppRegion: areControlsVisible ? 'drag' : 'no-drag' } as React.CSSProperties),
         }}
         onDoubleClick={() => {
           if (areControlsVisible) {
@@ -897,7 +896,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             justifyContent: 'center',
             opacity: currentIndex === 0 ? 0 : (isPhoto || areControlsVisible ? 1 : 0),
             pointerEvents: currentIndex > 0 && (isPhoto || areControlsVisible) ? 'auto' : 'none',
-            transition: 'opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease',
+            transition: 'none',
             zIndex: 100,
             backgroundColor: 'transparent',
             color: 'rgba(255, 255, 255, 0.65)',
@@ -945,7 +944,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             justifyContent: 'center',
             opacity: currentIndex === items.length - 1 ? 0 : (isPhoto || areControlsVisible ? 1 : 0),
             pointerEvents: currentIndex < items.length - 1 && (isPhoto || areControlsVisible) ? 'auto' : 'none',
-            transition: 'opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease',
+            transition: 'none',
             zIndex: 100,
             backgroundColor: 'transparent',
             color: 'rgba(255, 255, 255, 0.65)',
@@ -1033,7 +1032,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    transition: 'opacity 0.2s, transform 0.15s',
+                    transition: 'none',
                   }}
                   className="hover:scale-105"
                 >
@@ -1041,7 +1040,6 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 </button>
               )}
 
-              {/* Telegram Desktop Style Video Control Pill Bar */}
               <div
                 style={{
                   position: 'fixed',
@@ -1058,7 +1056,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                   color: '#ffffff',
                   opacity: areControlsVisible && (isVideoControlsHovered || !isPlaying) ? 1 : 0,
                   pointerEvents: areControlsVisible && (isVideoControlsHovered || !isPlaying) ? 'auto' : 'none',
-                  transition: 'opacity 0.2s',
+                  transition: 'none',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
                   zIndex: 120,
                 }}
@@ -1222,11 +1220,10 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
           background: 'transparent',
           opacity: areControlsVisible ? 1 : 0,
           pointerEvents: areControlsVisible ? 'auto' : 'none',
-          transition: 'opacity 0.3s ease',
+          transition: 'none',
           zIndex: 100,
         }}
       >
-        {/* Left Side: Info & Metadata */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 200, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
             {items.length > 1 ? t('mediaViewer.counter', { type: typeLabel, current: currentIndex + 1, total: items.length }) : typeLabel}
