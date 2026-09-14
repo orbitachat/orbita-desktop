@@ -608,6 +608,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                           items: [{
                             id: 'my-avatar',
                             url: avatarUrl,
+                            directUrl: avatarUrl,
                             type: 'photo',
                             name: `${nickname || 'Avatar'}.png`,
                             sender: nickname || 'Я',

@@ -62,7 +62,7 @@ import { useAudioStore } from '../../store/useAudioStore';
 import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
 import { Avatar } from '../common/Avatar';
 import { NotesAvatar } from '../common/NotesAvatar';
-import { useDecryptedMedia } from '../../lib/media-utils';
+import { useDecryptedMedia, getOrbitaMediaUrl } from '../../lib/media-utils';
 import { useShallow } from 'zustand/react/shallow';
 import { AudioCoverWithPlay } from '../audio/AudioCoverWithPlay';
 import { getDomainHost } from '../../utils/linkPreviewUtils';
@@ -1544,19 +1544,25 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (!subTab) return;
     const allItems = mediaGroups[subTab]?.gridItems || [];
     const itemsList = filteredGridItems(allItems);
-    const viewerItems: MediaViewerItem[] = itemsList.map((it, idx) => ({
-      id: it.id || String(idx),
-      url: it.url,
-      type: it.type,
-      name: it.name,
-      sender: it.sender,
-      time: it.time,
-      messageId: it.messageId,
-      duration: it.duration,
-      caption: it.text,
-      key: it.key,
-      sharedSecret: it.key || chat?.sharedSecret,
-    }));
+    const viewerItems: MediaViewerItem[] = itemsList.map((it, idx) => {
+      const effectiveSecret = it.key || chat?.sharedSecret;
+      const directUrl = getOrbitaMediaUrl(it.url, effectiveSecret, chat?.id, it.messageId, it.name) || undefined;
+      return {
+        id: it.id || String(idx),
+        url: it.url,
+        directUrl,
+        chatId: chat?.id,
+        type: it.type,
+        name: it.name,
+        sender: it.sender,
+        time: it.time,
+        messageId: it.messageId,
+        duration: it.duration,
+        caption: it.text,
+        key: it.key,
+        sharedSecret: effectiveSecret,
+      };
+    });
     const index = viewerItems.findIndex((it) => it.id === clickedItem.id || it.url === clickedItem.url);
     const initialIndex = index !== -1 ? index : 0;
     const orbita = (window as any).orbita;
@@ -1829,6 +1835,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             const avatarItems = [{
               id: 'avatar',
               url: chat.avatarUrl,
+              directUrl: chat.avatarUrl,
               type: 'photo' as const,
               name: `${chat.name || 'Avatar'}.jpg`,
               sender: chat.name,

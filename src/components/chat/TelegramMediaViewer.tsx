@@ -55,6 +55,8 @@ export interface MediaViewerItem {
   id: string;
   url: string;
   type: 'photo' | 'video' | 'gif' | 'image' | 'videos' | 'photos';
+  directUrl?: string;
+  chatId?: string;
   name?: string;
   mime?: string;
   sender?: string;
@@ -112,10 +114,21 @@ const CarouselThumbnail = React.memo(({
   isSelected: boolean;
   onClick: () => void;
 }) => {
-  const isDirect = Boolean(item.url && (item.url.startsWith('blob:') || item.url.startsWith('data:') || item.url.startsWith('orbita-media:')));
+  const isDirect = Boolean(
+    item.directUrl ||
+    (item.url && (item.url.startsWith('blob:') || item.url.startsWith('data:') || item.url.startsWith('orbita-media:')))
+  );
+  const directSrc = item.directUrl || (isDirect ? item.url : null);
   const effectiveSecret = item.key || item.sharedSecret || sharedSecret;
-  const { blobUrl } = useDecryptedMedia(isDirect ? null : item.url, effectiveSecret, item.name);
-  const displaySrc = isDirect ? item.url : blobUrl;
+  const { blobUrl } = useDecryptedMedia(
+    directSrc ? null : item.url,
+    effectiveSecret,
+    item.name,
+    undefined,
+    item.chatId,
+    item.messageId
+  );
+  const displaySrc = directSrc || blobUrl;
 
   const isVideoFormat = Boolean(
     item.type === 'video' ||
@@ -364,10 +377,25 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
 
   const currentItem: MediaViewerItem | undefined = items[currentIndex];
 
-  const isDirect = Boolean(currentItem?.url && (currentItem.url.startsWith('blob:') || currentItem.url.startsWith('data:')));
+  const isDirect = Boolean(
+    currentItem?.directUrl ||
+    (currentItem?.url && (
+      currentItem.url.startsWith('blob:') ||
+      currentItem.url.startsWith('data:') ||
+      currentItem.url.startsWith('orbita-media:')
+    ))
+  );
+  const directSrc = currentItem?.directUrl || (isDirect ? currentItem?.url : null);
   const effectiveSecret = currentItem?.key || currentItem?.sharedSecret || sharedSecret;
-  const { blobUrl, blob } = useDecryptedMedia(isDirect ? null : (currentItem?.url || null), effectiveSecret, currentItem?.name);
-  const displaySrc = isDirect ? currentItem?.url : blobUrl;
+  const { blobUrl, blob } = useDecryptedMedia(
+    directSrc ? null : (currentItem?.url || null),
+    effectiveSecret,
+    currentItem?.name,
+    undefined,
+    currentItem?.chatId,
+    currentItem?.messageId
+  );
+  const displaySrc = directSrc || blobUrl;
 
   const isVideo = currentItem?.type === 'video' || currentItem?.type === 'videos';
   const isGif = currentItem?.type === 'gif';
@@ -1136,6 +1164,8 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               key={displaySrc}
               src={displaySrc}
               alt=""
+              decoding="sync"
+              loading="eager"
               style={{
                 maxWidth: zoomScale > 1 ? 'none' : 'calc(100vw - 140px)',
                 maxHeight: zoomScale > 1 ? 'none' : 'calc(100vh - 140px)',
@@ -1144,7 +1174,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 transform: (rotation !== 0 || zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0)
                   ? `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) rotate(${rotation}deg) scale(${zoomScale})`
                   : 'none',
-                transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+                transition: 'none',
                 cursor: areControlsVisible ? (zoomScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default') : 'none',
                 pointerEvents: 'auto',
                 display: 'block',

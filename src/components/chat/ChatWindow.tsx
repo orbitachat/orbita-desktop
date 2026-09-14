@@ -31,7 +31,7 @@ import {
   getEmojiByChar,
   Emoji,
 } from '../../lib/emoji-data';
-import { useDecryptedMedia } from '../../lib/media-utils';
+import { useDecryptedMedia, getOrbitaMediaUrl } from '../../lib/media-utils';
 import { mediaManager } from '../../services/mediaManager';
 import { stripExifMetadata } from '../../lib/exifStripper';
 import { AudioMessageBubble } from './AudioMessageBubble';
@@ -1985,9 +1985,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         const albumGroupId = msg.id || `album_${msgIdx}`;
         msg.mediaItems.forEach((mi, miIdx) => {
           if (mi.type === 'photo' || mi.type === 'video') {
+            const effectiveSecret = mi.key || msg.mediaKey || sharedSecret;
+            const directUrl = getOrbitaMediaUrl(mi.url, effectiveSecret, activeChatId || undefined, msg.id, mi.name || msg.mediaName) || undefined;
             list.push({
               id: `${msg.id || msgIdx}_${miIdx}`,
               url: mi.url,
+              directUrl,
+              chatId: activeChatId || undefined,
               type: mi.type === 'video' ? 'video' : 'photo',
               name: mi.name || msg.mediaName,
               sender: msg.sender,
@@ -2001,7 +2005,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               isAlbum: isAlbum,
               albumGroupId: isAlbum ? albumGroupId : undefined,
               key: mi.key || msg.mediaKey,
-              sharedSecret: mi.key || msg.mediaKey || sharedSecret,
+              sharedSecret: effectiveSecret,
             });
           }
         });
@@ -2019,9 +2023,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           )) ||
           (msg.text && /^\[GIF\]/i.test(msg.text.trim()))
         );
+        const effectiveSecret = msg.mediaKey || sharedSecret;
+        const mediaUrl = media.url || msg.mediaUrl || '';
+        const directUrl = getOrbitaMediaUrl(mediaUrl, effectiveSecret, activeChatId || undefined, msg.id, media.fileName || msg.mediaName) || undefined;
         list.push({
           id: msg.id || `${msg.time}_${msgIdx}`,
-          url: media.url || msg.mediaUrl || '',
+          url: mediaUrl,
+          directUrl,
+          chatId: activeChatId || undefined,
           type: isGif ? 'gif' : (media.type === 'video' ? 'video' : 'photo'),
           name: media.fileName || msg.mediaName,
           sender: msg.sender,
@@ -2034,12 +2043,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           caption: msg.text,
           isAlbum: false,
           key: msg.mediaKey,
-          sharedSecret: msg.mediaKey || sharedSecret,
+          sharedSecret: effectiveSecret,
         });
       }
     });
     return list;
-  }, [messages, sharedSecret]);
+  }, [messages, sharedSecret, activeChatId]);
 
   const openMediaViewer = useCallback((url: string, messageId?: string, customItems?: MediaViewerItem[], explicitIndex?: number) => {
     const items = customItems || chatMediaViewerItems;
@@ -2058,6 +2067,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const finalItems = customItems || (index === -1 && items.length === 0 ? [{
       id: messageId || url,
       url,
+      directUrl: getOrbitaMediaUrl(url, messages.find(m => m.id === messageId)?.mediaKey || sharedSecret, activeChatId || undefined, messageId) || undefined,
+      chatId: activeChatId || undefined,
       type: 'photo' as const,
       time: Date.now(),
       key: messages.find(m => m.id === messageId)?.mediaKey,

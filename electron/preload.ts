@@ -135,7 +135,10 @@ contextBridge.exposeInMainWorld('orbita', {
     return () => ipcRenderer.removeListener('orbita:call-action', handler);
   },
 
-  openMediaWindow: (payload?: any) => ipcRenderer.invoke('orbita:open-media-window', payload),
+  openMediaWindow: (payload?: any) => {
+    ipcRenderer.send('orbita:open-media-window', payload);
+    return ipcRenderer.invoke('orbita:open-media-window', payload);
+  },
   closeMediaWindow: () => ipcRenderer.invoke('orbita:close-media-window'),
   getMediaPayload: () => ipcRenderer.invoke('orbita:get-media-payload'),
   onMediaPayload: (callback: (payload: any) => void) => {

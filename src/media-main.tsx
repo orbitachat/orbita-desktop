@@ -111,11 +111,7 @@ export const MediaWindowView: React.FC = () => {
   };
 
   if (!payload || !payload.items || payload.items.length === 0) {
-    return (
-      <div className="w-full h-full min-h-screen bg-transparent flex items-center justify-center text-white/50 text-sm select-none">
-        <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-      </div>
-    );
+    return null;
   }
 
   return (
