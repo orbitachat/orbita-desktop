@@ -264,9 +264,13 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
     };
   }, [isOpen, resetIdleTimer]);
 
-  // Sync index on initial open or prop change
+  const prevIsOpenRef = useRef(isOpen);
+  const prevInitialIndexRef = useRef(initialIndex);
+
   useEffect(() => {
-    if (isOpen) {
+    const isNewOpen = isOpen && !prevIsOpenRef.current;
+    const isIndexChangedFromOutside = initialIndex !== prevInitialIndexRef.current;
+    if (isOpen && (isNewOpen || isIndexChangedFromOutside)) {
       setCurrentIndex(Math.max(0, Math.min(initialIndex, items.length - 1)));
       setRotation(0);
       setZoomScale(1);
@@ -274,6 +278,8 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
       setIsDragging(false);
       setShowOptionsMenu(false);
     }
+    prevIsOpenRef.current = isOpen;
+    prevInitialIndexRef.current = initialIndex;
   }, [isOpen, initialIndex, items.length]);
 
   // Reset zoom & pan when index changes
@@ -688,9 +694,9 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 999999,
-        backgroundColor: 'rgba(54, 54, 54, 0.8)',
-        backdropFilter: 'none',
-        WebkitBackdropFilter: 'none',
+        backgroundColor: 'rgba(14, 14, 18, 0.78)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -831,16 +837,18 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
         </div>
       </div>
 
-      {/* Left Navigation Arrow */}
-      {items.length > 1 && currentIndex > 0 && (
+      {items.length > 1 && (
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setCurrentIndex((i) => i - 1);
-            setRotation(0);
-            setZoomScale(1);
-            setPanOffset({ x: 0, y: 0 });
+            if (currentIndex > 0) {
+              setCurrentIndex((i) => i - 1);
+              setRotation(0);
+              setZoomScale(1);
+              setPanOffset({ x: 0, y: 0 });
+            }
           }}
+          disabled={currentIndex === 0}
           style={{
             position: 'fixed',
             left: 20,
@@ -849,41 +857,39 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             width: 44,
             height: 44,
             borderRadius: '50%',
-            backgroundColor: 'transparent',
             border: 'none',
-            color: 'rgba(255, 255, 255, 0.65)',
-            cursor: 'pointer',
+            cursor: currentIndex > 0 ? 'pointer' : 'default',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: areControlsVisible ? 1 : 0,
-            pointerEvents: areControlsVisible ? 'auto' : 'none',
-            transition: 'opacity 0.3s ease, background-color 0.15s ease, color 0.15s ease',
+            opacity: currentIndex === 0 ? 0 : (isPhoto || areControlsVisible ? 1 : 0),
+            pointerEvents: currentIndex > 0 && (isPhoto || areControlsVisible) ? 'auto' : 'none',
+            transition: 'opacity 0.2s ease, background-color 0.15s ease, transform 0.15s ease',
             zIndex: 100,
+            background: 'rgba(30, 30, 34, 0.65)',
+            backdropFilter: 'blur(8px)',
+            color: '#ffffff',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(65, 65, 70, 0.85)';
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.65)';
-          }}
+          className="hover:bg-white/25 active:scale-95"
+          aria-label={t('mediaViewer.previousPhoto', 'Предыдущее')}
         >
           <ChevronLeft size={26} strokeWidth={2.2} />
         </button>
       )}
 
-      {/* Right Navigation Arrow */}
-      {items.length > 1 && currentIndex < items.length - 1 && (
+      {items.length > 1 && (
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setCurrentIndex((i) => i + 1);
-            setRotation(0);
-            setZoomScale(1);
-            setPanOffset({ x: 0, y: 0 });
+            if (currentIndex < items.length - 1) {
+              setCurrentIndex((i) => i + 1);
+              setRotation(0);
+              setZoomScale(1);
+              setPanOffset({ x: 0, y: 0 });
+            }
           }}
+          disabled={currentIndex === items.length - 1}
           style={{
             position: 'fixed',
             right: 20,
@@ -892,26 +898,22 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             width: 44,
             height: 44,
             borderRadius: '50%',
-            backgroundColor: 'transparent',
             border: 'none',
-            color: 'rgba(255, 255, 255, 0.65)',
-            cursor: 'pointer',
+            cursor: currentIndex < items.length - 1 ? 'pointer' : 'default',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: areControlsVisible ? 1 : 0,
-            pointerEvents: areControlsVisible ? 'auto' : 'none',
-            transition: 'opacity 0.3s ease, background-color 0.15s ease, color 0.15s ease',
+            opacity: currentIndex === items.length - 1 ? 0 : (isPhoto || areControlsVisible ? 1 : 0),
+            pointerEvents: currentIndex < items.length - 1 && (isPhoto || areControlsVisible) ? 'auto' : 'none',
+            transition: 'opacity 0.2s ease, background-color 0.15s ease, transform 0.15s ease',
             zIndex: 100,
+            background: 'rgba(30, 30, 34, 0.65)',
+            backdropFilter: 'blur(8px)',
+            color: '#ffffff',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(65, 65, 70, 0.85)';
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.65)';
-          }}
+          className="hover:bg-white/25 active:scale-95"
+          aria-label={t('mediaViewer.nextPhoto', 'Следующее')}
         >
           <ChevronRight size={26} strokeWidth={2.2} />
         </button>

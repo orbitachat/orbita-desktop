@@ -2043,16 +2043,19 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const openMediaViewer = useCallback((url: string, messageId?: string, customItems?: MediaViewerItem[], explicitIndex?: number) => {
     const items = customItems || chatMediaViewerItems;
-    let index = typeof explicitIndex === 'number' && explicitIndex >= 0 ? explicitIndex : -1;
+    let index = typeof explicitIndex === 'number' && explicitIndex >= 0 && customItems ? explicitIndex : -1;
     if (index === -1) {
       if (url) {
-        index = items.findIndex((it) => it.url === url);
+        index = items.findIndex((it) => it.url === url && (!messageId || it.messageId === messageId));
+        if (index === -1) {
+          index = items.findIndex((it) => it.url === url);
+        }
       }
       if (index === -1 && messageId) {
         index = items.findIndex((it) => it.messageId === messageId);
       }
     }
-    const finalItems = customItems || (index === -1 ? [{
+    const finalItems = customItems || (index === -1 && items.length === 0 ? [{
       id: messageId || url,
       url,
       type: 'photo' as const,
@@ -5753,7 +5756,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           onMediaClick={(tileIdx) => {
             const clicked = viewerItems[tileIdx];
             if (clicked) {
-              openMediaViewer(clicked.url, msg.id, viewerItems, tileIdx);
+              openMediaViewer(clicked.url, msg.id);
             }
           }}
           maxWidth={440}

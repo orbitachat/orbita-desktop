@@ -1185,7 +1185,9 @@
       "saveAs": "Сохранить как...",
       "allPhotos": "Все фотографии",
       "delete": "Удалить",
-      "counter": "{{type}} {{current}} из {{total}}"
+      "counter": "{{type}} {{current}} из {{total}}",
+      "previousPhoto": "Предыдущее",
+      "nextPhoto": "Следующее"
     }
   }
 }

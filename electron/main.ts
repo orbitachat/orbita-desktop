@@ -2575,19 +2575,24 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
   }
 
   const icon = loadNativeAppIcon();
-  const bounds = getSavedMediaWindowBounds();
+  const display = mainWindow && !mainWindow.isDestroyed()
+    ? screen.getDisplayMatching(mainWindow.getBounds())
+    : screen.getPrimaryDisplay();
+  const { x, y, width, height } = display.bounds;
 
   mediaWindow = new BrowserWindow({
-    width: bounds.width,
-    height: bounds.height,
-    x: bounds.x,
-    y: bounds.y,
+    x,
+    y,
+    width,
+    height,
     minWidth: 480,
     minHeight: 360,
     resizable: true,
     frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
     titleBarStyle: 'hidden',
-    backgroundColor: '#0e0e12',
     alwaysOnTop: false,
     webPreferences: {
       nodeIntegration: false,
@@ -2656,7 +2661,15 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
     win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
   }
 
+  const display = mainWindow && !mainWindow.isDestroyed()
+    ? screen.getDisplayMatching(mainWindow.getBounds())
+    : screen.getPrimaryDisplay();
+
   if (win.isMinimized()) win.restore();
+  win.setBounds(display.bounds);
+  if (!win.isMaximized()) {
+    win.maximize();
+  }
   win.show();
   win.focus();
 
@@ -2722,8 +2735,19 @@ ipcMain.handle('window:minimize', (event) => {
 ipcMain.handle('window:maximize', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   if (win && !win.isDestroyed()) {
-    if (win.isMaximized()) win.unmaximize();
-    else win.maximize();
+    if (mediaWindow && win === mediaWindow) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        const display = screen.getDisplayMatching(win.getBounds());
+        win.setBounds(display.bounds);
+        win.maximize();
+      }
+      win.webContents.send('window:state-changed', win.isMaximized());
+    } else {
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    }
   }
 });
 

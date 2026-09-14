@@ -1174,7 +1174,9 @@
       "saveAs": "Save as...",
       "allPhotos": "All photos",
       "delete": "Delete",
-      "counter": "{{type}} {{current}} of {{total}}"
+      "counter": "{{type}} {{current}} of {{total}}",
+      "previousPhoto": "Previous",
+      "nextPhoto": "Next"
     }
   }
 }
