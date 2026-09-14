@@ -748,29 +748,26 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
           animation-play-state: paused !important;
         }
       `}</style>
-      {/* Telegram Media Viewer Window Title Bar */}
       <div
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
-          height: '32px',
+          height: '36px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
           padding: '0 8px',
           zIndex: 1000,
-          background: 'transparent',
-          opacity: areControlsVisible ? 1 : 0,
-          pointerEvents: areControlsVisible ? 'auto' : 'none',
+          background: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 100%)',
+          opacity: 1,
+          pointerEvents: 'auto',
           transition: 'none',
-          ...({ WebkitAppRegion: areControlsVisible ? 'drag' : 'no-drag' } as React.CSSProperties),
+          ...({ WebkitAppRegion: 'drag' } as React.CSSProperties),
         }}
         onDoubleClick={() => {
-          if (areControlsVisible) {
-            try { ((window as any).orbita?.doubleClickTitleBar?.()); } catch { }
-          }
+          try { ((window as any).orbita?.doubleClickTitleBar?.()); } catch { }
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -779,11 +776,9 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '3px',
-            // @ts-ignore
-            WebkitAppRegion: 'no-drag',
+            ...({ WebkitAppRegion: 'no-drag' } as React.CSSProperties),
           }}
         >
-          {/* Minimize */}
           <button
             onClick={() => {
               try { ((window as any).orbita?.minimizeWindow?.()); } catch { }

@@ -2630,7 +2630,6 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
     hasShadow: false,
     titleBarStyle: 'hidden',
     alwaysOnTop: false,
-    skipTaskbar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -2697,9 +2696,7 @@ function initMediaWindowPrewarm() {
   setTimeout(() => {
     try {
       if (!isQuitting && (!mediaWindow || mediaWindow.isDestroyed())) {
-        const win = initOrGetMediaWindow();
-        win.setPosition(-32000, -32000);
-        win.showInactive();
+        initOrGetMediaWindow();
       }
     } catch { }
   }, 100);
@@ -2720,8 +2717,8 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
     win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
   }
 
-  if (win.isMinimized()) win.restore();
   win.setBounds(display.bounds);
+  if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
 
@@ -2745,7 +2742,7 @@ ipcMain.handle('orbita:close-media-window', () => {
   if (mediaWindow && !mediaWindow.isDestroyed()) {
     currentMediaPayloadCache = null;
     mediaWindow.webContents.send('orbita:media-payload', null);
-    mediaWindow.setPosition(-32000, -32000);
+    mediaWindow.hide();
   }
   return { success: true };
 });
