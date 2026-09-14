@@ -2560,7 +2560,9 @@ function getSavedMediaWindowBounds(): { width: number; height: number; x?: numbe
 function saveMediaWindowBounds(win: BrowserWindow) {
   try {
     if (!win || win.isDestroyed() || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return;
+    const display = screen.getDisplayMatching(win.getBounds());
     const bounds = win.getBounds();
+    if (bounds.width >= display.bounds.width && bounds.height >= display.bounds.height) return;
     fs.writeFileSync(MEDIA_BOUNDS_FILE, JSON.stringify(bounds), 'utf8');
   } catch { }
 }
@@ -2615,7 +2617,10 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
   mediaWindow.on('resize', () => {
     if (mediaWindow && !mediaWindow.isDestroyed()) {
       saveMediaWindowBounds(mediaWindow);
-      mediaWindow.webContents.send('window:state-changed', mediaWindow.isMaximized());
+      const display = screen.getDisplayMatching(mediaWindow.getBounds());
+      const bounds = mediaWindow.getBounds();
+      const isFull = bounds.width >= display.bounds.width && bounds.height >= display.bounds.height;
+      mediaWindow.webContents.send('window:state-changed', isFull || mediaWindow.isMaximized());
     }
   });
 
@@ -2639,6 +2644,9 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
 
   mediaWindow.on('closed', () => {
     mediaWindow = null;
+    if (!isQuitting) {
+      initMediaWindowPrewarm();
+    }
   });
 
   if (isPackaged) {
@@ -2648,6 +2656,16 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
   }
 
   return mediaWindow;
+}
+
+function initMediaWindowPrewarm() {
+  setTimeout(() => {
+    try {
+      if (!isQuitting && (!mediaWindow || mediaWindow.isDestroyed())) {
+        initOrGetMediaWindow();
+      }
+    } catch { }
+  }, 1500);
 }
 
 function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
@@ -2667,9 +2685,6 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
 
   if (win.isMinimized()) win.restore();
   win.setBounds(display.bounds);
-  if (!win.isMaximized()) {
-    win.maximize();
-  }
   win.show();
   win.focus();
 
@@ -2736,14 +2751,23 @@ ipcMain.handle('window:maximize', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   if (win && !win.isDestroyed()) {
     if (mediaWindow && win === mediaWindow) {
-      if (win.isMaximized()) {
-        win.unmaximize();
+      const display = screen.getDisplayMatching(win.getBounds());
+      const bounds = win.getBounds();
+      const isFull = bounds.width >= display.bounds.width && bounds.height >= display.bounds.height;
+
+      if (win.isMaximized() || isFull) {
+        if (win.isMaximized()) win.unmaximize();
+        const saved = getSavedMediaWindowBounds();
+        const restoredW = Math.min(saved.width, display.workArea.width - 40);
+        const restoredH = Math.min(saved.height, display.workArea.height - 40);
+        const restoredX = display.workArea.x + Math.round((display.workArea.width - restoredW) / 2);
+        const restoredY = display.workArea.y + Math.round((display.workArea.height - restoredH) / 2);
+        win.setBounds({ x: restoredX, y: restoredY, width: restoredW, height: restoredH });
+        win.webContents.send('window:state-changed', false);
       } else {
-        const display = screen.getDisplayMatching(win.getBounds());
         win.setBounds(display.bounds);
-        win.maximize();
+        win.webContents.send('window:state-changed', true);
       }
-      win.webContents.send('window:state-changed', win.isMaximized());
     } else {
       if (win.isMaximized()) win.unmaximize();
       else win.maximize();
@@ -2785,7 +2809,13 @@ ipcMain.handle('window:close', (event) => {
 
 ipcMain.handle('window:isMaximized', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
-  return win && !win.isDestroyed() ? win.isMaximized() : false;
+  if (!win || win.isDestroyed()) return false;
+  if (mediaWindow && win === mediaWindow) {
+    const display = screen.getDisplayMatching(win.getBounds());
+    const bounds = win.getBounds();
+    return win.isMaximized() || (bounds.width >= display.bounds.width && bounds.height >= display.bounds.height);
+  }
+  return win.isMaximized();
 });
 
 ipcMain.handle('window:isFullScreen', (event) => {
@@ -2982,6 +3012,7 @@ function createMainWindow() {
     mainWindow?.show();
     mainWindow?.webContents.send('window:state-changed', mainWindow.isMaximized());
     initCallWindowPrewarm();
+    initMediaWindowPrewarm();
   });
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
