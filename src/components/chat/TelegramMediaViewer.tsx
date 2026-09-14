@@ -277,28 +277,24 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
     };
   }, [isOpen, resetIdleTimer]);
 
-  const prevIsOpenRef = useRef(isOpen);
-  const prevItemsRef = useRef(items);
-  const prevInitialIndexRef = useRef(initialIndex);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevItems, setPrevItems] = useState(items);
+  const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
 
-  useEffect(() => {
-    const isNewOpen = isOpen && !prevIsOpenRef.current;
-    const isItemsChanged = items !== prevItemsRef.current;
-    const isIndexChangedFromOutside = initialIndex !== prevInitialIndexRef.current;
-    if (isOpen && (isNewOpen || isItemsChanged || isIndexChangedFromOutside)) {
-      setCurrentIndex(Math.max(0, Math.min(initialIndex, items.length - 1)));
-      setRotation(0);
-      setZoomScale(1);
-      setPanOffset({ x: 0, y: 0 });
-      setIsDragging(false);
-      setShowOptionsMenu(false);
-    }
-    prevIsOpenRef.current = isOpen;
-    prevItemsRef.current = items;
-    prevInitialIndexRef.current = initialIndex;
-  }, [isOpen, initialIndex, items]);
+  if (isOpen && (!prevIsOpen || items !== prevItems || initialIndex !== prevInitialIndex)) {
+    setPrevIsOpen(isOpen);
+    setPrevItems(items);
+    setPrevInitialIndex(initialIndex);
+    setCurrentIndex(Math.max(0, Math.min(initialIndex, items.length - 1)));
+    setRotation(0);
+    setZoomScale(1);
+    setPanOffset({ x: 0, y: 0 });
+    setIsDragging(false);
+    setShowOptionsMenu(false);
+  } else if (!isOpen && prevIsOpen) {
+    setPrevIsOpen(false);
+  }
 
-  // Reset zoom & pan when index changes
   useEffect(() => {
     setZoomScale(1);
     setPanOffset({ x: 0, y: 0 });

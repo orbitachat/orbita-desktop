@@ -2702,6 +2702,7 @@ ipcMain.handle('orbita:open-media-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-media-window', () => {
   if (mediaWindow && !mediaWindow.isDestroyed()) {
     currentMediaPayloadCache = null;
+    mediaWindow.webContents.send('orbita:media-payload', null);
     mediaWindow.hide();
   }
   return { success: true };
@@ -2787,6 +2788,7 @@ ipcMain.handle('window:close', (event) => {
       }
     } else if (mediaWindow && win === mediaWindow) {
       currentMediaPayloadCache = null;
+      mediaWindow.webContents.send('orbita:media-payload', null);
       mediaWindow.hide();
     } else if (win === mainWindow) {
       if (showInTraySetting) {

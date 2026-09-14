@@ -53,9 +53,7 @@ export const MediaWindowView: React.FC = () => {
     let unsubPayload: (() => void) | undefined;
     if (orbita?.onMediaPayload) {
       unsubPayload = orbita.onMediaPayload((newPayload: any) => {
-        if (newPayload) {
-          setPayload(newPayload);
-        }
+        setPayload(newPayload || null);
       });
     }
 
@@ -64,7 +62,7 @@ export const MediaWindowView: React.FC = () => {
       bc = new BroadcastChannel('orbita-media-channel');
       bc.onmessage = (event) => {
         if (event.data?.type === 'SET_MEDIA_PAYLOAD') {
-          setPayload(event.data.payload);
+          setPayload(event.data.payload || null);
         }
       };
       bc.postMessage({ type: 'REQUEST_MEDIA_PAYLOAD' });
@@ -79,6 +77,7 @@ export const MediaWindowView: React.FC = () => {
   }, []);
 
   const handleClose = () => {
+    setPayload(null);
     const orbita = (window as any).orbita;
     if (orbita?.closeMediaWindow) {
       orbita.closeMediaWindow();
@@ -112,17 +111,13 @@ export const MediaWindowView: React.FC = () => {
     dispatchAction({ type: 'DELETE_MESSAGE', messageId, chatId: payload?.chatId });
   };
 
-  if (!payload || !payload.items || payload.items.length === 0) {
-    return null;
-  }
-
   return (
     <div className="w-full h-full min-h-screen bg-transparent overflow-hidden select-none">
       <TelegramMediaViewer
-        isOpen={true}
-        items={payload.items}
-        initialIndex={payload.initialIndex || 0}
-        sharedSecret={payload.sharedSecret}
+        isOpen={Boolean(payload && payload.items && payload.items.length > 0)}
+        items={payload?.items || []}
+        initialIndex={payload?.initialIndex || 0}
+        sharedSecret={payload?.sharedSecret}
         onClose={handleClose}
         onGoToMessage={handleGoToMessage}
         onForwardMessage={handleForwardMessage}
