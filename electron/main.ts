@@ -2689,7 +2689,9 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
     win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
   }
 
-  win.show();
+  if (!win.isVisible()) {
+    win.show();
+  }
   win.focus();
 
   if (currentMediaPayloadCache && !win.isDestroyed() && win.webContents.isLoading()) {
@@ -2702,10 +2704,6 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
 
   return win;
 }
-
-ipcMain.on('orbita:open-media-window', (_event, payload?: any) => {
-  createOrShowMediaWindow(payload);
-});
 
 ipcMain.handle('orbita:open-media-window', (_event, payload?: any) => {
   createOrShowMediaWindow(payload);
