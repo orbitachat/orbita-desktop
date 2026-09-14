@@ -694,9 +694,9 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 999999,
-        backgroundColor: 'rgba(14, 14, 18, 0.78)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        backgroundColor: 'rgba(54, 54, 54, 0.8)',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -864,14 +864,21 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             justifyContent: 'center',
             opacity: currentIndex === 0 ? 0 : (isPhoto || areControlsVisible ? 1 : 0),
             pointerEvents: currentIndex > 0 && (isPhoto || areControlsVisible) ? 'auto' : 'none',
-            transition: 'opacity 0.2s ease, background-color 0.15s ease, transform 0.15s ease',
+            transition: 'opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease',
             zIndex: 100,
-            background: 'rgba(30, 30, 34, 0.65)',
-            backdropFilter: 'blur(8px)',
-            color: '#ffffff',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
+            backgroundColor: 'transparent',
+            color: 'rgba(255, 255, 255, 0.65)',
           }}
-          className="hover:bg-white/25 active:scale-95"
+          onMouseEnter={(e) => {
+            if (currentIndex > 0) {
+              e.currentTarget.style.backgroundColor = 'rgba(65, 65, 70, 0.85)';
+              e.currentTarget.style.color = '#ffffff';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.65)';
+          }}
           aria-label={t('mediaViewer.previousPhoto', 'Предыдущее')}
         >
           <ChevronLeft size={26} strokeWidth={2.2} />
@@ -905,14 +912,21 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             justifyContent: 'center',
             opacity: currentIndex === items.length - 1 ? 0 : (isPhoto || areControlsVisible ? 1 : 0),
             pointerEvents: currentIndex < items.length - 1 && (isPhoto || areControlsVisible) ? 'auto' : 'none',
-            transition: 'opacity 0.2s ease, background-color 0.15s ease, transform 0.15s ease',
+            transition: 'opacity 0.2s ease, background-color 0.15s ease, color 0.15s ease',
             zIndex: 100,
-            background: 'rgba(30, 30, 34, 0.65)',
-            backdropFilter: 'blur(8px)',
-            color: '#ffffff',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
+            backgroundColor: 'transparent',
+            color: 'rgba(255, 255, 255, 0.65)',
           }}
-          className="hover:bg-white/25 active:scale-95"
+          onMouseEnter={(e) => {
+            if (currentIndex < items.length - 1) {
+              e.currentTarget.style.backgroundColor = 'rgba(65, 65, 70, 0.85)';
+              e.currentTarget.style.color = '#ffffff';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.65)';
+          }}
           aria-label={t('mediaViewer.nextPhoto', 'Следующее')}
         >
           <ChevronRight size={26} strokeWidth={2.2} />
@@ -1264,12 +1278,12 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 position: 'absolute',
                 top: 40,
                 right: 0,
-                background: 'rgba(30, 30, 30, 0.95)',
-                backdropFilter: 'blur(20px)',
+                backgroundColor: 'rgba(24, 26, 32, 0.95)',
+                backdropFilter: 'blur(10px)',
                 borderRadius: 8,
                 padding: '4px 0',
                 minWidth: 210,
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 zIndex: 1000,
                 display: 'flex',
