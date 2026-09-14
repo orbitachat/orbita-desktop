@@ -70,6 +70,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         call: 'call.html',
+        media: 'media.html',
       },
       output: {
         manualChunks: {

@@ -2052,19 +2052,33 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         index = items.findIndex((it) => it.messageId === messageId);
       }
     }
+    const finalItems = customItems || (index === -1 ? [{
+      id: messageId || url,
+      url,
+      type: 'photo' as const,
+      time: Date.now(),
+      key: messages.find(m => m.id === messageId)?.mediaKey,
+      sharedSecret: messages.find(m => m.id === messageId)?.mediaKey || sharedSecret,
+    }] : items);
+    const initialIndex = index !== -1 ? index : 0;
+
+    const orbita = (window as any).orbita;
+    if (orbita?.openMediaWindow) {
+      orbita.openMediaWindow({
+        items: finalItems,
+        initialIndex,
+        sharedSecret,
+        chatId: activeChatId,
+      });
+      return;
+    }
+
     setMediaViewerState({
       isOpen: true,
-      initialIndex: index !== -1 ? index : 0,
-      customItems: customItems || (index === -1 ? [{
-        id: messageId || url,
-        url,
-        type: 'photo',
-        time: Date.now(),
-        key: messages.find(m => m.id === messageId)?.mediaKey,
-        sharedSecret: messages.find(m => m.id === messageId)?.mediaKey || sharedSecret,
-      }] : undefined),
+      initialIndex,
+      customItems: customItems || (index === -1 ? finalItems : undefined),
     });
-  }, [chatMediaViewerItems, messages, sharedSecret]);
+  }, [chatMediaViewerItems, messages, sharedSecret, activeChatId]);
   const {
     isRecording,
     isPaused: isRecordingPaused,
@@ -2518,6 +2532,94 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       useChatStore.getState().updateChat(activeChat.id, { isOwner: true });
     }
   }, [activeChat?.id, activeChat?.type, activeChat?.isOwner, isChannelOwner]);
+
+  const handleMediaGoToMessage = useCallback((msgId: string) => {
+    const el = document.querySelector(`[data-message-id="${msgId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const idx = messages.findIndex((m) => m.id === msgId);
+      if (idx !== -1) {
+        setHighlightedIndex(idx);
+        setTimeout(() => setHighlightedIndex(null), 2000);
+      }
+    }
+  }, [messages]);
+
+  const handleMediaForwardMessage = useCallback((msgId: string) => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
+    const msg = messages.find((m) => m.id === msgId);
+    if (msg) {
+      setReplyingTo({
+        id: msg.id,
+        index: messages.indexOf(msg),
+        sender: msg.sender,
+        text: msg.text,
+        time: msg.time,
+      });
+    }
+  }, [activeChat?.type, isChannelOwner, messages]);
+
+  const handleMediaDeleteMessage = useCallback((msgId: string) => {
+    if (activeChat?.type === 'channel' && !isChannelOwner) return;
+    if (activeChatId) {
+      useChatStore.getState().deleteMessage(activeChatId, msgId);
+      const payload = {
+        sender: myNickname,
+        text: '',
+        type: 'delete-message',
+        targetMessageId: msgId,
+      };
+      ablyService.sendMessage(activeChatId, payload).catch(() => {});
+      const pusher = getPusher();
+      const channel = pusher.subscribe(
+        activeChat?.type === 'channel'
+          ? `public-channel-${activeChatId}`
+          : activeChat?.type === 'group'
+          ? `presence-group-${activeChatId}`
+          : `private-chat-${activeChatId}`
+      );
+      const send = () => {
+        channel.trigger('client-message', payload);
+      };
+      if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+      if (activeChat?.type === 'channel') {
+        channelService.deletePost(activeChatId, msgId);
+      } else {
+        const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+        for (const rId of recipientTargets) {
+          supabaseService.deleteMessage(activeChatId, msgId, rId, myCode).catch(() => {});
+        }
+      }
+    }
+  }, [activeChat?.type, activeChat?.peerCode, activeChat?.name, activeChatId, isChannelOwner, myCode, myNickname]);
+
+  useEffect(() => {
+    const handleAction = (action: any) => {
+      if (!action) return;
+      if (action.chatId && action.chatId !== activeChatId) return;
+      if (action.type === 'GOTO_MESSAGE' && action.messageId) {
+        handleMediaGoToMessage(action.messageId);
+      } else if (action.type === 'FORWARD_MESSAGE' && action.messageId) {
+        handleMediaForwardMessage(action.messageId);
+      } else if (action.type === 'DELETE_MESSAGE' && action.messageId) {
+        handleMediaDeleteMessage(action.messageId);
+      }
+    };
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('orbita-media-action-channel');
+      bc.onmessage = (e) => handleAction(e.data);
+    } catch {}
+
+    const orbita = (window as any).orbita;
+    const unsub = orbita?.onMediaAction?.((action: any) => handleAction(action));
+
+    return () => {
+      bc?.close();
+      unsub?.();
+    };
+  }, [activeChatId, handleMediaGoToMessage, handleMediaForwardMessage, handleMediaDeleteMessage]);
 
   const isSubscribed = useMemo(() => {
     if (activeChat?.type !== 'channel') return true;
@@ -6782,63 +6884,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             initialIndex={mediaViewerState.initialIndex}
             sharedSecret={sharedSecret}
             onClose={() => setMediaViewerState((prev) => ({ ...prev, isOpen: false }))}
-            onGoToMessage={(msgId) => {
-              const el = document.querySelector(`[data-message-id="${msgId}"]`);
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const idx = messages.findIndex((m) => m.id === msgId);
-                if (idx !== -1) {
-                  setHighlightedIndex(idx);
-                  setTimeout(() => setHighlightedIndex(null), 2000);
-                }
-              }
-            }}
-            onForwardMessage={(msgId) => {
-              if (activeChat?.type === 'channel' && !isChannelOwner) return;
-              const msg = messages.find((m) => m.id === msgId);
-              if (msg) {
-                setReplyingTo({
-                  id: msg.id,
-                  index: messages.indexOf(msg),
-                  sender: msg.sender,
-                  text: msg.text,
-                  time: msg.time,
-                });
-              }
-            }}
-            onDeleteMessage={(msgId) => {
-              if (activeChat?.type === 'channel' && !isChannelOwner) return;
-              if (activeChatId) {
-                useChatStore.getState().deleteMessage(activeChatId, msgId);
-                const payload = {
-                  sender: myNickname,
-                  text: '',
-                  type: 'delete-message',
-                  targetMessageId: msgId,
-                };
-                ablyService.sendMessage(activeChatId, payload).catch(() => {});
-                const pusher = getPusher();
-                const channel = pusher.subscribe(
-                  activeChat?.type === 'channel'
-                    ? `public-channel-${activeChatId}`
-                    : activeChat?.type === 'group'
-                    ? `presence-group-${activeChatId}`
-                    : `private-chat-${activeChatId}`
-                );
-                const send = () => {
-                  channel.trigger('client-message', payload);
-                };
-                if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
-                if (activeChat?.type === 'channel') {
-                  channelService.deletePost(activeChatId, msgId);
-                } else {
-                  const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
-                  for (const rId of recipientTargets) {
-                    supabaseService.deleteMessage(activeChatId, msgId, rId, myCode).catch(() => {});
-                  }
-                }
-              }
-            }}
+            onGoToMessage={handleMediaGoToMessage}
+            onForwardMessage={handleMediaForwardMessage}
+            onDeleteMessage={handleMediaDeleteMessage}
             onOpenAllMedia={() => {
               if (activeChatId) {
                 useChatStore.getState().setActiveProfileChatId(activeChatId);

@@ -601,7 +601,24 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                 <div
                   style={{ position: 'relative', width: 96, height: 96, marginBottom: 10, marginTop: 0, cursor: avatarUrl ? 'pointer' : 'default' }}
                   onClick={() => {
-                    if (avatarUrl) setIsAvatarViewerOpen(true);
+                    if (avatarUrl) {
+                      const orbita = (window as any).orbita;
+                      if (orbita?.openMediaWindow) {
+                        orbita.openMediaWindow({
+                          items: [{
+                            id: 'my-avatar',
+                            url: avatarUrl,
+                            type: 'photo',
+                            name: `${nickname || 'Avatar'}.png`,
+                            sender: nickname || 'Я',
+                            time: Date.now(),
+                          }],
+                          initialIndex: 0,
+                        });
+                      } else {
+                        setIsAvatarViewerOpen(true);
+                      }
+                    }
                   }}
                 >
                   <Avatar

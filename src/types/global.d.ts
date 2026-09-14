@@ -149,6 +149,12 @@ declare global {
         error?: string;
         releaseNotes?: string;
       }) => void) => () => void;
+      openMediaWindow?: (payload?: any) => Promise<{ success: boolean }>;
+      closeMediaWindow?: () => Promise<{ success: boolean }>;
+      getMediaPayload?: () => Promise<any>;
+      onMediaPayload?: (callback: (payload: any) => void) => () => void;
+      sendMediaAction?: (action: any) => void;
+      onMediaAction?: (callback: (action: any) => void) => () => void;
     };
   }
 

@@ -1,4 +1,3 @@
-// src/components/chat/TelegramMediaViewer.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -678,7 +677,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
     };
   }, []);  if (!isOpen || !currentItem) return null;
 
-  const typeLabel = isVideo ? 'Видео' : isGif ? 'GIF' : 'Фотография';
+  const typeLabel = isVideo ? t('mediaViewer.video', 'Видео') : isGif ? 'GIF' : t('mediaViewer.photo', 'Фотография');
   const dateStr = currentItem.time ? formatTelegramDate(currentItem.time, i18n.language) : '';
   const senderStr = currentItem.sender || '';
 
@@ -766,7 +765,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               transition: 'background-color 0.15s, color 0.15s',
             }}
             className="hover:bg-white/15 hover:text-white"
-            aria-label="Свернуть"
+            aria-label={t('window.minimize', 'Свернуть')}
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M1 10H11" stroke="currentColor" strokeWidth="1" strokeLinecap="square" />
@@ -792,7 +791,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               transition: 'background-color 0.15s, color 0.15s',
             }}
             className="hover:bg-white/15 hover:text-white"
-            aria-label={isWindowMaximized ? 'Восстановить' : 'Развернуть'}
+            aria-label={isWindowMaximized ? t('window.restore', 'Восстановить') : t('window.maximize', 'Развернуть')}
           >
             {isWindowMaximized ? (
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -823,7 +822,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               transition: 'background-color 0.15s, color 0.15s',
             }}
             className="hover:bg-red-500/30 hover:text-red-300"
-            aria-label="Закрыть (Esc)"
+            aria-label={t('common.close', 'Закрыть')}
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1" strokeLinecap="square" />
@@ -1179,7 +1178,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
         {/* Left Side: Info & Metadata */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 200, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-            {items.length > 1 ? `${typeLabel} ${currentIndex + 1} из ${items.length}` : typeLabel}
+            {items.length > 1 ? t('mediaViewer.counter', { type: typeLabel, current: currentIndex + 1, total: items.length }) : typeLabel}
           </span>
           <span style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.85)' }}>
             {senderStr ? `${senderStr} • ` : ''}{dateStr}
@@ -1199,12 +1198,13 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               padding: '4px 0',
             }}
             className="no-scrollbar"
+            onClick={(e) => e.stopPropagation()}
           >
-            {carouselItems.map((item, idx) => {
+            {carouselItems.map((item) => {
               const globalIdx = items.indexOf(item);
               return (
                 <CarouselThumbnail
-                  key={item.id || idx}
+                  key={item.id}
                   item={item}
                   sharedSecret={sharedSecret}
                   isSelected={globalIdx === currentIndex}
@@ -1229,7 +1229,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               onClick={handleRotate}
               style={{ background: 'none', border: 'none', color: '#ffffff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))', cursor: 'pointer', padding: 6, borderRadius: '50%' }}
               className="hover:text-white hover:bg-white/15 transition-colors"
-              aria-label="Повернуть"
+              aria-label={t('mediaViewer.rotate', 'Повернуть')}
             >
               <RotateCw size={19} />
             </button>
@@ -1239,7 +1239,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             onClick={handleDownload}
             style={{ background: 'none', border: 'none', color: '#ffffff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))', cursor: 'pointer', padding: 6, borderRadius: '50%' }}
             className="hover:text-white hover:bg-white/15 transition-colors"
-            aria-label="Сохранить"
+            aria-label={t('mediaViewer.save', 'Сохранить')}
           >
             <Download size={20} />
           </button>
@@ -1249,7 +1249,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             onClick={() => setShowOptionsMenu(!showOptionsMenu)}
             style={{ background: 'none', border: 'none', color: '#ffffff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))', cursor: 'pointer', padding: 6, borderRadius: '50%' }}
             className="hover:text-white hover:bg-white/15 transition-colors"
-            aria-label="Опции"
+            aria-label={t('mediaViewer.options', 'Опции')}
           >
             <MoreVertical size={20} />
           </button>
@@ -1260,19 +1260,20 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               ref={optionsMenuRef}
               style={{
                 position: 'absolute',
-                bottom: 50,
+                top: 40,
                 right: 0,
-                backgroundColor: 'rgba(24, 26, 32, 0.95)',
-                backdropFilter: 'blur(10px)',
+                background: 'rgba(30, 30, 30, 0.95)',
+                backdropFilter: 'blur(20px)',
                 borderRadius: 8,
-                padding: '6px',
-                minWidth: 200,
-                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                padding: '4px 0',
+                minWidth: 210,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                zIndex: 1000,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 2,
-                zIndex: 200,
               }}
+              onClick={(e) => e.stopPropagation()}
             >
               {currentItem.messageId && onGoToMessage && (
                 <button
@@ -1298,7 +1299,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                   className="hover:bg-white/10 transition-colors"
                 >
                   <ExternalLink size={16} />
-                  <span>Перейти к сообщению</span>
+                  <span>{t('mediaViewer.goToMessage', 'Перейти к сообщению')}</span>
                 </button>
               )}
 
@@ -1352,7 +1353,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                   className="hover:bg-white/10 transition-colors"
                 >
                   <Share2 size={16} />
-                  <span>Переслать</span>
+                  <span>{t('mediaViewer.forward', 'Переслать')}</span>
                 </button>
               )}
 
@@ -1378,7 +1379,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 className="hover:bg-white/10 transition-colors"
               >
                 <Download size={16} />
-                <span>Сохранить как...</span>
+                <span>{t('mediaViewer.saveAs', 'Сохранить как...')}</span>
               </button>
 
               {onOpenAllMedia && (
@@ -1405,7 +1406,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                   className="hover:bg-white/10 transition-colors"
                 >
                   <Grid size={16} />
-                  <span>Все фотографии</span>
+                  <span>{t('mediaViewer.allPhotos', 'Все фотографии')}</span>
                 </button>
               )}
 
@@ -1433,7 +1434,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                   className="hover:bg-red-500/20 transition-colors"
                 >
                   <Trash2 size={16} />
-                  <span>Удалить</span>
+                  <span>{t('mediaViewer.delete', 'Удалить')}</span>
                 </button>
               )}
             </div>

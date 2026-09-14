@@ -1558,12 +1558,23 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       sharedSecret: it.key || chat?.sharedSecret,
     }));
     const index = viewerItems.findIndex((it) => it.id === clickedItem.id || it.url === clickedItem.url);
+    const initialIndex = index !== -1 ? index : 0;
+    const orbita = (window as any).orbita;
+    if (orbita?.openMediaWindow) {
+      orbita.openMediaWindow({
+        items: viewerItems,
+        initialIndex,
+        sharedSecret: chat?.sharedSecret,
+        chatId: chat?.id,
+      });
+      return;
+    }
     setViewerState({
       isOpen: true,
       items: viewerItems,
-      initialIndex: index !== -1 ? index : 0,
+      initialIndex,
     });
-  }, [subTab, mediaGroups, searchQuery]);
+  }, [subTab, mediaGroups, searchQuery, chat]);
 
   if (!chat) {
     return (
@@ -1815,16 +1826,27 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         style={{ width: 96, height: 96, marginBottom: 10, marginTop: 0, cursor: chat.avatarUrl ? 'pointer' : 'default' }}
         onClick={() => {
           if (chat.avatarUrl) {
+            const avatarItems = [{
+              id: 'avatar',
+              url: chat.avatarUrl,
+              type: 'photo' as const,
+              name: `${chat.name || 'Avatar'}.jpg`,
+              sender: chat.name,
+              time: Date.now(),
+            }];
+            const orbita = (window as any).orbita;
+            if (orbita?.openMediaWindow) {
+              orbita.openMediaWindow({
+                items: avatarItems,
+                initialIndex: 0,
+                sharedSecret: chat.sharedSecret,
+                chatId: chat.id,
+              });
+              return;
+            }
             setViewerState({
               isOpen: true,
-              items: [{
-                id: 'avatar',
-                url: chat.avatarUrl,
-                type: 'photo',
-                name: `${chat.name || 'Avatar'}.jpg`,
-                sender: chat.name,
-                time: Date.now(),
-              }],
+              items: avatarItems,
               initialIndex: 0,
             });
           }

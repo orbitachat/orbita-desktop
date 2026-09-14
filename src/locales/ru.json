@@ -1173,6 +1173,19 @@
       "support_faq_desc": "Частые вопросы перед обращением",
       "support_admin_reply_desc": "Ответить на обращение: /reply #T-XXXXX <текст>",
       "support_admin_tickets_desc": "Показать список открытых обращений"
+    },
+    "mediaViewer": {
+      "video": "Видео",
+      "photo": "Фотография",
+      "rotate": "Повернуть",
+      "save": "Сохранить",
+      "options": "Опции",
+      "goToMessage": "Перейти к сообщению",
+      "forward": "Переслать",
+      "saveAs": "Сохранить как...",
+      "allPhotos": "Все фотографии",
+      "delete": "Удалить",
+      "counter": "{{type}} {{current}} из {{total}}"
     }
   }
 }

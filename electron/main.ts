@@ -1924,6 +1924,7 @@ ipcMain.handle('orbita:fetchUrl', async (_event, url: string) => await fetchWith
 let currentThemeId = 'orbita';
 let currentThemeVars: Record<string, string> = {};
 let mainWindow: BrowserWindow | null = null;
+let mediaWindow: BrowserWindow | null = null;
 let trayInstance: Tray | null = null;
 let showInTraySetting = true;
 let isQuitting = false;
@@ -1939,6 +1940,9 @@ ipcMain.on('orbita:set-current-theme', (_event, { themeId, themeVars }) => {
   if (callWindow && !callWindow.isDestroyed()) {
     callWindow.webContents.send('orbita:theme-changed', { themeId, themeVars });
   }
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    mediaWindow.webContents.send('orbita:theme-changed', { themeId, themeVars });
+  }
 });
 
 let currentFontFamily = 'system';
@@ -1946,6 +1950,9 @@ ipcMain.on('orbita:set-current-font', (_event, fontFamily: string) => {
   currentFontFamily = fontFamily || 'system';
   if (callWindow && !callWindow.isDestroyed()) {
     callWindow.webContents.send('orbita:font-changed', currentFontFamily);
+  }
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    mediaWindow.webContents.send('orbita:font-changed', currentFontFamily);
   }
 });
 
@@ -2248,6 +2255,9 @@ ipcMain.handle('orbita:set-screen-protection', (_event, enabled: boolean) => {
   if (callWindow && !callWindow.isDestroyed()) {
     callWindow.setContentProtection(screenProtectionSetting);
   }
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    mediaWindow.setContentProtection(screenProtectionSetting);
+  }
   return screenProtectionSetting;
 });
 
@@ -2526,6 +2536,165 @@ ipcMain.on('orbita:send-call-action', (_event, action: any) => {
   }
 });
 
+let currentMediaPayloadCache: any = null;
+const MEDIA_BOUNDS_FILE = path.join(app.getPath('userData'), 'media_window_bounds.json');
+
+function getSavedMediaWindowBounds(): { width: number; height: number; x?: number; y?: number } {
+  try {
+    if (fs.existsSync(MEDIA_BOUNDS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(MEDIA_BOUNDS_FILE, 'utf8'));
+      if (data && typeof data.width === 'number' && typeof data.height === 'number') {
+        const display = screen.getPrimaryDisplay();
+        const { width: screenW, height: screenH } = display.workAreaSize;
+        const width = Math.max(480, Math.min(data.width, screenW));
+        const height = Math.max(360, Math.min(data.height, screenH));
+        const x = typeof data.x === 'number' ? data.x : undefined;
+        const y = typeof data.y === 'number' ? data.y : undefined;
+        return { width, height, x, y };
+      }
+    }
+  } catch { }
+  return { width: 900, height: 700 };
+}
+
+function saveMediaWindowBounds(win: BrowserWindow) {
+  try {
+    if (!win || win.isDestroyed() || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return;
+    const bounds = win.getBounds();
+    fs.writeFileSync(MEDIA_BOUNDS_FILE, JSON.stringify(bounds), 'utf8');
+  } catch { }
+}
+
+function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
+  if (initialPayload) {
+    currentMediaPayloadCache = initialPayload;
+  }
+
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    return mediaWindow;
+  }
+
+  const icon = loadNativeAppIcon();
+  const bounds = getSavedMediaWindowBounds();
+
+  mediaWindow = new BrowserWindow({
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
+    minWidth: 480,
+    minHeight: 360,
+    resizable: true,
+    frame: false,
+    titleBarStyle: 'hidden',
+    backgroundColor: '#0e0e12',
+    alwaysOnTop: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      preload: path.join(__dirname, 'preload.cjs'),
+      backgroundThrottling: false,
+      devTools: !app.isPackaged,
+    },
+    title: 'Orbita Media',
+    show: false,
+    icon: icon && !icon.isEmpty() ? icon : undefined,
+  });
+
+  Menu.setApplicationMenu(null);
+  if (screenProtectionSetting) {
+    mediaWindow.setContentProtection(true);
+  }
+
+  mediaWindow.on('resize', () => {
+    if (mediaWindow && !mediaWindow.isDestroyed()) {
+      saveMediaWindowBounds(mediaWindow);
+      mediaWindow.webContents.send('window:state-changed', mediaWindow.isMaximized());
+    }
+  });
+
+  mediaWindow.on('move', () => {
+    if (mediaWindow && !mediaWindow.isDestroyed()) {
+      saveMediaWindowBounds(mediaWindow);
+    }
+  });
+
+  mediaWindow.on('maximize', () => {
+    if (mediaWindow && !mediaWindow.isDestroyed()) {
+      mediaWindow.webContents.send('window:state-changed', true);
+    }
+  });
+
+  mediaWindow.on('unmaximize', () => {
+    if (mediaWindow && !mediaWindow.isDestroyed()) {
+      mediaWindow.webContents.send('window:state-changed', false);
+    }
+  });
+
+  mediaWindow.on('closed', () => {
+    mediaWindow = null;
+  });
+
+  if (isPackaged) {
+    mediaWindow.loadFile(path.join(__dirname, '../dist/media.html'));
+  } else {
+    mediaWindow.loadURL('http://127.0.0.1:5173/media.html');
+  }
+
+  return mediaWindow;
+}
+
+function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
+  if (initialPayload) {
+    currentMediaPayloadCache = initialPayload;
+  }
+
+  const win = initOrGetMediaWindow(initialPayload);
+
+  if (currentMediaPayloadCache && !win.isDestroyed()) {
+    win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
+  }
+
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+
+  if (currentMediaPayloadCache && !win.isDestroyed() && win.webContents.isLoading()) {
+    win.webContents.once('did-finish-load', () => {
+      if (currentMediaPayloadCache && !win.isDestroyed()) {
+        win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
+      }
+    });
+  }
+
+  return win;
+}
+
+ipcMain.handle('orbita:open-media-window', (_event, payload?: any) => {
+  createOrShowMediaWindow(payload);
+  return { success: true };
+});
+
+ipcMain.handle('orbita:close-media-window', () => {
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    currentMediaPayloadCache = null;
+    mediaWindow.webContents.send('orbita:media-payload', null);
+    mediaWindow.hide();
+  }
+  return { success: true };
+});
+
+ipcMain.handle('orbita:get-media-payload', () => {
+  return currentMediaPayloadCache;
+});
+
+ipcMain.on('orbita:send-media-action', (_event, action: any) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('orbita:media-action', action);
+  }
+});
+
 ipcMain.handle('orbita:get-desktop-sources', async (_event, opts?: { types?: Array<'screen' | 'window'>; thumbnailWidth?: number; thumbnailHeight?: number; fetchWindowIcons?: boolean }) => {
   const sources = await desktopCapturer.getSources({
     types: opts?.types || ['screen', 'window'],
@@ -2574,6 +2743,10 @@ ipcMain.handle('window:close', (event) => {
         callWindow.webContents.send('orbita:call-state', null);
         callWindow.hide();
       }
+    } else if (mediaWindow && win === mediaWindow) {
+      currentMediaPayloadCache = null;
+      mediaWindow.webContents.send('orbita:media-payload', null);
+      mediaWindow.hide();
     } else if (win === mainWindow) {
       if (showInTraySetting) {
         mainWindow.hide();

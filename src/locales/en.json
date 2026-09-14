@@ -1162,6 +1162,19 @@
       "support_faq_desc": "Frequent questions before contacting",
       "support_admin_reply_desc": "Reply to ticket: /reply #T-XXXXX <text>",
       "support_admin_tickets_desc": "Show list of open tickets"
+    },
+    "mediaViewer": {
+      "video": "Video",
+      "photo": "Photo",
+      "rotate": "Rotate",
+      "save": "Save",
+      "options": "Options",
+      "goToMessage": "Go to message",
+      "forward": "Forward",
+      "saveAs": "Save as...",
+      "allPhotos": "All photos",
+      "delete": "Delete",
+      "counter": "{{type}} {{current}} of {{total}}"
     }
   }
 }
