@@ -589,7 +589,7 @@ class SupabaseService {
     if (!userCode || !nickname) return;
     const finalHide = hideProfileId !== undefined ? hideProfileId : useChatStore.getState().hideProfileId;
     try {
-      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, finalHide);
+      await this.saveProfileUpdate(userCode, nickname, avatarUrl, finalHide ? null : userCode, finalHide);
     } catch (e) {
       console.warn('[Directory] Failed to publish profile update:', e);
     }

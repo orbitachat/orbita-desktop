@@ -31,8 +31,8 @@ const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: stri
   const payload = {
     type: 'profile-update',
     sender: finalNickname,
-    senderCode: myCode,
-    senderId: myCode,
+    senderCode: finalHideProfileId ? null : myCode,
+    senderId: finalHideProfileId ? null : myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
     hideProfileId: finalHideProfileId,
@@ -45,7 +45,7 @@ const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: stri
   const chats = useChatStore.getState().chats;
   chats.forEach((chat) => {
     if (chat.type === 'private' && chat.id !== 'notes') {
-      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalHideProfileId).catch(() => {});
+      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, finalHideProfileId ? null : myCode, finalHideProfileId).catch(() => {});
       ablyService.sendMessage(chat.id, payload).catch(() => {});
       const pusher = getPusher();
       const channel = pusher.subscribe(`private-chat-${chat.id}`);
@@ -197,14 +197,13 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
   }, []);
 
   const handleCopyLink = useCallback(() => {
-    if (hideProfileId) return;
     if (myCode) {
       const link = getInviteLink(myCode);
       navigator.clipboard.writeText(link);
     }
     setCopyToastOpen(true);
     setTimeout(() => setCopyToastOpen(false), 2000);
-  }, [myCode, hideProfileId]);
+  }, [myCode]);
 
   const handleSaveNickname = useCallback((newNick: string) => {
     setNickname(newNick);
@@ -870,11 +869,11 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: '14px',
-                  cursor: hideProfileId ? 'default' : 'pointer',
+                  cursor: 'pointer',
                   userSelect: 'none',
                   boxSizing: 'border-box',
                 }}
-                onClick={hideProfileId ? undefined : handleCopyLink}
+                onClick={handleCopyLink}
               >
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                   <span
@@ -887,9 +886,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                       fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                     }}
                   >
-                    {hideProfileId && myCode && myCode.length > 10
-                      ? `${myCode.slice(0, 5)}...${myCode.slice(-5)}`
-                      : (myCode || '------')}
+                    {myCode || '------'}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
                     {hideProfileId ? t('profile.id_hidden', 'ID скрыт') : 'ID'}

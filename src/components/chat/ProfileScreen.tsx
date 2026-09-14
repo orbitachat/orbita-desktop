@@ -1795,23 +1795,21 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     );
   };
 
-  const profileId = useMemo(() => {
-    if (!chat) return '';
-    if (isChannel) return chat.id;
-    if (chatId === 'notes') return '';
-    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined) || '';
-  }, [isChannel, chat, chatId]);
-
   const isProfileIdHidden = useMemo(() => {
     if (isChannel) return false;
     return Boolean(chat?.hideProfileId);
   }, [isChannel, chat?.hideProfileId]);
 
+  const profileId = useMemo(() => {
+    if (isChannel) return chat.id;
+    if (chatId === 'notes') return '';
+    if (isProfileIdHidden) return '000';
+    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined) || '';
+  }, [isChannel, chat, chatId, isProfileIdHidden]);
+
   const formattedProfileId = useMemo(() => {
+    if (isProfileIdHidden) return '000';
     if (!profileId) return '';
-    if (isProfileIdHidden && profileId.length > 10) {
-      return `${profileId.slice(0, 5)}...${profileId.slice(-5)}`;
-    }
     return profileId;
   }, [profileId, isProfileIdHidden]);
 
@@ -1883,9 +1881,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           </h3>
           <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
             <DeveloperBadge
-              userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
+              userId={isProfileIdHidden ? undefined : (chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined))}
               size={34}
-              onClick={triggerDevToast}
+              onClick={isProfileIdHidden ? undefined : triggerDevToast}
             />
           </div>
         </div>

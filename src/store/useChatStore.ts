@@ -118,6 +118,15 @@ export interface LinkPreviewData {
   image?: string;
 }
 
+export interface ForwardedFrom {
+  sender?: string;
+  senderId?: string;
+  chatId?: string;
+  chatTitle?: string;
+  time?: number;
+  isAnonymous?: boolean;
+}
+
 export interface Message {
   id?: string;
   senderId?: string;
@@ -149,6 +158,8 @@ export interface Message {
   reactions?: Record<string, string[]>;
   linkPreview?: LinkPreviewData;
   buttons?: Array<{ text: string; action: string; channelId?: string; url?: string; data?: string; icon?: 'channel' | 'backup' | 'help' | 'link' }>;
+  forwarded_from?: ForwardedFrom;
+  forwardedFrom?: ForwardedFrom;
 }
 
 export function isMessageOutgoing(

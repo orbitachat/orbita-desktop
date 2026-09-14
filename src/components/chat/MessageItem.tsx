@@ -9,6 +9,7 @@ import { isEmojiOnly } from '../../lib/emoji-data';
 import { MessageStatus } from '../MessageStatus';
 import { MessageReactions } from './ReactionBadge';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
+import { ForwardedMessageBlock } from './ForwardedMessageBlock';
 
 interface MessageItemProps {
   msg: Message;
@@ -112,7 +113,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
 
     const timeStr = useMemo(() => formatTimeOfDay(msg.time), [msg.time]);
 
-    const isEmojiNoBubble = isEmoji && emojiCount >= 1 && emojiCount < 4;
+    const isEmojiNoBubble = isEmoji && emojiCount >= 1 && emojiCount < 4 && !msg.forwarded_from && !msg.forwardedFrom;
 
     const emojiNoBubbleStyle = useMemo(() => {
       if (emojiCount === 1) {
@@ -258,6 +259,14 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 </span>
                 <DeveloperBadge userId={msg.senderId || activeChat?.peerCode} size={20} />
               </div>
+            )}
+
+            {(msg.forwarded_from || msg.forwardedFrom) && (
+              <ForwardedMessageBlock
+                forwarded={(msg.forwarded_from || msg.forwardedFrom)!}
+                isOwn={isOwn}
+                themeColor={themeColor}
+              />
             )}
 
             {parsed.quotes.length > 0 && (

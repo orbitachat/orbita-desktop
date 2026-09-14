@@ -1177,6 +1177,27 @@
       "counter": "{{type}} {{current}} of {{total}}",
       "previousPhoto": "Previous",
       "nextPhoto": "Next"
+    },
+    "forward": {
+      "title": "Forward",
+      "forward_to": "Forward to...",
+      "forward_messages": "Forward messages",
+      "forwarded_from": "Forwarded from",
+      "forwarded_message": "Forwarded message",
+      "hide_author": "Hide sender name",
+      "hide_author_desc": "Anonymize metadata before sending",
+      "messages_count": "{{count}} messages",
+      "messages_count_one": "{{count}} message",
+      "messages_count_few": "{{count}} messages",
+      "messages_count_many": "{{count}} messages",
+      "forwarded_success": "Messages forwarded",
+      "search_placeholder": "Search chat...",
+      "no_chats": "No chats found",
+      "notes": "Saved Messages",
+      "current": "current",
+      "channel": "Channel",
+      "group": "Group",
+      "dialog": "Chat"
     }
   }
 }

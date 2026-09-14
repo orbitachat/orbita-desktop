@@ -1188,6 +1188,27 @@
       "counter": "{{type}} {{current}} из {{total}}",
       "previousPhoto": "Предыдущее",
       "nextPhoto": "Следующее"
+    },
+    "forward": {
+      "title": "Переслать",
+      "forward_to": "Переслать в...",
+      "forward_messages": "Переслать сообщения",
+      "forwarded_from": "Переслано от",
+      "forwarded_message": "Пересланное сообщение",
+      "hide_author": "Скрыть имя автора",
+      "hide_author_desc": "Анонимизировать метаданные перед отправкой",
+      "messages_count": "{{count}} сообщений",
+      "messages_count_one": "{{count}} сообщение",
+      "messages_count_few": "{{count}} сообщения",
+      "messages_count_many": "{{count}} сообщений",
+      "forwarded_success": "Сообщения пересланы",
+      "search_placeholder": "Поиск чата...",
+      "no_chats": "Чаты не найдены",
+      "notes": "Избранное",
+      "current": "текущий",
+      "channel": "Канал",
+      "group": "Группа",
+      "dialog": "Диалог"
     }
   }
 }

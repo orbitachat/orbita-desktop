@@ -1411,6 +1411,8 @@ export const MainLayout = () => {
           duration: messageData.duration || undefined,
           waveform: messageData.waveform || undefined,
           linkPreview: messageData.linkPreview || undefined,
+          forwarded_from: messageData.forwarded_from || messageData.forwardedFrom || undefined,
+          forwardedFrom: messageData.forwarded_from || messageData.forwardedFrom || undefined,
         });
 
         if (isActiveChat) {
@@ -1471,8 +1473,11 @@ export const MainLayout = () => {
               const updates: Partial<Chat> = {};
               if (messageData.avatarUrl !== undefined) updates.avatarUrl = messageData.avatarUrl;
               if (messageData.nickname !== undefined && messageData.nickname !== myNickname && messageData.nickname !== nickname) updates.name = messageData.nickname;
-              if (messageData.senderCode && (!myCode || messageData.senderCode !== myCode)) updates.peerCode = messageData.senderCode;
-              if (messageData.hideProfileId !== undefined) updates.hideProfileId = Boolean(messageData.hideProfileId);
+              if (messageData.hideProfileId !== undefined) {
+                updates.hideProfileId = Boolean(messageData.hideProfileId);
+                if (updates.hideProfileId) updates.peerCode = undefined;
+              }
+              if (messageData.senderCode && (!myCode || messageData.senderCode !== myCode) && !updates.hideProfileId) updates.peerCode = messageData.senderCode;
               if (Object.keys(updates).length > 0) {
                 updateChat(record.chat_id, updates);
               }
@@ -1500,6 +1505,8 @@ export const MainLayout = () => {
               duration: messageData.duration || undefined,
               waveform: messageData.waveform || undefined,
               linkPreview: messageData.linkPreview || undefined,
+              forwarded_from: messageData.forwarded_from || messageData.forwardedFrom || undefined,
+              forwardedFrom: messageData.forwarded_from || messageData.forwardedFrom || undefined,
             });
 
             await supabaseService.markNonMessageDelivered(record.id);
@@ -1702,8 +1709,9 @@ export const MainLayout = () => {
           if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
           if (update.hide_profile_id !== undefined && update.hide_profile_id !== null && Boolean(update.hide_profile_id) !== Boolean(chat.hideProfileId)) {
             updates.hideProfileId = Boolean(update.hide_profile_id);
+            if (updates.hideProfileId) updates.peerCode = undefined;
           }
-          if (update.sender_code && update.sender_code !== myCode && !chat.peerCode) updates.peerCode = update.sender_code;
+          if (update.sender_code && update.sender_code !== myCode && !chat.peerCode && !updates.hideProfileId && !chat.hideProfileId) updates.peerCode = update.sender_code;
         }
 
         if (updates.hideProfileId === undefined && targetPeerCode) {
@@ -1713,6 +1721,7 @@ export const MainLayout = () => {
             if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl && !updates.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
             if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null && Boolean(pub.hide_profile_id) !== Boolean(chat.hideProfileId)) {
               updates.hideProfileId = Boolean(pub.hide_profile_id);
+              if (updates.hideProfileId) updates.peerCode = undefined;
             }
           }
         }
@@ -2212,7 +2221,9 @@ export const MainLayout = () => {
           sender: data.sender,
           text: parsedData?.text !== undefined ? parsedData.text : decrypted,
           time: data.time || Date.now(),
-          read: isCurrentActive
+          read: isCurrentActive,
+          forwarded_from: parsedData?.forwarded_from || parsedData?.forwardedFrom || undefined,
+          forwardedFrom: parsedData?.forwarded_from || parsedData?.forwardedFrom || undefined,
         });
         if (isCurrentActive) {
           const sendRead = () => channel.trigger('client-message', { type: 'read', time: data.time, messageId: msgId, sender: nickname });
@@ -2791,6 +2802,8 @@ export const MainLayout = () => {
               duration: messageData.duration || undefined,
               waveform: messageData.waveform || undefined,
               linkPreview: messageData.linkPreview || undefined,
+              forwarded_from: messageData.forwarded_from || messageData.forwardedFrom || undefined,
+              forwardedFrom: messageData.forwarded_from || messageData.forwardedFrom || undefined,
             },
             data.ciphertext,
             data.index
