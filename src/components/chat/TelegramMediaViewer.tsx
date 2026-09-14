@@ -766,14 +766,13 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               transition: 'background-color 0.15s, color 0.15s',
             }}
             className="hover:bg-white/15 hover:text-white"
-            title="Свернуть"
+            aria-label="Свернуть"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M1 10H11" stroke="currentColor" strokeWidth="1" strokeLinecap="square" />
             </svg>
           </button>
 
-          {/* Maximize / Restore */}
           <button
             onClick={() => {
               try { ((window as any).orbita?.maximizeWindow?.()); } catch { }
@@ -793,7 +792,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               transition: 'background-color 0.15s, color 0.15s',
             }}
             className="hover:bg-white/15 hover:text-white"
-            title={isWindowMaximized ? 'Восстановить' : 'Развернуть'}
+            aria-label={isWindowMaximized ? 'Восстановить' : 'Развернуть'}
           >
             {isWindowMaximized ? (
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -807,7 +806,6 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             )}
           </button>
 
-          {/* Close Media Viewer */}
           <button
             onClick={onClose}
             style={{
@@ -825,7 +823,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               transition: 'background-color 0.15s, color 0.15s',
             }}
             className="hover:bg-red-500/30 hover:text-red-300"
-            title="Закрыть (Esc)"
+            aria-label="Закрыть (Esc)"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1" strokeLinecap="square" />

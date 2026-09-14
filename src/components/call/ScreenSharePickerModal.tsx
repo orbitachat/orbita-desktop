@@ -45,7 +45,7 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [quality, setQuality] = useState<'240p' | '360p' | '720p'>('720p');
   const [fps, setFps] = useState<15 | 30 | 45>(45);
-  const [shareAudio, setShareAudio] = useState<boolean>(true);
+  const [shareAudio, setShareAudio] = useState<boolean>(false);
 
   const fetchSources = useCallback(async () => {
     const orbita = (window as any).orbita;
@@ -390,6 +390,12 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {shareAudio && (
+              <div className="w-full text-[11.5px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg select-none">
+                {t('call.share_audio_echo_warning')}
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button

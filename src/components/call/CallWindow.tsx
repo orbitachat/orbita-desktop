@@ -105,6 +105,8 @@ export const CallWindow = () => {
   const isEnded = callState === 'ended';
 
   const hasLocalScreenShare = (isConnected || isConnecting) && isScreenSharing;
+  const isDualScreenShare = isRemoteScreenShareActive && hasLocalScreenShare;
+  const hasAnyActiveStream = isRemoteVideoActive || isRemoteScreenShareActive || hasLocalScreenShare;
 
   const currentRoomName = activeCall?.roomName;
   const prevRoomRef = useRef<string | null>(null);
@@ -631,48 +633,137 @@ export const CallWindow = () => {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
-        <div
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
-            isExpanded
-              ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
-              : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
-          }`}
-          style={{
-            display: (isRemoteVideoActive || isRemoteScreenShareActive) ? 'flex' : 'none',
-            borderRadius: isExpanded ? 0 : '24px',
-          }}
-        >
-          <video
-            ref={remoteScreenShareRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-contain"
-            style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
-          />
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-            style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
-          />
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsExpanded(!isExpanded);
-            }}
-            aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
-            className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+        {isDualScreenShare ? (
+          <div
+            className={`relative z-20 flex flex-row items-center justify-center gap-3.5 w-full px-4 transition-all duration-300 ${
+              isExpanded
+                ? 'fixed inset-0 z-40 bg-black/95 p-6 w-full h-full max-w-none max-h-none'
+                : 'max-w-[1160px] max-h-[58vh]'
+            }`}
           >
-            {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-          </button>
-        </div>
+            <div
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
+            >
+              <video
+                ref={remoteScreenShareRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-contain"
+              />
+              <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none">
+                {otherName || t('call.screen_share_of_user')}
+              </div>
+            </div>
 
-        {(isRemoteVideoActive || isRemoteScreenShareActive) && !isExpanded && (
+            <div
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
+            >
+              <video
+                ref={localScreenShareRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-contain"
+              />
+              <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{t('call.your_screen')}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+              className="absolute top-3 right-5 z-40 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+            >
+              {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          </div>
+        ) : (isRemoteVideoActive || isRemoteScreenShareActive) ? (
+          <div
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
+              isExpanded
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
+                : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
+            }`}
+            style={{
+              borderRadius: isExpanded ? 0 : '24px',
+            }}
+          >
+            <video
+              ref={remoteScreenShareRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-contain"
+              style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
+            />
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+              style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+              className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+            >
+              {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          </div>
+        ) : hasLocalScreenShare ? (
+          <div
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
+              isExpanded
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
+                : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
+            }`}
+            style={{
+              borderRadius: isExpanded ? 0 : '24px',
+            }}
+          >
+            <video
+              ref={localScreenShareRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-contain"
+            />
+            <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{t('call.your_screen')}</span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+              className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+            >
+              {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          </div>
+        ) : null}
+
+        {hasAnyActiveStream && !isExpanded && (
           <div className="flex flex-col items-center mt-3 select-none">
             <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white">
               {otherName}
@@ -686,7 +777,7 @@ export const CallWindow = () => {
           </div>
         )}
 
-        {!(isRemoteVideoActive || isRemoteScreenShareActive) && (
+        {!hasAnyActiveStream && (
           <>
             <div className="relative w-[150px] h-[150px] flex items-center justify-center select-none">
               {isConnected && (

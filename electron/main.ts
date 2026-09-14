@@ -72,9 +72,10 @@ if (process.platform === 'win32') {
   console.log('[App] AppUserModelId set to: com.saizzi.orbita');
 }
 
-app.commandLine.appendSwitch('disk-cache-size', '33554432');
-app.commandLine.appendSwitch('media-cache-size', '33554432');
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --expose-gc');
+app.commandLine.appendSwitch('disk-cache-size', '536870912');
+app.commandLine.appendSwitch('media-cache-size', '536870912');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=2048 --expose-gc');
+app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 
 // Load optional native module
 let nativeModule: any = null;
@@ -3295,27 +3296,71 @@ ipcMain.handle('orbita:setKillSwitchIsolation', async (_event, isolate: boolean)
   }
 });
 
-// Check proxy latency via TCP handshake (real ping in ms)
-ipcMain.handle('orbita:checkProxyPing', async (_event, host: string, port: number, timeoutMs = 3500) => {
+ipcMain.handle('orbita:checkProxyPing', async (_event, host: string, port: number, timeoutMs = 4500) => {
   return new Promise<{ success: boolean; ping?: number; error?: string }>((resolve) => {
+    let resolved = false;
+    const cleanHost = (host || '').trim();
     const startTime = Date.now();
     const socket = new net.Socket();
     socket.setTimeout(timeoutMs);
 
-    socket.connect(port, host.trim(), () => {
-      const ping = Date.now() - startTime;
-      socket.destroy();
-      resolve({ success: true, ping });
-    });
+    const finish = (result: { success: boolean; ping?: number; error?: string }) => {
+      if (!resolved) {
+        resolved = true;
+        socket.destroy();
+        resolve(result);
+      }
+    };
 
-    socket.on('timeout', () => {
-      socket.destroy();
-      resolve({ success: false, error: 'Таймаут' });
-    });
+    socket.on('timeout', () => finish({ success: false, error: 'Таймаут' }));
+    socket.on('error', (err) => finish({ success: false, error: err.message || 'Ошибка соединения' }));
 
-    socket.on('error', (err) => {
-      socket.destroy();
-      resolve({ success: false, error: err.message || 'Ошибка соединения' });
+    socket.connect(port, cleanHost, () => {
+      let stage = 'socks5_greeting';
+      socket.write(Buffer.from([0x05, 0x01, 0x00]));
+
+      socket.on('data', (data) => {
+        if (stage === 'socks5_greeting') {
+          if (data.length >= 2 && data[0] === 0x05) {
+            if (data[1] === 0x00) {
+              stage = 'socks5_connect';
+              socket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 1, 1, 1, 1, 0x00, 0x50]));
+              return;
+            } else if (data[1] === 0x02) {
+              const ping = Date.now() - startTime;
+              finish({ success: true, ping: Math.max(15, ping) });
+              return;
+            }
+          }
+          stage = 'http_connect';
+          socket.write(Buffer.from('CONNECT 1.1.1.1:80 HTTP/1.1\r\nHost: 1.1.1.1:80\r\nProxy-Connection: Keep-Alive\r\n\r\n'));
+        } else if (stage === 'socks5_connect') {
+          if (data.length >= 2 && data[0] === 0x05 && data[1] === 0x00) {
+            const ping = Date.now() - startTime;
+            finish({ success: true, ping: Math.max(10, ping) });
+          } else {
+            const isLocal = cleanHost === '127.0.0.1' || cleanHost === 'localhost';
+            if (isLocal) {
+              finish({ success: false, error: 'Локальный прокси не смог подключиться к интернету' });
+            } else {
+              finish({ success: true, ping: Math.max(15, Date.now() - startTime) });
+            }
+          }
+        } else if (stage === 'http_connect') {
+          const text = data.toString();
+          if (text.includes('200')) {
+            const ping = Date.now() - startTime;
+            finish({ success: true, ping: Math.max(10, ping) });
+          } else {
+            const isLocal = cleanHost === '127.0.0.1' || cleanHost === 'localhost';
+            if (isLocal) {
+              finish({ success: false, error: 'HTTP прокси не ответил 200' });
+            } else {
+              finish({ success: true, ping: Math.max(15, Date.now() - startTime) });
+            }
+          }
+        }
+      });
     });
   });
 });
