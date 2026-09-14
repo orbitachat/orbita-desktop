@@ -2705,17 +2705,31 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
   return win;
 }
 
+function closeAndPrewarmMediaWindow() {
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    currentMediaPayloadCache = null;
+    const oldWin = mediaWindow;
+    mediaWindow = null;
+    try {
+      oldWin.hide();
+    } catch { }
+    setTimeout(() => {
+      try {
+        if (!oldWin.isDestroyed()) {
+          oldWin.destroy();
+        }
+      } catch { }
+    }, 50);
+  }
+}
+
 ipcMain.handle('orbita:open-media-window', (_event, payload?: any) => {
   createOrShowMediaWindow(payload);
   return { success: true };
 });
 
 ipcMain.handle('orbita:close-media-window', () => {
-  if (mediaWindow && !mediaWindow.isDestroyed()) {
-    currentMediaPayloadCache = null;
-    mediaWindow.webContents.send('orbita:media-payload', null);
-    mediaWindow.hide();
-  }
+  closeAndPrewarmMediaWindow();
   return { success: true };
 });
 
@@ -2798,9 +2812,7 @@ ipcMain.handle('window:close', (event) => {
         callWindow.hide();
       }
     } else if (mediaWindow && win === mediaWindow) {
-      currentMediaPayloadCache = null;
-      mediaWindow.webContents.send('orbita:media-payload', null);
-      mediaWindow.hide();
+      closeAndPrewarmMediaWindow();
     } else if (win === mainWindow) {
       if (showInTraySetting) {
         mainWindow.hide();
@@ -3416,6 +3428,10 @@ app.on('before-quit', () => {
   if (callWindow && !callWindow.isDestroyed()) {
     callWindow.destroy();
     callWindow = null;
+  }
+  if (mediaWindow && !mediaWindow.isDestroyed()) {
+    mediaWindow.destroy();
+    mediaWindow = null;
   }
   destroyTray();
 });

@@ -53,20 +53,9 @@ export const MediaWindowView: React.FC = () => {
     let unsubPayload: (() => void) | undefined;
     if (orbita?.onMediaPayload) {
       unsubPayload = orbita.onMediaPayload((newPayload: any) => {
-        setPayload((prev) => {
-          if (
-            prev &&
-            newPayload &&
-            prev.initialIndex === newPayload.initialIndex &&
-            prev.chatId === newPayload.chatId &&
-            prev.items?.length === newPayload.items?.length &&
-            prev.items?.[0]?.id === newPayload.items?.[0]?.id &&
-            prev.items?.[prev.initialIndex || 0]?.id === newPayload.items?.[newPayload.initialIndex || 0]?.id
-          ) {
-            return prev;
-          }
-          return newPayload;
-        });
+        if (newPayload) {
+          setPayload(newPayload);
+        }
       });
     }
 

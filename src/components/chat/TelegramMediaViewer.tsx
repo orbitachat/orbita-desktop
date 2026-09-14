@@ -425,21 +425,25 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
   useEffect(() => {
     if (!isOpen || items.length === 0) return;
 
-    const preloadIndices = [
-      currentIndex + 1,
-      currentIndex + 2,
-      currentIndex + 3,
-      currentIndex - 1,
-      currentIndex - 2,
-    ].filter((idx) => idx >= 0 && idx < items.length);
+    const timer = setTimeout(() => {
+      const preloadIndices = [
+        currentIndex + 1,
+        currentIndex + 2,
+        currentIndex + 3,
+        currentIndex - 1,
+        currentIndex - 2,
+      ].filter((idx) => idx >= 0 && idx < items.length);
 
-    preloadIndices.forEach((idx) => {
-      const item = items[idx];
-      const itemSecret = item?.key || item?.sharedSecret || sharedSecret;
-      if (item && item.url && !item.url.startsWith('blob:') && !item.url.startsWith('data:')) {
-        mediaManager.getMedia(item.url, itemSecret || '', item.name, undefined, item.messageId).catch(() => {});
-      }
-    });
+      preloadIndices.forEach((idx) => {
+        const item = items[idx];
+        const itemSecret = item?.key || item?.sharedSecret || sharedSecret;
+        if (item && item.url && !item.url.startsWith('blob:') && !item.url.startsWith('data:')) {
+          mediaManager.getMedia(item.url, itemSecret || '', item.name, undefined, item.messageId).catch(() => {});
+        }
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
   }, [isOpen, currentIndex, items, sharedSecret]);
 
   // Keyboard navigation & controls
@@ -1164,7 +1168,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               key={displaySrc}
               src={displaySrc}
               alt=""
-              decoding="sync"
+              decoding="async"
               loading="eager"
               style={{
                 maxWidth: zoomScale > 1 ? 'none' : 'calc(100vw - 140px)',
