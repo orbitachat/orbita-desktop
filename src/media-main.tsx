@@ -114,7 +114,7 @@ export const MediaWindowView: React.FC = () => {
   return (
     <div className="w-full h-full min-h-screen bg-transparent overflow-hidden select-none">
       <TelegramMediaViewer
-        isOpen={Boolean(payload && payload.items && payload.items.length > 0)}
+        isOpen={true}
         items={payload?.items || []}
         initialIndex={payload?.initialIndex || 0}
         sharedSecret={payload?.sharedSecret}

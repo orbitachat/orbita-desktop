@@ -712,11 +712,13 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
     return () => {
       unsubscribe?.();
     };
-  }, []);  if (!isOpen || !currentItem) return null;
+  }, []);
+
+  if (!isOpen) return null;
 
   const typeLabel = isVideo ? t('mediaViewer.video', 'Видео') : isGif ? 'GIF' : t('mediaViewer.photo', 'Фотография');
-  const dateStr = currentItem.time ? formatTelegramDate(currentItem.time, i18n.language) : '';
-  const senderStr = currentItem.sender || '';
+  const dateStr = currentItem?.time ? formatTelegramDate(currentItem.time, i18n.language) : '';
+  const senderStr = currentItem?.sender || '';
 
   return typeof document !== 'undefined' && createPortal(
     <div
@@ -1164,7 +1166,6 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
             )
           ) : (
             <img
-              key={displaySrc}
               src={displaySrc}
               alt=""
               decoding="async"
@@ -1183,12 +1184,13 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 display: 'block',
                 userSelect: 'none',
               }}
+              onClick={(e) => e.stopPropagation()}
               onMouseDown={handleImageMouseDown}
               onDoubleClick={handleImageDoubleClick}
               draggable={false}
             />
           )
-        ) : (
+        ) : currentItem ? (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             <div
               style={{
@@ -1201,10 +1203,10 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               }}
             />
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Telegram-style Bottom Bar */}
+      {currentItem && (
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -1490,6 +1492,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
           )}
         </div>
       </div>
+      )}
     </div>,
     document.body
   );
