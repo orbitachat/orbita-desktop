@@ -8,7 +8,6 @@ import {
   LocalVideoTrack,
   LocalAudioTrack,
   Track,
-  VideoPresets,
   type RoomOptions,
   type RoomConnectOptions,
 } from 'livekit-client';
@@ -513,7 +512,12 @@ class LiveKitService extends EventEmitter {
       const selectedCamId = useChatStore.getState().selectedCameraId;
       await this.localParticipant.setCameraEnabled(true, {
         deviceId: selectedCamId || undefined,
-        resolution: VideoPresets.h720.resolution,
+        resolution: {
+          width: 1920,
+          height: 1080,
+          frameRate: 60,
+          aspectRatio: 16 / 9,
+        },
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);
       if (pub?.track) {
@@ -577,21 +581,21 @@ class LiveKitService extends EventEmitter {
     return null;
   }
 
-  public async startScreenShare(options?: { sourceId?: string; quality?: '240p' | '360p' | '720p' | '1080p'; fps?: 15 | 30 | 45 | 60; audio?: boolean }): Promise<boolean> {
+  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: 45 | 60 | 90; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) {
       return false;
     }
     let width = 1280;
     let height = 720;
-    if (options?.quality === '1080p') {
+    if (options?.quality === '1440p') {
+      width = 2560;
+      height = 1440;
+    } else if (options?.quality === '1080p') {
       width = 1920;
       height = 1080;
-    } else if (options?.quality === '360p') {
-      width = 640;
-      height = 360;
-    } else if (options?.quality === '240p') {
-      width = 426;
-      height = 240;
+    } else if (options?.quality === '720p') {
+      width = 1280;
+      height = 720;
     }
     const frameRate = options?.fps || 45;
     const includeAudio = !!options?.audio;
@@ -698,7 +702,7 @@ class LiveKitService extends EventEmitter {
     this.emit('screenShareChanged', false, null);
   }
 
-  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: 30 | 60; audio?: boolean }): Promise<boolean> {
+  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: 45 | 60 | 90; audio?: boolean }): Promise<boolean> {
     if (this.isScreenSharing()) {
       await this.stopScreenShare();
       return false;

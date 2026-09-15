@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Phone, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2 } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
@@ -121,6 +121,14 @@ export const CallWindowView = () => {
     return null;
   });
 
+  const [hasCamera, setHasCamera] = useState<boolean>(false);
+  const [isScreenPickerOpen, setIsScreenPickerOpen] = useState<boolean>(false);
+  const [isRemoteVideoActive, setIsRemoteVideoActive] = useState<boolean>(false);
+  const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
+  const [isLocalScreenShareActive, setIsLocalScreenShareActive] = useState<boolean>(false);
+  const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
+  const [expandedShare, setExpandedShare] = useState<'remote' | 'local' | null>(null);
+
   useEffect(() => {
     const applyVars = (vars: Record<string, string>) => {
       const root = document.documentElement;
@@ -181,7 +189,7 @@ export const CallWindowView = () => {
       setIsRemoteScreenShareActive(false);
       setIsRemoteVideoActive(false);
       setIsLocalVideoActive(false);
-      setIsExpanded(false);
+      setExpandedShare(null);
       setIsScreenPickerOpen(false);
       liveKitService.disconnect().catch(() => {});
     };
@@ -271,19 +279,58 @@ export const CallWindowView = () => {
     } catch {}
   };
 
-  const [hasCamera, setHasCamera] = useState<boolean>(false);
-  const [isScreenPickerOpen, setIsScreenPickerOpen] = useState<boolean>(false);
-  const [isRemoteVideoActive, setIsRemoteVideoActive] = useState<boolean>(false);
-  const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
-  const [isLocalScreenShareActive, setIsLocalScreenShareActive] = useState<boolean>(false);
-  const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteScreenShareRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localScreenShareRef = useRef<HTMLVideoElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
+
+  const attachRemoteScreenShare = useCallback((el: HTMLVideoElement | null) => {
+    remoteScreenShareRef.current = el;
+    if (el) {
+      const track = liveKitService.getRemoteScreenShareTrack();
+      if (track) track.attach(el);
+    }
+  }, []);
+
+  const attachLocalScreenShare = useCallback((el: HTMLVideoElement | null) => {
+    localScreenShareRef.current = el;
+    if (el) {
+      const track = liveKitService.getScreenShareTrack();
+      if (track) track.attach(el);
+    }
+  }, []);
+
+  const attachLocalVideo = useCallback((el: HTMLVideoElement | null) => {
+    localVideoRef.current = el;
+    if (el) {
+      const track = liveKitService.getLocalVideoTrack();
+      if (track) track.attach(el);
+    }
+  }, []);
+
+  const attachRemoteVideo = useCallback((el: HTMLVideoElement | null) => {
+    remoteVideoRef.current = el;
+    if (el) {
+      const track = liveKitService.getRemoteVideoTrack();
+      if (track) track.attach(el);
+    }
+  }, []);
+
+  const attachBgVideo = useCallback((el: HTMLVideoElement | null) => {
+    bgVideoRef.current = el;
+    if (el) {
+      const sTrack = liveKitService.getRemoteScreenShareTrack();
+      if (sTrack && !sTrack.isMuted) {
+        sTrack.attach(el);
+      } else {
+        const rTrack = liveKitService.getRemoteVideoTrack();
+        if (rTrack && !rTrack.isMuted) {
+          rTrack.attach(el);
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const checkCameraAvailability = async () => {
@@ -320,6 +367,9 @@ export const CallWindowView = () => {
   const isVideoEnabled = callData?.isVideoEnabled ?? (activeCall?.callType === 'video');
   const isScreenSharing = (isConnected || isConnecting) && (callData?.isScreenSharing ?? false);
   const hasLocalScreenShare = (isConnected || isConnecting) && (isLocalScreenShareActive || isScreenSharing);
+  const hasRemoteStream = isRemoteScreenShareActive || isRemoteVideoActive;
+  const isDualScreenShare = isRemoteScreenShareActive && hasLocalScreenShare;
+  const hasAnyActiveStream = hasRemoteStream || hasLocalScreenShare;
   const duration = callData?.duration ?? 0;
   const statusMessage = callData?.statusMessage ?? '';
 
@@ -337,7 +387,7 @@ export const CallWindowView = () => {
       setIsRemoteScreenShareActive(false);
       setIsRemoteVideoActive(false);
       setIsLocalVideoActive(false);
-      setIsExpanded(false);
+      setExpandedShare(null);
       setIsScreenPickerOpen(false);
       setLocalDuration(0);
       try {
@@ -352,7 +402,7 @@ export const CallWindowView = () => {
       setIsRemoteScreenShareActive(false);
       setIsRemoteVideoActive(false);
       setIsLocalVideoActive(false);
-      setIsExpanded(false);
+      setExpandedShare(null);
       setIsScreenPickerOpen(false);
       try {
         void liveKitService.stopScreenShare();
@@ -371,7 +421,7 @@ export const CallWindowView = () => {
     setIsRemoteScreenShareActive(false);
     setIsRemoteVideoActive(false);
     setIsLocalVideoActive(false);
-    setIsExpanded(false);
+    setExpandedShare(null);
     setIsScreenPickerOpen(false);
     setLocalDuration(0);
     setCallData(null);
@@ -463,16 +513,25 @@ export const CallWindowView = () => {
         track.attach(remoteScreenShareRef.current);
       }
     }
-  }, [isRemoteScreenShareActive]);
-
-  useEffect(() => {
     if (hasLocalScreenShare && localScreenShareRef.current) {
       const track = liveKitService.getScreenShareTrack();
       if (track) {
         track.attach(localScreenShareRef.current);
       }
     }
-  }, [hasLocalScreenShare]);
+    if (isLocalVideoActive && localVideoRef.current) {
+      const track = liveKitService.getLocalVideoTrack();
+      if (track) {
+        track.attach(localVideoRef.current);
+      }
+    }
+    if (isRemoteVideoActive && remoteVideoRef.current) {
+      const track = liveKitService.getRemoteVideoTrack();
+      if (track) {
+        track.attach(remoteVideoRef.current);
+      }
+    }
+  }, [isRemoteScreenShareActive, hasLocalScreenShare, isLocalVideoActive, isRemoteVideoActive, isDualScreenShare, expandedShare]);
 
   useEffect(() => {
     if (!bgVideoRef.current) return;
@@ -557,8 +616,11 @@ export const CallWindowView = () => {
 
     const handleCameraChanged = (enabled: boolean, track: any) => {
       setIsLocalVideoActive(enabled);
-      if (enabled && track && localVideoRef.current) {
-        track.attach(localVideoRef.current);
+      if (enabled) {
+        const tr = track || liveKitService.getLocalVideoTrack();
+        if (tr && localVideoRef.current) {
+          tr.attach(localVideoRef.current);
+        }
       }
     };
 
@@ -684,10 +746,6 @@ export const CallWindowView = () => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const hasRemoteStream = isRemoteScreenShareActive || isRemoteVideoActive;
-  const isDualScreenShare = isRemoteScreenShareActive && hasLocalScreenShare;
-  const hasAnyActiveStream = hasRemoteStream || hasLocalScreenShare;
-
   useEffect(() => {
     if (hasRemoteStream && bgVideoRef.current) {
       const sTrack = liveKitService.getRemoteScreenShareTrack();
@@ -719,7 +777,7 @@ export const CallWindowView = () => {
           style={{ contain: 'strict' }}
         >
           <video
-            ref={bgVideoRef}
+            ref={attachBgVideo}
             autoPlay
             playsInline
             muted
@@ -749,7 +807,7 @@ export const CallWindowView = () => {
       {isLocalVideoActive && (
         <div className="absolute top-12 right-5 z-40 w-32 h-44 sm:w-36 sm:h-48 rounded-2xl overflow-hidden shadow-2xl bg-black/70 border-0 select-none">
           <video
-            ref={localVideoRef}
+            ref={attachLocalVideo}
             autoPlay
             playsInline
             muted
@@ -773,72 +831,164 @@ export const CallWindowView = () => {
       <div className="flex flex-col items-center justify-center flex-1 py-2 z-10 w-full relative">
 
         {isDualScreenShare ? (
-          <div
-            className={`relative z-20 flex flex-row items-center justify-center gap-3.5 w-full px-4 transition-all duration-300 ${
-              isExpanded
-                ? 'fixed inset-0 z-40 bg-black/95 p-6 w-full h-full max-w-none max-h-none'
-                : 'max-w-[1160px] max-h-[58vh]'
-            }`}
-          >
-            <div
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
-            >
-              <video
-                ref={remoteScreenShareRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-contain"
-              />
-              <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none">
-                {otherName || t('call.screen_share_of_user')}
+          expandedShare === 'remote' ? (
+            <div className="fixed inset-0 z-40 bg-black/95 flex items-center justify-center p-4">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <video
+                  ref={attachRemoteScreenShare}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-[12px] font-semibold text-white/90 select-none pointer-events-none">
+                  {otherName || t('call.screen_share_of_user')}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandedShare(null)}
+                  aria-label={t('call.exit_fullscreen')}
+                  className="absolute top-4 right-4 z-50 p-2.5 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+                >
+                  <Minimize2 size={20} />
+                </button>
+
+                <div
+                  onClick={() => setExpandedShare('local')}
+                  className="absolute bottom-6 right-6 z-50 w-52 aspect-video rounded-2xl overflow-hidden shadow-2xl bg-[#09080e] border-2 border-white/20 cursor-pointer hover:scale-105 transition-all flex items-center justify-center"
+                >
+                  <video
+                    ref={attachLocalScreenShare}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-contain pointer-events-none"
+                  />
+                  <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{t('call.your_screen')}</span>
+                  </div>
+                  <div className="absolute top-2 right-2 z-10 p-1 rounded-md bg-black/60 text-white/80">
+                    <Maximize2 size={12} />
+                  </div>
+                </div>
               </div>
             </div>
+          ) : expandedShare === 'local' ? (
+            <div className="fixed inset-0 z-40 bg-black/95 flex items-center justify-center p-4">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <video
+                  ref={attachLocalScreenShare}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-[12px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{t('call.your_screen')}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandedShare(null)}
+                  aria-label={t('call.exit_fullscreen')}
+                  className="absolute top-4 right-4 z-50 p-2.5 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+                >
+                  <Minimize2 size={20} />
+                </button>
 
-            <div
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
-            >
-              <video
-                ref={localScreenShareRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-contain"
-              />
-              <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{t('call.your_screen')}</span>
+                <div
+                  onClick={() => setExpandedShare('remote')}
+                  className="absolute bottom-6 right-6 z-50 w-52 aspect-video rounded-2xl overflow-hidden shadow-2xl bg-[#09080e] border-2 border-white/20 cursor-pointer hover:scale-105 transition-all flex items-center justify-center"
+                >
+                  <video
+                    ref={attachRemoteScreenShare}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-contain pointer-events-none"
+                  />
+                  <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-semibold text-white/90 select-none pointer-events-none">
+                    {otherName || t('call.screen_share_of_user')}
+                  </div>
+                  <div className="absolute top-2 right-2 z-10 p-1 rounded-md bg-black/60 text-white/80">
+                    <Maximize2 size={12} />
+                  </div>
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="relative z-20 flex flex-row items-center justify-center gap-3.5 w-full px-4 transition-all duration-300 max-w-[1160px] max-h-[58vh]">
+              <div
+                onClick={() => setExpandedShare('remote')}
+                className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
+              >
+                <video
+                  ref={attachRemoteScreenShare}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none">
+                  {otherName || t('call.screen_share_of_user')}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedShare('remote');
+                  }}
+                  aria-label={t('call.fullscreen')}
+                  className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+                >
+                  <Maximize2 size={16} />
+                </button>
+              </div>
 
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
-              className="absolute top-3 right-5 z-40 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
-            >
-              {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-            </button>
-          </div>
+              <div
+                onClick={() => setExpandedShare('local')}
+                className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
+              >
+                <video
+                  ref={attachLocalScreenShare}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{t('call.your_screen')}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedShare('local');
+                  }}
+                  aria-label={t('call.fullscreen')}
+                  className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+                >
+                  <Maximize2 size={16} />
+                </button>
+              </div>
+            </div>
+          )
         ) : hasRemoteStream ? (
           <div
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => setExpandedShare(expandedShare === 'remote' ? null : 'remote')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
-              isExpanded
+              expandedShare === 'remote'
                 ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
-              borderRadius: isExpanded ? 0 : '24px',
+              borderRadius: expandedShare === 'remote' ? 0 : '24px',
             }}
           >
             <video
-              ref={remoteScreenShareRef}
+              ref={attachRemoteScreenShare}
               autoPlay
               playsInline
               muted
@@ -846,7 +996,7 @@ export const CallWindowView = () => {
               style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
             />
             <video
-              ref={remoteVideoRef}
+              ref={attachRemoteVideo}
               autoPlay
               playsInline
               muted
@@ -857,52 +1007,57 @@ export const CallWindowView = () => {
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsExpanded(!isExpanded);
+                setExpandedShare(expandedShare === 'remote' ? null : 'remote');
               }}
-              aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+              aria-label={expandedShare === 'remote' ? t('call.exit_fullscreen') : t('call.fullscreen')}
               className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
             >
-              {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              {expandedShare === 'remote' ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
+            {isRemoteScreenShareActive && (
+              <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none">
+                {otherName || t('call.screen_share_of_user')}
+              </div>
+            )}
           </div>
         ) : hasLocalScreenShare ? (
           <div
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => setExpandedShare(expandedShare === 'local' ? null : 'local')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
-              isExpanded
+              expandedShare === 'local'
                 ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
-              borderRadius: isExpanded ? 0 : '24px',
+              borderRadius: expandedShare === 'local' ? 0 : '24px',
             }}
           >
             <video
-              ref={localScreenShareRef}
+              ref={attachLocalScreenShare}
               autoPlay
               playsInline
               muted
               className="w-full h-full object-contain"
             />
-            <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{t('call.your_screen')}</span>
-            </div>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsExpanded(!isExpanded);
+                setExpandedShare(expandedShare === 'local' ? null : 'local');
               }}
-              aria-label={isExpanded ? t('call.exit_fullscreen') : t('call.fullscreen')}
+              aria-label={expandedShare === 'local' ? t('call.exit_fullscreen') : t('call.fullscreen')}
               className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
             >
-              {isExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              {expandedShare === 'local' ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
+            <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{t('call.your_screen')}</span>
+            </div>
           </div>
         ) : null}
 
-        {hasAnyActiveStream && !isExpanded && (
+        {hasAnyActiveStream && !expandedShare && (
           <div className="flex flex-col items-center mt-3 select-none">
             <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white">
               {otherName}
@@ -957,7 +1112,7 @@ export const CallWindowView = () => {
         )}
       </div>
 
-      <div className={`${isExpanded ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex flex-col items-center gap-3`}>
+      <div className={`${expandedShare ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex flex-col items-center gap-3`}>
         {hasLocalScreenShare && (
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md shadow-lg select-none border-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
