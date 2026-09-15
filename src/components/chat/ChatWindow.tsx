@@ -6305,7 +6305,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   style={bubbleStyle(isOwn, {
                     borderRadius: customRadius,
                     padding: isPhotoGroup
-                      ? ((msg.forwarded_from || msg.forwardedFrom) ? '0px 2px 10px 2px' : '2px 2px 10px 2px')
+                      ? ((msg.forwarded_from || msg.forwardedFrom) ? '0px 2px 0px 2px' : '2px 2px 0px 2px')
                       : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
                     overflow: 'hidden',
                     width: 'fit-content',

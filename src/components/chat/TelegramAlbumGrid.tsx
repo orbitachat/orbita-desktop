@@ -195,7 +195,11 @@ export const TelegramAlbumGrid = memo(({
         <div
           className="flex items-center select-none"
           style={{
-            padding: '10px 10px 10px 10px',
+            height: '24px',
+            minHeight: '24px',
+            maxHeight: '24px',
+            boxSizing: 'border-box',
+            padding: '0 8px',
             backgroundColor: 'inherit',
           }}
         >
@@ -297,13 +301,17 @@ export const TelegramAlbumGrid = memo(({
         </div>
       ) : (
         <div
-          className="flex items-center justify-end select-none"
+          className="flex items-end justify-end select-none"
           style={{
             backgroundColor: 'inherit',
-            paddingTop: '2px',
-            paddingBottom: '0px',
+            height: '24px',
+            minHeight: '24px',
+            maxHeight: '24px',
+            boxSizing: 'border-box',
+            paddingTop: '0px',
+            paddingBottom: '2px',
             paddingLeft: '4px',
-            paddingRight: '1px',
+            paddingRight: isOwn ? '1px' : '3px',
           }}
         >
           <div
@@ -312,8 +320,7 @@ export const TelegramAlbumGrid = memo(({
               lineHeight: 1,
               userSelect: 'none',
               WebkitUserSelect: 'none',
-              marginRight: isOwn ? '1px' : '3px',
-              marginBottom: '-1px',
+              marginBottom: '0px',
             }}
           >
             {timeNode}
