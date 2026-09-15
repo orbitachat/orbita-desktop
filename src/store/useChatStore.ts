@@ -420,6 +420,7 @@ interface ChatState {
   updateLastMsg: (chatId: string, msg: string) => void;
   addMessage: (chatId: string, message: Message, encryptedText?: string, index?: number) => void;
   deleteMessage: (chatId: string, messageId: string) => void;
+  updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
   editMessage: (chatId: string, messageId: string, newText: string, encryptedText?: string, index?: number) => void;
   toggleReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string) => void;
   setReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string, action?: 'add' | 'remove' | 'toggle') => 'add' | 'remove';
@@ -911,6 +912,17 @@ export const useChatStore = create<ChatState>()(
                 }
               : c
           ),
+        });
+      },
+      updateMessageStatus: (chatId, messageId, status) => {
+        const state = get();
+        const messages = state.messagesByChatId[chatId] || [];
+        const updated = messages.map(m => m.id === messageId ? { ...m, status } : m);
+        set({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [chatId]: updated,
+          },
         });
       },
       editMessage: (chatId, messageId, newText, encryptedText?, index?) => {

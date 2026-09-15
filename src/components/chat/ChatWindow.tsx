@@ -3683,7 +3683,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       text: text,
       time: Date.now(),
       read: false,
-      status: 'sent',
+      status: activeChatId === 'notes' ? 'sent' : 'pending',
       mediaType: mediaPayload?.type as any,
       mediaUrl: mediaPayload?.url,
       mediaName: mediaPayload?.name,
@@ -3725,12 +3725,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           forwardedFrom: forwardedFromPayload || null,
         };
 
-        // Get fresh chat state to get latest ratchetState
         const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
 
         if (!freshChat?.ratchetState) {
-          // E2EE session not yet established — save plaintext to non_messages until peer accepts handshake
-          console.log('[ChatWindow] No ratchetState yet — saving to non_messages offline queue');
           const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
           if (activeChat?.type === 'private') {
             const plaintext = JSON.stringify(messageData);
@@ -3743,6 +3740,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 messageId,
               ).catch((err) => console.warn('[ChatWindow] non_messages save failed:', err));
             }
+            useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
           }
           return;
         }
@@ -3803,6 +3801,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             ).catch((err) => console.warn('[ChatWindow] Offline message dispatch failed:', err));
           }
         }
+        useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
       } catch (err) {
         console.error('[ChatWindow] Failed to encrypt/send message:', err);
       }
@@ -5811,6 +5810,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         const isNotes = targetChatId === 'notes';
         const messageId = `${isChannel ? 'post_' : 'msg_'}${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+        const isAnon = Boolean(hideAuthor);
+        const sanitizedMediaName = isAnon && msg.mediaType
+          ? (msg.mediaType === 'photo' ? 'photo.jpg' : (msg.mediaType === 'video' ? 'video.mp4' : (msg.mediaType === 'audio' || msg.mediaType === 'voice' ? 'audio.ogg' : 'file.bin')))
+          : msg.mediaName;
+
+        const sanitizedMediaItems = isAnon && msg.mediaItems
+          ? msg.mediaItems.map((item) => ({
+              ...item,
+              name: item.type === 'photo' ? 'photo.jpg' : (item.type === 'video' ? 'video.mp4' : 'file.bin'),
+            }))
+          : msg.mediaItems;
+
+        const sanitizedAudioMetadata: AudioMetadata | undefined = msg.audioMetadata
+          ? {
+              ...msg.audioMetadata,
+              artist: isAnon ? '' : msg.audioMetadata.artist,
+              title: msg.audioMetadata.title || '',
+            }
+          : undefined;
+
         const localMessage: Message = {
           id: messageId,
           senderId: myCode,
@@ -5819,14 +5838,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           text: msg.text || '',
           time: Date.now(),
           read: isNotes || isChannel,
-          status: isNotes ? 'sent' : (isChannel ? 'read' : 'sent'),
+          status: isNotes ? 'sent' : (isChannel ? 'read' : 'pending'),
           mediaType: msg.mediaType,
           mediaUrl: msg.mediaUrl,
-          mediaName: msg.mediaName,
+          mediaName: sanitizedMediaName,
           mediaKey: msg.mediaKey,
           mime: msg.mime,
-          mediaItems: msg.mediaItems,
-          audioMetadata: msg.audioMetadata,
+          mediaItems: sanitizedMediaItems,
+          audioMetadata: sanitizedAudioMetadata,
           duration: msg.duration,
           waveform: msg.waveform,
           linkPreview: msg.linkPreview,
@@ -5836,7 +5855,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
         useChatStore.getState().addMessage(targetChatId, localMessage);
         useChatStore.getState().updateChat(targetChatId, {
-          lastMsg: msg.mediaName || msg.text || t('forward.forwarded_message', 'Пересланное сообщение'),
+          lastMsg: sanitizedMediaName || msg.text || t('forward.forwarded_message', 'Пересланное сообщение'),
         });
 
         if (isChannel) {
@@ -5847,22 +5866,22 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             msg.mediaType && msg.mediaUrl ? {
               type: msg.mediaType,
               url: msg.mediaUrl,
-              name: msg.mediaName,
+              name: sanitizedMediaName,
               mime: msg.mime,
               duration: msg.duration,
               waveform: msg.waveform,
-              audioMetadata: msg.audioMetadata,
+              audioMetadata: sanitizedAudioMetadata,
             } : undefined,
             msg.linkPreview,
             messageId
           ).catch(() => {});
         } else if (!isNotes && targetChat) {
           const freshTargetChat = useChatStore.getState().chats.find((c) => c.id === targetChatId);
-          const networkAudioMetadata = msg.audioMetadata ? {
-            title: msg.audioMetadata.title,
-            artist: msg.audioMetadata.artist,
-            duration: msg.audioMetadata.duration,
-            size: msg.audioMetadata.size,
+          const networkAudioMetadata = sanitizedAudioMetadata ? {
+            title: sanitizedAudioMetadata.title,
+            artist: isAnon ? undefined : sanitizedAudioMetadata.artist,
+            duration: sanitizedAudioMetadata.duration,
+            size: sanitizedAudioMetadata.size,
           } : null;
 
           const messageData = {
@@ -5873,7 +5892,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             text: msg.text || '',
             mediaType: msg.mediaType || null,
             mediaUrl: msg.mediaUrl || null,
-            mediaName: msg.mediaName || null,
+            mediaName: sanitizedMediaName || null,
             mediaKey: msg.mediaKey || null,
             mime: msg.mime || null,
             audioMetadata: networkAudioMetadata,
@@ -5893,7 +5912,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 updateChat(targetChatId, { ratchetState: ratchet.getState() });
 
                 const payload = {
-                  ...(msg.mediaType && msg.mediaUrl ? { mediaType: msg.mediaType, mediaUrl: msg.mediaUrl, mediaName: msg.mediaName, mime: msg.mime } : {}),
+                  ...(msg.mediaType && msg.mediaUrl ? { mediaType: msg.mediaType, mediaUrl: msg.mediaUrl, mediaName: sanitizedMediaName, mime: msg.mime } : {}),
                   sender: myNickname,
                   avatarUrl: myAvatarUrl || null,
                   senderCode: myCode,
@@ -5926,6 +5945,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     messageId
                   ).catch(() => {});
                 }
+                useChatStore.getState().updateMessageStatus(targetChatId, messageId, 'sent');
               }
             } catch (e) {
               console.warn('Ratchet send failed for forward:', e);
@@ -5942,6 +5962,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 messageId
               ).catch(() => {});
             }
+            useChatStore.getState().updateMessageStatus(targetChatId, messageId, 'sent');
           }
         }
       }
