@@ -1136,6 +1136,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         const chatUpdates: Partial<Chat> = {};
         if (hideVal !== null && hideVal !== Boolean(chat.hideProfileId)) {
           chatUpdates.hideProfileId = hideVal;
+          if (hideVal) {
+            chatUpdates.peerCode = undefined;
+          }
         }
         if (updateNick && updateNick !== chat.name) {
           chatUpdates.name = updateNick;
@@ -1795,21 +1798,22 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     );
   };
 
+  const isProfileIdHidden = useMemo(() => {
+    if (isChannel) return false;
+    const myCode = useChatStore.getState().myCode;
+    if (myCode && (chat?.peerCode === myCode || chat?.id === myCode)) {
+      return false;
+    }
+    return Boolean(chat?.hideProfileId);
+  }, [isChannel, chat?.hideProfileId, chat?.peerCode, chat?.id]);
+
   const profileId = useMemo(() => {
     if (!chat) return '';
     if (isChannel) return chat.id;
     if (chatId === 'notes') return '';
-    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined) || '';
-  }, [isChannel, chat, chatId]);
-
-  const isProfileIdHidden = useMemo(() => {
-    if (isChannel) return false;
-    const myCode = useChatStore.getState().myCode;
-    if (myCode && (chat?.peerCode === myCode || chat?.id === myCode || profileId === myCode)) {
-      return false;
-    }
-    return Boolean(chat?.hideProfileId);
-  }, [isChannel, chat?.hideProfileId, chat?.peerCode, chat?.id, profileId]);
+    if (isProfileIdHidden) return '';
+    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || '';
+  }, [isChannel, chat, chatId, isProfileIdHidden]);
 
   const formattedProfileId = useMemo(() => {
     if (!profileId) return '';
@@ -1884,7 +1888,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           </h3>
           <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
             <DeveloperBadge
-              userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
+              userId={isProfileIdHidden ? undefined : (chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined))}
               size={34}
               onClick={triggerDevToast}
             />
@@ -2160,8 +2164,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center' }}>
                   <span
                     style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
+                      fontSize: '11px',
                       color: 'var(--text-dim, #8e8e93)',
                       lineHeight: 1.3,
                     }}

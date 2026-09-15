@@ -810,7 +810,16 @@ export const useChatStore = create<ChatState>()(
             }
           }
           return {
-            chats: state.chats.map(c => c.id === chatId ? { ...c, ...cleanUpdates } : c)
+            chats: state.chats.map((c) => {
+              if (c.id === chatId) {
+                const next = { ...c, ...cleanUpdates };
+                if (next.hideProfileId) {
+                  delete next.peerCode;
+                }
+                return next;
+              }
+              return c;
+            }),
           };
         }),
       togglePinChat: (chatId) => {

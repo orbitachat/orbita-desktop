@@ -1471,8 +1471,13 @@ export const MainLayout = () => {
               const updates: Partial<Chat> = {};
               if (messageData.avatarUrl !== undefined) updates.avatarUrl = messageData.avatarUrl;
               if (messageData.nickname !== undefined && messageData.nickname !== myNickname && messageData.nickname !== nickname) updates.name = messageData.nickname;
-              if (messageData.senderCode && (!myCode || messageData.senderCode !== myCode)) updates.peerCode = messageData.senderCode;
-              if (messageData.hideProfileId !== undefined) updates.hideProfileId = Boolean(messageData.hideProfileId);
+              if (messageData.hideProfileId !== undefined) {
+                updates.hideProfileId = Boolean(messageData.hideProfileId);
+                if (updates.hideProfileId) updates.peerCode = undefined;
+              }
+              if (!updates.hideProfileId && messageData.senderCode && (!myCode || messageData.senderCode !== myCode)) {
+                updates.peerCode = messageData.senderCode;
+              }
               if (Object.keys(updates).length > 0) {
                 updateChat(record.chat_id, updates);
               }
@@ -1619,11 +1624,15 @@ export const MainLayout = () => {
         console.warn('[Recovery] Failed to fetch handshake for chat', chat.id, err);
       }
 
+      const updates: Partial<Chat> = {};
       const targetCode = (recoveredPeerCode || (!myCode || chat.peerCode !== myCode ? chat.peerCode : undefined))?.trim();
       if (targetCode && targetCode !== 'undefined' && targetCode !== 'null' && (!myCode || targetCode !== myCode)) {
         try {
           const profile = await supabaseService.lookupPublicProfile(targetCode);
           if (profile) {
+            if (profile.hide_profile_id !== undefined && profile.hide_profile_id !== null) {
+              updates.hideProfileId = Boolean(profile.hide_profile_id);
+            }
             if (!recoveredName && profile.nickname && profile.nickname.length !== 36 && profile.nickname !== 'undefined' && profile.nickname !== 'null') {
               recoveredName = profile.nickname.trim();
             }
@@ -1638,31 +1647,39 @@ export const MainLayout = () => {
         recoveredAvatar = undefined;
       }
 
-      const updates: Partial<Chat> = {};
+      const isHidden = updates.hideProfileId !== undefined ? updates.hideProfileId : Boolean(chat.hideProfileId);
+
+      const updatesFinal: Partial<Chat> = { ...updates };
+      if (isHidden) {
+        updatesFinal.hideProfileId = true;
+        updatesFinal.peerCode = undefined;
+      }
       if (recoveredName && recoveredName !== chat.name && recoveredName !== 'undefined' && recoveredName !== 'null') {
-        updates.name = recoveredName;
+        updatesFinal.name = recoveredName;
       }
       if (isCorruptedAvatar) {
         if (recoveredAvatar !== chat.avatarUrl) {
-          updates.avatarUrl = recoveredAvatar;
+          updatesFinal.avatarUrl = recoveredAvatar;
         }
       } else if (recoveredAvatar && recoveredAvatar !== chat.avatarUrl && recoveredAvatar !== 'undefined' && recoveredAvatar !== 'null') {
-        updates.avatarUrl = recoveredAvatar;
+        updatesFinal.avatarUrl = recoveredAvatar;
       }
-      if (recoveredPeerCode && recoveredPeerCode !== chat.peerCode && recoveredPeerCode !== 'undefined' && recoveredPeerCode !== 'null') {
-        updates.peerCode = recoveredPeerCode;
-      } else if (chat.peerCode && myCode && chat.peerCode === myCode && !recoveredPeerCode) {
-        updates.peerCode = undefined;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        console.log('[Recovery] Cleaned friend profile for chat', chat.id, updates);
-        updateChat(chat.id, updates);
+      if (!isHidden) {
+        if (recoveredPeerCode && recoveredPeerCode !== chat.peerCode && recoveredPeerCode !== 'undefined' && recoveredPeerCode !== 'null') {
+          updatesFinal.peerCode = recoveredPeerCode;
+        } else if (chat.peerCode && myCode && chat.peerCode === myCode && !recoveredPeerCode) {
+          updatesFinal.peerCode = undefined;
+        }
       }
 
-      const finalName = updates.name || chat.name;
-      const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : chat.avatarUrl;
-      const finalPeerCode = updates.peerCode !== undefined ? updates.peerCode : chat.peerCode;
+      if (Object.keys(updatesFinal).length > 0) {
+        console.log('[Recovery] Cleaned friend profile for chat', chat.id, updatesFinal);
+        updateChat(chat.id, updatesFinal);
+      }
+
+      const finalName = updatesFinal.name || chat.name;
+      const finalAvatar = updatesFinal.avatarUrl !== undefined ? updatesFinal.avatarUrl : chat.avatarUrl;
+      const finalPeerCode = updatesFinal.peerCode !== undefined ? updatesFinal.peerCode : chat.peerCode;
       const stillCorrupted =
         (nickname && finalName === nickname) ||
         finalName === 'Peppe' ||
@@ -1700,10 +1717,13 @@ export const MainLayout = () => {
         if (update && !isMyOwnUpdate) {
           if (update.nickname && update.nickname !== chat.name && update.nickname !== myNickname && update.nickname !== nickname) updates.name = update.nickname;
           if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
-          if (update.hide_profile_id !== undefined && update.hide_profile_id !== null && Boolean(update.hide_profile_id) !== Boolean(chat.hideProfileId)) {
+          if (update.hide_profile_id !== undefined && update.hide_profile_id !== null) {
             updates.hideProfileId = Boolean(update.hide_profile_id);
+            if (updates.hideProfileId) updates.peerCode = undefined;
           }
-          if (update.sender_code && update.sender_code !== myCode && !chat.peerCode) updates.peerCode = update.sender_code;
+          if (!updates.hideProfileId && !chat.hideProfileId && update.sender_code && update.sender_code !== myCode && !chat.peerCode) {
+            updates.peerCode = update.sender_code;
+          }
         }
 
         if (updates.hideProfileId === undefined && targetPeerCode) {
@@ -1711,8 +1731,9 @@ export const MainLayout = () => {
           if (pub) {
             if (pub.nickname && pub.nickname !== chat.name && pub.nickname !== myNickname && pub.nickname !== nickname && !updates.name) updates.name = pub.nickname;
             if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl && !updates.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
-            if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null && Boolean(pub.hide_profile_id) !== Boolean(chat.hideProfileId)) {
+            if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null) {
               updates.hideProfileId = Boolean(pub.hide_profile_id);
+              if (updates.hideProfileId) updates.peerCode = undefined;
             }
           }
         }
@@ -2001,17 +2022,23 @@ export const MainLayout = () => {
             const sharedSecret = deriveSharedSecret(myKeys.privateKey, friendProfile.public_key);
             const rootKey = deriveRootKey(sharedSecret);
             const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, friendProfile.public_key);
+            const isFriendHidden = Boolean(friendProfile.hide_profile_id);
             updateChat(chatId, {
               name: friendProfile.nickname,
               avatarUrl: friendProfile.avatar_url ?? undefined,
               sharedSecret: sharedSecret,
               ratchetState: ratchet.getState(),
               lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+              hideProfileId: isFriendHidden || undefined,
+              peerCode: isFriendHidden ? undefined : friendCode,
             });
           } else {
+            const isFriendHidden = Boolean(friendProfile.hide_profile_id);
             updateChat(chatId, {
               name: friendProfile.nickname,
               avatarUrl: friendProfile.avatar_url ?? undefined,
+              hideProfileId: isFriendHidden || undefined,
+              peerCode: isFriendHidden ? undefined : friendCode,
             });
           }
         }
@@ -2677,8 +2704,13 @@ export const MainLayout = () => {
         const updates: Partial<Chat> = {};
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
         if (data.nickname !== undefined && data.nickname !== myNickname && data.nickname !== nickname) updates.name = data.nickname;
-        if (data.senderCode && (!myCode || data.senderCode !== myCode)) updates.peerCode = data.senderCode;
-        if (data.hideProfileId !== undefined) updates.hideProfileId = data.hideProfileId;
+        if (data.hideProfileId !== undefined) {
+          updates.hideProfileId = Boolean(data.hideProfileId);
+          if (updates.hideProfileId) updates.peerCode = undefined;
+        }
+        if (!updates.hideProfileId && data.senderCode && (!myCode || data.senderCode !== myCode)) {
+          updates.peerCode = data.senderCode;
+        }
         updateChat(chatId, updates);
         return;
       }

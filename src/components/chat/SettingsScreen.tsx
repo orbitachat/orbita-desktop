@@ -536,8 +536,8 @@ const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?:
   const payload = {
     type: 'profile-update',
     sender: finalNickname,
-    senderCode: myCode,
-    senderId: myCode,
+    senderCode: finalHideProfileId ? null : myCode,
+    senderId: finalHideProfileId ? null : myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
     hideProfileId: finalHideProfileId,
@@ -550,7 +550,7 @@ const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?:
   const chats = useChatStore.getState().chats;
   chats.forEach((chat) => {
     if (chat.type === 'private' && chat.id !== 'notes') {
-      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalHideProfileId).catch(() => {});
+      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, finalHideProfileId ? null : myCode, finalHideProfileId).catch(() => {});
       ablyService.sendMessage(chat.id, payload).catch(() => {});
       const pusher = getPusher();
       const channel = pusher.subscribe(`private-chat-${chat.id}`);
