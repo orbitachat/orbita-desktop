@@ -698,7 +698,7 @@
       "link_previews_desc": "Генерировать предпросмотр для отправляемых ссылок (анонимно на стороне отправителя)",
       "profile_id_group": "ID ПРОФИЛЯ",
       "hide_profile_id": "Скрывать ID профиля",
-      "hide_profile_id_desc": "Скрывать среднюю часть вашего ID в профиле",
+      "hide_profile_id_desc": "Скрывать ID в профиле от собеседников",
       "preferences": "Предпочтения",
       "preferences_updates": "Обновление",
       "preferences_auto_update": "Автоматические обновления",

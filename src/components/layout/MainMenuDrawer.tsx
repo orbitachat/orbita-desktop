@@ -252,7 +252,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               <button
                 type="button"
                 onClick={onOpenSavedMessages}
-                aria-label={t('mainMenu.saved_messages', 'Избранное')}
+                aria-label={t('mainMenu.saved_messages', 'Заметки для себя')}
                 className="w-full flex items-center gap-4 px-5 py-3 text-left transition-colors cursor-pointer text-[var(--text-main)]"
                 style={{
                   border: 'none',
@@ -265,7 +265,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               >
                 <Bookmark size={20} className="text-[var(--text-dim)] shrink-0" />
                 <span className="text-[14px] font-medium truncate">
-                  {t('mainMenu.saved_messages', 'Избранное')}
+                  {t('mainMenu.saved_messages', 'Заметки для себя')}
                 </span>
               </button>
 

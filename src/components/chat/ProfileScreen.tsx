@@ -1795,23 +1795,26 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     );
   };
 
-  const isProfileIdHidden = useMemo(() => {
-    if (isChannel) return false;
-    return Boolean(chat?.hideProfileId || !chat?.peerCode);
-  }, [isChannel, chat?.hideProfileId, chat?.peerCode]);
-
   const profileId = useMemo(() => {
+    if (!chat) return '';
     if (isChannel) return chat.id;
     if (chatId === 'notes') return '';
-    if (isProfileIdHidden) return '000';
-    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || '000';
-  }, [isChannel, chat, chatId, isProfileIdHidden]);
+    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined) || '';
+  }, [isChannel, chat, chatId]);
+
+  const isProfileIdHidden = useMemo(() => {
+    if (isChannel) return false;
+    const myCode = useChatStore.getState().myCode;
+    if (myCode && (chat?.peerCode === myCode || chat?.id === myCode || profileId === myCode)) {
+      return false;
+    }
+    return Boolean(chat?.hideProfileId);
+  }, [isChannel, chat?.hideProfileId, chat?.peerCode, chat?.id, profileId]);
 
   const formattedProfileId = useMemo(() => {
-    if (isProfileIdHidden) return '000';
     if (!profileId) return '';
     return profileId;
-  }, [profileId, isProfileIdHidden]);
+  }, [profileId]);
 
   const renderMainContent = () => (
     <div
@@ -1881,9 +1884,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           </h3>
           <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
             <DeveloperBadge
-              userId={isProfileIdHidden ? undefined : (chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined))}
+              userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
               size={34}
-              onClick={isProfileIdHidden ? undefined : triggerDevToast}
+              onClick={triggerDevToast}
             />
           </div>
         </div>
@@ -2074,7 +2077,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         )}
       </div>
 
-      {(isChannel || Boolean(profileId) || Boolean(chat.description)) && (
+      {(isChannel || Boolean(profileId) || isProfileIdHidden || Boolean(chat.description)) && (
         <div
           style={{
             backgroundColor: 'var(--md-surface, #211c2e)',
@@ -2127,7 +2130,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             <div
               style={{
                 padding: '12px 20px',
-                borderBottom: profileId ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+                borderBottom: (profileId || isProfileIdHidden) ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
                 display: 'flex',
                 flexDirection: 'column',
               }}
@@ -2141,7 +2144,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             </div>
           ) : null}
 
-          {profileId ? (
+          {(profileId || isProfileIdHidden) ? (
             <div
               onClick={isProfileIdHidden ? undefined : () => handleCopyChannelKey(profileId)}
               style={{
@@ -2153,22 +2156,38 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 cursor: isProfileIdHidden ? 'default' : 'pointer',
               }}
             >
-              <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <span
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--accent-color, #9b7dd4)',
-                    wordBreak: 'break-all',
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {formattedProfileId}
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                  {isProfileIdHidden ? t('profile.id_hidden', 'ID скрыт') : 'ID'}
-                </span>
-              </div>
+              {isProfileIdHidden ? (
+                <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center' }}>
+                  <span
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: 'var(--text-dim, #8e8e93)',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {t('profile.id_hidden', 'ID скрыт')}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <span
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: 'var(--accent-color, #9b7dd4)',
+                      wordBreak: 'break-all',
+                      lineHeight: 1.3,
+                      fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                    }}
+                  >
+                    {formattedProfileId}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    ID
+                  </span>
+                </div>
+              )}
               {!isProfileIdHidden && (
                 <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
                   {copiedKey ? <Check size={18} /> : <Copy size={18} />}

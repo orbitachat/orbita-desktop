@@ -1,12 +1,10 @@
 import React from 'react';
 import { Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { CustomForwardIcon } from './ChatWindow';
 
 interface SelectionPanelProps {
   selectedCount: number;
   onDelete?: () => void;
-  onForward?: () => void;
   onCancel: () => void;
   height: number;
 }
@@ -14,7 +12,6 @@ interface SelectionPanelProps {
 export const SelectionPanel: React.FC<SelectionPanelProps> = ({
   selectedCount,
   onDelete,
-  onForward,
   onCancel,
   height,
 }) => {
@@ -37,59 +34,32 @@ export const SelectionPanel: React.FC<SelectionPanelProps> = ({
         borderBottom: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {onDelete && (
-          <button
-            onClick={onDelete}
-            aria-label={t('common.delete')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'var(--accent-color)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '6px 16px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-          >
-            <Trash size={18} />
-            {t('common.delete')}
-          </button>
-        )}
-
-        {onForward && (
-          <button
-            onClick={onForward}
-            aria-label={t('common.forward')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'var(--surface-container-high, rgba(255, 255, 255, 0.08))',
-              color: 'var(--text-main, #ffffff)',
-              border: '1px solid var(--border-color, rgba(255, 255, 255, 0.12))',
-              borderRadius: '10px',
-              padding: '6px 16px',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-high, rgba(255, 255, 255, 0.08))')}
-          >
-            <CustomForwardIcon size={17} />
-            {t('common.forward')}
-          </button>
-        )}
-      </div>
+      {onDelete ? (
+        <button
+          onClick={onDelete}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'var(--accent-color)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '10px',
+            padding: '6px 16px',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+        >
+          <Trash size={20} />
+          {t('common.delete')}
+        </button>
+      ) : (
+        <div />
+      )}
 
       <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)' }}>
         {t('chatWindow.selected_count', { count: selectedCount }) ||

@@ -7,7 +7,7 @@ import {
   Copy, Image as ImageIcon, Download as DownloadIcon,
   CheckCircle, Trash, ChevronDown, Search
 } from 'lucide-react';
-import { useChatStore, type Message, type MediaItem, type LinkPreviewData, type ForwardedFrom, isMessageOutgoing } from '../../store/useChatStore';
+import { useChatStore, type Message, type MediaItem, type LinkPreviewData, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge } from '../ui/DeveloperBadge';
 import { getPusher } from '../../utils/pusher';
@@ -48,8 +48,6 @@ import { parseReplyChain, countEmojis, formatTimeOfDay, markdownToHtml, arrayBuf
 import { useToastStore } from '../../store/useToastStore';
 import { MessageItem } from './MessageItem';
 import { MessageReactions } from './ReactionBadge';
-import { ForwardModal } from './ForwardModal';
-import { ForwardedMessageBlock } from './ForwardedMessageBlock';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
 import { BotIcon } from '../common/BotIcon';
 import { type ConfirmActionType } from '../common/ActionConfirmModal';
@@ -253,12 +251,6 @@ export const CustomEditIcon: React.FC<{ size?: number; className?: string; style
 
 export const CustomReplyIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className = '', style = {} }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="currentColor" className={className} style={style}>
-    <path d="M28.88 30a1 1 0 0 1-.88-.5A15.19 15.19 0 0 0 15 22v6a1 1 0 0 1-.62.92a1 1 0 0 1-1.09-.21l-12-12a1 1 0 0 1 0-1.42l12-12a1 1 0 0 1 1.09-.21A1 1 0 0 1 15 4v6.11a17.19 17.19 0 0 1 15 17a16 16 0 0 1-.13 2a1 1 0 0 1-.79.86ZM14.5 20A17.62 17.62 0 0 1 28 26a15.31 15.31 0 0 0-14.09-14a1 1 0 0 1-.91-1V6.41L3.41 16L13 25.59V21a1 1 0 0 1 1-1h.54Z" />
-  </svg>
-);
-
-export const CustomForwardIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className = '', style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" fill="currentColor" className={className} style={{ ...style, transform: `scaleX(-1) ${style?.transform || ''}`.trim() }}>
     <path d="M28.88 30a1 1 0 0 1-.88-.5A15.19 15.19 0 0 0 15 22v6a1 1 0 0 1-.62.92a1 1 0 0 1-1.09-.21l-12-12a1 1 0 0 1 0-1.42l12-12a1 1 0 0 1 1.09-.21A1 1 0 0 1 15 4v6.11a17.19 17.19 0 0 1 15 17a16 16 0 0 1-.13 2a1 1 0 0 1-.79.86ZM14.5 20A17.62 17.62 0 0 1 28 26a15.31 15.31 0 0 0-14.09-14a1 1 0 0 1-.91-1V6.41L3.41 16L13 25.59V21a1 1 0 0 1 1-1h.54Z" />
   </svg>
 );
@@ -588,7 +580,6 @@ const MessageContextMenu = ({
   onCopyImage,
   onSaveAs,
   onSelect,
-  onForward,
   onSelectReaction,
   canManageMessages,
 }: {
@@ -603,7 +594,6 @@ const MessageContextMenu = ({
   onCopyImage?: () => void;
   onSaveAs?: () => void;
   onSelect: () => void;
-  onForward: () => void;
   onSelectReaction?: (emoji: string) => void;
   canManageMessages?: boolean;
 }) => {
@@ -695,12 +685,6 @@ const MessageContextMenu = ({
       icon: <Trash size={16} style={{ color: iconColor }} />,
     });
   }
-
-  items.push({
-    label: t('common.forward'),
-    onClick: onForward,
-    icon: <CustomForwardIcon size={16} style={{ color: iconColor }} />,
-  });
 
   items.push({
     label: t('common.select'),
@@ -1964,8 +1948,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id?: string; senderId?: string; index: number; sender: string; text: string; time: number } | null>(null);
-  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
-  const [messagesToForward, setMessagesToForward] = useState<Message[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, messageIndex: -1, isOwn: false, type: 'text', hasMultipleImages: false });
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -3523,8 +3505,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const triggerMessage = async (
     text: string,
     mediaPayload?: { type: string; url: string; key?: string; name?: string; mime?: string; audioMetadata?: AudioMetadata; duration?: number; waveform?: number[] },
-    linkPreviewPayload?: LinkPreviewData,
-    forwardedFromPayload?: ForwardedFrom
+    linkPreviewPayload?: LinkPreviewData
   ) => {
     if (!activeChatId) return;
 
@@ -3547,8 +3528,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         duration: mediaPayload?.duration,
         waveform: mediaPayload?.waveform,
         linkPreview: linkPreviewPayload,
-        forwarded_from: forwardedFromPayload,
-        forwardedFrom: forwardedFromPayload,
       };
       addMessage(activeChatId, localMessage);
       setInputText('');
@@ -3575,8 +3554,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         audioMetadata: mediaPayload?.audioMetadata,
         duration: mediaPayload?.duration,
         waveform: mediaPayload?.waveform,
-        forwarded_from: forwardedFromPayload,
-        forwardedFrom: forwardedFromPayload,
       };
       addMessage(activeChatId, localMessage);
       updateChat(activeChatId, { lastMsg: mediaPayload?.name || text || '📎' });
@@ -3624,8 +3601,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         duration: sentMedia?.duration || undefined,
         waveform: sentMedia?.waveform || undefined,
         linkPreview: sentPreview || undefined,
-        forwarded_from: forwardedFromPayload,
-        forwardedFrom: forwardedFromPayload,
       };
 
       addMessage(activeChatId, optimisticMessage);
@@ -3683,7 +3658,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       text: text,
       time: Date.now(),
       read: false,
-      status: activeChatId === 'notes' ? 'sent' : 'pending',
+      status: 'sent',
       mediaType: mediaPayload?.type as any,
       mediaUrl: mediaPayload?.url,
       mediaName: mediaPayload?.name,
@@ -3693,8 +3668,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       duration: mediaPayload?.duration,
       waveform: mediaPayload?.waveform,
       linkPreview: linkPreviewPayload,
-      forwarded_from: forwardedFromPayload,
-      forwardedFrom: forwardedFromPayload,
     };
     addMessage(activeChatId, localMessage);
     setInputText('');
@@ -3721,13 +3694,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           duration: mediaPayload?.duration || null,
           waveform: mediaPayload?.waveform || null,
           linkPreview: linkPreviewPayload || null,
-          forwarded_from: forwardedFromPayload || null,
-          forwardedFrom: forwardedFromPayload || null,
         };
 
+        // Get fresh chat state to get latest ratchetState
         const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
 
         if (!freshChat?.ratchetState) {
+          // E2EE session not yet established — save plaintext to non_messages until peer accepts handshake
+          console.log('[ChatWindow] No ratchetState yet — saving to non_messages offline queue');
           const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
           if (activeChat?.type === 'private') {
             const plaintext = JSON.stringify(messageData);
@@ -3740,7 +3714,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 messageId,
               ).catch((err) => console.warn('[ChatWindow] non_messages save failed:', err));
             }
-            useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
           }
           return;
         }
@@ -3801,7 +3774,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             ).catch((err) => console.warn('[ChatWindow] Offline message dispatch failed:', err));
           }
         }
-        useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
       } catch (err) {
         console.error('[ChatWindow] Failed to encrypt/send message:', err);
       }
@@ -5728,252 +5700,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     selection.clearSelection();
   }, [activeChatId, selection.clearSelection]);
 
-  const handleForwardSelected = useCallback(() => {
-    const selected = messages.filter((m) => m.id && selection.selectedIds.has(m.id));
-    if (selected.length === 0) return;
-    setMessagesToForward(selected);
-    setIsForwardModalOpen(true);
-  }, [messages, selection.selectedIds]);
-
-  const handleForwardSingle = useCallback((msgIndex: number) => {
-    const msg = messages[msgIndex];
-    if (!msg) return;
-    setMessagesToForward([msg]);
-    setIsForwardModalOpen(true);
-    setContextMenu((prev) => ({ ...prev, visible: false }));
-  }, [messages]);
-
-  const handleExecuteForward = useCallback(async (targetChatId: string, hideAuthor: boolean) => {
-    if (messagesToForward.length === 0) return;
-
-    const targetChat = chats.find((c) => c.id === targetChatId);
-
-    for (const msg of messagesToForward) {
-      let fwdInfo: ForwardedFrom;
-      if (hideAuthor) {
-        fwdInfo = { isAnonymous: true };
-      } else {
-        const prevFwd = msg.forwarded_from || msg.forwardedFrom;
-        if (prevFwd) {
-          const isIdHidden = Boolean(prevFwd.isIdHidden || !prevFwd.senderId);
-          fwdInfo = {
-            sender: prevFwd.sender,
-            senderId: isIdHidden ? undefined : prevFwd.senderId,
-            senderAvatarUrl: isIdHidden ? undefined : prevFwd.senderAvatarUrl,
-            isIdHidden,
-            chatTitle: activeChat?.name,
-            time: prevFwd.time || msg.time,
-          };
-        } else {
-          const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
-          if (isOwn) {
-            const myHide = Boolean(useChatStore.getState().hideProfileId);
-            fwdInfo = {
-              sender: myNickname,
-              senderId: myHide ? undefined : (myCode || undefined),
-              senderAvatarUrl: myHide ? undefined : (myAvatarUrl || undefined),
-              isIdHidden: myHide,
-              chatTitle: activeChat?.name,
-              time: msg.time,
-            };
-          } else {
-            const peerHidden = Boolean(activeChat?.hideProfileId);
-            const peerCode = peerHidden ? undefined : (activeChat?.peerCode || msg.senderId);
-            const isHidden = Boolean(peerHidden || !peerCode);
-            fwdInfo = {
-              sender: msg.sender || activeChat?.name,
-              senderId: isHidden ? undefined : peerCode,
-              senderAvatarUrl: isHidden ? undefined : (activeChat?.avatarUrl || undefined),
-              isIdHidden: isHidden,
-              chatTitle: activeChat?.name,
-              time: msg.time,
-            };
-          }
-        }
-      }
-
-      if (targetChatId === activeChatId) {
-        const media = msg.mediaType && msg.mediaUrl ? {
-          type: msg.mediaType,
-          url: msg.mediaUrl,
-          key: msg.mediaKey,
-          name: msg.mediaName,
-          mime: msg.mime,
-          audioMetadata: msg.audioMetadata,
-          duration: msg.duration,
-          waveform: msg.waveform,
-        } : undefined;
-
-        await triggerMessage(msg.text || '', media, msg.linkPreview, fwdInfo);
-      } else {
-        const isChannel = targetChat?.type === 'channel';
-        const isNotes = targetChatId === 'notes';
-        const messageId = `${isChannel ? 'post_' : 'msg_'}${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-        const isAnon = Boolean(hideAuthor);
-        const sanitizedMediaName = isAnon && msg.mediaType
-          ? (msg.mediaType === 'photo' ? 'photo.jpg' : (msg.mediaType === 'video' ? 'video.mp4' : (msg.mediaType === 'audio' || msg.mediaType === 'voice' ? 'audio.ogg' : 'file.bin')))
-          : msg.mediaName;
-
-        const sanitizedMediaItems = isAnon && msg.mediaItems
-          ? msg.mediaItems.map((item) => ({
-              ...item,
-              name: item.type === 'photo' ? 'photo.jpg' : (item.type === 'video' ? 'video.mp4' : 'file.bin'),
-            }))
-          : msg.mediaItems;
-
-        const sanitizedAudioMetadata: AudioMetadata | undefined = msg.audioMetadata
-          ? {
-              ...msg.audioMetadata,
-              artist: isAnon ? '' : msg.audioMetadata.artist,
-              title: msg.audioMetadata.title || '',
-            }
-          : undefined;
-
-        const localMessage: Message = {
-          id: messageId,
-          senderId: myCode,
-          sender: myNickname,
-          isOutgoing: true,
-          text: msg.text || '',
-          time: Date.now(),
-          read: isNotes || isChannel,
-          status: isNotes ? 'sent' : (isChannel ? 'read' : 'pending'),
-          mediaType: msg.mediaType,
-          mediaUrl: msg.mediaUrl,
-          mediaName: sanitizedMediaName,
-          mediaKey: msg.mediaKey,
-          mime: msg.mime,
-          mediaItems: sanitizedMediaItems,
-          audioMetadata: sanitizedAudioMetadata,
-          duration: msg.duration,
-          waveform: msg.waveform,
-          linkPreview: msg.linkPreview,
-          forwarded_from: fwdInfo,
-          forwardedFrom: fwdInfo,
-        };
-
-        useChatStore.getState().addMessage(targetChatId, localMessage);
-        useChatStore.getState().updateChat(targetChatId, {
-          lastMsg: sanitizedMediaName || msg.text || t('forward.forwarded_message', 'Пересланное сообщение'),
-        });
-
-        if (isChannel) {
-          channelService.publishPost(
-            targetChatId,
-            myNickname,
-            msg.text || '',
-            msg.mediaType && msg.mediaUrl ? {
-              type: msg.mediaType,
-              url: msg.mediaUrl,
-              name: sanitizedMediaName,
-              mime: msg.mime,
-              duration: msg.duration,
-              waveform: msg.waveform,
-              audioMetadata: sanitizedAudioMetadata,
-            } : undefined,
-            msg.linkPreview,
-            messageId
-          ).catch(() => {});
-        } else if (!isNotes && targetChat) {
-          const freshTargetChat = useChatStore.getState().chats.find((c) => c.id === targetChatId);
-          const networkAudioMetadata = sanitizedAudioMetadata ? {
-            title: sanitizedAudioMetadata.title,
-            artist: isAnon ? undefined : sanitizedAudioMetadata.artist,
-            duration: sanitizedAudioMetadata.duration,
-            size: sanitizedAudioMetadata.size,
-          } : null;
-
-          const messageData = {
-            id: messageId,
-            senderId: myCode,
-            sender: myNickname,
-            avatarUrl: myAvatarUrl || null,
-            text: msg.text || '',
-            mediaType: msg.mediaType || null,
-            mediaUrl: msg.mediaUrl || null,
-            mediaName: sanitizedMediaName || null,
-            mediaKey: msg.mediaKey || null,
-            mime: msg.mime || null,
-            audioMetadata: networkAudioMetadata,
-            duration: msg.duration || null,
-            waveform: msg.waveform || null,
-            linkPreview: msg.linkPreview || null,
-            forwarded_from: fwdInfo,
-            forwardedFrom: fwdInfo,
-          };
-
-          if (freshTargetChat?.ratchetState) {
-            try {
-              const ratchet = DoubleRatchet.fromState(freshTargetChat.ratchetState);
-              if (ratchet.canSend()) {
-                const plaintext = JSON.stringify(messageData);
-                const { ciphertext, index, dhPublicKey } = await ratchet.encrypt(plaintext);
-                updateChat(targetChatId, { ratchetState: ratchet.getState() });
-
-                const payload = {
-                  ...(msg.mediaType && msg.mediaUrl ? { mediaType: msg.mediaType, mediaUrl: msg.mediaUrl, mediaName: sanitizedMediaName, mime: msg.mime } : {}),
-                  sender: myNickname,
-                  avatarUrl: myAvatarUrl || null,
-                  senderCode: myCode,
-                  senderId: myCode,
-                  ciphertext,
-                  type: 'message',
-                  index,
-                  dhPublicKey,
-                  messageId,
-                  chatId: targetChatId,
-                };
-
-                ablyService.sendMessage(targetChatId, payload).catch(() => {});
-                const pusher = getPusher();
-                const channel = pusher.subscribe(`private-chat-${targetChatId}`);
-                const sendP = () => {
-                  try { channel.trigger('client-message', payload); } catch {}
-                };
-                if (channel.subscribed) sendP(); else channel.bind('pusher:subscription_succeeded', sendP);
-
-                const recipientTargets = Array.from(new Set([targetChat.peerCode, targetChat.name].filter(Boolean))) as string[];
-                for (const recipientId of recipientTargets) {
-                  await supabaseService.sendOfflineMessage(
-                    targetChatId,
-                    myNickname,
-                    recipientId,
-                    ciphertext,
-                    index,
-                    dhPublicKey,
-                    messageId
-                  ).catch(() => {});
-                }
-                useChatStore.getState().updateMessageStatus(targetChatId, messageId, 'sent');
-              }
-            } catch (e) {
-              console.warn('Ratchet send failed for forward:', e);
-            }
-          } else {
-            const recipientTargets = Array.from(new Set([targetChat.peerCode, targetChat.name].filter(Boolean))) as string[];
-            const plaintext = JSON.stringify(messageData);
-            for (const recipientId of recipientTargets) {
-              await supabaseService.saveNonMessage(
-                targetChatId,
-                myCode || myNickname,
-                recipientId,
-                plaintext,
-                messageId
-              ).catch(() => {});
-            }
-            useChatStore.getState().updateMessageStatus(targetChatId, messageId, 'sent');
-          }
-        }
-      }
-    }
-
-    selection.exitSelectionMode();
-    setIsForwardModalOpen(false);
-    setMessagesToForward([]);
-    showToast(t('forward.forwarded_success', 'Сообщения пересланы'));
-  }, [messagesToForward, activeChatId, activeChat, chats, myCode, myNickname, myAvatarUrl, selection, triggerMessage, showToast, t]);
-
 
 
   const renderMediaGroup = useCallback((msg: Message, index: number, customRadius?: string, overrideItems?: MediaItem[]) => {
@@ -6038,7 +5764,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           timeNode={timeBadge(msg, isMessagePinned(index))}
           customRadius={customRadius}
           isOwn={isOwn}
-          themeColor={themeColor}
           onMediaClick={(tileIdx) => {
             const clicked = viewerItems[tileIdx];
             if (clicked) {
@@ -6304,9 +6029,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   className="relative"
                   style={bubbleStyle(isOwn, {
                     borderRadius: customRadius,
-                    padding: isPhotoGroup
-                      ? ((msg.forwarded_from || msg.forwardedFrom) ? '0px 2px 0px 2px' : '2px 2px 0px 2px')
-                      : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
+                    padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
                     overflow: 'hidden',
                     width: 'fit-content',
                     maxWidth: 'min(440px, 75%)',
@@ -6454,15 +6177,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             onClick={(e) => handleMessageClick(e, msg.id!)}
             onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
           >
-            {(msg.forwarded_from || msg.forwardedFrom) && (
-              <div style={{ marginBottom: '2px' }}>
-                <ForwardedMessageBlock
-                  forwarded={(msg.forwarded_from || msg.forwardedFrom)!}
-                  isOwn={isOwn}
-                  themeColor={themeColor}
-                />
-              </div>
-            )}
             {media.type === 'sticker' && (
               <div
                 className="relative w-fit flex flex-col items-end group select-none"
@@ -6845,7 +6559,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         <SelectionPanel
           selectedCount={selection.selectedIds.size}
           onDelete={activeChat?.type === 'channel' && !isChannelOwner ? undefined : requestDeleteSelected}
-          onForward={handleForwardSelected}
           onCancel={selection.exitSelectionMode}
           height={headerHeight}
         />
@@ -7313,7 +7026,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 }
               } : undefined}
               onSaveAs={() => handleSaveAs(contextMenu.messageIndex)}
-              onForward={() => handleForwardSingle(contextMenu.messageIndex)}
               onSelect={handleSelectFromMenu}
               onSelectReaction={(emoji) => triggerReactionMessage(contextMenu.messageId ?? contextMenu.messageIndex, emoji)}
               canManageMessages={activeChat?.type !== 'channel' || isChannelOwner}
@@ -7537,16 +7249,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         </AnimatePresence>,
         document.body
       )}
-
-      <ForwardModal
-        isOpen={isForwardModalOpen}
-        onClose={() => {
-          setIsForwardModalOpen(false);
-          setMessagesToForward([]);
-        }}
-        messagesToForward={messagesToForward}
-        onForward={handleExecuteForward}
-      />
     </div>
   );
 };

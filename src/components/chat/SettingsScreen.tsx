@@ -536,8 +536,8 @@ const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?:
   const payload = {
     type: 'profile-update',
     sender: finalNickname,
-    senderCode: finalHideProfileId ? null : myCode,
-    senderId: finalHideProfileId ? null : myCode,
+    senderCode: myCode,
+    senderId: myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
     hideProfileId: finalHideProfileId,
@@ -550,7 +550,7 @@ const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?:
   const chats = useChatStore.getState().chats;
   chats.forEach((chat) => {
     if (chat.type === 'private' && chat.id !== 'notes') {
-      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, finalHideProfileId ? null : myCode, finalHideProfileId).catch(() => {});
+      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalHideProfileId).catch(() => {});
       ablyService.sendMessage(chat.id, payload).catch(() => {});
       const pusher = getPusher();
       const channel = pusher.subscribe(`private-chat-${chat.id}`);
@@ -757,7 +757,7 @@ const PrivacySettingsScreen = ({ onOpenPassword, onOpenBackup }: { onOpenPasswor
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: MD3.onSurface }}>{t('settings.hide_profile_id', 'Скрывать ID профиля')}</div>
-            <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>{t('settings.hide_profile_id_desc', 'Скрывать среднюю часть вашего ID в профиле')}</div>
+            <div style={{ fontSize: 12, color: MD3.onSurfaceVar, marginTop: 2 }}>{t('settings.hide_profile_id_desc', 'Скрывать ID в профиле от собеседников')}</div>
           </div>
           <M3Switch checked={hideProfileId} onChange={handleToggleHideProfileId} />
         </div>
@@ -2240,7 +2240,6 @@ export const SettingsScreen = () => {
     notificationRespectFocus, setNotificationRespectFocus,
     myCode,
     setMyCode,
-    hideProfileId,
     autoUpdate, setAutoUpdate,
     showInSystemTray, setShowInSystemTray,
     autoLaunch, setAutoLaunch,
@@ -2964,9 +2963,10 @@ export const SettingsScreen = () => {
               wordBreak: 'break-all',
               cursor: 'pointer',
               lineHeight: 1.25,
+              fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
             }}
           >
-            {hideProfileId ? '000' : (myCode || '------')}
+            {myCode || '------'}
           </div>
         </div>
 

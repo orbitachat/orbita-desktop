@@ -2,7 +2,6 @@ import { memo, useMemo, useState } from 'react';
 import { MediaItem, Message } from '../../store/useChatStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
 import { Play } from 'lucide-react';
-import { ForwardedMessageBlock } from './ForwardedMessageBlock';
 
 interface TelegramAlbumGridProps {
   items: MediaItem[];
@@ -13,7 +12,6 @@ interface TelegramAlbumGridProps {
   onMediaClick: (index: number) => void;
   maxWidth?: number;
   customRadius?: string;
-  themeColor?: string;
 }
 
 const AlbumTile = memo(({
@@ -151,12 +149,10 @@ export const TelegramAlbumGrid = memo(({
   maxWidth = 440,
   customRadius,
   isOwn,
-  themeColor,
 }: TelegramAlbumGridProps) => {
   const rows = useMemo(() => partitionAlbum(items), [items]);
   const cleanCaption = msg.text ? msg.text.replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*(https?:\/\/[^\s]+)?/i, '').trim() : '';
   const hasCaption = Boolean(cleanCaption);
-  const forwarded = msg.forwarded_from || msg.forwardedFrom;
 
   const { photoBorderRadius, innerTL, innerTR } = useMemo(() => {
     let tl = 16;
@@ -171,14 +167,14 @@ export const TelegramAlbumGrid = memo(({
       tl = parseVal(parts[0]);
       tr = parseVal(parts[1] || parts[0]);
     }
-    const cTL = forwarded ? 0 : Math.max(0, tl - 2);
-    const cTR = forwarded ? 0 : Math.max(0, tr - 2);
+    const cTL = Math.max(0, tl - 2);
+    const cTR = Math.max(0, tr - 2);
     return {
       photoBorderRadius: `${cTL}px ${cTR}px 4px 4px`,
       innerTL: cTL,
       innerTR: cTR,
     };
-  }, [customRadius, forwarded]);
+  }, [customRadius]);
 
   return (
     <div
@@ -191,25 +187,6 @@ export const TelegramAlbumGrid = memo(({
         boxSizing: 'border-box',
       }}
     >
-      {forwarded && (
-        <div
-          className="flex items-center select-none"
-          style={{
-            height: '24px',
-            minHeight: '24px',
-            maxHeight: '24px',
-            boxSizing: 'border-box',
-            padding: '0 8px',
-            backgroundColor: 'inherit',
-          }}
-        >
-          <ForwardedMessageBlock
-            forwarded={forwarded}
-            isOwn={isOwn || false}
-            themeColor={themeColor}
-          />
-        </div>
-      )}
       <div
         className="flex flex-col w-full overflow-hidden"
         style={{
@@ -301,17 +278,13 @@ export const TelegramAlbumGrid = memo(({
         </div>
       ) : (
         <div
-          className="flex items-end justify-end select-none"
+          className="flex items-center justify-end select-none"
           style={{
             backgroundColor: 'inherit',
-            height: '24px',
-            minHeight: '24px',
-            maxHeight: '24px',
-            boxSizing: 'border-box',
-            paddingTop: '0px',
-            paddingBottom: '2px',
+            paddingTop: '2px',
+            paddingBottom: '0px',
             paddingLeft: '4px',
-            paddingRight: isOwn ? '1px' : '3px',
+            paddingRight: '1px',
           }}
         >
           <div
@@ -320,7 +293,8 @@ export const TelegramAlbumGrid = memo(({
               lineHeight: 1,
               userSelect: 'none',
               WebkitUserSelect: 'none',
-              marginBottom: '0px',
+              marginRight: isOwn ? '1px' : '3px',
+              marginBottom: '-1px',
             }}
           >
             {timeNode}
