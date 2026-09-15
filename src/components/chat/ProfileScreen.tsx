@@ -1797,14 +1797,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
   const isProfileIdHidden = useMemo(() => {
     if (isChannel) return false;
-    return Boolean(chat?.hideProfileId);
-  }, [isChannel, chat?.hideProfileId]);
+    return Boolean(chat?.hideProfileId || !chat?.peerCode);
+  }, [isChannel, chat?.hideProfileId, chat?.peerCode]);
 
   const profileId = useMemo(() => {
     if (isChannel) return chat.id;
     if (chatId === 'notes') return '';
     if (isProfileIdHidden) return '000';
-    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined) || '';
+    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || '000';
   }, [isChannel, chat, chatId, isProfileIdHidden]);
 
   const formattedProfileId = useMemo(() => {
@@ -2161,7 +2161,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     color: 'var(--accent-color, #9b7dd4)',
                     wordBreak: 'break-all',
                     lineHeight: 1.3,
-                    fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                   }}
                 >
                   {formattedProfileId}

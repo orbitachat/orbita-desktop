@@ -208,7 +208,7 @@
       "set_photo": "Установить фотографию"
     },
     "connectModal": {
-      "notes": "Заметки для себя",
+      "notes": "Избранное",
       "find_friends": "Поиск друзей",
       "network": "СЕТЬ",
       "my_code": "Мой код",
@@ -987,7 +987,7 @@
       "create_chat": "Добавить друга",
       "add_friend": "Добавить друга",
       "calls": "Звонки",
-      "saved_messages": "Заметки для себя",
+      "saved_messages": "Избранное",
       "settings": "Настройки",
       "night_mode": "Ночной режим"
     },
@@ -1195,6 +1195,7 @@
       "forward_messages": "Переслать сообщения",
       "forwarded_from": "Переслано от",
       "forwarded_message": "Пересланное сообщение",
+      "already_in_chat": "Вы уже находитесь в чате с {{nickname}}",
       "hide_author": "Скрыть имя автора",
       "hide_author_desc": "Анонимизировать метаданные перед отправкой",
       "messages_count": "{{count}} сообщений",

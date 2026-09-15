@@ -207,6 +207,7 @@
       "set_photo": "Set photo"
     },
     "connectModal": {
+      "notes": "Saved Messages",
       "find_friends": "Find friends",
       "network": "NETWORK",
       "my_code": "My code",
@@ -1184,6 +1185,7 @@
       "forward_messages": "Forward messages",
       "forwarded_from": "Forwarded from",
       "forwarded_message": "Forwarded message",
+      "already_in_chat": "You are already in a chat with {{nickname}}",
       "hide_author": "Hide sender name",
       "hide_author_desc": "Anonymize metadata before sending",
       "messages_count": "{{count}} messages",

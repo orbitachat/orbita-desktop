@@ -1,6 +1,7 @@
 import React from 'react';
-import { Trash, Share2 } from 'lucide-react';
+import { Trash } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CustomForwardIcon } from './ChatWindow';
 
 interface SelectionPanelProps {
   selectedCount: number;
@@ -84,7 +85,7 @@ export const SelectionPanel: React.FC<SelectionPanelProps> = ({
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-high, rgba(255, 255, 255, 0.08))')}
           >
-            <Share2 size={17} style={{ transform: 'scaleX(-1)' }} />
+            <CustomForwardIcon size={17} />
             {t('common.forward')}
           </button>
         )}

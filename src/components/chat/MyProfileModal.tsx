@@ -883,10 +883,9 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                       color: 'var(--accent-color, #9b7dd4)',
                       wordBreak: 'break-all',
                       lineHeight: 1.3,
-                      fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                     }}
                   >
-                    {myCode || '------'}
+                    {hideProfileId ? '000' : (myCode || '------')}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
                     {hideProfileId ? t('profile.id_hidden', 'ID скрыт') : 'ID'}

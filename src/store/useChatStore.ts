@@ -121,6 +121,8 @@ export interface LinkPreviewData {
 export interface ForwardedFrom {
   sender?: string;
   senderId?: string;
+  senderAvatarUrl?: string | null;
+  isIdHidden?: boolean;
   chatId?: string;
   chatTitle?: string;
   time?: number;

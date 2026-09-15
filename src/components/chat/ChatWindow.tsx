@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, File, ArrowLeft,
   Copy, Image as ImageIcon, Download as DownloadIcon,
-  CheckCircle, Trash, ChevronDown, Search, Share2
+  CheckCircle, Trash, ChevronDown, Search
 } from 'lucide-react';
 import { useChatStore, type Message, type MediaItem, type LinkPreviewData, type ForwardedFrom, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -253,6 +253,12 @@ export const CustomEditIcon: React.FC<{ size?: number; className?: string; style
 
 export const CustomReplyIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className = '', style = {} }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="currentColor" className={className} style={style}>
+    <path d="M28.88 30a1 1 0 0 1-.88-.5A15.19 15.19 0 0 0 15 22v6a1 1 0 0 1-.62.92a1 1 0 0 1-1.09-.21l-12-12a1 1 0 0 1 0-1.42l12-12a1 1 0 0 1 1.09-.21A1 1 0 0 1 15 4v6.11a17.19 17.19 0 0 1 15 17a16 16 0 0 1-.13 2a1 1 0 0 1-.79.86ZM14.5 20A17.62 17.62 0 0 1 28 26a15.31 15.31 0 0 0-14.09-14a1 1 0 0 1-.91-1V6.41L3.41 16L13 25.59V21a1 1 0 0 1 1-1h.54Z" />
+  </svg>
+);
+
+export const CustomForwardIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className = '', style = {} }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="currentColor" className={className} style={{ ...style, transform: `scaleX(-1) ${style?.transform || ''}`.trim() }}>
     <path d="M28.88 30a1 1 0 0 1-.88-.5A15.19 15.19 0 0 0 15 22v6a1 1 0 0 1-.62.92a1 1 0 0 1-1.09-.21l-12-12a1 1 0 0 1 0-1.42l12-12a1 1 0 0 1 1.09-.21A1 1 0 0 1 15 4v6.11a17.19 17.19 0 0 1 15 17a16 16 0 0 1-.13 2a1 1 0 0 1-.79.86ZM14.5 20A17.62 17.62 0 0 1 28 26a15.31 15.31 0 0 0-14.09-14a1 1 0 0 1-.91-1V6.41L3.41 16L13 25.59V21a1 1 0 0 1 1-1h.54Z" />
   </svg>
 );
@@ -693,7 +699,7 @@ const MessageContextMenu = ({
   items.push({
     label: t('common.forward'),
     onClick: onForward,
-    icon: <Share2 size={16} style={{ color: iconColor, transform: 'scaleX(-1)' }} />,
+    icon: <CustomForwardIcon size={16} style={{ color: iconColor }} />,
   });
 
   items.push({
@@ -5744,14 +5750,48 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const targetChat = chats.find((c) => c.id === targetChatId);
 
     for (const msg of messagesToForward) {
-      const fwdInfo: ForwardedFrom = hideAuthor
-        ? { isAnonymous: true }
-        : {
-            sender: msg.forwarded_from?.sender || msg.sender,
-            senderId: msg.forwarded_from?.senderId || msg.senderId,
+      let fwdInfo: ForwardedFrom;
+      if (hideAuthor) {
+        fwdInfo = { isAnonymous: true };
+      } else {
+        const prevFwd = msg.forwarded_from || msg.forwardedFrom;
+        if (prevFwd) {
+          const isIdHidden = Boolean(prevFwd.isIdHidden || !prevFwd.senderId);
+          fwdInfo = {
+            sender: prevFwd.sender,
+            senderId: isIdHidden ? undefined : prevFwd.senderId,
+            senderAvatarUrl: isIdHidden ? undefined : prevFwd.senderAvatarUrl,
+            isIdHidden,
             chatTitle: activeChat?.name,
-            time: msg.forwarded_from?.time || msg.time,
+            time: prevFwd.time || msg.time,
           };
+        } else {
+          const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
+          if (isOwn) {
+            const myHide = Boolean(useChatStore.getState().hideProfileId);
+            fwdInfo = {
+              sender: myNickname,
+              senderId: myHide ? undefined : (myCode || undefined),
+              senderAvatarUrl: myHide ? undefined : (myAvatarUrl || undefined),
+              isIdHidden: myHide,
+              chatTitle: activeChat?.name,
+              time: msg.time,
+            };
+          } else {
+            const peerHidden = Boolean(activeChat?.hideProfileId);
+            const peerCode = peerHidden ? undefined : (activeChat?.peerCode || msg.senderId);
+            const isHidden = Boolean(peerHidden || !peerCode);
+            fwdInfo = {
+              sender: msg.sender || activeChat?.name,
+              senderId: isHidden ? undefined : peerCode,
+              senderAvatarUrl: isHidden ? undefined : (activeChat?.avatarUrl || undefined),
+              isIdHidden: isHidden,
+              chatTitle: activeChat?.name,
+              time: msg.time,
+            };
+          }
+        }
+      }
 
       if (targetChatId === activeChatId) {
         const media = msg.mediaType && msg.mediaUrl ? {
@@ -5977,6 +6017,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           timeNode={timeBadge(msg, isMessagePinned(index))}
           customRadius={customRadius}
           isOwn={isOwn}
+          themeColor={themeColor}
           onMediaClick={(tileIdx) => {
             const clicked = viewerItems[tileIdx];
             if (clicked) {
@@ -6242,7 +6283,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   className="relative"
                   style={bubbleStyle(isOwn, {
                     borderRadius: customRadius,
-                    padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
+                    padding: isPhotoGroup
+                      ? ((msg.forwarded_from || msg.forwardedFrom) ? '0px 2px 10px 2px' : '2px 2px 10px 2px')
+                      : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
                     overflow: 'hidden',
                     width: 'fit-content',
                     maxWidth: 'min(440px, 75%)',

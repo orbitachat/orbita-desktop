@@ -2240,6 +2240,7 @@ export const SettingsScreen = () => {
     notificationRespectFocus, setNotificationRespectFocus,
     myCode,
     setMyCode,
+    hideProfileId,
     autoUpdate, setAutoUpdate,
     showInSystemTray, setShowInSystemTray,
     autoLaunch, setAutoLaunch,
@@ -2963,10 +2964,9 @@ export const SettingsScreen = () => {
               wordBreak: 'break-all',
               cursor: 'pointer',
               lineHeight: 1.25,
-              fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
             }}
           >
-            {myCode || '------'}
+            {hideProfileId ? '000' : (myCode || '------')}
           </div>
         </div>
 

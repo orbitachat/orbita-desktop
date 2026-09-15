@@ -2064,6 +2064,17 @@ export const MainLayout = () => {
   );
 
   useEffect(() => {
+    const handleStartChat = (e: any) => {
+      const code = e.detail?.code;
+      if (code && typeof code === 'string') {
+        handleConnectRequest(code.toUpperCase(), () => {});
+      }
+    };
+    window.addEventListener('orbita:start-chat-with-user', handleStartChat);
+    return () => window.removeEventListener('orbita:start-chat-with-user', handleStartChat);
+  }, [handleConnectRequest]);
+
+  useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).orbita?.onDeepLink) {
       const unsub = (window as any).orbita.onDeepLink((url: string) => {
         if (!url) return;
