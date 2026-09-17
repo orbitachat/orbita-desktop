@@ -8,6 +8,8 @@ import {
   LocalVideoTrack,
   LocalAudioTrack,
   Track,
+  VideoPresets,
+  BackupCodecPolicy,
   type RoomOptions,
   type RoomConnectOptions,
 } from 'livekit-client';
@@ -48,10 +50,13 @@ class LiveKitService extends EventEmitter {
   private attachedAudioElements: Map<string, HTMLMediaElement> = new Map();
   private peerVolume = 1.0;
   private micVolume = 1.0;
+  private isWindowHidden = false;
+  private visibilityCleanup: (() => void) | null = null;
 
   constructor() {
     super();
     this.room = null;
+    this.initVisibilityWatcher();
   }
 
   public setPeerVolume(volume: number): void {
@@ -88,6 +93,67 @@ class LiveKitService extends EventEmitter {
 
   public getMicVolume(): number {
     return this.micVolume;
+  }
+
+  private applyHighAudioPriority(track: any): void {
+    try {
+      const sender = track?.sender as RTCRtpSender | undefined;
+      if (sender && typeof sender.getParameters === 'function' && typeof sender.setParameters === 'function') {
+        const params = sender.getParameters();
+        if (params && params.encodings && params.encodings.length > 0) {
+          params.encodings.forEach((enc: any) => {
+            enc.priority = 'high';
+            enc.networkPriority = 'high';
+            enc.maxBitrate = 96000;
+          });
+          sender.setParameters(params).catch(() => {});
+        }
+      }
+    } catch {}
+  }
+
+  public setBackgroundVideoEnabled(enabled: boolean): void {
+    if (!this.room) return;
+    for (const participant of this.room.remoteParticipants.values()) {
+      for (const pub of participant.videoTrackPublications.values()) {
+        try {
+          pub.setEnabled(enabled);
+        } catch {}
+      }
+    }
+  }
+
+  private initVisibilityWatcher(): void {
+    if (this.visibilityCleanup) return;
+
+    const handleVisibilityChange = () => {
+      const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+      this.isWindowHidden = hidden;
+      this.setBackgroundVideoEnabled(!hidden);
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    const orbita = typeof window !== 'undefined' ? (window as any).orbita : null;
+    let removeIpc: (() => void) | undefined;
+    if (orbita?.onCallVisibilityChanged) {
+      removeIpc = orbita.onCallVisibilityChanged((visible: boolean) => {
+        this.isWindowHidden = !visible;
+        this.setBackgroundVideoEnabled(visible);
+      });
+    }
+
+    this.visibilityCleanup = () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+      if (removeIpc) {
+        removeIpc();
+      }
+      this.visibilityCleanup = null;
+    };
   }
 
   public get status(): CallStatus {
@@ -188,24 +254,60 @@ class LiveKitService extends EventEmitter {
     const selectedCamId = useChatStore.getState().selectedCameraId;
 
     const roomOptions: RoomOptions = {
-      adaptiveStream: false,
-      dynacast: false,
+      adaptiveStream: true,
+      dynacast: true,
       stopLocalTrackOnUnpublish: true,
       audioCaptureDefaults: {
         deviceId: selectedMicId || undefined,
         autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: true,
-        channelCount: 1,
+        channelCount: 2,
         sampleRate: 48000,
         sampleSize: 16,
       },
       videoCaptureDefaults: {
         deviceId: selectedCamId || undefined,
+        resolution: {
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+          aspectRatio: 16 / 9,
+        },
       },
       publishDefaults: {
-        dtx: false,
+        dtx: true,
         red: true,
+        forceStereo: true,
+        audioPreset: {
+          maxBitrate: 96000,
+          priority: 'high',
+        },
+        videoCodec: 'h264',
+        backupCodec: {
+          codec: 'vp8',
+          encoding: {
+            maxBitrate: 1200000,
+            maxFramerate: 30,
+            priority: 'low',
+          },
+        },
+        backupCodecPolicy: BackupCodecPolicy.REGRESSION,
+        videoEncoding: {
+          maxBitrate: 1500000,
+          maxFramerate: 30,
+          priority: 'medium',
+        },
+        videoSimulcastLayers: [
+          VideoPresets.h360,
+        ],
+        degradationPreference: 'maintain-framerate',
+        screenShareEncoding: {
+          maxBitrate: 2500000,
+          maxFramerate: 30,
+          priority: 'medium',
+        },
+        simulcast: true,
       },
     };
 
@@ -350,9 +452,16 @@ class LiveKitService extends EventEmitter {
         autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: true,
-        channelCount: 1,
+        channelCount: 2,
         sampleRate: 48000,
         sampleSize: 16,
+      }, {
+        dtx: true,
+        forceStereo: true,
+        audioPreset: {
+          maxBitrate: 96000,
+          priority: 'high',
+        },
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (pub?.track) {
@@ -360,6 +469,7 @@ class LiveKitService extends EventEmitter {
         try {
           (this.localAudioTrack as any).setVolume?.(this.micVolume);
         } catch {}
+        this.applyHighAudioPriority(pub.track);
       }
       this.emit('micChanged', true);
       return true;
@@ -402,9 +512,16 @@ class LiveKitService extends EventEmitter {
           autoGainControl: true,
           echoCancellation: true,
           noiseSuppression: true,
-          channelCount: 1,
+          channelCount: 2,
           sampleRate: 48000,
           sampleSize: 16,
+        }, {
+          dtx: true,
+          forceStereo: true,
+          audioPreset: {
+            maxBitrate: 96000,
+            priority: 'high',
+          },
         });
         const pub = this.localParticipant.getTrackPublication(Track.Source.Microphone);
         if (pub?.track) {
@@ -412,6 +529,7 @@ class LiveKitService extends EventEmitter {
           try {
             (this.localAudioTrack as any).setVolume?.(this.micVolume);
           } catch {}
+          this.applyHighAudioPriority(pub.track);
         }
       } catch {}
       return;
@@ -423,7 +541,7 @@ class LiveKitService extends EventEmitter {
           noiseSuppression: true,
           echoCancellation: true,
           autoGainControl: true,
-          channelCount: 1,
+          channelCount: 2,
           sampleRate: 48000,
           sampleSize: 16,
         });
@@ -513,11 +631,32 @@ class LiveKitService extends EventEmitter {
       await this.localParticipant.setCameraEnabled(true, {
         deviceId: selectedCamId || undefined,
         resolution: {
-          width: 1920,
-          height: 1080,
-          frameRate: 60,
+          width: 1280,
+          height: 720,
+          frameRate: 30,
           aspectRatio: 16 / 9,
         },
+      }, {
+        videoCodec: 'h264',
+        backupCodec: {
+          codec: 'vp8',
+          encoding: {
+            maxBitrate: 1200000,
+            maxFramerate: 30,
+            priority: 'low',
+          },
+        },
+        backupCodecPolicy: BackupCodecPolicy.REGRESSION,
+        videoEncoding: {
+          maxBitrate: 1500000,
+          maxFramerate: 30,
+          priority: 'medium',
+        },
+        videoSimulcastLayers: [
+          VideoPresets.h360,
+        ],
+        degradationPreference: 'maintain-framerate',
+        simulcast: true,
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);
       if (pub?.track) {
@@ -581,12 +720,12 @@ class LiveKitService extends EventEmitter {
     return null;
   }
 
-  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: 45 | 60 | 90; audio?: boolean }): Promise<boolean> {
+  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: number; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) {
       return false;
     }
-    let width = 1280;
-    let height = 720;
+    let width = 1920;
+    let height = 1080;
     if (options?.quality === '1440p') {
       width = 2560;
       height = 1440;
@@ -597,7 +736,7 @@ class LiveKitService extends EventEmitter {
       width = 1280;
       height = 720;
     }
-    const frameRate = options?.fps || 45;
+    const frameRate = options?.fps || 30;
     const includeAudio = !!options?.audio;
 
     try {
@@ -625,12 +764,22 @@ class LiveKitService extends EventEmitter {
         const vTrack = stream.getVideoTracks()[0];
         if (!vTrack) throw new Error('No video track');
 
+        if ('contentHint' in vTrack) {
+          vTrack.contentHint = 'detail';
+        }
+
         const localVTrack = new LocalVideoTrack(vTrack, undefined, false);
         localVTrack.source = Track.Source.ScreenShare;
         await this.localParticipant.publishTrack(localVTrack, {
           source: Track.Source.ScreenShare,
           name: 'screen_share',
           simulcast: false,
+          videoEncoding: {
+            maxBitrate: 2500000,
+            maxFramerate: Math.min(frameRate, 30),
+            priority: 'medium',
+          },
+          degradationPreference: 'maintain-resolution',
         });
         this.screenShareTrack = localVTrack;
 
@@ -644,6 +793,12 @@ class LiveKitService extends EventEmitter {
           await this.localParticipant.publishTrack(localATrack, {
             source: Track.Source.ScreenShareAudio,
             name: 'screen_share_audio',
+            forceStereo: true,
+            dtx: true,
+            audioPreset: {
+              maxBitrate: 96000,
+              priority: 'high',
+            },
           });
           this.screenShareAudioTrack = localATrack;
         }
@@ -654,14 +809,25 @@ class LiveKitService extends EventEmitter {
 
       await this.localParticipant.setScreenShareEnabled(true, {
         audio: includeAudio,
+        contentHint: 'detail',
         resolution: {
           width,
           height,
           frameRate,
         },
+      }, {
+        simulcast: false,
+        screenShareEncoding: {
+          maxBitrate: 2500000,
+          maxFramerate: Math.min(frameRate, 30),
+        },
+        degradationPreference: 'maintain-resolution',
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.track) {
+        if ('contentHint' in pub.track.mediaStreamTrack) {
+          pub.track.mediaStreamTrack.contentHint = 'detail';
+        }
         this.screenShareTrack = pub.track as LocalTrack;
         pub.track.mediaStreamTrack.onended = () => {
           void this.stopScreenShare();
@@ -702,7 +868,7 @@ class LiveKitService extends EventEmitter {
     this.emit('screenShareChanged', false, null);
   }
 
-  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: 45 | 60 | 90; audio?: boolean }): Promise<boolean> {
+  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: number; audio?: boolean }): Promise<boolean> {
     if (this.isScreenSharing()) {
       await this.stopScreenShare();
       return false;
@@ -797,6 +963,11 @@ class LiveKitService extends EventEmitter {
         try {
           (track as any).setVolume?.(this.peerVolume);
         } catch {}
+      } catch {}
+    }
+    if (track.kind === Track.Kind.Video && this.isWindowHidden && _publication) {
+      try {
+        _publication.setEnabled(false);
       } catch {}
     }
     if (track.source === Track.Source.ScreenShare) {

@@ -76,6 +76,12 @@ app.commandLine.appendSwitch('disk-cache-size', '536870912');
 app.commandLine.appendSwitch('media-cache-size', '536870912');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=2048 --expose-gc');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-accelerated-video-decode');
+app.commandLine.appendSwitch('enable-accelerated-video-encode');
+app.commandLine.appendSwitch('enable-features', 'WebRtcD3D11VideoDecoder,WebRtcHardwareVideoEncoding,WebRtcD3d11DesktopCapturer');
 
 // Load optional native module
 let nativeModule: any = null;
@@ -2481,6 +2487,30 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
   callWindow.on('unmaximize', () => {
     if (callWindow && !callWindow.isDestroyed()) {
       callWindow.webContents.send('window:state-changed', false);
+    }
+  });
+
+  callWindow.on('minimize', () => {
+    if (callWindow && !callWindow.isDestroyed()) {
+      callWindow.webContents.send('orbita:call-visibility-changed', false);
+    }
+  });
+
+  callWindow.on('restore', () => {
+    if (callWindow && !callWindow.isDestroyed()) {
+      callWindow.webContents.send('orbita:call-visibility-changed', true);
+    }
+  });
+
+  callWindow.on('hide', () => {
+    if (callWindow && !callWindow.isDestroyed()) {
+      callWindow.webContents.send('orbita:call-visibility-changed', false);
+    }
+  });
+
+  callWindow.on('show', () => {
+    if (callWindow && !callWindow.isDestroyed()) {
+      callWindow.webContents.send('orbita:call-visibility-changed', true);
     }
   });
 

@@ -15,7 +15,7 @@ interface DesktopSource {
 export interface ScreenShareOptions {
   sourceId?: string;
   quality: '720p' | '1080p' | '1440p';
-  fps: 45 | 60 | 90;
+  fps: 15 | 30 | 60;
   audio: boolean;
 }
 
@@ -43,8 +43,8 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
   const [sources, setSources] = useState<DesktopSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [quality, setQuality] = useState<'720p' | '1080p' | '1440p'>('720p');
-  const [fps, setFps] = useState<45 | 60 | 90>(45);
+  const [quality, setQuality] = useState<'720p' | '1080p' | '1440p'>('1080p');
+  const [fps, setFps] = useState<15 | 30 | 60>(30);
   const [shareAudio, setShareAudio] = useState<boolean>(false);
 
   const fetchSources = useCallback(async () => {
@@ -348,7 +348,7 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
                     {t('call.framerate')}:
                   </span>
                   <div className="flex items-center rounded-lg p-0.5 bg-[var(--surface-container,rgba(255,255,255,0.06))]">
-                    {([45, 60, 90] as const).map((rate) => (
+                    {([15, 30, 60] as const).map((rate) => (
                       <button
                         key={rate}
                         type="button"
