@@ -1,6 +1,6 @@
 {
   "name": "orbita",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Orbita",
   "author": "Saizzi",
   "main": "dist-electron/main.cjs",
@@ -25,7 +25,7 @@
         "provider": "github",
         "owner": "orbitachat",
         "repo": "orbita-desktop",
-        "releaseType": "release"
+        "releaseType": "draft"
       }
     ],
     "files": [
