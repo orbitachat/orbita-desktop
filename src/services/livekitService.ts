@@ -720,23 +720,15 @@ class LiveKitService extends EventEmitter {
     return null;
   }
 
-  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: number; audio?: boolean }): Promise<boolean> {
+  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: number; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) {
       return false;
     }
-    let width = 1920;
-    let height = 1080;
-    if (options?.quality === '1440p') {
-      width = 2560;
-      height = 1440;
-    } else if (options?.quality === '1080p') {
-      width = 1920;
-      height = 1080;
-    } else if (options?.quality === '720p') {
-      width = 1280;
-      height = 720;
-    }
-    const frameRate = options?.fps || 30;
+    const is720 = options?.quality === '720p';
+    const width = is720 ? 1280 : 1920;
+    const height = is720 ? 720 : 1080;
+    const frameRate = options?.fps === 60 ? 60 : 30;
+    const maxBitrate = is720 ? 3500000 : 8000000;
     const includeAudio = !!options?.audio;
 
     try {
@@ -775,9 +767,9 @@ class LiveKitService extends EventEmitter {
           name: 'screen_share',
           simulcast: false,
           videoEncoding: {
-            maxBitrate: 2500000,
-            maxFramerate: Math.min(frameRate, 30),
-            priority: 'medium',
+            maxBitrate,
+            maxFramerate: frameRate,
+            priority: 'high',
           },
           degradationPreference: 'maintain-resolution',
         });
@@ -818,8 +810,8 @@ class LiveKitService extends EventEmitter {
       }, {
         simulcast: false,
         screenShareEncoding: {
-          maxBitrate: 2500000,
-          maxFramerate: Math.min(frameRate, 30),
+          maxBitrate,
+          maxFramerate: frameRate,
         },
         degradationPreference: 'maintain-resolution',
       });
@@ -868,7 +860,7 @@ class LiveKitService extends EventEmitter {
     this.emit('screenShareChanged', false, null);
   }
 
-  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p' | '1440p'; fps?: number; audio?: boolean }): Promise<boolean> {
+  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: number; audio?: boolean }): Promise<boolean> {
     if (this.isScreenSharing()) {
       await this.stopScreenShare();
       return false;

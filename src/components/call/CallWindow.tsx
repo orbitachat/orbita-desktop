@@ -152,8 +152,9 @@ export const CallWindow = () => {
   const isEnded = callState === 'ended';
 
   const hasLocalScreenShare = (isConnected || isConnecting) && isScreenSharing;
-  const isDualScreenShare = isRemoteScreenShareActive && hasLocalScreenShare;
-  const hasAnyActiveStream = isRemoteVideoActive || isRemoteScreenShareActive || hasLocalScreenShare;
+  const hasRemoteStream = isRemoteVideoActive || isRemoteScreenShareActive;
+  const isDualStream = hasRemoteStream && hasLocalScreenShare;
+  const hasAnyActiveStream = hasRemoteStream || hasLocalScreenShare;
 
   const currentRoomName = activeCall?.roomName;
   const prevRoomRef = useRef<string | null>(null);
@@ -426,7 +427,7 @@ export const CallWindow = () => {
       const track = liveKitService.getRemoteVideoTrack();
       if (track) track.attach(remoteVideoRef.current);
     }
-  }, [isRemoteScreenShareActive, hasLocalScreenShare, isLocalVideoActive, isRemoteVideoActive, isDualScreenShare, expandedShare]);
+  }, [isRemoteScreenShareActive, hasLocalScreenShare, isLocalVideoActive, isRemoteVideoActive, isDualStream, expandedShare]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -644,7 +645,6 @@ export const CallWindow = () => {
 
       {isRemoteScreenShareActive && (
         <div className="absolute top-14 left-16 z-30 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[12px] font-medium text-white/90">
             {t('call.screen_of', { name: otherName })}
           </span>
@@ -699,9 +699,9 @@ export const CallWindow = () => {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
-        {isDualScreenShare ? (
+        {isDualStream ? (
           expandedShare === 'remote' ? (
-            <div className="fixed inset-0 z-40 bg-black/95 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachRemoteScreenShare}
@@ -709,9 +709,18 @@ export const CallWindow = () => {
                   playsInline
                   muted
                   className="w-full h-full object-contain"
+                  style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
+                />
+                <video
+                  ref={attachRemoteVideo}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-contain"
+                  style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
                 />
                 <div className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-[12px] font-semibold text-white/90 select-none pointer-events-none">
-                  {otherName || t('call.screen_share_of_user')}
+                  {isRemoteScreenShareActive ? (otherName || t('call.screen_share_of_user')) : otherName}
                 </div>
                 <button
                   type="button"
@@ -734,7 +743,6 @@ export const CallWindow = () => {
                     className="w-full h-full object-contain pointer-events-none"
                   />
                   <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     <span>{t('call.your_screen')}</span>
                   </div>
                   <div className="absolute top-2 right-2 z-10 p-1 rounded-md bg-black/60 text-white/80">
@@ -744,7 +752,7 @@ export const CallWindow = () => {
               </div>
             </div>
           ) : expandedShare === 'local' ? (
-            <div className="fixed inset-0 z-40 bg-black/95 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachLocalScreenShare}
@@ -754,7 +762,6 @@ export const CallWindow = () => {
                   className="w-full h-full object-contain"
                 />
                 <div className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-[12px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span>{t('call.your_screen')}</span>
                 </div>
                 <button
@@ -776,9 +783,18 @@ export const CallWindow = () => {
                     playsInline
                     muted
                     className="w-full h-full object-contain pointer-events-none"
+                    style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
+                  />
+                  <video
+                    ref={attachRemoteVideo}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
                   />
                   <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-semibold text-white/90 select-none pointer-events-none">
-                    {otherName || t('call.screen_share_of_user')}
+                    {isRemoteScreenShareActive ? (otherName || t('call.screen_share_of_user')) : otherName}
                   </div>
                   <div className="absolute top-2 right-2 z-10 p-1 rounded-md bg-black/60 text-white/80">
                     <Maximize2 size={12} />
@@ -798,9 +814,18 @@ export const CallWindow = () => {
                   playsInline
                   muted
                   className="w-full h-full object-contain"
+                  style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
+                />
+                <video
+                  ref={attachRemoteVideo}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                  style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
                 />
                 <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none">
-                  {otherName || t('call.screen_share_of_user')}
+                  {isRemoteScreenShareActive ? (otherName || t('call.screen_share_of_user')) : otherName}
                 </div>
                 <button
                   type="button"
@@ -827,7 +852,6 @@ export const CallWindow = () => {
                   className="w-full h-full object-contain"
                 />
                 <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span>{t('call.your_screen')}</span>
                 </div>
                 <button
@@ -844,12 +868,12 @@ export const CallWindow = () => {
               </div>
             </div>
           )
-        ) : (isRemoteVideoActive || isRemoteScreenShareActive) ? (
+        ) : hasRemoteStream ? (
           <div
             onClick={() => setExpandedShare(expandedShare === 'remote' ? null : 'remote')}
-            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
+            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'remote'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
@@ -869,7 +893,7 @@ export const CallWindow = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className={`w-full h-full ${expandedShare === 'remote' ? 'object-contain' : 'object-cover'}`}
               style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
             />
             <button
@@ -883,18 +907,16 @@ export const CallWindow = () => {
             >
               {expandedShare === 'remote' ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
-            {isRemoteScreenShareActive && (
-              <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none">
-                {otherName || t('call.screen_share_of_user')}
-              </div>
-            )}
+            <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none">
+              {isRemoteScreenShareActive ? (otherName || t('call.screen_share_of_user')) : otherName}
+            </div>
           </div>
         ) : hasLocalScreenShare ? (
           <div
             onClick={() => setExpandedShare(expandedShare === 'local' ? null : 'local')}
-            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-[#09080e] ${
+            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'local'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
@@ -920,7 +942,6 @@ export const CallWindow = () => {
               {expandedShare === 'local' ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
             <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[11px] font-semibold text-white/90 select-none pointer-events-none flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>{t('call.your_screen')}</span>
             </div>
           </div>
@@ -977,8 +998,14 @@ export const CallWindow = () => {
 
       <div className={`${expandedShare ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-30'} flex flex-col items-center gap-3 select-none`}>
         {hasLocalScreenShare && (
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md shadow-lg select-none border-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          <div
+            className="relative inline-flex items-center justify-center select-none px-4 py-1.5 rounded-full shadow-md"
+            style={{
+              backgroundColor: 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
             <span className="text-[12px] font-medium text-white/90">
               {t('call.sharing_your_screen')}
             </span>
