@@ -296,8 +296,6 @@ export const CallWindowView = () => {
           if (state.callState === 'idle' || state.callState === 'ended') {
             resetCallStateAndDisconnect();
           }
-        } else {
-          resetCallStateAndDisconnect();
         }
       }).catch(() => {});
     }
@@ -308,8 +306,6 @@ export const CallWindowView = () => {
         if (state.callState === 'idle' || state.callState === 'ended') {
           resetCallStateAndDisconnect();
         }
-      } else {
-        resetCallStateAndDisconnect();
       }
     });
 
@@ -347,8 +343,6 @@ export const CallWindowView = () => {
             if (event.data.payload.callState === 'idle' || event.data.payload.callState === 'ended') {
               resetCallStateAndDisconnect();
             }
-          } else {
-            resetCallStateAndDisconnect();
           }
         } else if (event.data?.type === 'CALL_ACTION') {
           if (event.data.action === 'toggleMic') {
@@ -851,13 +845,17 @@ export const CallWindowView = () => {
         if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
         if (bgVideoRef.current && (!sTrack || sTrack.isMuted)) rTrack.attach(bgVideoRef.current);
       }
-      if (liveKitService.remoteParticipants.length > 0) {
-        sendAction('activateConnected');
-      }
+      sendAction('activateConnected');
     };
 
     const handleParticipantJoined = () => {
       sendAction('activateConnected');
+    };
+
+    const handleMicChanged = (enabled: boolean) => {
+      micEnabledRef.current = enabled;
+      setCallData((prev) => (prev ? { ...prev, isMicEnabled: enabled } : prev));
+      sendAction('toggleMic', enabled);
     };
 
     liveKitService.on('trackSubscribed', handleTrackSubscribed);
@@ -867,6 +865,7 @@ export const CallWindowView = () => {
     liveKitService.on('remoteScreenShareChanged', handleRemoteScreenShareChanged);
     liveKitService.on('connected', handleConnected);
     liveKitService.on('participantJoined', handleParticipantJoined);
+    liveKitService.on('micChanged', handleMicChanged);
 
     if (liveKitService.isConnected) {
       handleConnected();
@@ -880,6 +879,7 @@ export const CallWindowView = () => {
       liveKitService.off('remoteScreenShareChanged', handleRemoteScreenShareChanged);
       liveKitService.off('connected', handleConnected);
       liveKitService.off('participantJoined', handleParticipantJoined);
+      liveKitService.off('micChanged', handleMicChanged);
     };
   }, []);
 

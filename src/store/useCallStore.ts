@@ -850,6 +850,8 @@ export const useCallStore = create<CallStore>((set, get) => {
       console.log(`${LOG_PREFIX} handleConnected with ts:`, syncedConnectedAt);
       const state = get();
       if (!state.activeCall || (roomName && state.activeCall.roomName !== roomName)) return;
+      if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
+      if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
       clearSignalRetryTimers();
       if (state.callState === 'connected' && !syncedConnectedAt) return;
       activateConnected(syncedConnectedAt);
@@ -1071,10 +1073,19 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
       break;
     case 'syncMediaState':
       if (action.payload) {
+        if (store.callState === 'connecting' || store.callState === 'ringing') {
+          if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
+          if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
+          callSoundService.stop();
+          useCallStore.setState({ callState: 'connected' });
+        }
         useCallStore.setState(action.payload);
       }
       break;
     case 'activateConnected':
+      if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
+      if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
+      callSoundService.stop();
       store.handleConnected(action.payload);
       break;
   }
