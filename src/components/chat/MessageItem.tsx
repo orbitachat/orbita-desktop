@@ -256,6 +256,20 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 >
                   {msg.sender}
                 </span>
+                {(activeChat?.creatorNickname === msg.sender || activeChat?.members?.some((m) => m.nickname === msg.sender && m.role === 'owner')) && (
+                  <span
+                    className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold flex-shrink-0 tracking-wide uppercase select-none"
+                    style={{
+                      backgroundColor: 'rgba(124, 58, 237, 0.18)',
+                      color: 'var(--accent-color, #7C3AED)',
+                      lineHeight: 1.1,
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                    }}
+                  >
+                    {t('groupSettings.owner', 'Владелец')}
+                  </span>
+                )}
                 <DeveloperBadge userId={msg.senderId || activeChat?.peerCode} size={20} />
               </div>
             )}

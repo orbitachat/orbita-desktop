@@ -7,7 +7,7 @@ import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/Develope
 import { X, Trash, WifiOff, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
-import { getPusher } from '../../utils/pusher';
+import { getPusher, getGroupPusher } from '../../utils/pusher';
 import {
   generateChatId,
   generateKeyPair,
@@ -62,6 +62,7 @@ import { DeleteAccountModal } from '../common/DeleteAccountModal';
 import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { DevicePermissionModal } from '../common/DevicePermissionModal';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
+import { GroupUsersIcon } from '../common/GroupUsersIcon';
 import { BotIcon } from '../common/BotIcon';
 import { VerifiedBadge } from '../common/VerifiedBadge';
 import { BotAvatar } from '../common/BotAvatar';
@@ -497,6 +498,16 @@ const ChatListItem = React.memo(({
                   }}
                 />
               )}
+              {chat.type === 'group' && (
+                <GroupUsersIcon
+                  size={15}
+                  className="flex-shrink-0"
+                  style={{
+                    color: isLightTheme ? '#555555' : 'rgba(255, 255, 255, 0.85)',
+                    marginRight: 2,
+                  }}
+                />
+              )}
               {chat.type === 'bot' && (
                 <BotIcon
                   size={15}
@@ -573,9 +584,9 @@ const ChatListItem = React.memo(({
                 getLastMsgDisplay(chat, lastMsg, t)
               )}
             </div>
-            {chat.type === 'group' && chat.role && (
-              <span className="text-[9px] uppercase font-bold flex-shrink-0 ml-1.5" style={{ color: 'var(--accent-color, #7C3AED)' }}>
-                {chat.role === 'owner' ? t('groupSettings.owner') : chat.role === 'admin' ? t('groupSettings.admin') : chat.role === 'member' ? t('groupSettings.member') : ''}
+            {chat.type === 'group' && chat.role === 'owner' && (
+              <span className="text-[9px] uppercase font-bold flex-shrink-0 ml-1.5 px-1 py-0.5 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)]">
+                {t('groupSettings.owner')}
               </span>
             )}
             {(isPinned || (chat.unreadCount ?? 0) > 0) && (
@@ -2222,7 +2233,7 @@ export const MainLayout = () => {
   }, [handleConnectRequest]);
 
   const subscribeToGroupChat = useCallback((chatId: string) => {
-    const pusher = getPusher();
+    const pusher = getGroupPusher();
     if (activeSubscriptions.current.has(chatId)) return activeSubscriptions.current.get(chatId)!.channel;
     const channel = pusher.subscribe(`presence-group-${chatId}`);
     const handleMessage = (data: any) => {
@@ -2417,6 +2428,12 @@ export const MainLayout = () => {
     channel.bind('system', handleMessage);
     channel.bind('client-message', handleMessage);
     channel.bind('reaction', handleReaction);
+    channel.bind('group-call-started', (data: any) => {
+      useChatStore.getState().updateChat(chatId, { activeCallRoom: data?.roomName || null });
+    });
+    channel.bind('group-call-ended', () => {
+      useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
+    });
     activeSubscriptions.current.set(chatId, { channel, handler: handleMessage });
     startPingForChat(chatId);
     return channel;

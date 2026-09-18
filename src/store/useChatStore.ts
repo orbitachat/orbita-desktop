@@ -241,6 +241,8 @@ export interface Chat {
   isBlocked?: boolean;
   hideProfileId?: boolean;
   updatedAt?: number;
+  activeCallRoom?: string | null;
+  membersCount?: number;
 }
 
 export interface IncomingFriendRequest {

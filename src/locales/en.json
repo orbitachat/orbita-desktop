@@ -827,6 +827,13 @@
       "kick": "Remove",
       "recent_messages": "Recent messages"
     },
+    "groupCall": {
+      "active_title": "Group call in progress",
+      "max_participants": "Up to 10 participants",
+      "join": "Join",
+      "call_started": "Group call started",
+      "call_ended": "Group call ended"
+    },
     "userStatus": {
       "online": "online",
       "offline": "last seen recently",

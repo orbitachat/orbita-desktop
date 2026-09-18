@@ -359,6 +359,31 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { token, url: ENV.LIVEKIT_URL });
     }
 
+    if (pathname === '/groups/token' || pathname === '/groups/livekit/token' || pathname === '/groups/livekit-token') {
+      if (req.method !== 'POST') return sendError(res, 'Method not allowed', 405);
+      const { room, identity, name } = body;
+      if (!room || !identity) return sendError(res, 'Missing room or identity', 400);
+
+      const apiKey = ENV.GROUPS_LIVEKIT_API_KEY || ENV.LIVEKIT_API_KEY;
+      const apiSecret = ENV.GROUPS_LIVEKIT_API_SECRET || ENV.LIVEKIT_API_SECRET;
+      const livekitUrl = ENV.GROUPS_LIVEKIT_URL || ENV.LIVEKIT_URL;
+
+      const at = new AccessToken(apiKey, apiSecret, {
+        identity,
+        name: name || identity,
+      });
+      at.addGrant({
+        room,
+        roomJoin: true,
+        canPublish: true,
+        canSubscribe: true,
+        canPublishData: true,
+      });
+
+      const token = await at.toJwt();
+      return sendJson(res, { token, url: livekitUrl });
+    }
+
     if (pathname === '/ably-auth' || pathname === '/ably/auth') {
       let clientId = query.clientId || body.clientId || undefined;
       let capability = query.capability || body.capability || '{"*":["*"]}';
@@ -381,7 +406,8 @@ module.exports = async function handler(req, res) {
         return sendError(res, 'Missing socket_id or channel_name', 400);
       }
 
-      const targetServer = PUSHER_CONFIGS.find((c) => c.key === requestedKey) || PUSHER_CONFIGS[0];
+      const allPusherServers = [...PUSHER_CONFIGS, ...GROUP_PUSHER_CONFIGS];
+      const targetServer = allPusherServers.find((c) => c.key === requestedKey) || PUSHER_CONFIGS[0] || GROUP_PUSHER_CONFIGS[0];
       if (!targetServer || !targetServer.secret) {
         return sendError(res, 'No matching Pusher credentials', 500);
       }
@@ -1371,6 +1397,421 @@ module.exports = async function handler(req, res) {
         reactions: updatedReactions,
       });
       return sendJson(res, { status: 'ok', reactions: updatedReactions });
+    }
+
+    if (pathname === '/groups/create' && req.method === 'POST') {
+      if (!body.name || !body.creatorNickname) return sendError(res, 'Missing name or creatorNickname', 400);
+      const groupId = body.id;
+      const code = body.code;
+      if (!groupId || !code) return sendError(res, 'Missing group id or code', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      const nowIso = new Date().toISOString();
+      const initialMember = {
+        group_id: groupId,
+        user_code: body.creatorCode || body.creatorNickname,
+        user_id: body.creatorId || null,
+        nickname: body.creatorNickname,
+        role: 'owner',
+        joined_at: nowIso,
+        last_seen: nowIso,
+      };
+
+      if (supabase) {
+        try {
+          await supabase.from('groups').upsert({
+            id: groupId,
+            code: code,
+            name: body.name.trim(),
+            description: (body.description || '').trim(),
+            avatar_url: body.avatarUrl || null,
+            creator_id: body.creatorId || null,
+            creator_code: body.creatorCode || null,
+            creator_nickname: body.creatorNickname,
+            max_members: 10,
+            members_count: 1,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+
+          await supabase.from('group_members').upsert(initialMember);
+        } catch {}
+      }
+
+      return sendJson(res, {
+        status: 'ok',
+        group: {
+          id: groupId,
+          code: code,
+          name: body.name.trim(),
+          description: (body.description || '').trim(),
+          avatarUrl: body.avatarUrl || null,
+          creatorNickname: body.creatorNickname,
+          creatorCode: body.creatorCode || null,
+          membersCount: 1,
+          maxMembers: 10,
+          members: [
+            {
+              nickname: body.creatorNickname,
+              userCode: body.creatorCode,
+              role: 'owner',
+              joinedAt: Date.now(),
+              lastSeen: Date.now(),
+            }
+          ],
+          createdAt: Date.now(),
+        },
+      });
+    }
+
+    if (pathname === '/groups/get' && req.method === 'GET') {
+      const code = query.code || query.id;
+      if (!code) return sendError(res, 'Missing group code or id', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          let queryBuilder = supabase.from('groups').select('*');
+          if (code.startsWith('grp_')) {
+            queryBuilder = queryBuilder.eq('id', code);
+          } else {
+            queryBuilder = queryBuilder.eq('code', code);
+          }
+          const { data: groupData } = await queryBuilder.maybeSingle();
+          if (groupData) {
+            const { data: membersData } = await supabase
+              .from('group_members')
+              .select('*')
+              .eq('group_id', groupData.id);
+
+            const members = (membersData || []).map((m) => ({
+              nickname: m.nickname,
+              userCode: m.user_code,
+              role: m.role || 'member',
+              joinedAt: new Date(m.joined_at || groupData.created_at).getTime(),
+              lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
+              avatarUrl: m.avatar_url || null,
+            }));
+
+            return sendJson(res, {
+              status: 'ok',
+              group: {
+                id: groupData.id,
+                code: groupData.code,
+                name: groupData.name,
+                description: groupData.description || '',
+                avatarUrl: groupData.avatar_url || null,
+                creatorNickname: groupData.creator_nickname,
+                creatorCode: groupData.creator_code || null,
+                membersCount: groupData.members_count || members.length || 1,
+                maxMembers: groupData.max_members || 10,
+                members,
+                createdAt: new Date(groupData.created_at).getTime(),
+              },
+            });
+          }
+        } catch {}
+      }
+
+      return sendError(res, 'Group not found', 404);
+    }
+
+    if (pathname === '/groups/join' && req.method === 'POST') {
+      const { id, code, nickname, userCode, avatarUrl } = body;
+      if (!nickname || (!id && !code)) return sendError(res, 'Missing required fields', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          let queryBuilder = supabase.from('groups').select('*');
+          if (id) {
+            queryBuilder = queryBuilder.eq('id', id);
+          } else {
+            queryBuilder = queryBuilder.eq('code', code);
+          }
+          const { data: groupData } = await queryBuilder.maybeSingle();
+          if (!groupData) return sendError(res, 'Group not found', 404);
+
+          const { count } = await supabase
+            .from('group_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('group_id', groupData.id);
+
+          const currentCount = typeof count === 'number' ? count : (groupData.members_count || 1);
+          const memberUserCode = userCode || nickname;
+
+          const { data: existingMember } = await supabase
+            .from('group_members')
+            .select('*')
+            .eq('group_id', groupData.id)
+            .eq('user_code', memberUserCode)
+            .maybeSingle();
+
+          if (!existingMember && currentCount >= 10) {
+            return sendError(res, 'GROUP_FULL', 400);
+          }
+
+          const nowIso = new Date().toISOString();
+          await supabase.from('group_members').upsert({
+            group_id: groupData.id,
+            user_code: memberUserCode,
+            user_id: body.userId || null,
+            nickname: nickname,
+            role: existingMember?.role || 'member',
+            avatar_url: avatarUrl || null,
+            joined_at: existingMember?.joined_at || nowIso,
+            last_seen: nowIso,
+          });
+
+          const { data: allMembers } = await supabase
+            .from('group_members')
+            .select('*')
+            .eq('group_id', groupData.id);
+
+          const formattedMembers = (allMembers || []).map((m) => ({
+            nickname: m.nickname,
+            userCode: m.user_code,
+            role: m.role || 'member',
+            joinedAt: new Date(m.joined_at || groupData.created_at).getTime(),
+            lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
+            avatarUrl: m.avatar_url || null,
+          }));
+
+          const updatedGroup = {
+            id: groupData.id,
+            code: groupData.code,
+            name: groupData.name,
+            description: groupData.description || '',
+            avatarUrl: groupData.avatar_url || null,
+            creatorNickname: groupData.creator_nickname,
+            creatorCode: groupData.creator_code || null,
+            membersCount: formattedMembers.length,
+            maxMembers: 10,
+            members: formattedMembers,
+            createdAt: new Date(groupData.created_at).getTime(),
+          };
+
+          await triggerGroupPusherEvent(`presence-group-${groupData.id}`, 'member-joined', {
+            groupId: groupData.id,
+            nickname,
+            userCode: memberUserCode,
+            members: formattedMembers,
+          });
+
+          return sendJson(res, { status: 'ok', group: updatedGroup });
+        } catch (err) {
+          return sendError(res, err.message || 'Join failed', 500);
+        }
+      }
+
+      return sendError(res, 'Groups database not configured', 500);
+    }
+
+    if (pathname === '/groups/leave' && req.method === 'POST') {
+      const { groupId, nickname, userCode } = body;
+      if (!groupId || (!nickname && !userCode)) return sendError(res, 'Missing groupId or member identification', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          const memberKey = userCode || nickname;
+          await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_code', memberKey);
+          await triggerGroupPusherEvent(`presence-group-${groupId}`, 'member-left', {
+            groupId,
+            nickname,
+            userCode: memberKey,
+          });
+          return sendJson(res, { status: 'ok' });
+        } catch {}
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
+    if (pathname === '/groups/kick' && req.method === 'POST') {
+      const { groupId, targetNickname, adminNickname } = body;
+      if (!groupId || !targetNickname) return sendError(res, 'Missing kick parameters', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('group_members').delete().eq('group_id', groupId).eq('nickname', targetNickname);
+          await triggerGroupPusherEvent(`presence-group-${groupId}`, 'kick', {
+            groupId,
+            target: targetNickname,
+            admin: adminNickname,
+          });
+          return sendJson(res, { status: 'ok' });
+        } catch {}
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
+    if (pathname === '/groups/messages' && req.method === 'GET') {
+      const groupId = query.groupId || query.id;
+      const limit = parseInt(query.limit || '100', 10);
+      if (!groupId) return sendError(res, 'Missing groupId', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (!supabase) return sendError(res, 'Groups database not configured', 500);
+
+      try {
+        const { data, error } = await supabase
+          .from('group_messages')
+          .select('*')
+          .eq('group_id', groupId)
+          .order('created_at', { ascending: true })
+          .limit(limit);
+
+        if (error) return sendError(res, error.message, 500);
+        return sendJson(res, { status: 'ok', messages: data || [] });
+      } catch (err) {
+        return sendError(res, err.message, 500);
+      }
+    }
+
+    if (pathname === '/groups/message' && req.method === 'POST') {
+      const {
+        id,
+        groupId,
+        senderCode,
+        senderId,
+        senderNickname,
+        ciphertext,
+        mediaType,
+        mediaUrl,
+        mediaName,
+        mediaKey,
+        mime,
+        duration,
+        width,
+        height,
+        waveform,
+        audioMetadata,
+        linkPreview,
+      } = body;
+
+      if (!groupId || !ciphertext || !senderNickname) {
+        return sendError(res, 'Missing required message parameters', 400);
+      }
+
+      const msgId = id || `gmsg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const supabase = getGroupsSupabaseClient();
+      const nowIso = new Date().toISOString();
+
+      const messageRow = {
+        id: msgId,
+        group_id: groupId,
+        sender_code: senderCode || senderNickname,
+        sender_id: senderId || null,
+        sender_nickname: senderNickname,
+        ciphertext,
+        media_type: mediaType || null,
+        media_url: mediaUrl || null,
+        media_name: mediaName || null,
+        media_key: mediaKey || null,
+        mime: mime || null,
+        duration: duration || null,
+        width: width || null,
+        height: height || null,
+        waveform: waveform || null,
+        audio_metadata: audioMetadata || null,
+        link_preview: linkPreview || null,
+        created_at: nowIso,
+      };
+
+      if (supabase) {
+        try {
+          await supabase.from('group_messages').insert(messageRow);
+        } catch {}
+      }
+
+      const broadcastPayload = {
+        type: 'group-message',
+        id: msgId,
+        groupId,
+        sender: senderNickname,
+        senderCode: senderCode || senderNickname,
+        senderId: senderId || null,
+        ciphertext,
+        mediaType,
+        mediaUrl,
+        mediaName,
+        mime,
+        duration,
+        waveform,
+        time: Date.now(),
+      };
+
+      await triggerGroupPusherEvent(`presence-group-${groupId}`, 'client-message', broadcastPayload);
+
+      return sendJson(res, { status: 'ok', id: msgId });
+    }
+
+    if (pathname === '/groups/calls/active' && req.method === 'GET') {
+      const groupId = query.groupId || query.id;
+      if (!groupId) return sendError(res, 'Missing groupId', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('group_calls')
+            .select('*')
+            .eq('group_id', groupId)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          return sendJson(res, { status: 'ok', call: data || null });
+        } catch {}
+      }
+      return sendJson(res, { status: 'ok', call: null });
+    }
+
+    if (pathname === '/groups/calls/start' && req.method === 'POST') {
+      const { groupId, roomName, hostCode, hostNickname } = body;
+      if (!groupId || !roomName) return sendError(res, 'Missing call parameters', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      const nowIso = new Date().toISOString();
+      if (supabase) {
+        try {
+          await supabase.from('group_calls').upsert({
+            group_id: groupId,
+            room_name: roomName,
+            status: 'active',
+            host_code: hostCode || hostNickname,
+            host_nickname: hostNickname || 'Host',
+            participants_count: 1,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+        } catch {}
+      }
+
+      await triggerGroupPusherEvent(`presence-group-${groupId}`, 'group-call-started', {
+        groupId,
+        roomName,
+        hostCode,
+        hostNickname,
+      });
+
+      return sendJson(res, { status: 'ok', roomName });
+    }
+
+    if (pathname === '/groups/calls/end' && req.method === 'POST') {
+      const { groupId } = body;
+      if (!groupId) return sendError(res, 'Missing groupId', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('group_calls').update({ status: 'ended', updated_at: new Date().toISOString() }).eq('group_id', groupId);
+        } catch {}
+      }
+
+      await triggerGroupPusherEvent(`presence-group-${groupId}`, 'group-call-ended', { groupId });
+
+      return sendJson(res, { status: 'ok' });
     }
 
     if ((pathname === '/developers' || pathname === '/relay/developers') && req.method === 'GET') {

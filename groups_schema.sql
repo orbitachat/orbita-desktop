@@ -120,3 +120,5 @@ CREATE POLICY "Allow all on groups" ON public.groups FOR ALL USING (true) WITH C
 CREATE POLICY "Allow all on group_members" ON public.group_members FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on group_messages" ON public.group_messages FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on group_calls" ON public.group_calls FOR ALL USING (true) WITH CHECK (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.groups, public.group_members, public.group_messages, public.group_calls;

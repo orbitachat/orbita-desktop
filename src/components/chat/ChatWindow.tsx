@@ -5,16 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, File, ArrowLeft,
   Copy, Image as ImageIcon, Download as DownloadIcon,
-  CheckCircle, Trash, ChevronDown, Search
+  CheckCircle, Trash, ChevronDown, Search, Phone
 } from 'lucide-react';
 import { useChatStore, type Message, type MediaItem, type LinkPreviewData, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge } from '../ui/DeveloperBadge';
-import { getPusher } from '../../utils/pusher';
+import { getPusher, getGroupPusher } from '../../utils/pusher';
 import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
-import { deriveChannelKey, decryptMessage } from '../../lib/crypto';
+import { deriveChannelKey, decryptMessage, encryptMessage } from '../../lib/crypto';
 import { useTranslation } from 'react-i18next';
 import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
 import { useCallStore } from '../../store/useCallStore';
@@ -49,6 +49,8 @@ import { useToastStore } from '../../store/useToastStore';
 import { MessageItem } from './MessageItem';
 import { MessageReactions } from './ReactionBadge';
 import { ChannelMegaphoneIcon } from '../common/ChannelMegaphoneIcon';
+import { GroupUsersIcon } from '../common/GroupUsersIcon';
+import { groupService } from '../../services/groupService';
 import { BotIcon } from '../common/BotIcon';
 import { type ConfirmActionType } from '../common/ActionConfirmModal';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
@@ -3708,6 +3710,49 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         // Get fresh chat state to get latest ratchetState
         const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
 
+        if (freshChat?.type === 'group' && freshChat?.sharedSecret) {
+          const ciphertext = await encryptMessage(JSON.stringify(messageData), freshChat.sharedSecret);
+          const groupPusher = getGroupPusher();
+          const channel = groupPusher.subscribe(`presence-group-${activeChatId}`);
+          const payload = {
+            ...(mediaPayload ? { mediaType: mediaPayload.type, mediaUrl: mediaPayload.url, mediaName: mediaPayload.name, mime: mediaPayload.mime } : {}),
+            sender: myNickname,
+            senderCode: myCode,
+            senderId: myUserId || myCode,
+            senderUserId: myUserId,
+            ciphertext,
+            type: 'message',
+            messageId,
+            chatId: activeChatId,
+            time: Date.now(),
+          };
+          const doSendPusher = () => {
+            try { channel.trigger('client-message', payload); } catch {}
+          };
+          if (channel.subscribed) doSendPusher(); else channel.bind('pusher:subscription_succeeded', doSendPusher);
+
+          await groupService.sendGroupMessage({
+            id: messageId,
+            groupId: activeChatId,
+            senderCode: myCode,
+            senderId: myUserId || myCode,
+            senderNickname: myNickname,
+            ciphertext,
+            mediaType: mediaPayload?.type || null,
+            mediaUrl: mediaPayload?.url || null,
+            mediaName: mediaPayload?.name || null,
+            mediaKey: mediaPayload?.key || null,
+            mime: mediaPayload?.mime || null,
+            duration: mediaPayload?.duration || null,
+            width: null,
+            height: null,
+            waveform: mediaPayload?.waveform || null,
+            audioMetadata: networkAudioMetadata,
+            linkPreview: linkPreviewPayload || null,
+          }).catch(() => {});
+          return;
+        }
+
         if (!freshChat?.ratchetState) {
           // E2EE session not yet established — save plaintext to non_messages until peer accepts handshake
           console.log('[ChatWindow] No ratchetState yet — saving to non_messages offline queue');
@@ -4173,6 +4218,72 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     // Sync persisted reactions from Supabase on chat open
     useChatStore.getState().syncReactionsFromSupabase(activeChatId);
 
+    if (activeChat?.type === 'group' && activeChat.sharedSecret) {
+      groupService.fetchGroupMessages(activeChatId).then(async (serverMsgs) => {
+        if (!Array.isArray(serverMsgs) || serverMsgs.length === 0) return;
+        const current = useChatStore.getState().messagesByChatId[activeChatId] || [];
+        const existingIds = new Set(current.map((m) => m.id));
+        const newMessages: Message[] = [];
+        for (const row of serverMsgs) {
+          if (existingIds.has(row.id)) continue;
+          let text = row.ciphertext;
+          let parsedData: any = null;
+          try {
+            const dec = await decryptMessage(row.ciphertext, activeChat.sharedSecret!);
+            if (dec && dec !== '[ENCRYPTED MESSAGE]') {
+              try {
+                parsedData = JSON.parse(dec);
+                text = parsedData.text !== undefined ? parsedData.text : dec;
+              } catch {
+                text = dec;
+              }
+            }
+          } catch {}
+
+          const isOutgoing = Boolean(
+            (myUserId && (row.sender_id === myUserId || row.sender_code === myUserId)) ||
+            (myCode && (row.sender_code === myCode || row.sender_id === myCode)) ||
+            (row.sender_nickname === myNickname)
+          );
+
+          newMessages.push({
+            id: row.id,
+            senderId: row.sender_code || row.sender_id,
+            sender: row.sender_nickname,
+            isOutgoing,
+            text,
+            time: new Date(row.created_at).getTime(),
+            read: true,
+            status: 'sent',
+            mediaType: parsedData?.mediaType || row.media_type || undefined,
+            mediaUrl: parsedData?.mediaUrl || row.media_url || undefined,
+            mediaName: parsedData?.mediaName || row.media_name || undefined,
+            mediaKey: parsedData?.mediaKey || row.media_key || undefined,
+            mime: parsedData?.mime || row.mime || undefined,
+            duration: parsedData?.duration || row.duration || undefined,
+            waveform: parsedData?.waveform || row.waveform || undefined,
+            audioMetadata: parsedData?.audioMetadata || row.audio_metadata || undefined,
+            linkPreview: parsedData?.linkPreview || row.link_preview || undefined,
+            reactions: row.reactions || undefined,
+          });
+        }
+        if (newMessages.length > 0) {
+          useChatStore.setState((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: [...(state.messagesByChatId[activeChatId] || []), ...newMessages].sort((a, b) => a.time - b.time),
+            },
+          }));
+        }
+      }).catch(() => {});
+
+      groupService.getActiveCall(activeChatId).then((call) => {
+        if (call && call.status === 'active') {
+          useChatStore.getState().updateChat(activeChatId, { activeCallRoom: call.roomName });
+        }
+      }).catch(() => {});
+    }
+
     const ablyTopic = activeChat?.type === 'channel' ? `public-channel-${activeChatId}` : activeChatId;
     const unsubAbly = ablyService.subscribeToChatMessages(ablyTopic, async (data: any) => {
       if (data?.type === 'channel-post' && data?.post) {
@@ -4265,7 +4376,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
     });
 
-    const pusher = getPusher();
+    const pusher = activeChat?.type === 'group' ? getGroupPusher() : getPusher();
     const channelName = activeChat?.type === 'channel'
       ? `public-channel-${activeChatId}`
       : activeChat?.type === 'group'
@@ -6517,6 +6628,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   {activeChat?.type === 'channel' && (
                     <ChannelMegaphoneIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
                   )}
+                  {activeChat?.type === 'group' && (
+                    <GroupUsersIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
+                  )}
                   {activeChat?.type === 'bot' && (
                     <BotIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
                   )}
@@ -6543,6 +6657,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                       {activeChat.subscribersCount
                         ? `${activeChat.subscribersCount.toLocaleString('ru-RU')} ${(() => { const n = activeChat.subscribersCount || 0; const m10 = n % 10; const m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'подписчик'; if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'подписчика'; return 'подписчиков'; })()}`
                         : t('channel.subscribers_none', 'подписчиков пока нет')}
+                    </span>
+                  ) : activeChat?.type === 'group' ? (
+                    <span className="text-[11px] font-medium text-[var(--text-dim)]">
+                      {t('groupSettings.members_count', { count: activeChat.membersCount || activeChat.members?.length || 1 })}
                     </span>
                   ) : activeChat?.type === 'bot' ? null : !isServerConnected ? (
                     <span className="text-[11px] font-semibold text-[var(--accent-color)] animate-pulse">
@@ -6624,6 +6742,39 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           onCancel={selection.exitSelectionMode}
           height={headerHeight}
         />
+      )}
+
+      {activeChat?.type === 'group' && activeChat.activeCallRoom && (
+        <div
+          className="flex-shrink-0 flex items-center justify-between select-none px-4 py-2.5 transition-all"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 14%, var(--bg-secondary))',
+            borderBottom: '1px solid color-mix(in srgb, var(--accent-color, #7C3AED) 25%, transparent)',
+          }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--accent-color)] text-white animate-pulse">
+              <Phone size={15} />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[13px] font-semibold text-[var(--text-main)] truncate">
+                {t('groupCall.active_title', 'Идёт групповой звонок')}
+              </span>
+              <span className="text-[11px] text-[var(--text-dim)] truncate">
+                {t('groupCall.max_participants', 'До 10 участников')}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleAudioCallPress}
+            aria-label={t('groupCall.join', 'Присоединиться')}
+            className="px-3 py-1.5 rounded-lg text-white font-semibold text-[12px] transition-opacity hover:opacity-90 cursor-pointer border-0"
+            style={{ backgroundColor: 'var(--accent-color, #7C3AED)' }}
+          >
+            {t('groupCall.join', 'Присоединиться')}
+          </button>
+        </div>
       )}
 
       {pinnedMessage && (

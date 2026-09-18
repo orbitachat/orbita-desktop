@@ -837,6 +837,13 @@
       "kick": "Исключить",
       "recent_messages": "Последние сообщения"
     },
+    "groupCall": {
+      "active_title": "Идёт групповой звонок",
+      "max_participants": "До 10 участников",
+      "join": "Присоединиться",
+      "call_started": "Групповой звонок начат",
+      "call_ended": "Групповой звонок завершён"
+    },
     "userStatus": {
       "online": "в сети",
       "offline": "был(а) недавно",

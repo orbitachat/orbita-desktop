@@ -8,6 +8,7 @@ import { generateCallVerificationEmojis } from '../lib/call-verification';
 import { useAudioStore } from './useAudioStore';
 import { gatewayManager } from '../services/gatewayManager';
 import { ablyService } from '../services/ablyService';
+import { groupService } from '../services/groupService';
 import i18n from '../i18n';
 
 export type CallType = 'audio' | 'video';
@@ -118,8 +119,9 @@ function getLivekitParticipantIdentity(nick: string): { identity: string; name: 
   };
 }
 
-async function fetchLivekitToken(room: string, identity: string, name?: string): Promise<{ token: string; url: string }> {
-  const res = await gatewayManager.fetch('/token', {
+async function fetchLivekitToken(room: string, identity: string, name?: string, isGroup?: boolean): Promise<{ token: string; url: string }> {
+  const endpoint = isGroup ? '/groups/livekit-token' : '/token';
+  const res = await gatewayManager.fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ room, identity, name: name || identity }),
@@ -551,9 +553,10 @@ export const useCallStore = create<CallStore>((set, get) => {
       try { useAudioStore.getState().pause(); } catch {}
       try { await liveKitService.stopScreenShare(); } catch {}
       try { localStorage.removeItem('orbita_active_call_state'); } catch {}
-      const roomName = `call-${chatId}-${Date.now()}`;
       const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
-      const verificationSecret = chat?.type === 'private' ? chat.sharedSecret : undefined;
+      const isGroup = chat?.type === 'group';
+      const roomName = isGroup ? (chat?.activeCallRoom || `group-call-${chatId}`) : `call-${chatId}-${Date.now()}`;
+      const verificationSecret = isGroup ? chat?.sharedSecret : (chat?.type === 'private' ? chat?.sharedSecret : undefined);
       const verificationSalt = crypto.randomUUID().replace(/-/g, '');
       const isVideo = callType === 'video';
       set({
@@ -570,37 +573,50 @@ export const useCallStore = create<CallStore>((set, get) => {
       const myNickname = state.myNickname;
       if (!myNickname) return;
       try { useAudioStore.getState().pause(); } catch {}
+      const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
+      const isGroup = chat?.type === 'group';
       const effectiveCallType = state.isVideoEnabled ? 'video' : (callType || 'audio');
-      set({ callState: 'ringing', statusMessage: i18n.t('call.calling'), activeCall: { ...state.activeCall, callType: effectiveCallType } });
-      callSoundService.play('outgoing');
-      sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: effectiveCallType, roomName, verificationSalt, text: '' });
-      noAnswerTimer = setTimeout(() => {
-        if (get().callState === 'ringing') {
-          const act = get().activeCall;
-          if (act) set({ activeCall: { ...act, endedStatus: 'missed' }, callState: 'ended' });
-          callSoundService.stop();
-          callSoundService.play('end');
-          sendCallSignalReliable(chatId, { type: 'call-cancel', sender: myNickname, text: '', roomName });
-          get().endCall();
-        }
-      }, NO_ANSWER_TIMEOUT_MS);
+
+      if (isGroup) {
+        set({ callState: 'connecting', statusMessage: i18n.t('call.connecting'), activeCall: { ...state.activeCall, callType: effectiveCallType } });
+        const myCode = useChatStore.getState().myCode;
+        groupService.startCall(chatId, roomName, myCode || myNickname, myNickname).catch(() => {});
+        useChatStore.getState().updateChat(chatId, { activeCallRoom: roomName });
+      } else {
+        set({ callState: 'ringing', statusMessage: i18n.t('call.calling'), activeCall: { ...state.activeCall, callType: effectiveCallType } });
+        callSoundService.play('outgoing');
+        sendCallSignalReliable(chatId, { type: 'call-offer', sender: myNickname, callType: effectiveCallType, roomName, verificationSalt, text: '' });
+        noAnswerTimer = setTimeout(() => {
+          if (get().callState === 'ringing') {
+            const act = get().activeCall;
+            if (act) set({ activeCall: { ...act, endedStatus: 'missed' }, callState: 'ended' });
+            callSoundService.stop();
+            callSoundService.play('end');
+            sendCallSignalReliable(chatId, { type: 'call-cancel', sender: myNickname, text: '', roomName });
+            get().endCall();
+          }
+        }, NO_ANSWER_TIMEOUT_MS);
+      }
+
       try {
         const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
         const { identity: myLivekitIdentity, name: myLivekitName } = getLivekitParticipantIdentity(myNickname);
-        const { token, url } = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName);
+        const { token, url } = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName, isGroup);
         const act = get().activeCall;
         if (act) set({ activeCall: { ...act, token, url } });
         const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
         if (!isElectronSeparateCallWindow) {
-          console.log(`${LOG_PREFIX} Connecting to LiveKit (outgoing):`, url);
           await liveKitService.connect(roomName, token, url, sessionKey);
-          console.log(`${LOG_PREFIX} LiveKit connected (outgoing)`);
-          const cs = get().callState;
-          if (cs !== 'ringing' && cs !== 'connecting' && cs !== 'preparing') return;
-          if (liveKitService.remoteParticipants.length > 0) activateConnected();
+          if (isGroup) {
+            activateConnected();
+          } else {
+            const cs = get().callState;
+            if (cs !== 'ringing' && cs !== 'connecting' && cs !== 'preparing') return;
+            if (liveKitService.remoteParticipants.length > 0) activateConnected();
+          }
         }
       } catch (err) {
-        console.warn(`${LOG_PREFIX} Initial LiveKit connect warning (outgoing):`, err);
+        console.warn(`${LOG_PREFIX} Initial LiveKit connect warning:`, err);
       }
     },
 
@@ -714,6 +730,11 @@ export const useCallStore = create<CallStore>((set, get) => {
         }
       }
       if (signalType) sendCallSignalReliable(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName });
+      const currentChat = useChatStore.getState().chats.find((c) => c.id === chatId);
+      if (currentChat?.type === 'group') {
+        groupService.endCall(chatId).catch(() => {});
+        useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
+      }
       try { void liveKitService.stopScreenShare(); } catch {}
       liveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} disconnect error:`, err));
       clearAllTimers();

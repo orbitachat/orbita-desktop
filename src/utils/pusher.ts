@@ -90,3 +90,69 @@ export const switchToNextPusherServer = (): Pusher => {
 
 export const getActivePusherServer = (): PusherServerConfig => PUSHER_SERVERS[activeServerIndex];
 
+export const GROUP_PUSHER_SERVERS: PusherServerConfig[] = [
+  PUSHER_SERVERS[1],
+  PUSHER_SERVERS[2],
+];
+
+let activeGroupServerIndex = 0;
+let groupPusherInstance: Pusher | null = null;
+
+export const getGroupPusher = (): Pusher => {
+  if (!groupPusherInstance) {
+    const currentServer = GROUP_PUSHER_SERVERS[activeGroupServerIndex] || GROUP_PUSHER_SERVERS[0];
+    groupPusherInstance = new Pusher(currentServer.key, {
+      cluster: currentServer.cluster,
+      authorizer: (channel) => ({
+        authorize: async (socketId, callback) => {
+          try {
+            const response = await gatewayManager.fetch('/pusher/auth', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                socket_id: socketId,
+                channel_name: channel.name,
+                pusher_key: currentServer.key,
+              }),
+            });
+
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`Group Pusher auth failed (${response.status}): ${errText}`);
+            }
+
+            const data = await response.json();
+            callback(null, data);
+          } catch (err: any) {
+            callback(err, { auth: '' });
+          }
+        },
+      }),
+    });
+
+    groupPusherInstance.connection.bind('unavailable', () => {
+      switchToNextGroupPusherServer();
+    });
+
+    if (typeof window !== 'undefined') {
+      (window as any).orbitaGroupPusher = groupPusherInstance;
+      (window as any).switchToNextGroupPusherServer = switchToNextGroupPusherServer;
+      (window as any).getActiveGroupPusherServer = getActiveGroupPusherServer;
+    }
+  }
+  return groupPusherInstance;
+};
+
+export const switchToNextGroupPusherServer = (): Pusher => {
+  if (groupPusherInstance) {
+    try {
+      groupPusherInstance.disconnect();
+    } catch {}
+    groupPusherInstance = null;
+  }
+  activeGroupServerIndex = (activeGroupServerIndex + 1) % GROUP_PUSHER_SERVERS.length;
+  return getGroupPusher();
+};
+
+export const getActiveGroupPusherServer = (): PusherServerConfig => GROUP_PUSHER_SERVERS[activeGroupServerIndex];
+

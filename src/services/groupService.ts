@@ -240,6 +240,72 @@ class GroupService {
       });
     } catch {}
   }
+
+  async fetchGroupMessages(groupId: string, limit = 100): Promise<any[]> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/messages?groupId=${encodeURIComponent(groupId)}&limit=${limit}`);
+      if (res.ok) {
+        const data = await res.json();
+        return Array.isArray(data.messages) ? data.messages : [];
+      }
+    } catch {}
+    return [];
+  }
+
+  async sendGroupMessage(payload: any): Promise<string | null> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.id || null;
+      }
+    } catch {}
+    return null;
+  }
+
+  async getActiveCall(groupId: string): Promise<any | null> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/calls/active?groupId=${encodeURIComponent(groupId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.call) {
+          return {
+            groupId: data.call.group_id,
+            roomName: data.call.room_name,
+            status: data.call.status,
+            hostCode: data.call.host_code,
+            hostNickname: data.call.host_nickname,
+            participantsCount: data.call.participants_count || 1,
+          };
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  async startCall(groupId: string, roomName: string, hostCode: string, hostNickname: string): Promise<void> {
+    try {
+      await fetch(`${this.getWorkerUrl()}/groups/calls/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, roomName, hostCode, hostNickname }),
+      });
+    } catch {}
+  }
+
+  async endCall(groupId: string): Promise<void> {
+    try {
+      await fetch(`${this.getWorkerUrl()}/groups/calls/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId }),
+      });
+    } catch {}
+  }
 }
 
 export const groupService = new GroupService();
