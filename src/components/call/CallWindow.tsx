@@ -10,6 +10,23 @@ import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 
+const callDarkThemeVars: React.CSSProperties = {
+  '--bg-primary': '#0f0e15',
+  '--bg-secondary': '#171622',
+  '--accent-color': '#7C3AED',
+  '--accent-light': '#9061F9',
+  '--accent-dark': '#5B21B6',
+  '--surface-container': 'rgba(255, 255, 255, 0.08)',
+  '--surface-container-strong': 'rgba(255, 255, 255, 0.16)',
+  '--surface-container-soft': 'rgba(255, 255, 255, 0.05)',
+  '--surface-muted': 'rgba(255, 255, 255, 0.10)',
+  '--surface-muted-strong': 'rgba(255, 255, 255, 0.16)',
+  '--text-main': '#ffffff',
+  '--text-dim': '#8a96a3',
+  '--text-heading': '#ffffff',
+  '--settings-on-primary': '#ffffff',
+} as React.CSSProperties;
+
 const accentButtonStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, var(--accent-color), var(--accent-dark))',
   color: 'var(--settings-on-primary, #ffffff)',
@@ -31,7 +48,7 @@ const StaticBackground = () => (
       position: 'absolute',
       inset: 0,
       zIndex: 0,
-      backgroundColor: 'var(--bg-primary)',
+      backgroundColor: '#0f0e15',
     }}
   />
 );
@@ -542,9 +559,11 @@ export const CallWindow = () => {
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[400] flex flex-col justify-between overflow-hidden"
           style={{
-            backgroundColor: 'var(--bg-primary)',
+            backgroundColor: '#0f0e15',
+            color: '#ffffff',
             userSelect: 'none',
             WebkitUserSelect: 'none',
+            ...callDarkThemeVars,
           }}
         >
           <StaticBackground />
@@ -608,6 +627,7 @@ export const CallWindow = () => {
         color: '#ffffff',
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        ...callDarkThemeVars,
       }}
     >
       {(isRemoteVideoActive || isRemoteScreenShareActive) && (

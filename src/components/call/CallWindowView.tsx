@@ -172,11 +172,17 @@ export const CallWindowView = () => {
     document.body.style.backgroundColor = bg;
     document.documentElement.style.setProperty('--bg-primary', '#0f0e15');
     document.documentElement.style.setProperty('--bg-secondary', '#171622');
-    document.documentElement.style.setProperty('--accent-color', '#5c54e5');
-    document.documentElement.style.setProperty('--accent-light', '#7c75f2');
-    document.documentElement.style.setProperty('--accent-dark', '#443db8');
+    document.documentElement.style.setProperty('--accent-color', '#7C3AED');
+    document.documentElement.style.setProperty('--accent-light', '#9061F9');
+    document.documentElement.style.setProperty('--accent-dark', '#5B21B6');
+    document.documentElement.style.setProperty('--surface-container', 'rgba(255, 255, 255, 0.08)');
+    document.documentElement.style.setProperty('--surface-container-strong', 'rgba(255, 255, 255, 0.16)');
+    document.documentElement.style.setProperty('--surface-container-soft', 'rgba(255, 255, 255, 0.05)');
+    document.documentElement.style.setProperty('--surface-muted', 'rgba(255, 255, 255, 0.10)');
+    document.documentElement.style.setProperty('--surface-muted-strong', 'rgba(255, 255, 255, 0.16)');
     document.documentElement.style.setProperty('--text-main', '#ffffff');
-    document.documentElement.style.setProperty('--text-dim', 'rgba(255, 255, 255, 0.7)');
+    document.documentElement.style.setProperty('--text-dim', '#8a96a3');
+    document.documentElement.style.setProperty('--settings-on-primary', '#ffffff');
 
     const orbita = (window as any).orbita;
 
