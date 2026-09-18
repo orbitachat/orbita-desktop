@@ -20,6 +20,11 @@ const ENV = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GROUPS_SUPABASE_URL: process.env.GROUPS_SUPABASE_URL || 'https://vxjaybyveerulkdqhggr.supabase.co',
+  GROUPS_SUPABASE_KEY: process.env.GROUPS_SUPABASE_SECRET_KEY || process.env.GROUPS_SUPABASE_KEY || process.env.GROUPS_SUPABASE_PUBLISHABLE_KEY || 'sb_secret_yUSWmrz_4iZXORLuL6uIYg_-iNhpDgc',
+  GROUPS_LIVEKIT_API_KEY: process.env.GROUPS_LIVEKIT_API_KEY || 'APIjjJTy5q83rMt',
+  GROUPS_LIVEKIT_API_SECRET: process.env.GROUPS_LIVEKIT_API_SECRET || 'etM1iXQVrNnFBetKDZwkHns7Ldq4NIWZhhdAZfDTrPaA',
+  GROUPS_LIVEKIT_URL: process.env.GROUPS_LIVEKIT_URL || 'wss://fewfregfrtgtr-lq3p5f01.livekit.cloud',
 };
 
 const CORS_HEADERS = {
@@ -35,6 +40,9 @@ const PUSHER_CONFIGS = [
     secret: ENV.PUSHER_SECRET,
     cluster: ENV.PUSHER_CLUSTER,
   },
+].filter((s) => Boolean(s.secret));
+
+const GROUP_PUSHER_CONFIGS = [
   {
     appId: process.env.PUSHER_APP_ID_2 || '2179076',
     key: process.env.PUSHER_KEY_2 || 'a7856d37aeac4f908167',
@@ -81,6 +89,15 @@ function getSupabaseClient() {
 function getChannelsSupabaseClient() {
   const url = ENV.CHANNELS_SUPABASE_URL || ENV.SUPABASE_URL;
   const key = ENV.CHANNELS_SUPABASE_KEY || ENV.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: { persistSession: false },
+  });
+}
+
+function getGroupsSupabaseClient() {
+  const url = ENV.GROUPS_SUPABASE_URL;
+  const key = ENV.GROUPS_SUPABASE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, {
     auth: { persistSession: false },
@@ -200,6 +217,14 @@ async function triggerPusherEvent(channel, event, data) {
   if (PUSHER_CONFIGS.length === 0) return false;
   const results = await Promise.allSettled(
     PUSHER_CONFIGS.map((server) => triggerPusherEventOnServer(server, channel, event, data))
+  );
+  return results.some((r) => r.status === 'fulfilled' && r.value === true);
+}
+
+async function triggerGroupPusherEvent(channel, event, data) {
+  if (GROUP_PUSHER_CONFIGS.length === 0) return false;
+  const results = await Promise.allSettled(
+    GROUP_PUSHER_CONFIGS.map((server) => triggerPusherEventOnServer(server, channel, event, data))
   );
   return results.some((r) => r.status === 'fulfilled' && r.value === true);
 }
