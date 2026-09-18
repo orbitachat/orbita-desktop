@@ -1,14 +1,98 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
-import { liveKitService } from '../../services/livekitService';
+import { useAuthStore } from '../../store/useAuthStore';
+import { liveKitService, type ParticipantInfo } from '../../services/livekitService';
 import { useTranslation } from 'react-i18next';
 import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, X, ScreenShare, ScreenShareOff, Maximize2, Minimize2 } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
 import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
+
+const GroupParticipantTile = memo(({
+  participant,
+  chatMembers,
+  isLocalVideoActive,
+  isScreenSharing,
+  isMicEnabled,
+}: {
+  participant: ParticipantInfo;
+  chatMembers?: any[];
+  isLocalVideoActive: boolean;
+  isScreenSharing: boolean;
+  isMicEnabled: boolean;
+}) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const isLocal = participant.isLocal;
+  const hasScreenShare = isLocal ? isScreenSharing : !!participant.screenShareEnabled;
+  const hasCamera = isLocal ? isLocalVideoActive : participant.videoEnabled;
+  const hasStream = hasScreenShare || hasCamera;
+
+  const memberInfo = chatMembers?.find((m: any) => m.nickname === participant.name || m.userCode === participant.identity || m.userId === participant.identity);
+  const avatarUrl = isLocal ? useAuthStore.getState().avatarUrl : (memberInfo?.avatarUrl || null);
+  const displayName = participant.name || memberInfo?.nickname || participant.identity;
+  const isMuted = isLocal ? !isMicEnabled : !participant.audioEnabled;
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (hasScreenShare) {
+      const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
+      if (sTrack) {
+        sTrack.attach(el);
+        return () => {
+          try { sTrack.detach(el); } catch {}
+        };
+      }
+    } else if (hasCamera) {
+      const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
+      if (vTrack) {
+        vTrack.attach(el);
+        return () => {
+          try { vTrack.detach(el); } catch {}
+        };
+      }
+    }
+  }, [hasScreenShare, hasCamera, isLocal, participant.identity]);
+
+  return (
+    <div
+      className="relative flex items-center justify-center w-full h-full min-h-[140px] max-h-[360px] aspect-video rounded-2xl overflow-hidden shadow-lg select-none transition-all"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 85%, black)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+      }}
+    >
+      {hasStream ? (
+        <>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted={isLocal}
+            className={`w-full h-full ${hasScreenShare ? 'object-contain bg-black' : 'object-cover'} ${isLocal && hasCamera && !hasScreenShare ? '-scale-x-100' : ''}`}
+          />
+          <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/95 max-w-[85%]">
+            <span className="truncate">{displayName}</span>
+            {isMuted && <MicOff size={13} className="text-red-400 flex-shrink-0" />}
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-3 p-4 w-full">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 shadow-md">
+            <Avatar src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+          </div>
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-white/90 max-w-[90%]">
+            <span className="truncate">{displayName}</span>
+            {isMuted && <MicOff size={14} className="text-red-400 flex-shrink-0" />}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 const accentButtonStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, var(--accent-color), var(--accent-dark))',
@@ -40,6 +124,11 @@ export const CallWindow = () => {
   const { t } = useTranslation();
   const activeCall = useCallStore((state) => state.activeCall);
   const callState = useCallStore((state) => state.callState);
+  const isPreparing = callState === 'preparing';
+  const isRinging = callState === 'ringing';
+  const isConnecting = callState === 'connecting';
+  const isConnected = callState === 'connected';
+  const isEnded = callState === 'ended';
   const isMinimized = useCallStore((state) => state.isMinimized);
   const duration = useCallStore((state) => state.duration);
   const isMicEnabled = useCallStore((state) => state.isMicEnabled);
@@ -85,8 +174,43 @@ export const CallWindow = () => {
   const chat = useChatStore((state) =>
     activeCall ? state.chats.find((c) => c.id === activeCall.chatId) : null
   );
+  const isGroupCall = chat?.type === 'group';
   const otherName = chat?.name || activeCall?.chatId || '';
   const otherAvatar = chat?.avatarUrl || null;
+
+  const [groupParticipants, setGroupParticipants] = useState<ParticipantInfo[]>([]);
+
+  useEffect(() => {
+    if (!isConnected || !isGroupCall) return;
+    const updateList = () => {
+      setGroupParticipants(liveKitService.getParticipants());
+    };
+    updateList();
+    liveKitService.on('participantsChanged', updateList);
+    liveKitService.on('trackSubscribed', updateList);
+    liveKitService.on('trackUnsubscribed', updateList);
+    liveKitService.on('trackMuted', updateList);
+    liveKitService.on('trackUnmuted', updateList);
+    return () => {
+      liveKitService.off('participantsChanged', updateList);
+      liveKitService.off('trackSubscribed', updateList);
+      liveKitService.off('trackUnsubscribed', updateList);
+      liveKitService.off('trackMuted', updateList);
+      liveKitService.off('trackUnmuted', updateList);
+    };
+  }, [isConnected, isGroupCall]);
+
+  const allGroupParticipants = useMemo(() => {
+    if (groupParticipants.length > 0) return groupParticipants;
+    return [{
+      identity: myNickname || 'local',
+      name: myNickname || 'Вы',
+      audioEnabled: isMicEnabled,
+      videoEnabled: isVideoEnabled,
+      isSpeaking: false,
+      isLocal: true,
+    }];
+  }, [groupParticipants, myNickname, isMicEnabled, isVideoEnabled]);
 
   const remoteAudioContainerRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -145,11 +269,7 @@ export const CallWindow = () => {
     }
   }, []);
 
-  const isPreparing = callState === 'preparing';
-  const isRinging = callState === 'ringing';
-  const isConnecting = callState === 'connecting';
-  const isConnected = callState === 'connected';
-  const isEnded = callState === 'ended';
+
 
   const hasLocalScreenShare = (isConnected || isConnecting) && isScreenSharing;
   const hasRemoteStream = isRemoteVideoActive || isRemoteScreenShareActive;
@@ -643,7 +763,7 @@ export const CallWindow = () => {
         </div>
       )}
 
-      {isRemoteScreenShareActive && (
+      {!isGroupCall && isRemoteScreenShareActive && (
         <div className="absolute top-14 left-16 z-30 flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-lg select-none">
           <span className="text-[12px] font-medium text-white/90">
             {t('call.screen_of', { name: otherName })}
@@ -659,9 +779,8 @@ export const CallWindow = () => {
         </div>
       )}
 
-
       <AnimatePresence>
-        {(isRemoteVideoActive || isRemoteScreenShareActive) && isLocalVideoActive && (
+        {!isGroupCall && (isRemoteVideoActive || isRemoteScreenShareActive) && isLocalVideoActive && (
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -683,7 +802,7 @@ export const CallWindow = () => {
             </div>
           </motion.div>
         )}
-        {isVideoEnabled && !hasCamera && (
+        {!isGroupCall && isVideoEnabled && !hasCamera && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -699,8 +818,31 @@ export const CallWindow = () => {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
-        {isDualStream ? (
-          expandedShare === 'remote' ? (
+        {isGroupCall ? (
+          <div className="w-full h-full flex-1 flex flex-col items-center justify-center p-2 sm:p-4 min-h-0 overflow-y-auto custom-scrollbar">
+            <div className={`grid gap-3 sm:gap-4 w-full max-w-6xl mx-auto h-full max-h-[75vh] items-center justify-center ${
+              allGroupParticipants.length <= 1 ? 'grid-cols-1 max-w-lg aspect-video' :
+              allGroupParticipants.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl' :
+              allGroupParticipants.length <= 4 ? 'grid-cols-1 sm:grid-cols-2 max-w-4xl' :
+              allGroupParticipants.length <= 6 ? 'grid-cols-2 sm:grid-cols-3 max-w-5xl' :
+              'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 max-w-6xl'
+            }`}>
+              {allGroupParticipants.map((p) => (
+                <GroupParticipantTile
+                  key={p.identity}
+                  participant={p}
+                  chatMembers={chat?.members}
+                  isLocalVideoActive={isLocalVideoActive}
+                  isScreenSharing={isScreenSharing}
+                  isMicEnabled={isMicEnabled}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {isDualStream ? (
+              expandedShare === 'remote' ? (
             <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
@@ -992,6 +1134,8 @@ export const CallWindow = () => {
                 {statusMessage}
               </p>
             ) : null}
+          </>
+        )}
           </>
         )}
       </div>

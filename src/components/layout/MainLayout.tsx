@@ -2484,22 +2484,79 @@ export const MainLayout = () => {
       );
       if (isSelfMessage) return;
 
-      decryptMessage(data.text, chat.sharedSecret!).then((decrypted) => {
-        let parsedData: any;
-        try {
-          parsedData = JSON.parse(decrypted);
-        } catch {
-          parsedData = { text: decrypted };
+      const rawCiphertext = data.ciphertext || data.text;
+      if (!rawCiphertext) return;
+
+      const resolveSecret = async (): Promise<string | undefined> => {
+        if (chat.sharedSecret) return chat.sharedSecret;
+        if (chat.inviteCode && isValidGroupCode(chat.inviteCode)) {
+          const s = deriveGroupKey(chat.inviteCode);
+          updateChat(chatId, { sharedSecret: s });
+          return s;
         }
+        if (chat.code && isValidGroupCode(chat.code)) {
+          const s = deriveGroupKey(chat.code);
+          updateChat(chatId, { sharedSecret: s });
+          return s;
+        }
+        try {
+          const fetched = await groupService.getGroup(chatId);
+          if (fetched?.sharedSecret) {
+            updateChat(chatId, { sharedSecret: fetched.sharedSecret });
+            return fetched.sharedSecret;
+          }
+        } catch {}
+        return undefined;
+      };
+
+      resolveSecret().then(async (secret) => {
+        let decrypted = '';
+        if (secret) {
+          try {
+            decrypted = await decryptMessage(rawCiphertext, secret);
+          } catch {}
+        }
+        let parsedData: any;
+        if (decrypted && decrypted !== '[ENCRYPTED MESSAGE]') {
+          try {
+            parsedData = JSON.parse(decrypted);
+          } catch {
+            parsedData = { text: decrypted };
+          }
+        } else {
+          parsedData = { text: decrypted || rawCiphertext };
+        }
+
         const msgId = parsedData?.id || data.messageId || data.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const isCurrentActive = useChatStore.getState().activeChatId === chatId && typeof document !== 'undefined' && document.visibilityState === 'visible';
-        addMessage(chatId, {
+        const msgText = parsedData?.text !== undefined ? parsedData.text : (decrypted || rawCiphertext);
+
+        const msgPayload: any = {
           id: msgId,
           sender: data.sender,
-          text: parsedData?.text !== undefined ? parsedData.text : decrypted,
+          senderId: data.senderCode || data.senderId,
+          text: msgText,
           time: data.time || Date.now(),
-          read: isCurrentActive
-        });
+          read: isCurrentActive,
+          status: isCurrentActive ? 'read' : 'delivered',
+          isOutgoing: false,
+          mediaType: parsedData?.mediaType || data.mediaType || undefined,
+          mediaUrl: parsedData?.mediaUrl || data.mediaUrl || undefined,
+          mediaName: parsedData?.mediaName || data.mediaName || undefined,
+          mediaKey: parsedData?.mediaKey || data.mediaKey || undefined,
+          mime: parsedData?.mime || data.mime || undefined,
+          duration: parsedData?.duration || data.duration || undefined,
+          waveform: parsedData?.waveform || data.waveform || undefined,
+          audioMetadata: parsedData?.audioMetadata || data.audioMetadata || undefined,
+          linkPreview: parsedData?.linkPreview || data.linkPreview || undefined,
+        };
+
+        addMessage(chatId, msgPayload);
+
+        try {
+          (window as any).orbita?.storageAddMessage?.(chatId, msgId, msgPayload);
+        } catch {}
+
         if (isCurrentActive) {
           const sendRead = () => channel.trigger('client-message', { type: 'read', time: data.time, messageId: msgId, sender: nickname });
           if (channel.subscribed) sendRead();

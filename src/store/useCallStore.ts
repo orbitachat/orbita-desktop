@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { liveKitService, ParticipantInfo } from '../services/livekitService';
-import { getPusher } from '../utils/pusher';
+import { getPusher, getGroupPusher } from '../utils/pusher';
 import { useChatStore } from './useChatStore';
 import { useAuthStore } from './useAuthStore';
 import { callSoundService } from '../services/callSoundService';
@@ -559,6 +559,47 @@ export const useCallStore = create<CallStore>((set, get) => {
       const verificationSecret = isGroup ? chat?.sharedSecret : (chat?.type === 'private' ? chat?.sharedSecret : undefined);
       const verificationSalt = crypto.randomUUID().replace(/-/g, '');
       const isVideo = callType === 'video';
+
+      if (isGroup) {
+        set({
+          myNickname,
+          activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: Date.now(), participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
+          callState: 'connected',
+          isMicEnabled: true,
+          isVideoEnabled: isVideo,
+          isScreenSharing: false,
+          isScreenPickerOpen: false,
+          remoteScreenShareTrack: null,
+          remoteScreenShareIdentity: null,
+          connectionQuality: 'unknown',
+          duration: 0,
+          statusMessage: '',
+          isEnding: false,
+        });
+        const myCode = useChatStore.getState().myCode;
+        groupService.startCall(chatId, roomName, myCode || myNickname, myNickname).catch(() => {});
+        useChatStore.getState().updateChat(chatId, { activeCallRoom: roomName });
+        try {
+          const groupPusher = getGroupPusher();
+          const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
+          const notifyCall = () => grpCh.trigger('group-call-started', { roomName });
+          if (grpCh.subscribed) notifyCall(); else grpCh.bind('pusher:subscription_succeeded', notifyCall);
+        } catch {}
+
+        try {
+          const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
+          const { identity: myLivekitIdentity, name: myLivekitName } = getLivekitParticipantIdentity(myNickname);
+          const { token, url } = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName, true);
+          const act = get().activeCall;
+          if (act) set({ activeCall: { ...act, token, url } });
+          await liveKitService.connect(roomName, token, url, sessionKey);
+          activateConnected();
+        } catch (err) {
+          console.warn(`${LOG_PREFIX} Initial LiveKit group connect warning:`, err);
+        }
+        return;
+      }
+
       set({
         myNickname,
         activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
@@ -734,6 +775,11 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (currentChat?.type === 'group') {
         groupService.endCall(chatId).catch(() => {});
         useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
+        try {
+          const groupPusher = getGroupPusher();
+          const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
+          grpCh.trigger('group-call-ended', {});
+        } catch {}
       }
       try { void liveKitService.stopScreenShare(); } catch {}
       liveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} disconnect error:`, err));

@@ -17,6 +17,7 @@ import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
 import { deriveChannelKey, decryptMessage, encryptMessage } from '../../lib/crypto';
+import { isValidGroupCode, deriveGroupKey } from '../../lib/groupCrypto';
 import { useTranslation } from 'react-i18next';
 import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
 import { useCallStore } from '../../store/useCallStore';
@@ -3713,46 +3714,64 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         // Get fresh chat state to get latest ratchetState
         const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
 
-        if (freshChat?.type === 'group' && freshChat?.sharedSecret) {
-          const ciphertext = await encryptMessage(JSON.stringify(messageData), freshChat.sharedSecret);
-          const groupPusher = getGroupPusher();
-          const channel = groupPusher.subscribe(`presence-group-${activeChatId}`);
-          const payload = {
-            ...(mediaPayload ? { mediaType: mediaPayload.type, mediaUrl: mediaPayload.url, mediaName: mediaPayload.name, mime: mediaPayload.mime } : {}),
-            sender: myNickname,
-            senderCode: myCode,
-            senderId: myUserId || myCode,
-            senderUserId: myUserId,
-            ciphertext,
-            type: 'message',
-            messageId,
-            chatId: activeChatId,
-            time: Date.now(),
-          };
-          const doSendPusher = () => {
-            try { channel.trigger('client-message', payload); } catch {}
-          };
-          if (channel.subscribed) doSendPusher(); else channel.bind('pusher:subscription_succeeded', doSendPusher);
+        if (freshChat?.type === 'group') {
+          try {
+            (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, localMessage);
+          } catch {}
 
-          await groupService.sendGroupMessage({
-            id: messageId,
-            groupId: activeChatId,
-            senderCode: myCode,
-            senderId: myUserId || myCode,
-            senderNickname: myNickname,
-            ciphertext,
-            mediaType: mediaPayload?.type || null,
-            mediaUrl: mediaPayload?.url || null,
-            mediaName: mediaPayload?.name || null,
-            mediaKey: mediaPayload?.key || null,
-            mime: mediaPayload?.mime || null,
-            duration: mediaPayload?.duration || null,
-            width: null,
-            height: null,
-            waveform: mediaPayload?.waveform || null,
-            audioMetadata: networkAudioMetadata,
-            linkPreview: linkPreviewPayload || null,
-          }).catch(() => {});
+          let groupSecret = freshChat.sharedSecret;
+          if (!groupSecret && freshChat.inviteCode && isValidGroupCode(freshChat.inviteCode)) {
+            groupSecret = deriveGroupKey(freshChat.inviteCode);
+          }
+          if (!groupSecret && freshChat.code && isValidGroupCode(freshChat.code)) {
+            groupSecret = deriveGroupKey(freshChat.code);
+          }
+          if (!groupSecret) {
+            const fetched = await groupService.getGroup(activeChatId);
+            groupSecret = fetched?.sharedSecret;
+          }
+
+          if (groupSecret) {
+            const ciphertext = await encryptMessage(JSON.stringify(messageData), groupSecret);
+            const groupPusher = getGroupPusher();
+            const channel = groupPusher.subscribe(`presence-group-${activeChatId}`);
+            const payload = {
+              ...(mediaPayload ? { mediaType: mediaPayload.type, mediaUrl: mediaPayload.url, mediaName: mediaPayload.name, mime: mediaPayload.mime } : {}),
+              sender: myNickname,
+              senderCode: myCode,
+              senderId: myUserId || myCode,
+              senderUserId: myUserId,
+              ciphertext,
+              type: 'message',
+              messageId,
+              chatId: activeChatId,
+              time: Date.now(),
+            };
+            const doSendPusher = () => {
+              try { channel.trigger('client-message', payload); } catch {}
+            };
+            if (channel.subscribed) doSendPusher(); else channel.bind('pusher:subscription_succeeded', doSendPusher);
+
+            await groupService.sendGroupMessage({
+              id: messageId,
+              groupId: activeChatId,
+              senderCode: myCode,
+              senderId: myUserId || myCode,
+              senderNickname: myNickname,
+              ciphertext,
+              mediaType: mediaPayload?.type || null,
+              mediaUrl: mediaPayload?.url || null,
+              mediaName: mediaPayload?.name || null,
+              mediaKey: mediaPayload?.key || null,
+              mime: mediaPayload?.mime || null,
+              duration: mediaPayload?.duration || null,
+              width: null,
+              height: null,
+              waveform: mediaPayload?.waveform || null,
+              audioMetadata: networkAudioMetadata,
+              linkPreview: linkPreviewPayload || null,
+            }).catch(() => {});
+          }
           return;
         }
 
@@ -4221,9 +4240,41 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     // Sync persisted reactions from Supabase on chat open
     useChatStore.getState().syncReactionsFromSupabase(activeChatId);
 
-    if (activeChat?.type === 'group' && activeChat.sharedSecret) {
+    if (activeChat?.type === 'group') {
+      const currentMemoryMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+      if (currentMemoryMsgs.length === 0) {
+        try {
+          (window as any).orbita?.storageGetMessages?.(activeChatId).then((cached: any[]) => {
+            if (Array.isArray(cached) && cached.length > 0) {
+              useChatStore.setState((state) => {
+                const nowMsgs = state.messagesByChatId[activeChatId] || [];
+                if (nowMsgs.length === 0) {
+                  return {
+                    messagesByChatId: {
+                      ...state.messagesByChatId,
+                      [activeChatId]: cached,
+                    },
+                  };
+                }
+                return state;
+              });
+            }
+          });
+        } catch {}
+      }
+
+      const groupSecret = activeChat.sharedSecret ||
+        (activeChat.inviteCode && isValidGroupCode(activeChat.inviteCode) ? deriveGroupKey(activeChat.inviteCode) : undefined) ||
+        (activeChat.code && isValidGroupCode(activeChat.code) ? deriveGroupKey(activeChat.code) : undefined);
+
+      if (groupSecret && !activeChat.sharedSecret) {
+        useChatStore.getState().updateChat(activeChatId, { sharedSecret: groupSecret });
+      }
+
       groupService.fetchGroupMessages(activeChatId).then(async (serverMsgs) => {
         if (!Array.isArray(serverMsgs) || serverMsgs.length === 0) return;
+        const secret = groupSecret || (await groupService.getGroup(activeChatId))?.sharedSecret;
+        if (!secret) return;
         const current = useChatStore.getState().messagesByChatId[activeChatId] || [];
         const existingIds = new Set(current.map((m) => m.id));
         const newMessages: Message[] = [];
@@ -4232,7 +4283,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           let text = row.ciphertext;
           let parsedData: any = null;
           try {
-            const dec = await decryptMessage(row.ciphertext, activeChat.sharedSecret!);
+            const dec = await decryptMessage(row.ciphertext, secret);
             if (dec && dec !== '[ENCRYPTED MESSAGE]') {
               try {
                 parsedData = JSON.parse(dec);
@@ -4249,7 +4300,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             (row.sender_nickname === myNickname)
           );
 
-          newMessages.push({
+          const msgItem: Message = {
             id: row.id,
             senderId: row.sender_code || row.sender_id,
             sender: row.sender_nickname,
@@ -4268,7 +4319,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             audioMetadata: parsedData?.audioMetadata || row.audio_metadata || undefined,
             linkPreview: parsedData?.linkPreview || row.link_preview || undefined,
             reactions: row.reactions || undefined,
-          });
+          };
+          newMessages.push(msgItem);
+          try {
+            (window as any).orbita?.storageAddMessage?.(activeChatId, row.id, msgItem);
+          } catch {}
         }
         if (newMessages.length > 0) {
           useChatStore.setState((state) => ({
@@ -4401,6 +4456,57 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     };
 
     const handleClientMessage = (data: any) => {
+      if (activeChat?.type === 'group' && data.type === 'message') {
+        const isSelf = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === myNickname)
+        );
+        if (isSelf) return;
+        const rawCipher = data.ciphertext || data.text;
+        if (!rawCipher) return;
+        const sec = activeChat.sharedSecret ||
+          (activeChat.inviteCode && isValidGroupCode(activeChat.inviteCode) ? deriveGroupKey(activeChat.inviteCode) : undefined) ||
+          (activeChat.code && isValidGroupCode(activeChat.code) ? deriveGroupKey(activeChat.code) : undefined);
+        if (sec) {
+          decryptMessage(rawCipher, sec).then((dec) => {
+            let parsed: any;
+            if (dec && dec !== '[ENCRYPTED MESSAGE]') {
+              try { parsed = JSON.parse(dec); } catch { parsed = { text: dec }; }
+            } else {
+              parsed = { text: dec || rawCipher };
+            }
+            const mid = parsed?.id || data.messageId || data.id || `msg_${Date.now()}`;
+            const existing = (useChatStore.getState().messagesByChatId[activeChatId] || []).some(m => m.id === mid);
+            if (existing) return;
+            const item: Message = {
+              id: mid,
+              sender: data.sender,
+              senderId: data.senderCode || data.senderId,
+              text: parsed?.text !== undefined ? parsed.text : dec,
+              time: data.time || Date.now(),
+              read: true,
+              status: 'read',
+              isOutgoing: false,
+              mediaType: parsed?.mediaType || data.mediaType || undefined,
+              mediaUrl: parsed?.mediaUrl || data.mediaUrl || undefined,
+              mediaName: parsed?.mediaName || data.mediaName || undefined,
+              mediaKey: parsed?.mediaKey || data.mediaKey || undefined,
+              mime: parsed?.mime || data.mime || undefined,
+              duration: parsed?.duration || data.duration || undefined,
+              waveform: parsed?.waveform || data.waveform || undefined,
+              audioMetadata: parsed?.audioMetadata || data.audioMetadata || undefined,
+              linkPreview: parsed?.linkPreview || data.linkPreview || undefined,
+            };
+            useChatStore.getState().addMessage(activeChatId, item);
+            try {
+              (window as any).orbita?.storageAddMessage?.(activeChatId, mid, item);
+            } catch {}
+          });
+        }
+        return;
+      }
+
       if (data.type === 'reaction' && data.emoji && data.sender) {
         const isSelf = Boolean(
           (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||

@@ -95,6 +95,34 @@ class BrowserOrbitaAdapter {
       mediaSetLimit: async () => ({ deleted: 0 }),
       mediaGetBatch: async () => [],
       mediaDeleteByChatId: async () => ({ deleted: 0 }),
+      storageGetMessages: async (chatId: string) => {
+        try {
+          const raw = localStorage.getItem(`orbita_msgs_${chatId}`);
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      },
+      storageAddMessage: async (chatId: string, messageId: string, messageData: any) => {
+        try {
+          const key = `orbita_msgs_${chatId}`;
+          const raw = localStorage.getItem(key);
+          const arr = raw ? JSON.parse(raw) : [];
+          const idx = arr.findIndex((m: any) => m.id === messageId);
+          if (idx >= 0) {
+            arr[idx] = messageData;
+          } else {
+            arr.push(messageData);
+          }
+          localStorage.setItem(key, JSON.stringify(arr.slice(-1000)));
+        } catch {}
+      },
+      storageDeleteMessages: async (chatId: string) => {
+        try {
+          localStorage.removeItem(`orbita_msgs_${chatId}`);
+        } catch {}
+      },
+      storageDeleteMessage: async () => {},
     };
   }
 

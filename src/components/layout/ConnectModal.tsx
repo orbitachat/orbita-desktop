@@ -8,6 +8,8 @@ import { channelService } from '../../services/channelService';
 import { groupService } from '../../services/groupService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
 import { generateChannelId } from '../../lib/codes';
+import { generateGroupCode, deriveGroupId, deriveGroupKey } from '../../lib/groupCrypto';
+import { useToastStore } from '../../store/useToastStore';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
 
 export type CreateModalType = 'group' | 'channel' | 'friend';
@@ -125,82 +127,107 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
     }
 
     if (type === 'group') {
-      try {
-        const res = await groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl);
+      const code = generateGroupCode();
+      const id = deriveGroupId(code);
+      const sharedSecret = deriveGroupKey(code);
+
+      const initialMember = {
+        userId: myCode,
+        nickname: myNickname,
+        role: 'owner' as const,
+        lastSeen: Date.now(),
+        avatarUrl: avatarUrl || null,
+      };
+
+      const newChat: Chat = {
+        id,
+        type: 'group',
+        name: trimmed,
+        description: descriptionValue || '',
+        lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+        online: false,
+        sharedSecret,
+        role: 'owner',
+        isOwner: true,
+        creatorNickname: myNickname,
+        creatorId: myCode,
+        inviteCode: code,
+        avatarUrl: avatarUrl || undefined,
+        members: [initialMember],
+        membersCount: 1,
+        createdAt: Date.now(),
+        unreadCount: 0,
+        lastReadTimestamp: Date.now(),
+        muted: false,
+        notificationsEnabled: true,
+      };
+
+      useChatStore.setState((s) => ({ chats: [newChat, ...s.chats] }));
+      setActiveChat(id);
+      onClose();
+
+      groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl).then((res) => {
         if (res && res.group) {
-          const newChat: Chat = {
-            id: res.group.id,
-            type: 'group',
-            name: res.group.name,
-            description: res.group.description || descriptionValue || '',
-            lastMsg: 'E2EE_SECURE_CHANNEL_READY',
-            online: false,
-            sharedSecret: res.sharedSecret,
-            role: 'owner',
-            isOwner: true,
-            creatorNickname: myNickname,
-            creatorId: myCode,
-            inviteCode: res.group.code,
-            avatarUrl: res.group.avatarUrl || avatarUrl || undefined,
-            members: (res.group.members || []).map((m) => ({
-              userId: m.userCode,
-              nickname: m.nickname,
-              role: (m.role as 'owner' | 'admin' | 'member') || 'member',
-              lastSeen: m.lastSeen || Date.now(),
-              avatarUrl: m.avatarUrl || null,
-            })),
-            membersCount: 1,
-            createdAt: Date.now(),
-            unreadCount: 0,
-            lastReadTimestamp: Date.now(),
-            muted: false,
-            notificationsEnabled: true,
-          };
-          useChatStore.setState((s) => ({ chats: [newChat, ...s.chats] }));
-          setActiveChat(res.group.id);
-          onClose();
-        } else {
-          setError(t('common.error', 'Ошибка создания группы'));
+          useChatStore.setState((s) => ({
+            chats: s.chats.map((c) => (c.id === id ? {
+              ...c,
+              name: res.group.name || c.name,
+              description: res.group.description || c.description,
+              avatarUrl: res.group.avatarUrl || c.avatarUrl,
+              inviteCode: res.group.code || c.inviteCode,
+            } : c)),
+          }));
         }
-      } catch (err: any) {
-        setError(err?.message || t('common.error', 'Ошибка создания группы'));
-      } finally {
-        setIsLoading(false);
-      }
+      }).catch((err) => {
+        useChatStore.setState((s) => ({
+          chats: s.chats.filter((c) => c.id !== id),
+          activeChatId: s.activeChatId === id ? null : s.activeChatId,
+        }));
+        useToastStore.getState().showToast(t('common.error', 'Ошибка создания группы') + (err?.message ? `: ${err.message}` : ''));
+      });
       return;
     }
 
     if (type === 'channel') {
-      try {
-        const channelId = generateChannelId();
-        const channel = await channelService.createChannel(
-          trimmed,
-          descriptionValue.trim(),
-          avatarUrl,
-          myNickname,
-          channelId
-        );
+      const channelId = generateChannelId();
+      addChannelChat({
+        id: channelId,
+        name: trimmed,
+        description: descriptionValue.trim(),
+        avatarUrl: avatarUrl || null,
+        creatorNickname: myNickname,
+        subscribersCount: 1,
+        isOfficial: false,
+        isOwner: true,
+      });
+      setActiveChat(channelId);
+      onClose();
+
+      channelService.createChannel(
+        trimmed,
+        descriptionValue.trim(),
+        avatarUrl,
+        myNickname,
+        channelId
+      ).then((channel) => {
         if (channel) {
-          addChannelChat({
-            id: channel.id,
-            name: channel.name,
-            description: channel.description,
-            avatarUrl: channel.avatarUrl,
-            creatorNickname: channel.creatorNickname,
-            subscribersCount: 1,
-            isOfficial: false,
-            isOwner: true,
-          });
-          setActiveChat(channel.id);
-          onClose();
-        } else {
-          setError(t('common.error', 'Ошибка создания сообщества'));
+          useChatStore.setState((s) => ({
+            chats: s.chats.map((c) => (c.id === channelId ? {
+              ...c,
+              name: channel.name || c.name,
+              description: channel.description || c.description,
+              avatarUrl: channel.avatarUrl || c.avatarUrl,
+            } : c)),
+          }));
         }
-      } catch (err: any) {
-        setError(err?.message || t('common.error', 'Ошибка создания сообщества'));
-      } finally {
-        setIsLoading(false);
-      }
+      }).catch((err) => {
+        useChatStore.setState((s) => ({
+          chats: s.chats.filter((c) => c.id !== channelId),
+          activeChatId: s.activeChatId === channelId ? null : s.activeChatId,
+        }));
+        useToastStore.getState().showToast(t('common.error', 'Ошибка создания сообщества') + (err?.message ? `: ${err.message}` : ''));
+      });
+      return;
     }
   }, [inputValue, descriptionValue, isLoading, type, onConnectRequest, myNickname, myCode, avatarUrl, addChannelChat, setActiveChat, onClose, t]);
 

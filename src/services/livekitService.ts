@@ -25,6 +25,7 @@ export interface ParticipantInfo {
   name?: string;
   audioEnabled: boolean;
   videoEnabled: boolean;
+  screenShareEnabled?: boolean;
   isSpeaking: boolean;
   isLocal: boolean;
 }
@@ -728,7 +729,8 @@ class LiveKitService extends EventEmitter {
     const width = is720 ? 1280 : 1920;
     const height = is720 ? 720 : 1080;
     const frameRate = options?.fps === 60 ? 60 : 30;
-    const maxBitrate = is720 ? 3500000 : 8000000;
+    const is60Fps = frameRate === 60;
+    const maxBitrate = is720 ? (is60Fps ? 3000000 : 2000000) : (is60Fps ? 4800000 : 3500000);
     const includeAudio = !!options?.audio;
 
     try {
@@ -757,7 +759,7 @@ class LiveKitService extends EventEmitter {
         if (!vTrack) throw new Error('No video track');
 
         if ('contentHint' in vTrack) {
-          vTrack.contentHint = 'detail';
+          vTrack.contentHint = is60Fps ? 'motion' : 'detail';
         }
 
         const localVTrack = new LocalVideoTrack(vTrack, undefined, false);
@@ -765,13 +767,13 @@ class LiveKitService extends EventEmitter {
         await this.localParticipant.publishTrack(localVTrack, {
           source: Track.Source.ScreenShare,
           name: 'screen_share',
-          simulcast: false,
+          simulcast: true,
           videoEncoding: {
             maxBitrate,
             maxFramerate: frameRate,
             priority: 'high',
           },
-          degradationPreference: 'maintain-resolution',
+          degradationPreference: is60Fps ? 'maintain-framerate' : 'maintain-resolution',
         });
         this.screenShareTrack = localVTrack;
 
@@ -801,24 +803,24 @@ class LiveKitService extends EventEmitter {
 
       await this.localParticipant.setScreenShareEnabled(true, {
         audio: includeAudio,
-        contentHint: 'detail',
+        contentHint: is60Fps ? 'motion' : 'detail',
         resolution: {
           width,
           height,
           frameRate,
         },
       }, {
-        simulcast: false,
+        simulcast: true,
         screenShareEncoding: {
           maxBitrate,
           maxFramerate: frameRate,
         },
-        degradationPreference: 'maintain-resolution',
+        degradationPreference: is60Fps ? 'maintain-framerate' : 'maintain-resolution',
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.track) {
         if ('contentHint' in pub.track.mediaStreamTrack) {
-          pub.track.mediaStreamTrack.contentHint = 'detail';
+          pub.track.mediaStreamTrack.contentHint = is60Fps ? 'motion' : 'detail';
         }
         this.screenShareTrack = pub.track as LocalTrack;
         pub.track.mediaStreamTrack.onended = () => {
@@ -1013,11 +1015,13 @@ class LiveKitService extends EventEmitter {
         this.localVideoTrack.mediaStreamTrack.enabled &&
         !this.localVideoTrack.isMuted
       );
+      const isScreenOn = this.isScreenSharing();
       const info: ParticipantInfo = {
         identity: this.localParticipant.identity,
         name: this.localParticipant.name || this.localParticipant.identity,
         audioEnabled: this.localAudioTrack?.mediaStreamTrack.enabled ?? false,
         videoEnabled: isVideoOn,
+        screenShareEnabled: isScreenOn,
         isSpeaking: false,
         isLocal: true,
       };
@@ -1035,11 +1039,20 @@ class LiveKitService extends EventEmitter {
         videoPub.track.mediaStreamTrack.enabled &&
         !videoPub.isMuted
       );
+      const screenPub = participant.getTrackPublication(Track.Source.ScreenShare);
+      const screenShareEnabled = !!(
+        screenPub &&
+        screenPub.track &&
+        screenPub.track.mediaStreamTrack &&
+        screenPub.track.mediaStreamTrack.enabled &&
+        !screenPub.isMuted
+      );
       const info: ParticipantInfo = {
         identity,
         name: participant.name || identity,
         audioEnabled,
         videoEnabled,
+        screenShareEnabled,
         isSpeaking: participant.isSpeaking,
         isLocal: false,
       };
@@ -1049,6 +1062,10 @@ class LiveKitService extends EventEmitter {
 
   public getParticipant(identity: string): ParticipantInfo | undefined {
     return this.participants.get(identity);
+  }
+
+  public getParticipants(): ParticipantInfo[] {
+    return Array.from(this.participants.values());
   }
 
   public enableAutoReconnect(): void {

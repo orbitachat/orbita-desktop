@@ -222,6 +222,7 @@ export interface Chat {
   lastSeen?: number;
   members?: ChatMember[];
   inviteCode?: string;
+  code?: string;
   inviteCodeTTL?: number;
   createdAt?: number;
   unreadCount?: number;

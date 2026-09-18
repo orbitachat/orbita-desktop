@@ -35,7 +35,7 @@ export const IncomingCallModal = () => {
   const from = chat?.name || incomingCall?.from || '';
   const avatarUrl = chat?.avatarUrl || null;
 
-  if (!incomingCall) return null;
+  if (!incomingCall || chat?.type === 'group') return null;
 
   const { callType } = incomingCall;
 
