@@ -875,6 +875,9 @@ export const useChatStore = create<ChatState>()(
       },
       updateChat: (chatId, updates) =>
         set((state) => {
+          const targetIndex = state.chats.findIndex(c => c.id === chatId);
+          if (targetIndex === -1) return state;
+
           const myCode = state.myCode;
           let myNick = '';
           let myAvatar = '';
@@ -886,9 +889,11 @@ export const useChatStore = create<ChatState>()(
               myAvatar = parsed?.state?.avatarUrl || '';
             }
           } catch {}
+
           const cleanUpdates = { ...updates };
-          const target = state.chats.find(c => c.id === chatId);
-          if (target && target.type === 'private' && chatId !== 'notes') {
+          const target = state.chats[targetIndex];
+
+          if (target.type === 'private' && chatId !== 'notes') {
             if (cleanUpdates.name && myNick && cleanUpdates.name.trim().toLowerCase() === myNick.trim().toLowerCase()) {
               delete cleanUpdates.name;
             }
@@ -899,15 +904,22 @@ export const useChatStore = create<ChatState>()(
               delete cleanUpdates.avatarUrl;
             }
           }
-          return {
-            chats: state.chats.map((c) => {
-              if (c.id === chatId) {
-                const next = { ...c, ...cleanUpdates };
-                return next;
-              }
-              return c;
-            }),
-          };
+
+          if (Object.keys(cleanUpdates).length === 0) return state;
+
+          let hasChanges = false;
+          for (const k of Object.keys(cleanUpdates)) {
+            if ((target as any)[k] !== (cleanUpdates as any)[k]) {
+              hasChanges = true;
+              break;
+            }
+          }
+
+          if (!hasChanges) return state;
+
+          const nextChats = [...state.chats];
+          nextChats[targetIndex] = { ...target, ...cleanUpdates };
+          return { chats: nextChats };
         }),
       togglePinChat: (chatId) => {
         if (chatId === 'notes') return;
