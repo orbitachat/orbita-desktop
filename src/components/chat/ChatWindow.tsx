@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, File, ArrowLeft,
   Copy, Image as ImageIcon, Download as DownloadIcon,
-  CheckCircle, Trash, ChevronDown, Search, Phone, UserPlus
+  CheckCircle, Trash, ChevronDown, Search, Phone, UserPlus, Mic, MicOff
 } from 'lucide-react';
 import { GroupEmptyCard } from './GroupEmptyCard';
 import { AddGroupMemberModal } from './AddGroupMemberModal';
@@ -1809,6 +1809,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const typingIndicatorsEnabled = useChatStore((s) => s.typingIndicatorsEnabled);
   const readReceiptsEnabled = useChatStore((s) => s.readReceiptsEnabled);
   const myCode = useChatStore((s) => s.myCode);
+  const activeCall = useCallStore((s) => s.activeCall);
+  const callState = useCallStore((s) => s.callState);
+  const isCallMicEnabled = useCallStore((s) => s.isMicEnabled);
+  const callStoreToggleMic = useCallStore((s) => s.toggleMic);
+  const callStoreEndCall = useCallStore((s) => s.endCall);
 
   const [inputText, setInputText] = useState('');
   const [isDiscordFileLimitModalOpen, setIsDiscordFileLimitModalOpen] = useState(false);
@@ -1976,6 +1981,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   });
 
   const activeChat = useMemo(() => chats.find((c) => c.id === activeChatId), [chats, activeChatId]);
+  const isCallActive = !!activeCall && (callState === 'connected' || callState === 'connecting' || callState === 'ringing');
+  const currentCallChat = activeCall ? chats.find((c) => c.id === activeCall.chatId) : null;
+  const currentCallName = currentCallChat?.name || (activeCall as any)?.otherName || activeChat?.name || '';
+  const currentCallAvatar = currentCallChat?.avatarUrl || (activeCall as any)?.otherAvatar || (currentCallChat?.id === activeChatId ? activeChat?.avatarUrl : null);
   const sharedSecret = useMemo(() => {
     if (activeChat?.type === 'channel') {
       return activeChat.sharedSecret || deriveChannelKey(activeChat.id);
@@ -6695,6 +6704,67 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           WebkitUserSelect: 'none',
         }}
       >
+        {isCallActive && (
+          <div
+            className="w-full flex items-center justify-between px-3 select-none transition-all cursor-pointer relative"
+            style={{
+              height: '38px',
+              background: 'linear-gradient(90deg, var(--accent-color, #7C3AED), color-mix(in srgb, var(--accent-color, #7C3AED) 75%, var(--bg-primary, #181424)))',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            }}
+            onClick={() => {
+              try {
+                const orb = (window as any).orbita;
+                orb?.openCallWindow?.() || orb?.focusCallWindow?.();
+              } catch {}
+            }}
+          >
+            <div className="flex items-center gap-2 z-10">
+              <button
+                type="button"
+                aria-label={isCallMicEnabled ? t('call.mic') : t('call.mic_off')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  callStoreToggleMic();
+                }}
+                className="w-7 h-7 rounded-md flex items-center justify-center bg-black/25 hover:bg-black/40 text-white transition-all border-0 cursor-pointer flex-shrink-0"
+              >
+                {isCallMicEnabled ? <Mic size={15} /> : <MicOff size={15} />}
+              </button>
+              <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center shadow">
+                <Avatar
+                  src={currentCallAvatar}
+                  alt={currentCallName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none max-w-[50%]">
+              <span className="text-[13px] font-semibold text-white truncate text-center">
+                {currentCallName}
+              </span>
+            </div>
+
+            <div className="flex items-center ml-auto z-10">
+              <button
+                type="button"
+                aria-label={t('call.hang_up')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  callStoreEndCall();
+                }}
+                className="h-6 px-3 rounded-full flex items-center justify-center text-white transition-all border-0 cursor-pointer flex-shrink-0 shadow"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 25%, #06b6d4)',
+                }}
+              >
+                <Phone className="rotate-[135deg]" size={14} color="#ffffff" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <header
           className="flex justify-center w-full select-none"
           style={{

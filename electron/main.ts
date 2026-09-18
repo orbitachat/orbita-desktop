@@ -2417,6 +2417,8 @@ function buildCallUrlQuery(payload?: any): string {
     if (payload.activeCall?.direction) params.set('direction', payload.activeCall.direction);
     if (payload.activeCall?.callType) params.set('type', payload.activeCall.callType);
     if (payload.activeCall?.chatId) params.set('chatId', payload.activeCall.chatId);
+    if (payload.activeCall?.chatType) params.set('chatType', payload.activeCall.chatType);
+    if (payload.activeCall?.roomName) params.set('roomName', payload.activeCall.roomName);
     if (payload.myNickname) params.set('myNickname', payload.myNickname);
   }
   if (currentFontFamily) params.set('font', currentFontFamily);

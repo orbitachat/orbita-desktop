@@ -982,7 +982,13 @@ const syncCallState = (state: CallStore) => {
     ? useChatStore.getState().chats.find((c) => c.id === state.activeCall?.chatId)
     : state.incomingCall ? useChatStore.getState().chats.find((c) => c.id === state.incomingCall?.chatId) : null;
   const payload = {
-    activeCall: state.activeCall ? { ...state.activeCall, otherName: chat?.name || state.activeCall.chatId, otherAvatar: chat?.avatarUrl || null } : null,
+    activeCall: state.activeCall ? {
+      ...state.activeCall,
+      chatType: chat?.type,
+      members: chat?.members,
+      otherName: chat?.name || state.activeCall.chatId,
+      otherAvatar: chat?.avatarUrl || null,
+    } : null,
     incomingCall: state.incomingCall ? { ...state.incomingCall, otherName: chat?.name || state.incomingCall.from, otherAvatar: chat?.avatarUrl || null } : null,
     callState: state.callState, isMicEnabled: state.isMicEnabled, isVideoEnabled: state.isVideoEnabled, isScreenSharing: state.isScreenSharing, duration: state.duration, statusMessage: state.statusMessage, myNickname: state.myNickname,
     peerVolume: state.peerVolume, micVolume: state.micVolume,
