@@ -845,7 +845,9 @@ export const CallWindowView = () => {
         if (remoteVideoRef.current) rTrack.attach(remoteVideoRef.current);
         if (bgVideoRef.current && (!sTrack || sTrack.isMuted)) rTrack.attach(bgVideoRef.current);
       }
-      sendAction('activateConnected');
+      if (liveKitService.remoteParticipants.length > 0) {
+        sendAction('activateConnected');
+      }
     };
 
     const handleParticipantJoined = () => {
