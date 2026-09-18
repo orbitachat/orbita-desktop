@@ -409,6 +409,7 @@ module.exports = async function handler(req, res) {
         ciphertext,
         message_index: messageIndex,
         dh_public_key: dhPublicKey,
+        prev_chain_count: body.prevChainCount ?? null,
       };
       const explicitUuid = toUuid(id || clientMsgId);
       if (explicitUuid) {
@@ -916,6 +917,7 @@ module.exports = async function handler(req, res) {
               name: c.name,
               description: c.description || '',
               avatarUrl: c.avatar_url || null,
+              creatorId: c.creator_id || null,
               creatorNickname: c.creator_nickname,
               subscribersCount: c.subscribers_count || 1,
               isOfficial: c.is_official || false,
@@ -949,6 +951,7 @@ module.exports = async function handler(req, res) {
                 name: data.name,
                 description: data.description || '',
                 avatarUrl: data.avatar_url || null,
+                creatorId: data.creator_id || null,
                 creatorNickname: data.creator_nickname,
                 subscribersCount: data.subscribers_count || 1,
                 isOfficial: data.is_official || false,
@@ -974,21 +977,39 @@ module.exports = async function handler(req, res) {
     if (pathname === '/channels/create' && req.method === 'POST') {
       if (!body.name || !body.creatorNickname) return sendError(res, 'Missing name or creatorNickname', 400);
       const channelId = body.id || generateChannelId();
+      const creatorId = toUuid(body.creatorId);
       const supabase = getChannelsSupabaseClient();
       const nowIso = new Date().toISOString();
       if (supabase) {
         try {
+          if (creatorId) {
+            await supabase.from('profiles').upsert({
+              id: creatorId,
+              username: body.creatorNickname,
+              avatar_url: body.avatarUrl || null,
+              updated_at: nowIso,
+            });
+          }
           await supabase.from('public_channels').upsert({
             id: channelId,
             name: body.name,
             description: body.description || '',
             avatar_url: body.avatarUrl || null,
+            creator_id: creatorId || null,
             creator_nickname: body.creatorNickname,
             subscribers_count: 1,
             is_official: false,
             created_at: nowIso,
             updated_at: nowIso,
           });
+          if (creatorId) {
+            await supabase.from('channel_members').upsert({
+              channel_id: channelId,
+              user_id: creatorId,
+              role: 'owner',
+              joined_at: nowIso,
+            });
+          }
         } catch {}
       }
       return sendJson(res, {
@@ -998,6 +1019,7 @@ module.exports = async function handler(req, res) {
           name: body.name,
           description: body.description || '',
           avatarUrl: body.avatarUrl || null,
+          creatorId: creatorId || undefined,
           creatorNickname: body.creatorNickname,
           subscribersCount: 1,
           isOfficial: false,
@@ -1011,6 +1033,23 @@ module.exports = async function handler(req, res) {
       const channelId = body.channelId || body.id;
       if (!channelId) return sendError(res, 'Missing channelId', 400);
       const supabase = getChannelsSupabaseClient();
+      const userId = toUuid(body.userId);
+      if (supabase && userId) {
+        try {
+          const { data: chan } = await supabase.from('public_channels').select('creator_id').eq('id', channelId).maybeSingle();
+          if (chan && chan.creator_id && chan.creator_id !== userId) {
+            const { data: member } = await supabase
+              .from('channel_members')
+              .select('role')
+              .eq('channel_id', channelId)
+              .eq('user_id', userId)
+              .maybeSingle();
+            if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+              return sendError(res, 'Forbidden: insufficient channel permissions', 403);
+            }
+          }
+        } catch {}
+      }
       const now = Date.now();
       const updateFields = {
         updated_at: new Date(now).toISOString(),
@@ -1053,6 +1092,7 @@ module.exports = async function handler(req, res) {
             const mapped = data.map((p) => ({
               id: p.id,
               channelId: p.channel_id,
+              senderId: p.sender_id || null,
               sender: p.sender_nickname,
               text: p.text || '',
               time: new Date(p.created_at).getTime(),
@@ -1077,11 +1117,31 @@ module.exports = async function handler(req, res) {
 
     if (pathname === '/channels/post' && req.method === 'POST') {
       if (!body.channelId || !body.senderNickname) return sendError(res, 'Missing channelId or senderNickname', 400);
+      const channelId = body.channelId;
+      const senderId = toUuid(body.senderId);
+      const supabase = getChannelsSupabaseClient();
+      if (supabase && senderId) {
+        try {
+          const { data: chan } = await supabase.from('public_channels').select('creator_id').eq('id', channelId).maybeSingle();
+          if (chan && chan.creator_id && chan.creator_id !== senderId) {
+            const { data: member } = await supabase
+              .from('channel_members')
+              .select('role')
+              .eq('channel_id', channelId)
+              .eq('user_id', senderId)
+              .maybeSingle();
+            if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+              return sendError(res, 'Forbidden: only channel owner or admin can post', 403);
+            }
+          }
+        } catch {}
+      }
       const postId = body.id || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const createdAt = new Date().toISOString();
       const postRecord = {
         id: postId,
         channelId: body.channelId,
+        senderId: senderId || null,
         sender: body.senderNickname,
         text: body.text || '',
         time: Date.now(),
@@ -1097,24 +1157,32 @@ module.exports = async function handler(req, res) {
         linkPreview: body.linkPreview || null,
         reactions: {},
       };
-      const supabase = getChannelsSupabaseClient();
       if (supabase) {
         try {
-          const { data: chanCheck } = await supabase.from('public_channels').select('id').eq('id', body.channelId).maybeSingle();
+          const { data: chanCheck } = await supabase.from('public_channels').select('id, creator_id').eq('id', body.channelId).maybeSingle();
           if (!chanCheck) {
             await supabase.from('public_channels').upsert({
               id: body.channelId,
               name: body.channelName || body.channelId,
               description: '',
+              creator_id: senderId || null,
               creator_nickname: body.senderNickname,
               subscribers_count: 1,
               is_official: false,
               created_at: createdAt,
             });
           }
+          if (senderId) {
+            await supabase.from('profiles').upsert({
+              id: senderId,
+              username: body.senderNickname,
+              updated_at: createdAt,
+            });
+          }
           await supabase.from('channel_posts').insert({
             id: postId,
             channel_id: body.channelId,
+            sender_id: senderId || null,
             sender_nickname: body.senderNickname,
             text: body.text || '',
             media_type: body.mediaType || null,
@@ -1141,6 +1209,26 @@ module.exports = async function handler(req, res) {
       const { channelId, postId } = body;
       if (!channelId || !postId) return sendError(res, 'Missing channelId or postId', 400);
       const supabase = getChannelsSupabaseClient();
+      const userId = toUuid(body.userId);
+      if (supabase && userId) {
+        try {
+          const { data: postData } = await supabase.from('channel_posts').select('sender_id').eq('id', postId).maybeSingle();
+          const { data: chanData } = await supabase.from('public_channels').select('creator_id').eq('id', channelId).maybeSingle();
+          const isPostAuthor = postData && postData.sender_id && postData.sender_id === userId;
+          const isChanOwner = chanData && chanData.creator_id && chanData.creator_id === userId;
+          if (!isPostAuthor && !isChanOwner) {
+            const { data: member } = await supabase
+              .from('channel_members')
+              .select('role')
+              .eq('channel_id', channelId)
+              .eq('user_id', userId)
+              .maybeSingle();
+            if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+              return sendError(res, 'Forbidden: insufficient delete permissions', 403);
+            }
+          }
+        } catch {}
+      }
       if (supabase) {
         try {
           await supabase.from('channel_posts').delete().eq('id', postId).eq('channel_id', channelId);
@@ -1215,6 +1303,7 @@ module.exports = async function handler(req, res) {
       if (!body.channelId || !body.postId || !body.emoji || !body.userId) {
         return sendError(res, 'Missing reaction parameters', 400);
       }
+      const targetUserId = toUuid(body.userId) || String(body.userId);
       const supabase = getChannelsSupabaseClient();
       let updatedReactions = {};
       if (supabase) {
@@ -1229,11 +1318,11 @@ module.exports = async function handler(req, res) {
             }
           }
           const currentUsers = Array.isArray(reactions[body.emoji]) ? reactions[body.emoji] : [];
-          const alreadyPresent = currentUsers.includes(body.userId);
+          const alreadyPresent = currentUsers.includes(targetUserId);
           if (body.action === 'add' || (!body.action && !alreadyPresent) || (body.action === 'toggle' && !alreadyPresent)) {
-            reactions[body.emoji] = [...currentUsers.filter((u) => u !== body.userId), body.userId];
+            reactions[body.emoji] = [...currentUsers.filter((u) => u !== targetUserId), targetUserId];
           } else {
-            const filtered = currentUsers.filter((u) => u !== body.userId);
+            const filtered = currentUsers.filter((u) => u !== targetUserId);
             if (filtered.length > 0) reactions[body.emoji] = filtered;
             else delete reactions[body.emoji];
           }

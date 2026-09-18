@@ -164,15 +164,34 @@ export interface Message {
   forwardedFrom?: ForwardedFrom;
 }
 
+export interface ChatMember {
+  userId?: string;
+  nickname: string;
+  role: 'owner' | 'admin' | 'member';
+  lastSeen: number;
+}
+
+export interface UserProfile {
+  id: string;
+  nickname: string;
+  avatarUrl?: string | null;
+  role?: string;
+  updatedAt?: number;
+}
+
 export function isMessageOutgoing(
   msg: Message | null | undefined,
   myCode?: string | null,
   myNickname?: string | null,
-  chat?: Chat | null
+  chat?: Chat | null,
+  myUserId?: string | null
 ): boolean {
   if (!msg) return false;
   if (typeof msg.isOutgoing === 'boolean') {
     return msg.isOutgoing;
+  }
+  if (myUserId && msg.senderId) {
+    return msg.senderId === myUserId;
   }
   if (myCode && msg.senderId) {
     return msg.senderId === myCode;
@@ -186,7 +205,7 @@ export function isMessageOutgoing(
   if (chat && chat.type === 'private' && myNickname && chat.name === myNickname) {
     return msg.status !== undefined;
   }
-  return myNickname ? msg.sender === myNickname : false;
+  return false;
 }
 
 export interface Chat {
@@ -200,7 +219,7 @@ export interface Chat {
   pinnedMessage?: { id?: string; messageId?: string; sender: string; text: string; time: number } | null;
   role?: 'owner' | 'admin' | 'member';
   lastSeen?: number;
-  members?: Array<{ nickname: string; role: 'owner' | 'admin' | 'member'; lastSeen: number }>;
+  members?: ChatMember[];
   inviteCode?: string;
   inviteCodeTTL?: number;
   createdAt?: number;
@@ -211,6 +230,7 @@ export interface Chat {
   muted?: boolean;
   notificationsEnabled?: boolean;
   description?: string;
+  creatorId?: string;
   creatorNickname?: string;
   subscribersCount?: number;
   isOwner?: boolean;
@@ -295,6 +315,9 @@ if (typeof window !== 'undefined' && (window as any).orbita?.storageMigrate) {
 }
 
 interface ChatState {
+  usersById: Record<string, UserProfile>;
+  setUserProfile: (userId: string, profile: Partial<UserProfile> & { nickname?: string }) => void;
+  getUserProfile: (userId: string) => UserProfile | undefined;
   chats: Chat[];
   pinnedChatIds: string[];
   activeChatId: string | null;
@@ -517,6 +540,24 @@ interface ChatState {
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
+      usersById: {},
+      setUserProfile: (userId, profile) =>
+        set((state) => {
+          if (!userId) return state;
+          const current = state.usersById[userId] || { id: userId, nickname: '' };
+          return {
+            usersById: {
+              ...state.usersById,
+              [userId]: {
+                ...current,
+                ...profile,
+                nickname: profile.nickname ?? current.nickname,
+                updatedAt: Date.now(),
+              },
+            },
+          };
+        }),
+      getUserProfile: (userId) => get().usersById[userId],
       chats: [],
       pinnedChatIds: [],
       deletedChatSessions: {},
@@ -1123,11 +1164,13 @@ export const useChatStore = create<ChatState>()(
         const array = new Uint8Array(32);
         crypto.getRandomValues(array);
         const sharedSecret = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
-        const nickname = (() => {
+        const authData = (() => {
           try {
-            return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state?.nickname || 'Unknown';
-          } catch { return 'Unknown'; }
+            return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state || {};
+          } catch { return {}; }
         })();
+        const nickname = authData.nickname || 'Unknown';
+        const userId = authData.userId || 'user';
         const newChat: Chat = {
           id: chatId,
           type: 'group',
@@ -1136,9 +1179,10 @@ export const useChatStore = create<ChatState>()(
           online: false,
           sharedSecret,
           role: 'owner',
+          creatorId: userId,
           inviteCode,
           inviteCodeTTL: Date.now() + ttl * 1000,
-          members: [{ nickname, role: 'owner', lastSeen: Date.now() }],
+          members: [{ userId, nickname, role: 'owner', lastSeen: Date.now() }],
           createdAt: Date.now(),
           unreadCount: 0,
           lastReadTimestamp: Date.now(),
@@ -1154,6 +1198,7 @@ export const useChatStore = create<ChatState>()(
             sharedSecret,
             inviteCodeTTL: Date.now() + ttl * 1000,
             ownerNickname: nickname,
+            ownerUserId: userId,
           };
           localStorage.setItem('orbita-group-registry', JSON.stringify(groupRegistry));
         } catch {}
@@ -1161,11 +1206,13 @@ export const useChatStore = create<ChatState>()(
       joinGroupByCode: (inviteCode, callback) => {
         const normalized = inviteCode.trim().toLowerCase();
         if (!normalized) { callback(false, 'Введите код группы'); return; }
-        const nickname = (() => {
+        const authData = (() => {
           try {
-            return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state?.nickname || 'Unknown';
-          } catch { return 'Unknown'; }
+            return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state || {};
+          } catch { return {}; }
         })();
+        const nickname = authData.nickname || 'Unknown';
+        const userId = authData.userId || 'user';
         const existing = get().chats.find(c => c.type === 'group' && c.inviteCode === normalized);
         if (existing) { callback(false, 'Вы уже в этой группе'); return; }
         try {
@@ -1180,14 +1227,16 @@ export const useChatStore = create<ChatState>()(
               id: groupData.chatId,
               type: 'group',
               name: groupData.name,
-              lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+              lastMsg: 'Вы присоединились к группе',
               online: false,
               sharedSecret: groupData.sharedSecret,
               role: 'member',
+              creatorId: groupData.ownerUserId,
               inviteCode: normalized,
+              inviteCodeTTL: groupData.inviteCodeTTL,
               members: [
-                { nickname: groupData.ownerNickname, role: 'owner', lastSeen: Date.now() },
-                { nickname, role: 'member', lastSeen: Date.now() },
+                { userId: groupData.ownerUserId || 'owner', nickname: groupData.ownerNickname, role: 'owner', lastSeen: Date.now() },
+                { userId, nickname, role: 'member', lastSeen: Date.now() },
               ],
               createdAt: Date.now(),
               unreadCount: 0,
@@ -1487,6 +1536,7 @@ export const useChatStore = create<ChatState>()(
       name: 'orbita-chat-storage',
       storage: createJSONStorage(() => ipcStorage),
       partialize: (state) => ({
+        usersById: state.usersById,
         chats: state.chats,
         pinnedChatIds: state.pinnedChatIds,
         deletedChatSessions: state.deletedChatSessions,

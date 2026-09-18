@@ -1798,6 +1798,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const setActiveProfileChatId = useChatStore((s) => s.setActiveProfileChatId);
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
   const myAvatarUrl = useAuthStore((s) => s.avatarUrl);
+  const myUserId = useAuthStore((s) => s.userId);
   const bubbleRadius = useChatStore((s) => s.bubbleRadius);
   const voiceCallsEnabled = useChatStore((s) => s.voiceCallsEnabled);
   const typingIndicatorsEnabled = useChatStore((s) => s.typingIndicatorsEnabled);
@@ -2110,8 +2111,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const unreadCount = useMemo(() => {
     if (!messages || messages.length === 0) return 0;
-    return messages.filter((m) => !isMessageOutgoing(m, myCode, myNickname, activeChat) && !m.read).length;
-  }, [messages, myCode, myNickname, activeChat]);
+    return messages.filter((m) => !isMessageOutgoing(m, myCode, myNickname, activeChat, myUserId) && !m.read).length;
+  }, [messages, myCode, myNickname, activeChat, myUserId]);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
   const selection = useSelection();
@@ -2194,7 +2195,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     if (wasAdded) {
       const lastMsg = messages[messages.length - 1];
-      const isOutgoing = lastMsg && isMessageOutgoing(lastMsg, myCode, myNickname, activeChat);
+      const isOutgoing = lastMsg && isMessageOutgoing(lastMsg, myCode, myNickname, activeChat, myUserId);
       const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 180;
 
       if (isOutgoing || isNearBottom) {
@@ -2429,10 +2430,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 messagesByChatId: {
                   ...state.messagesByChatId,
                   [activeChatId]: cachedPosts.map((post) => {
-                    const isMine = myNick ? post.sender === myNick : false;
+                    const isMine = (myUserId && post.senderId) ? post.senderId === myUserId : (myNick ? post.sender === myNick : false);
                     return {
                       id: post.id,
                       sender: post.sender,
+                      senderId: post.senderId,
                       text: post.text,
                       time: post.time,
                       read: true,
@@ -2475,7 +2477,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               (p) =>
                 p.id === m.id ||
                 (m.isOutgoing &&
-                  m.sender === p.sender &&
+                  ((m.senderId && p.senderId && m.senderId === p.senderId) || m.sender === p.sender) &&
                   ((p.text && m.text === p.text) || (p.mediaUrl && m.mediaUrl === p.mediaUrl) || (p.mediaName && m.mediaName === p.mediaName)) &&
                   Math.abs(m.time - (p.time || 0)) < 30000)
             );
@@ -2496,10 +2498,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           const newItems: Message[] = [];
           posts.forEach((post) => {
             if (!existingIds.has(post.id)) {
-              const isMine = myNickname ? post.sender === myNickname : false;
+              const isMine = (myUserId && post.senderId) ? post.senderId === myUserId : (myNickname ? post.sender === myNickname : false);
               newItems.push({
                 id: post.id,
                 sender: post.sender,
+                senderId: post.senderId,
                 text: post.text,
                 time: post.time,
                 read: true,
@@ -2535,11 +2538,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const isChannelOwner = useMemo(() => {
     if (activeChat?.type !== 'channel') return false;
     if (activeChat.isOwner) return true;
-    if (activeChat.role === 'owner') return true;
-    const myNick = myNickname?.trim().toLowerCase();
-    if (myNick && activeChat.creatorNickname?.trim().toLowerCase() === myNick) return true;
+    if (activeChat.role === 'owner' || activeChat.role === 'admin') return true;
+    if (myUserId) {
+      if (activeChat.creatorId && activeChat.creatorId === myUserId) return true;
+      if (activeChat.members?.some((m) => m.userId === myUserId && (m.role === 'owner' || m.role === 'admin'))) return true;
+    }
     return false;
-  }, [activeChat, myNickname]);
+  }, [activeChat, myUserId]);
 
   useEffect(() => {
     if (activeChat?.type === 'channel' && !activeChat.isOwner && isChannelOwner) {
@@ -2597,7 +2602,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       };
       if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
       if (activeChat?.type === 'channel') {
-        channelService.deletePost(activeChatId, msgId);
+        channelService.deletePost(activeChatId, msgId, myUserId);
       } else {
         const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
         for (const rId of recipientTargets) {
@@ -2605,7 +2610,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
       }
     }
-  }, [activeChat?.type, activeChat?.peerCode, activeChat?.name, activeChatId, isChannelOwner, myCode, myNickname]);
+  }, [activeChat?.type, activeChat?.peerCode, activeChat?.name, activeChatId, isChannelOwner, myCode, myNickname, myUserId]);
 
   useEffect(() => {
     const handleAction = (action: any) => {
@@ -3256,7 +3261,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       const readIds: string[] = [];
 
       const updatedMessages = currentMessages.map((m) => {
-        if (!isMessageOutgoing(m, myCode, myNickname, activeChat) && !m.read) {
+        if (!isMessageOutgoing(m, myCode, myNickname, activeChat, myUserId) && !m.read) {
           hasChanges = true;
           if (m.id) {
             readMessageIdsRef.current.add(m.id);
@@ -3316,7 +3321,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             const msgId = entry.target.getAttribute('data-message-id');
             if (msgId && !readMessageIdsRef.current.has(msgId)) {
               const msg = currentMessages.find((m) => m.id === msgId);
-              if (msg && !isMessageOutgoing(msg, myCode, myNickname, activeChat) && !msg.read) {
+              if (msg && !isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId) && !msg.read) {
                 readMessageIdsRef.current.add(msgId);
                 readIds.push(msgId);
                 hasChanges = true;
@@ -3585,13 +3590,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       const optimisticId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const optimisticMessage: Message = {
         id: optimisticId,
-        senderId: myCode,
         sender: myNickname,
-        isOutgoing: true,
-        text: sentText,
+        senderId: myUserId,
+        text: sentText || '',
         time: Date.now(),
         read: true,
-        status: 'read',
+        status: 'sending',
+        isOutgoing: true,
         mediaType: (sentMedia?.type as Message['mediaType']) || undefined,
         mediaUrl: sentMedia?.url || undefined,
         mediaName: sentMedia?.name || undefined,
@@ -3620,7 +3625,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           audioMetadata: sentMedia.audioMetadata,
         } : undefined,
         sentPreview,
-        optimisticId
+        optimisticId,
+        myUserId
       ).then((post) => {
         if (post && post.id !== optimisticId) {
           useChatStore.setState((state) => {
@@ -3726,7 +3732,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
 
         const plaintext = JSON.stringify(messageData);
-        const { ciphertext, index, dhPublicKey } = await ratchet.encrypt(plaintext);
+        const { ciphertext, index, dhPublicKey, prevChainCount } = await ratchet.encrypt(plaintext);
 
         updateChat(activeChatId, { ratchetState: ratchet.getState() });
 
@@ -3735,11 +3741,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           sender: myNickname,
           avatarUrl: myAvatarUrl || null,
           senderCode: myCode,
-          senderId: myCode,
+          senderId: myUserId || myCode,
+          senderUserId: myUserId,
           ciphertext,
           type: 'message',
           index,
           dhPublicKey,
+          prevChainCount,
           messageId,
           chatId: activeChatId,
         };
@@ -3765,12 +3773,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           for (const recipientId of recipientTargets) {
             await supabaseService.sendOfflineMessage(
               activeChatId,
-              myNickname,
+              myUserId || myCode || myNickname,
               recipientId,
               ciphertext,
               index,
               dhPublicKey,
-              messageId
+              messageId,
+              prevChainCount
             ).catch((err) => console.warn('[ChatWindow] Offline message dispatch failed:', err));
           }
         }
@@ -3878,17 +3887,20 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       const chat = useChatStore.getState().chats.find(c => c.id === activeChatId);
       if (chat && chat.ratchetState) {
         const ratchet = DoubleRatchet.fromState(chat.ratchetState);
-        const { ciphertext, index: newIndex, dhPublicKey: editDhPublicKey } = await ratchet.encrypt(newText);
+        const { ciphertext, index: newIndex, dhPublicKey: editDhPublicKey, prevChainCount: editPrevChainCount } = await ratchet.encrypt(newText);
         const pusher = getPusher();
         const channel = pusher.subscribe(`private-chat-${activeChatId}`);
         const send = () => {
           channel.trigger('client-message', {
             sender: myNickname,
+            senderUserId: myUserId,
+            senderId: myUserId || myCode,
             text: ciphertext,
             type: 'edit',
             editIndex: index,
             index: newIndex,
             dhPublicKey: editDhPublicKey,
+            prevChainCount: editPrevChainCount,
           });
           updateChat(activeChatId, { ratchetState: ratchet.getState() });
         };
@@ -3931,6 +3943,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     const payload = {
       sender: myNickname,
+      senderUserId: myUserId,
+      senderId: myUserId || myCode,
       text: '',
       type: 'delete-message',
       targetMessageId: targetMsgId,
@@ -3954,7 +3968,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     if (activeChat?.type === 'channel') {
       if (targetMsgId) {
-        channelService.deletePost(activeChatId, targetMsgId);
+        channelService.deletePost(activeChatId, targetMsgId, myUserId);
       }
     } else if (targetMsgId) {
       const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
@@ -4096,15 +4110,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (!targetMsg || !targetMsg.id) return;
     const msgId = targetMsg.id;
 
-    // Toggle locally and get resulting action ('add' or 'remove') using only the unique msgId
-    const action = setReaction(activeChatId, msgId, emoji, myNickname, 'toggle');
+    const reactionUserId = myUserId || myNickname;
+    const action = setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle');
 
     setContextMenu(prev => ({ ...prev, visible: false }));
 
     if (activeChatId === 'notes') return;
 
     if (activeChat?.type === 'channel') {
-      channelService.toggleReaction(activeChatId, msgId, emoji, myNickname, action);
+      channelService.toggleReaction(activeChatId, msgId, emoji, reactionUserId, action);
       return;
     }
 
@@ -4113,11 +4127,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       messageId: msgId,
       emoji,
       sender: myNickname,
+      senderId: myUserId || myCode,
+      senderUserId: myUserId,
       action,
     };
 
-    // Save to Supabase DB for offline persistence
-    supabaseService.saveReaction(activeChatId, undefined, msgId, emoji, myNickname, action);
+    supabaseService.saveReaction(activeChatId, undefined, msgId, emoji, reactionUserId, action);
 
     ablyService.sendMessage(activeChatId, {
       ...payload,
@@ -5172,7 +5187,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   audioMetadata: f.audioMetadata,
                 },
                 undefined,
-                messageId
+                messageId,
+                myUserId
               );
             }
             return;
@@ -5221,7 +5237,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             })),
           };
           const plaintext = JSON.stringify(messageData);
-          const { ciphertext, index, dhPublicKey: groupDhPublicKey } = await ratchet.encrypt(plaintext);
+          const { ciphertext, index, dhPublicKey: groupDhPublicKey, prevChainCount: groupPrevChainCount } = await ratchet.encrypt(plaintext);
 
           useChatStore.setState((state) => {
             const currentMsgs = state.messagesByChatId[activeChatId] || [];
@@ -5253,11 +5269,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               ciphertext,
               index,
               dhPublicKey: groupDhPublicKey,
+              prevChainCount: groupPrevChainCount,
               messageId,
               chatId: activeChatId,
               sender: myNickname,
+              senderUserId: myUserId,
               senderCode: myCode,
-              senderId: myCode,
+              senderId: myUserId || myCode,
             });
           };
           if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
@@ -5267,7 +5285,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             if (activeChat?.type === 'private') {
               for (const rId of recipientTargets) {
                 await supabaseService.sendOfflineMessage(
-                  activeChatId, myNickname, rId, ciphertext, index, groupDhPublicKey, messageId
+                  activeChatId, myUserId || myCode || myNickname, rId, ciphertext, index, groupDhPublicKey, messageId, groupPrevChainCount
                 );
               }
             }
@@ -5373,7 +5391,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 audioMetadata: uploaded.audioMetadata,
               },
               undefined,
-              messageId
+              messageId,
+              myUserId
             ).then((post) => {
               if (post && post.id !== messageId) {
                 useChatStore.setState((state) => {
@@ -5454,7 +5473,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             duration: uploaded.duration,
           };
           const plaintext = JSON.stringify(messageData);
-          const { ciphertext, index, dhPublicKey: fileDhPublicKey } = await ratchet.encrypt(plaintext);
+          const { ciphertext, index, dhPublicKey: fileDhPublicKey, prevChainCount: filePrevChainCount } = await ratchet.encrypt(plaintext);
 
           useChatStore.setState((state) => {
             const currentMsgs = state.messagesByChatId[activeChatId] || [];
@@ -5496,11 +5515,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               ciphertext,
               index,
               dhPublicKey: fileDhPublicKey,
+              prevChainCount: filePrevChainCount,
               messageId,
               chatId: activeChatId,
               sender: myNickname,
+              senderUserId: myUserId,
               senderCode: myCode,
-              senderId: myCode,
+              senderId: myUserId || myCode,
             });
           };
           if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
@@ -5510,7 +5531,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             if (activeChat?.type === 'private') {
               for (const rId of recipientTargets) {
                 await supabaseService.sendOfflineMessage(
-                  activeChatId, myNickname, rId, ciphertext, index, fileDhPublicKey, messageId
+                  activeChatId, myUserId || myCode || myNickname, rId, ciphertext, index, fileDhPublicKey, messageId, filePrevChainCount
                 );
               }
             }
@@ -5527,7 +5548,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   const timeBadge = useCallback((msg: Message, isPinned?: boolean) => {
-    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
+    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
     return (
       <span className="tabular-nums select-none message-time-badge" style={{ color: isOwn ? 'rgba(255, 255, 255, 0.9)' : 'var(--text-dim)', fontSize: orbitFs(11), display: 'inline-flex', alignItems: 'center', lineHeight: 1, userSelect: 'none', WebkitUserSelect: 'none' }}>
         {isPinned && (
@@ -5721,7 +5742,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const hasAudio = mediaItems.some(isAudioItem);
     const hasPhotoOrVideo = mediaItems.some(isVisualItem);
 
-    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
+    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
 
     if (hasAudio && !hasPhotoOrVideo) {
       return (
@@ -5880,7 +5901,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const renderReactionBadges = useCallback((msg: Message, index: number) => {
     const isShort = !msg.text || msg.text.length < 35;
-    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
+    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
     return (
       <MessageReactions
         reactions={msg.reactions}
@@ -5890,10 +5911,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         isSmallMessage={isShort}
       />
     );
-  }, [myCode, myNickname, activeChat, activeChatId, triggerReactionMessage]);
+  }, [myCode, myNickname, activeChat, activeChatId, myUserId, triggerReactionMessage]);
 
   const renderMessage = useCallback((index: number, msg: Message) => {
-    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat);
+    const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
     const media = parseMedia(msg);
     const isSelected = selection.isSelectionMode && msg.id && selection.selectedIds.has(msg.id);
     const isUnselected = selection.isSelectionMode && !isSelected;
@@ -5918,9 +5939,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const prevMsg = index > 0 ? messages[index - 1] : null;
     const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
 
-    const prevIsOwn = prevMsg ? isMessageOutgoing(prevMsg, myCode, myNickname, activeChat) : false;
+    const prevIsOwn = prevMsg ? isMessageOutgoing(prevMsg, myCode, myNickname, activeChat, myUserId) : false;
     const isPrevSameSenderGroup = !!(prevMsg && prevIsOwn === isOwn && Math.abs(msg.time - prevMsg.time) <= 15 * 60 * 1000);
-    const nextIsOwn = nextMsg ? isMessageOutgoing(nextMsg, myCode, myNickname, activeChat) : false;
+    const nextIsOwn = nextMsg ? isMessageOutgoing(nextMsg, myCode, myNickname, activeChat, myUserId) : false;
     const isNextSameSenderGroup = !!(nextMsg && nextIsOwn === isOwn && Math.abs(nextMsg.time - msg.time) <= 15 * 60 * 1000);
 
     const topGap = (index === 0 || !prevMsg) ? '4px' : (isPrevSameSenderGroup ? '2px' : '6px');
@@ -6056,7 +6077,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
             themeColor={themeColor}
             bubbleRadius={customRadius}
-            currentUserId={myNickname}
+            currentUserId={myUserId || myNickname}
             onToggleReaction={(emoji) => triggerReactionMessage(msg.id || index, emoji)}
             onQuoteClick={(q) => handleQuoteClick(q, index)}
             isGroup={activeChat?.type === 'group'}

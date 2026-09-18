@@ -60,6 +60,7 @@ export const createAccountBackup = async (mnemonic: string): Promise<Uint8Array>
     version: 1,
     createdAt: Date.now(),
     auth: {
+      userId: authState.userId,
       nickname: authState.nickname,
       avatarUrl: authState.avatarUrl,
       recoveryKey: mnemonic.trim().toLowerCase(),
@@ -86,6 +87,7 @@ export const createAccountBackup = async (mnemonic: string): Promise<Uint8Array>
         notificationsEnabled: chat.notificationsEnabled,
         isOfficial: chat.isOfficial,
         isOwner: chat.isOwner,
+        creatorId: chat.creatorId,
         creatorNickname: chat.creatorNickname,
         description: chat.description,
         subscribersCount: chat.subscribersCount,
@@ -287,15 +289,17 @@ export const restoreAccountBackup = async (
     throw new Error('INVALID_STRUCTURE');
   }
 
+  const restoredUserId = payload.auth.userId || useAuthStore.getState().userId;
   const restoredNickname = payload.auth.nickname || '';
   const restoredAvatarUrl = payload.auth.avatarUrl || null;
   const restoredChats = Array.isArray(payload.chatStore.chats)
     ? payload.chatStore.chats.map((c: any) => {
         const isOwner = c.isOwner !== undefined
           ? c.isOwner
-          : (c.type === 'channel' && c.creatorNickname && restoredNickname && c.creatorNickname.trim().toLowerCase() === restoredNickname.trim().toLowerCase());
+          : (c.type === 'channel' && c.creatorId && restoredUserId ? c.creatorId === restoredUserId : false);
         return {
           ...c,
+          creatorId: c.creatorId,
           isOwner,
           online: false,
           lastMsg: '',
@@ -314,6 +318,7 @@ export const restoreAccountBackup = async (
   });
 
   useAuthStore.setState({
+    userId: restoredUserId,
     nickname: restoredNickname,
     avatarUrl: restoredAvatarUrl,
     recoveryKey: mnemonic.trim().toLowerCase(),

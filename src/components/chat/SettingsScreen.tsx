@@ -527,6 +527,7 @@ export const NicknameEditModal = ({ open, onClose, currentNickname, onSave }: Ni
 const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string; hideProfileId?: boolean }) => {
   const currentNickname = useAuthStore.getState().nickname;
   const currentAvatar = useAuthStore.getState().avatarUrl;
+  const currentUserId = useAuthStore.getState().userId;
   const myCode = useChatStore.getState().myCode;
   const currentHideProfileId = useChatStore.getState().hideProfileId;
   const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
@@ -536,8 +537,10 @@ const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?:
   const payload = {
     type: 'profile-update',
     sender: finalNickname,
+    senderUserId: currentUserId,
+    userId: currentUserId,
     senderCode: finalHideProfileId ? null : myCode,
-    senderId: finalHideProfileId ? null : myCode,
+    senderId: currentUserId || (finalHideProfileId ? null : myCode),
     avatarUrl: finalAvatar,
     nickname: finalNickname,
     hideProfileId: finalHideProfileId,

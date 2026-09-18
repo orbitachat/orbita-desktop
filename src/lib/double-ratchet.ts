@@ -301,6 +301,10 @@ export class DoubleRatchet {
         this.dhRatchet(dhPublicKeyHex);
       }
 
+      if (index < this.state.recvIndex) {
+        return null;
+      }
+
       this.skipMessageKeys(dhPublicKeyHex, index);
 
       if (!this.state.recvChainKey) return null;

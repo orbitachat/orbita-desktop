@@ -427,6 +427,7 @@ export default {
           ciphertext: string;
           messageIndex: number;
           dhPublicKey: string;
+          prevChainCount?: number;
           clientMsgId?: string;
           id?: string;
         };
@@ -443,6 +444,7 @@ export default {
           ciphertext,
           message_index: messageIndex,
           dh_public_key: dhPublicKey,
+          prev_chain_count: body.prevChainCount ?? null,
         };
         const explicitUuid = await toUuid(id || clientMsgId);
         if (explicitUuid) {
@@ -766,20 +768,39 @@ export default {
         }
 
         const channelId = body.id || `ch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const creatorId = await toUuid(body.creatorId);
         const supabase = getSupabaseClient(env);
 
         if (supabase) {
           try {
+            if (creatorId) {
+              await supabase.from('profiles').upsert({
+                id: creatorId,
+                username: body.creatorNickname,
+                avatar_url: body.avatarUrl || null,
+                updated_at: new Date().toISOString(),
+              });
+            }
             const { error } = await supabase.from('public_channels').upsert({
               id: channelId,
               name: body.name,
               description: body.description || '',
               avatar_url: body.avatarUrl || null,
+              creator_id: creatorId || null,
               creator_nickname: body.creatorNickname,
               subscribers_count: 1,
               is_official: false,
               created_at: new Date().toISOString(),
             });
+
+            if (creatorId) {
+              await supabase.from('channel_members').upsert({
+                channel_id: channelId,
+                user_id: creatorId,
+                role: 'owner',
+                joined_at: new Date().toISOString(),
+              });
+            }
 
             if (error) console.warn('[Worker] Channels upsert warning:', error.message);
           } catch (e) {
@@ -792,6 +813,7 @@ export default {
           name: body.name,
           description: body.description || '',
           avatarUrl: body.avatarUrl || null,
+          creatorId: creatorId || undefined,
           creatorNickname: body.creatorNickname,
           subscribersCount: 1,
           isOfficial: false,
@@ -805,6 +827,7 @@ export default {
         const body = (await request.json()) as {
           channelId?: string;
           id?: string;
+          userId?: string;
           name?: string;
           description?: string;
           avatarUrl?: string | null;
@@ -814,6 +837,24 @@ export default {
         if (!channelId) return errorResponse('Missing channelId parameter', 400);
 
         const supabase = getSupabaseClient(env);
+        const userId = await toUuid(body.userId);
+        if (supabase && userId) {
+          try {
+            const { data: chan } = await supabase.from('public_channels').select('creator_id').eq('id', channelId).maybeSingle();
+            if (chan && chan.creator_id && chan.creator_id !== userId) {
+              const { data: member } = await supabase
+                .from('channel_members')
+                .select('role')
+                .eq('channel_id', channelId)
+                .eq('user_id', userId)
+                .maybeSingle();
+              if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+                return errorResponse('Forbidden: insufficient channel permissions', 403);
+              }
+            }
+          } catch {}
+        }
+
         const updateFields: any = {};
         if (body.name !== undefined) updateFields.name = body.name.trim();
         if (body.description !== undefined) updateFields.description = body.description.trim();
@@ -844,6 +885,7 @@ export default {
         if (!channelId) return errorResponse('Missing channelId parameter', 400);
 
         const supabase = getSupabaseClient(env);
+        let posts: any[] = [];
         if (supabase) {
           try {
             const { data, error } = await supabase
@@ -854,9 +896,10 @@ export default {
               .limit(100);
 
             if (!error && data) {
-              const mapped = data.map((p) => ({
+              posts = data.map((p: any) => ({
                 id: p.id,
                 channelId: p.channel_id,
+                senderId: p.sender_id || null,
                 sender: p.sender_nickname,
                 text: p.text || '',
                 time: new Date(p.created_at).getTime(),
@@ -872,12 +915,13 @@ export default {
                 linkPreview: p.link_preview || null,
                 reactions: p.reactions || {},
               }));
-              return jsonResponse({ posts: mapped });
             }
-          } catch {}
+          } catch (e) {
+            console.warn('[Worker] Fetch channel posts error:', e);
+          }
         }
 
-        return jsonResponse({ posts: [] });
+        return jsonResponse({ posts });
       }
 
       if (pathname === '/channels/post' && request.method === 'POST') {
@@ -885,6 +929,7 @@ export default {
           id?: string;
           channelId: string;
           senderNickname: string;
+          senderId?: string;
           text?: string;
           mediaType?: string | null;
           mediaUrl?: string | null;
@@ -902,12 +947,32 @@ export default {
           return errorResponse('Missing channelId or senderNickname parameter', 400);
         }
 
+        const supabase = getSupabaseClient(env);
+        const senderId = await toUuid(body.senderId);
+        if (supabase && senderId) {
+          try {
+            const { data: chan } = await supabase.from('public_channels').select('creator_id').eq('id', body.channelId).maybeSingle();
+            if (chan && chan.creator_id && chan.creator_id !== senderId) {
+              const { data: member } = await supabase
+                .from('channel_members')
+                .select('role')
+                .eq('channel_id', body.channelId)
+                .eq('user_id', senderId)
+                .maybeSingle();
+              if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+                return errorResponse('Forbidden: only channel owner or admin can post', 403);
+              }
+            }
+          } catch {}
+        }
+
         const postId = body.id || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const createdAt = new Date().toISOString();
 
         const postRecord = {
           id: postId,
           channelId: body.channelId,
+          senderId: senderId || null,
           sender: body.senderNickname,
           text: body.text || '',
           time: Date.now(),
@@ -924,12 +989,19 @@ export default {
           reactions: {},
         };
 
-        const supabase = getSupabaseClient(env);
         if (supabase) {
           try {
+            if (senderId) {
+              await supabase.from('profiles').upsert({
+                id: senderId,
+                username: body.senderNickname,
+                updated_at: createdAt,
+              });
+            }
             await supabase.from('channel_posts').insert({
               id: postId,
               channel_id: body.channelId,
+              sender_id: senderId || null,
               sender_nickname: body.senderNickname,
               text: body.text || '',
               media_type: body.mediaType || null,
@@ -959,10 +1031,31 @@ export default {
         const body = (await request.json()) as {
           channelId: string;
           postId: string;
+          userId?: string;
         };
         if (!body.channelId || !body.postId) return errorResponse('Missing channelId or postId parameter', 400);
 
         const supabase = getSupabaseClient(env);
+        const userId = await toUuid(body.userId);
+        if (supabase && userId) {
+          try {
+            const { data: postData } = await supabase.from('channel_posts').select('sender_id').eq('id', body.postId).maybeSingle();
+            const { data: chanData } = await supabase.from('public_channels').select('creator_id').eq('id', body.channelId).maybeSingle();
+            const isPostAuthor = postData && postData.sender_id && postData.sender_id === userId;
+            const isChanOwner = chanData && chanData.creator_id && chanData.creator_id === userId;
+            if (!isPostAuthor && !isChanOwner) {
+              const { data: member } = await supabase
+                .from('channel_members')
+                .select('role')
+                .eq('channel_id', body.channelId)
+                .eq('user_id', userId)
+                .maybeSingle();
+              if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+                return errorResponse('Forbidden: insufficient delete permissions', 403);
+              }
+            }
+          } catch {}
+        }
         if (supabase) {
           try {
             await supabase.from('channel_posts').delete().eq('id', body.postId).eq('channel_id', body.channelId);

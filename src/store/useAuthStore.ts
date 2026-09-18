@@ -5,6 +5,7 @@ import { useChatStore } from './useChatStore';
 type AuthStep = 'welcome' | 'nickname' | 'main';
 
 interface AuthState {
+  userId: string;
   nickname: string;
   avatarUrl: string | null;
   step: AuthStep;
@@ -12,6 +13,7 @@ interface AuthState {
   backupEnabled: boolean;
   backupFolder: string | null;
   lastBackupTime: number | null;
+  setUserId: (id: string) => void;
   setStep: (step: AuthStep) => void;
   setNickname: (name: string) => void;
   setAvatarUrl: (url: string | null) => void;
@@ -19,6 +21,17 @@ interface AuthState {
   setBackupConfig: (config: { enabled?: boolean; folder?: string | null; lastBackupTime?: number | null }) => void;
   deleteAccount: () => void;
 }
+
+const getInitialUserId = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 const ipcStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -48,7 +61,8 @@ const ipcStorage: StateStorage = {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      userId: getInitialUserId(),
       nickname: '',
       avatarUrl: null,
       step: 'welcome',
@@ -56,9 +70,22 @@ export const useAuthStore = create<AuthState>()(
       backupEnabled: false,
       backupFolder: null,
       lastBackupTime: null,
+      setUserId: (userId) => set({ userId }),
       setStep: (step) => set({ step }),
-      setNickname: (nickname) => set({ nickname }),
-      setAvatarUrl: (avatarUrl) => set({ avatarUrl }),
+      setNickname: (nickname) => {
+        set({ nickname });
+        const uid = get().userId;
+        if (uid) {
+          useChatStore.getState().setUserProfile(uid, { nickname });
+        }
+      },
+      setAvatarUrl: (avatarUrl) => {
+        set({ avatarUrl });
+        const uid = get().userId;
+        if (uid) {
+          useChatStore.getState().setUserProfile(uid, { avatarUrl });
+        }
+      },
       setRecoveryKey: (recoveryKey) => set({ recoveryKey }),
       setBackupConfig: (config) =>
         set((prev) => ({
@@ -72,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('orbita-chat-storage');
         useChatStore.getState().resetChats();
         set({
+          userId: getInitialUserId(),
           nickname: '',
           avatarUrl: null,
           step: 'welcome',
@@ -84,10 +112,16 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'orbita-auth-storage',
-      version: 0,
-      migrate: (persistedState: any) => persistedState,
+      version: 1,
+      migrate: (persistedState: any) => {
+        if (persistedState && !persistedState.userId) {
+          persistedState.userId = getInitialUserId();
+        }
+        return persistedState;
+      },
       storage: createJSONStorage(() => ipcStorage),
       partialize: (state) => ({
+        userId: state.userId,
         nickname: state.nickname,
         avatarUrl: state.avatarUrl,
         step: state.step,

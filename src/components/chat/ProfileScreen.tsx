@@ -1032,6 +1032,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const setActiveChat = useChatStore((state) => state.setActiveChat);
   const startCall = useCallStore((state) => state.startCall);
   const myNickname = useAuthStore((state) => state.nickname) || 'YOU';
+  const myUserId = useAuthStore((state) => state.userId);
   const voiceCallsEnabled = useChatStore((state) => state.voiceCallsEnabled);
 
   const isChannel = chat?.type === 'channel';
@@ -1039,12 +1040,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (!isChannel || !chat) return false;
     if (chat.isOwner) return true;
     if (chat.role === 'owner') return true;
-    const myNick = (myNickname || '').trim().toLowerCase();
-    if (myNick && chat.creatorNickname && chat.creatorNickname.trim().toLowerCase() === myNick) return true;
-    const chatMsgs = useChatStore.getState().messagesByChatId[chat.id] || [];
-    if (chatMsgs.some((m) => m.isOutgoing || (m.sender && myNick && m.sender.trim().toLowerCase() === myNick))) return true;
+    if (myUserId && chat.creatorId && chat.creatorId === myUserId) return true;
+    if (myUserId && chat.members?.some((m) => m.userId === myUserId && m.role === 'owner')) return true;
     return false;
-  }, [isChannel, chat, myNickname]);
+  }, [isChannel, chat, myUserId]);
 
   const handleCopyChannelKey = useCallback((customId?: string | React.MouseEvent) => {
     const idToCopy = (typeof customId === 'string' && customId) ? customId : chat?.id;
@@ -1062,19 +1061,22 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
           return;
         }
-        const myNick = (useAuthStore.getState().nickname || '').trim().toLowerCase();
+        const currentUserId = useAuthStore.getState().userId;
         const isCreator = Boolean(
           current?.isOwner ||
           current?.role === 'owner' ||
-          (info.creatorNickname && myNick && info.creatorNickname.trim().toLowerCase() === myNick) ||
-          (chat.creatorNickname && myNick && chat.creatorNickname.trim().toLowerCase() === myNick)
+          (currentUserId && info.creatorId && info.creatorId === currentUserId) ||
+          (currentUserId && chat.creatorId && chat.creatorId === currentUserId) ||
+          (currentUserId && current?.creatorId && current.creatorId === currentUserId)
         );
         const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
+          creatorId: info.creatorId || chat.creatorId,
           creatorNickname: info.creatorNickname || chat.creatorNickname,
         };
         if (isCreator) {
           updates.isOwner = true;
+          updates.role = 'owner';
         }
         if (!isCreator) {
           updates.name = info.name;

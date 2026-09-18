@@ -11,6 +11,7 @@ export interface ChannelInfo {
   name: string;
   description: string;
   avatarUrl: string | null;
+  creatorId?: string;
   creatorNickname: string;
   subscribersCount: number;
   isOfficial?: boolean;
@@ -21,6 +22,7 @@ export interface ChannelInfo {
 export interface ChannelPost {
   id: string;
   channelId: string;
+  senderId?: string;
   sender: string;
   text: string;
   time: number;
@@ -66,6 +68,7 @@ class ChannelService {
             name: c.name,
             description: c.description || '',
             avatarUrl: c.avatar_url || null,
+            creatorId: c.creator_id || undefined,
             creatorNickname: c.creator_nickname,
             subscribersCount: c.subscribers_count || 1,
             isOfficial: c.is_official || false,
@@ -104,6 +107,7 @@ class ChannelService {
             name: c.name,
             description: c.description || '',
             avatarUrl: c.avatar_url || null,
+            creatorId: c.creator_id || undefined,
             creatorNickname: c.creator_nickname,
             subscribersCount: c.subscribers_count || 1,
             isOfficial: c.is_official || false,
@@ -121,6 +125,7 @@ class ChannelService {
     description: string,
     avatarUrl: string | null,
     creatorNickname: string,
+    creatorId?: string,
     customId?: string
   ): Promise<ChannelInfo | null> {
     const idToUse = customId?.trim() || generateChannelId();
@@ -135,6 +140,7 @@ class ChannelService {
           description: description.trim(),
           avatarUrl: avatarUrl || null,
           creatorNickname,
+          creatorId: creatorId || undefined,
         }),
       });
 
@@ -152,6 +158,7 @@ class ChannelService {
         name: name.trim(),
         description: description.trim(),
         avatar_url: avatarUrl || null,
+        creator_id: creatorId || null,
         creator_nickname: creatorNickname,
         subscribers_count: 1,
         is_official: false,
@@ -175,6 +182,7 @@ class ChannelService {
       name: name.trim(),
       description: description.trim(),
       avatarUrl: avatarUrl || null,
+      creatorId,
       creatorNickname,
       subscribersCount: 1,
       isOfficial: false,
@@ -185,7 +193,8 @@ class ChannelService {
 
   async updateChannel(
     channelId: string,
-    data: { name?: string; description?: string; avatarUrl?: string | null }
+    data: { name?: string; description?: string; avatarUrl?: string | null },
+    userId?: string
   ): Promise<boolean> {
     const cleanId = channelId.trim();
     const now = Date.now();
@@ -228,6 +237,7 @@ class ChannelService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channelId: cleanId,
+          userId,
           name: data.name,
           description: data.description,
           avatarUrl: data.avatarUrl,
@@ -270,6 +280,7 @@ class ChannelService {
             rawPosts = data.map((p) => ({
               id: p.id,
               channelId: p.channel_id,
+              senderId: p.sender_id || undefined,
               sender: p.sender_nickname,
               text: p.text || '',
               time: new Date(p.created_at).getTime(),
@@ -352,7 +363,8 @@ class ChannelService {
       audioMetadata?: any;
     },
     linkPreview?: LinkPreviewData,
-    customId?: string
+    customId?: string,
+    senderId?: string
   ): Promise<ChannelPost | null> {
     const cleanId = channelId.trim();
     const channelKey = deriveChannelKey(cleanId);
@@ -371,6 +383,7 @@ class ChannelService {
         id: postIdToUse,
         channelId: cleanId,
         senderNickname,
+        senderId,
         text: cipherText,
         mediaType: mediaPayload?.type || null,
         mediaUrl: mediaPayload?.url || null,
@@ -400,6 +413,7 @@ class ChannelService {
         if (data.post) {
           const postObj = {
             ...data.post,
+            senderId,
             text: text || '',
           };
           try {
@@ -416,7 +430,7 @@ class ChannelService {
           try {
             ablyService.sendMessage(`public-channel-${cleanId}`, {
               type: 'channel-post',
-              post: { ...data.post, text: cipherText },
+              post: { ...data.post, senderId, text: cipherText },
             }).catch(() => {});
           } catch {}
           return postObj;
@@ -431,6 +445,7 @@ class ChannelService {
       const directRow = {
         id: postIdToUse,
         channel_id: cleanId,
+        sender_id: senderId || null,
         sender_nickname: senderNickname,
         text: cipherText,
         media_type: mediaPayload?.type || null,
@@ -465,6 +480,7 @@ class ChannelService {
         const postObj: ChannelPost = {
           id: postIdToUse,
           channelId: cleanId,
+          senderId,
           sender: senderNickname,
           text: text || '',
           time: now,
@@ -504,7 +520,7 @@ class ChannelService {
     return null;
   }
 
-  async deletePost(channelId: string, postId: string): Promise<boolean> {
+  async deletePost(channelId: string, postId: string, userId?: string): Promise<boolean> {
     const cleanChanId = channelId.trim();
     const cleanPostId = postId.trim();
     try {
@@ -522,7 +538,7 @@ class ChannelService {
       const res = await fetch(`${W}/channels/delete-post`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: cleanChanId, postId: cleanPostId }),
+        body: JSON.stringify({ channelId: cleanChanId, postId: cleanPostId, userId }),
       });
       if (res.ok) {
         return true;

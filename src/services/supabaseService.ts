@@ -11,6 +11,7 @@ export interface OfflineMessageRecord {
   ciphertext: string;
   message_index: number;
   dh_public_key: string;
+  prev_chain_count?: number | null;
   created_at: string;
   expires_at: string;
   delivered: boolean;
@@ -31,6 +32,8 @@ export interface OfflineHandshakeRecord {
 export interface ProfileUpdateRecord {
   id: string;
   chat_id: string;
+  user_id?: string | null;
+  sender_id?: string | null;
   nickname: string | null;
   avatar_url: string | null;
   hide_profile_id?: boolean | null;
@@ -70,9 +73,10 @@ class SupabaseService {
     ciphertext: string,
     index: number,
     dhPublicKey: string,
-    clientMsgId?: string
+    clientMsgId?: string,
+    prevChainCount?: number
   ): Promise<void> {
-    console.log('[Relay/Supabase] sendOfflineMessage called:', { chatId, senderId, recipientId, index, clientMsgId });
+    console.log('[Relay/Supabase] sendOfflineMessage called:', { chatId, senderId, recipientId, index, clientMsgId, prevChainCount });
 
     const primaryRelay = relayRouter.getRelayForRecipient(recipientId);
     const allRelays = [
@@ -95,6 +99,7 @@ class SupabaseService {
             messageIndex: index,
             dhPublicKey,
             clientMsgId,
+            prevChainCount,
           }),
         });
 
@@ -119,6 +124,7 @@ class SupabaseService {
         ciphertext,
         message_index: index,
         dh_public_key: dhPublicKey,
+        prev_chain_count: prevChainCount !== undefined ? prevChainCount : null,
       };
       if (clientMsgId) {
         row.id = clientMsgId;

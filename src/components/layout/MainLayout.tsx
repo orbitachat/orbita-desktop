@@ -1332,10 +1332,9 @@ export const MainLayout = () => {
           record.ciphertext,
           record.message_index,
           record.dh_public_key,
+          record.prev_chain_count ?? undefined,
         );
         if (decrypted === null) {
-          processedMessageIds.current.add(record.id);
-          supabaseService.markMessageDelivered(record.id).catch(() => {});
           continue;
         }
         updateChat(record.chat_id, { ratchetState: ratchet.getState() });
@@ -1458,19 +1457,17 @@ export const MainLayout = () => {
 
             if (messageData?.type === 'profile-update') {
               const myCode = useChatStore.getState().myCode;
-              const myNickname = useAuthStore.getState().nickname;
-              if (
-                (messageData.sender && (messageData.sender === myNickname || messageData.sender === nickname)) ||
-                (messageData.senderCode && myCode && messageData.senderCode === myCode) ||
-                (messageData.senderId && myCode && messageData.senderId === myCode) ||
-                (messageData.nickname && (messageData.nickname === myNickname || messageData.nickname === nickname))
-              ) {
+              const myUserId = useAuthStore.getState().userId;
+              const isMine =
+                (myUserId && (messageData.userId === myUserId || messageData.senderUserId === myUserId || messageData.senderId === myUserId)) ||
+                (myCode && (messageData.senderCode === myCode || messageData.senderId === myCode));
+              if (isMine) {
                 await supabaseService.markNonMessageDelivered(record.id);
                 continue;
               }
               const updates: Partial<Chat> = {};
               if (messageData.avatarUrl !== undefined) updates.avatarUrl = messageData.avatarUrl;
-              if (messageData.nickname !== undefined && messageData.nickname !== myNickname && messageData.nickname !== nickname) updates.name = messageData.nickname;
+              if (messageData.nickname !== undefined) updates.name = messageData.nickname;
               if (messageData.hideProfileId !== undefined) {
                 updates.hideProfileId = Boolean(messageData.hideProfileId);
                 if (updates.hideProfileId) updates.peerCode = undefined;
@@ -1701,10 +1698,10 @@ export const MainLayout = () => {
       try {
         const update = await supabaseService.getLatestProfileUpdate(chat.id, myCode || undefined);
         const updates: Partial<Chat> = {};
+        const myUserId = useAuthStore.getState().userId;
         const isMyOwnUpdate = update && (
           (myCode && update.sender_code === myCode) ||
-          (myNickname && update.nickname === myNickname) ||
-          (nickname && update.nickname === nickname)
+          (myUserId && (update.user_id === myUserId || update.sender_id === myUserId))
         );
         const targetPeerCode = (chat.peerCode && chat.peerCode !== myCode)
           ? chat.peerCode
@@ -1715,7 +1712,7 @@ export const MainLayout = () => {
               : undefined;
 
         if (update && !isMyOwnUpdate) {
-          if (update.nickname && update.nickname !== chat.name && update.nickname !== myNickname && update.nickname !== nickname) updates.name = update.nickname;
+          if (update.nickname && update.nickname !== chat.name) updates.name = update.nickname;
           if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
           if (update.hide_profile_id !== undefined && update.hide_profile_id !== null) {
             updates.hideProfileId = Boolean(update.hide_profile_id);
@@ -1751,15 +1748,20 @@ export const MainLayout = () => {
           if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
             return;
           }
-          const myNick = (useAuthStore.getState().nickname || '').trim().toLowerCase();
+          const currentUserId = useAuthStore.getState().userId;
           const isCreator = Boolean(
             current?.isOwner ||
             current?.role === 'owner' ||
-            (info.creatorNickname && myNick && info.creatorNickname.trim().toLowerCase() === myNick) ||
-            (ch.creatorNickname && myNick && ch.creatorNickname.trim().toLowerCase() === myNick)
+            (currentUserId && (
+              (info.creatorId && info.creatorId === currentUserId) ||
+              (ch.creatorId && ch.creatorId === currentUserId) ||
+              (current?.creatorId && current.creatorId === currentUserId) ||
+              (current?.members?.some(m => m.userId === currentUserId && (m.role === 'owner' || m.role === 'admin')))
+            ))
           );
           const updates: Partial<Chat> = {
             subscribersCount: info.subscribersCount,
+            creatorId: info.creatorId || ch.creatorId,
             creatorNickname: info.creatorNickname || ch.creatorNickname,
           };
           if (isCreator) {
@@ -2457,15 +2459,19 @@ export const MainLayout = () => {
         if (current?.updatedAt && info.updatedAt && current.updatedAt > info.updatedAt) {
           return;
         }
-        const myNick = (useAuthStore.getState().nickname || '').trim().toLowerCase();
+        const currentUserId = useAuthStore.getState().userId;
         const isCreator = Boolean(
           current?.isOwner ||
           current?.role === 'owner' ||
-          (info.creatorNickname && myNick && info.creatorNickname.trim().toLowerCase() === myNick) ||
-          (current?.creatorNickname && myNick && current.creatorNickname.trim().toLowerCase() === myNick)
+          (currentUserId && (
+            (info.creatorId && info.creatorId === currentUserId) ||
+            (current?.creatorId && current.creatorId === currentUserId) ||
+            (current?.members?.some(m => m.userId === currentUserId && (m.role === 'owner' || m.role === 'admin')))
+          ))
         );
         const updates: Partial<Chat> = {
           subscribersCount: info.subscribersCount,
+          creatorId: info.creatorId || current?.creatorId,
           creatorNickname: info.creatorNickname || current?.creatorNickname,
         };
         if (isCreator) {
@@ -2692,18 +2698,16 @@ export const MainLayout = () => {
 
       if (data.type === 'profile-update') {
         const myCode = useChatStore.getState().myCode;
-        const myNickname = useAuthStore.getState().nickname;
-        if (
-          (data.sender && (data.sender === myNickname || data.sender === nickname)) ||
-          (data.senderCode && myCode && data.senderCode === myCode) ||
-          (data.senderId && myCode && data.senderId === myCode) ||
-          (data.nickname && (data.nickname === myNickname || data.nickname === nickname))
-        ) {
+        const myUserId = useAuthStore.getState().userId;
+        const isMine =
+          (myUserId && (data.userId === myUserId || data.senderUserId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode));
+        if (isMine) {
           return;
         }
         const updates: Partial<Chat> = {};
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
-        if (data.nickname !== undefined && data.nickname !== myNickname && data.nickname !== nickname) updates.name = data.nickname;
+        if (data.nickname !== undefined) updates.name = data.nickname;
         if (data.hideProfileId !== undefined) {
           updates.hideProfileId = Boolean(data.hideProfileId);
           if (updates.hideProfileId) updates.peerCode = undefined;
@@ -2736,6 +2740,7 @@ export const MainLayout = () => {
             data.ciphertext,
             data.index,
             data.dhPublicKey ?? '',
+            data.prevChainCount,
           );
           if (decrypted === null) {
             console.warn('[subscribeToChat] Cannot decrypt message index (stale or duplicate):', data.index);
@@ -2873,13 +2878,16 @@ export const MainLayout = () => {
       }
       if (data.type === 'edit') {
         const messages = useChatStore.getState().messagesByChatId[chatId] || [];
-        if (!messages[data.editIndex]) return;
+        const targetMsg = messages[data.editIndex];
+        if (!targetMsg) return;
+        if (targetMsg.senderId && data.senderId && targetMsg.senderId !== data.senderId) return;
         (async () => {
           const ratchet = DoubleRatchet.fromState(chat.ratchetState!);
           const decrypted = await ratchet.decrypt(
             data.text,
             data.index,
             data.dhPublicKey ?? '',
+            data.prevChainCount,
           );
           if (decrypted === null) return;
           updateChat(chatId, { ratchetState: ratchet.getState() });
