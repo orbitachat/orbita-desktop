@@ -108,11 +108,21 @@ let activationInProgress = false;
 let prefetchedToken: { roomName: string; token: string; url: string; identity: string; fetchedAt: number } | null = null;
 let lastSeenOfferRoom: string | null = null;
 
-async function fetchLivekitToken(room: string, identity: string): Promise<{ token: string; url: string }> {
+function getLivekitParticipantIdentity(nick: string): { identity: string; name: string } {
+  const myUserId = useAuthStore.getState().userId;
+  const myCode = useChatStore.getState().myCode;
+  const uniqueTag = myUserId || myCode || Math.random().toString(36).slice(2, 8);
+  return {
+    identity: `${nick}_${uniqueTag}`,
+    name: nick,
+  };
+}
+
+async function fetchLivekitToken(room: string, identity: string, name?: string): Promise<{ token: string; url: string }> {
   const res = await gatewayManager.fetch('/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ room, identity, name: identity }),
+    body: JSON.stringify({ room, identity, name: name || identity }),
   });
   if (!res.ok) {
     let errorText = '';
@@ -134,14 +144,22 @@ try {
   liveKitService.setMicVolume((isNaN(savedMicVolume) ? 100 : savedMicVolume) / 100);
 } catch {}
 
-function sendCallSignal(chatId: string, payload: Record<string, unknown>) {
+function sendCallSignal(chatId: string, payload: Record<string, any>) {
+  const myUserId = useAuthStore.getState().userId;
+  const myCode = useChatStore.getState().myCode;
+  const fullPayload: Record<string, any> = {
+    ...payload,
+    senderUserId: payload.senderUserId || myUserId || undefined,
+    senderCode: payload.senderCode || myCode || undefined,
+    senderId: payload.senderId || myUserId || myCode || payload.sender,
+  };
   try {
     const pusher = getPusher();
     const channel = pusher.subscribe(`private-chat-${chatId}`);
     const send = () => {
       try {
-        channel.trigger('client-message', payload);
-        console.log(`${LOG_PREFIX} Signal sent:`, payload.type, 'chatId:', chatId);
+        channel.trigger('client-message', fullPayload);
+        console.log(`${LOG_PREFIX} Signal sent:`, fullPayload.type, 'chatId:', chatId);
       } catch (err) {
         console.error(`${LOG_PREFIX} Failed to trigger signal:`, err);
       }
@@ -153,7 +171,7 @@ function sendCallSignal(chatId: string, payload: Record<string, unknown>) {
   }
 
   try {
-    ablyService.sendMessage(chatId, payload);
+    ablyService.sendMessage(chatId, fullPayload);
   } catch (err) {
     console.error(`${LOG_PREFIX} ably sendCallSignal error:`, err);
   }
@@ -507,13 +525,14 @@ export const useCallStore = create<CallStore>((set, get) => {
       callSoundService.play('incoming');
         const myNick = get().myNickname || useAuthStore.getState().nickname;
         if (myNick) {
-          fetchLivekitToken(call.roomName, myNick)
+          const { identity: myLivekitIdentity, name: myLivekitName } = getLivekitParticipantIdentity(myNick);
+          fetchLivekitToken(call.roomName, myLivekitIdentity, myLivekitName)
             .then((res) => {
               prefetchedToken = {
                 roomName: call.roomName,
                 token: res.token,
                 url: res.url,
-                identity: myNick,
+                identity: myLivekitIdentity,
                 fetchedAt: Date.now(),
               };
             })
@@ -567,7 +586,8 @@ export const useCallStore = create<CallStore>((set, get) => {
       }, NO_ANSWER_TIMEOUT_MS);
       try {
         const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
-        const { token, url } = await fetchLivekitToken(roomName, myNickname);
+        const { identity: myLivekitIdentity, name: myLivekitName } = getLivekitParticipantIdentity(myNickname);
+        const { token, url } = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName);
         const act = get().activeCall;
         if (act) set({ activeCall: { ...act, token, url } });
         const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
@@ -615,19 +635,20 @@ export const useCallStore = create<CallStore>((set, get) => {
 
       try {
         const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
+        const { identity: myLivekitIdentity, name: myLivekitName } = getLivekitParticipantIdentity(myNickname);
         let token: string;
         let url: string;
         if (
           prefetchedToken &&
           prefetchedToken.roomName === roomName &&
-          prefetchedToken.identity === myNickname &&
+          prefetchedToken.identity === myLivekitIdentity &&
           Date.now() - prefetchedToken.fetchedAt < 45000
         ) {
           token = prefetchedToken.token;
           url = prefetchedToken.url;
           prefetchedToken = null;
         } else {
-          const res = await fetchLivekitToken(roomName, myNickname);
+          const res = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName);
           token = res.token;
           url = res.url;
         }
@@ -746,7 +767,8 @@ export const useCallStore = create<CallStore>((set, get) => {
         try {
           const { roomName: actRoomName, verificationSalt, verificationSecret } = state.activeCall;
           const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
-          const { token, url } = await fetchLivekitToken(actRoomName, state.myNickname || 'YOU');
+          const { identity: callerIdentity, name: callerName } = getLivekitParticipantIdentity(state.myNickname || 'YOU');
+          const { token, url } = await fetchLivekitToken(actRoomName, callerIdentity, callerName);
           await liveKitService.connect(actRoomName, token, url, sessionKey);
         } catch (err) {
           console.error(`${LOG_PREFIX} Caller LiveKit connect error on accept:`, err);

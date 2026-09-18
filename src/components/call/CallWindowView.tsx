@@ -476,10 +476,19 @@ export const CallWindowView = () => {
         let token = activeCall.token;
         let url = activeCall.url;
         if (!token || !url) {
+          const myUserId = (() => {
+            try {
+              const auth = localStorage.getItem('auth-storage');
+              if (auth) return JSON.parse(auth)?.state?.userId;
+            } catch {}
+            return null;
+          })();
+          const uniqueTag = myUserId || Math.random().toString(36).slice(2, 8);
+          const identity = `${myNick}_${uniqueTag}`;
           const res = await gatewayManager.fetch('/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room: roomName, identity: myNick, name: myNick }),
+            body: JSON.stringify({ room: roomName, identity, name: myNick }),
           });
           if (res.ok) {
             const data = await res.json();

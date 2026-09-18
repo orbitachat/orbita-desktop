@@ -3046,11 +3046,13 @@ export const MainLayout = () => {
       if (typeof data.type === 'string' && data.type.startsWith('call-')) {
         const myNick = nickname || useAuthStore.getState().nickname || useCallStore.getState().myNickname;
         const myCurrentCode = myCode || useChatStore.getState().myCode;
-        if (
-          (data.sender && myNick && data.sender === myNick) ||
-          (data.sender && myCurrentCode && data.sender === myCurrentCode) ||
-          (data.senderId && myCurrentCode && data.senderId === myCurrentCode)
-        ) {
+        const myUserId = useAuthStore.getState().userId;
+        const isSelfSignal = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCurrentCode && (data.senderCode === myCurrentCode || data.senderId === myCurrentCode)) ||
+          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender && myNick && data.sender === myNick)
+        );
+        if (isSelfSignal) {
           return;
         }
 
@@ -3077,21 +3079,22 @@ export const MainLayout = () => {
           const pusher = getPusher();
           const channel = pusher.subscribe(`private-chat-${chatId}`);
           const sendBusy = () => {
+            const myUserId = useAuthStore.getState().userId;
+            const myCurrentCode = myCode || useChatStore.getState().myCode;
+            const busyPayload = {
+              type: 'call-busy',
+              sender: nickname,
+              senderUserId: myUserId || undefined,
+              senderCode: myCurrentCode || undefined,
+              senderId: myUserId || myCurrentCode || nickname,
+              text: '',
+              roomName: data.roomName,
+            };
             try {
-              channel.trigger('client-message', {
-                type: 'call-busy',
-                sender: nickname,
-                text: '',
-                roomName: data.roomName,
-              });
+              channel.trigger('client-message', busyPayload);
             } catch {}
             try {
-              ablyService.sendMessage(chatId, {
-                type: 'call-busy',
-                sender: nickname,
-                text: '',
-                roomName: data.roomName,
-              });
+              ablyService.sendMessage(chatId, busyPayload);
             } catch {}
           };
           if (channel.subscribed) sendBusy();

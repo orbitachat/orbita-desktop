@@ -20,6 +20,7 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
   const myCode = useChatStore((s) => s.myCode);
   const startCall = useCallStore((s) => s.startCall);
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
+  const myUserId = useAuthStore((s) => s.userId);
 
   const innerContentRef = useRef<HTMLDivElement>(null);
   const [targetHeight, setTargetHeight] = useState<number | null>(null);
@@ -102,7 +103,7 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
       if (!chat) return;
       messages.forEach((m) => {
         if (m.mediaType === 'call') {
-          const isOutgoing = isMessageOutgoing(m, myCode, myNickname, chat);
+          const isOutgoing = isMessageOutgoing(m, myCode, myNickname, chat, myUserId);
           const status = m.mediaName || 'completed';
           list.push({
             id: m.id || `call_${m.time}`,
