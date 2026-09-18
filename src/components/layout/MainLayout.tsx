@@ -38,7 +38,7 @@ import { deriveChannelKey } from '../../lib/crypto';
 import { useCallStore } from '../../store/useCallStore';
 import { callSoundService } from '../../services/callSoundService';
 import { ResizableSidebar } from './ResizableSidebar';
-import { supabaseService } from '../../services/supabaseService';
+import { supabaseService, type OfflineMessageRecord } from '../../services/supabaseService';
 import { gatewayManager } from '../../services/gatewayManager';
 import { Avatar } from '../common/Avatar';
 import { NotesAvatar } from '../common/NotesAvatar';
@@ -110,7 +110,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
   if (lastMsg?.mediaItems && lastMsg.mediaItems.length > 0) {
     if (lastMsg.text && lastMsg.text.trim()) {
       const cleanText = lastMsg.text.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ');
-      return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor') }} /> : null;
+      return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor', true) }} /> : null;
     }
 
     const items = lastMsg.mediaItems;
@@ -522,6 +522,7 @@ const ChatListItem = React.memo(({
               <DeveloperBadge
                 userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined)}
                 size={18}
+                style={{ pointerEvents: 'none' }}
               />
               {chat.type === 'channel' && chat.isOfficial && (
                 <span className="px-1 py-0.2 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[9px] font-extrabold uppercase flex-shrink-0">
@@ -559,7 +560,8 @@ const ChatListItem = React.memo(({
                   ? (isLightTheme ? '#111111' : 'rgba(255,255,255,0.85)')
                   : (isLightTheme ? '#757575' : 'var(--text-dim, #8e8e93)'),
                 textTransform: 'none',
-                fontFamily: 'inherit'
+                fontFamily: 'inherit',
+                pointerEvents: 'none',
               }}
             >
               {showDraft ? (
@@ -613,6 +615,7 @@ export const MainLayout = () => {
     currentView,
     setCurrentView,
     addMessage,
+    addMessagesBatch,
     updateChat,
     myCode,
     setMyCode,
@@ -638,6 +641,7 @@ export const MainLayout = () => {
     currentView: state.currentView,
     setCurrentView: state.setCurrentView,
     addMessage: state.addMessage,
+    addMessagesBatch: state.addMessagesBatch,
     updateChat: state.updateChat,
     myCode: state.myCode,
     setMyCode: state.setMyCode,
@@ -1294,145 +1298,211 @@ export const MainLayout = () => {
   const loadPendingMessages = useCallback(async () => {
     if (!nickname && !myCode) return;
     if (isLoadingPendingRef.current) {
-      console.log('[MainLayout] loadPendingMessages already running, skipping');
       return;
     }
     isLoadingPendingRef.current = true;
     try {
       const keysToCheck = Array.from(new Set([myCode, useAuthStore.getState().userId].filter(Boolean))) as string[];
-      for (const key of keysToCheck) {
-        const records = await supabaseService.getPendingMessages(key);
-        if (records.length === 0) continue;
 
-        for (const record of records) {
+      const processBatch = async (batch: OfflineMessageRecord[]) => {
+        if (batch.length === 0) return;
+        const batchMessages: Array<{ chatId: string; message: any }> = [];
+        const deliveredIds: string[] = [];
+        const readReceiptsToSend: Array<{ chatId: string; msgId: string }> = [];
+        const ratchetStateUpdates = new Map<string, any>();
+        const receiptUpdates = new Map<string, { targetIds: Set<string>; targetTime?: number; readAt: number }>();
+        const deleteActions: Array<{ chatId: string; messageId: string }> = [];
+
+        for (const record of batch) {
           if (processedMessageIds.current.has(record.id)) {
             continue;
           }
 
-        if (useChatStore.getState().deletedChatIds?.includes(record.chat_id)) {
-          processedMessageIds.current.add(record.id);
-          supabaseService.markMessageDelivered(record.id).catch(() => {});
-          continue;
-        }
+          if (useChatStore.getState().deletedChatIds?.includes(record.chat_id)) {
+            processedMessageIds.current.add(record.id);
+            deliveredIds.push(record.id);
+            continue;
+          }
 
-        const currentChats = useChatStore.getState().chats;
-        let chat = currentChats.find(c => c.id === record.chat_id);
-        if (!chat) {
-          const restored = useChatStore.getState().restoreDeletedChat(record.chat_id);
-          if (restored) {
-            chat = restored;
-            if (chat.sharedSecret) {
-              subscribeToChat(chat.id, chat.sharedSecret);
-              subscribeToDeliveryUpdates(chat.id);
+          const currentChats = useChatStore.getState().chats;
+          let chat = currentChats.find(c => c.id === record.chat_id);
+          if (!chat) {
+            const restored = useChatStore.getState().restoreDeletedChat(record.chat_id);
+            if (restored) {
+              chat = restored;
+              if (chat.sharedSecret) {
+                subscribeToChat(chat.id, chat.sharedSecret);
+                subscribeToDeliveryUpdates(chat.id);
+              }
             }
           }
-        }
-        if (!chat || !chat.sharedSecret || !chat.ratchetState) {
-          processedMessageIds.current.add(record.id);
-          supabaseService.markMessageDelivered(record.id).catch(() => {});
-          continue;
-        }
 
-        const ratchet = DoubleRatchet.fromState(chat.ratchetState);
-        const decrypted = await ratchet.decrypt(
-          record.ciphertext,
-          record.message_index,
-          record.dh_public_key,
-          record.prev_chain_count ?? undefined,
-        );
-        if (decrypted === null) {
-          continue;
-        }
-        updateChat(record.chat_id, { ratchetState: ratchet.getState() });
-
-        let messageData;
-        try {
-          messageData = JSON.parse(decrypted);
-        } catch {
-          processedMessageIds.current.add(record.id);
-          supabaseService.markMessageDelivered(record.id).catch(() => {});
-          continue;
-        }
-
-        if (messageData?.type === 'delete-message' || messageData?.type === 'delete') {
-          processedMessageIds.current.add(record.id);
-          const targetChatId = messageData.chatId || record.chat_id;
-          const targetId = messageData.targetMessageId || messageData.messageId;
-          if (targetId) {
-            useChatStore.getState().deleteMessage(targetChatId, targetId);
+          const activeRatchetState = ratchetStateUpdates.get(record.chat_id) || chat?.ratchetState;
+          if (!chat || !chat.sharedSecret || !activeRatchetState) {
+            processedMessageIds.current.add(record.id);
+            deliveredIds.push(record.id);
+            continue;
           }
+
+          const ratchet = DoubleRatchet.fromState(activeRatchetState);
+          const decrypted = await ratchet.decrypt(
+            record.ciphertext,
+            record.message_index,
+            record.dh_public_key,
+            record.prev_chain_count ?? undefined,
+          );
+          if (decrypted === null) {
+            continue;
+          }
+          ratchetStateUpdates.set(record.chat_id, ratchet.getState());
+
+          let messageData;
           try {
-            await supabaseService.markMessageDelivered(record.id);
-          } catch {}
-          continue;
-        }
+            messageData = JSON.parse(decrypted);
+          } catch {
+            processedMessageIds.current.add(record.id);
+            deliveredIds.push(record.id);
+            continue;
+          }
 
-        if (messageData?.type === 'receipt' || messageData?.type === 'read' || messageData?.receiptType === 'read') {
-          processedMessageIds.current.add(record.id);
-          const targetChatId = messageData.chatId || record.chat_id;
-          const targetIds = new Set((messageData.messageIds || [messageData.messageId]).filter(Boolean));
-          const targetTime = messageData.time;
-
-          const currentMessages = useChatStore.getState().messagesByChatId[targetChatId] || [];
-          const updatedMessages = currentMessages.map((m) => {
-            const isTarget = (m.id && targetIds.has(m.id)) || (targetTime && m.time <= targetTime && m.isOutgoing);
-            if (isTarget) {
-              return { ...m, read: true, status: 'read' as const, readAt: messageData.time || Date.now() };
+          if (messageData?.type === 'delete-message' || messageData?.type === 'delete') {
+            processedMessageIds.current.add(record.id);
+            const targetChatId = messageData.chatId || record.chat_id;
+            const targetId = messageData.targetMessageId || messageData.messageId;
+            if (targetId) {
+              deleteActions.push({ chatId: targetChatId, messageId: targetId });
             }
-            return m;
+            deliveredIds.push(record.id);
+            continue;
+          }
+
+          if (messageData?.type === 'receipt' || messageData?.type === 'read' || messageData?.receiptType === 'read') {
+            processedMessageIds.current.add(record.id);
+            const targetChatId = messageData.chatId || record.chat_id;
+            const rawIds: unknown[] = messageData.messageIds || [messageData.messageId];
+            const targetIds = new Set<string>(rawIds.filter((id): id is string => typeof id === 'string' && id.length > 0));
+            const existingUpdate = receiptUpdates.get(targetChatId);
+            if (existingUpdate) {
+              targetIds.forEach(id => existingUpdate.targetIds.add(id));
+              if (messageData.time && (!existingUpdate.targetTime || messageData.time > existingUpdate.targetTime)) {
+                existingUpdate.targetTime = messageData.time;
+              }
+            } else {
+              receiptUpdates.set(targetChatId, {
+                targetIds,
+                targetTime: messageData.time,
+                readAt: messageData.time || Date.now(),
+              });
+            }
+            deliveredIds.push(record.id);
+            continue;
+          }
+
+          const msgId = messageData?.id || record.id;
+          const isActiveChat = useChatStore.getState().activeChatId === record.chat_id && typeof document !== 'undefined' && document.visibilityState === 'visible';
+
+          batchMessages.push({
+            chatId: record.chat_id,
+            message: {
+              id: msgId,
+              senderId: record.sender_id,
+              sender: messageData?.sender || chat.name || record.sender_id,
+              isOutgoing: false,
+              text: messageData.text || '',
+              time: new Date(record.created_at).getTime(),
+              read: isActiveChat,
+              mediaType: messageData.mediaType || null,
+              mediaUrl: messageData.mediaUrl || null,
+              mediaName: messageData.mediaName || null,
+              mediaKey: messageData.mediaKey || null,
+              mime: messageData.mime || null,
+              mediaItems: messageData.mediaItems || undefined,
+              audioMetadata: messageData.audioMetadata || undefined,
+              duration: messageData.duration || undefined,
+              waveform: messageData.waveform || undefined,
+              linkPreview: messageData.linkPreview || undefined,
+            },
           });
 
-          useChatStore.setState((s) => ({
-            messagesByChatId: {
-              ...s.messagesByChatId,
-              [targetChatId]: updatedMessages,
-            },
-          }));
+          if (isActiveChat) {
+            readReceiptsToSend.push({ chatId: record.chat_id, msgId });
+          }
 
-          try {
-            await supabaseService.markMessageDelivered(record.id);
-          } catch {}
-          continue;
+          processedMessageIds.current.add(record.id);
+          deliveredIds.push(record.id);
         }
 
-        const msgId = messageData?.id || record.id;
-
-        const isActiveChat = useChatStore.getState().activeChatId === record.chat_id && typeof document !== 'undefined' && document.visibilityState === 'visible';
-        addMessage(record.chat_id, {
-          id: msgId,
-          senderId: record.sender_id,
-          sender: messageData?.sender || chat.name || record.sender_id,
-          isOutgoing: false,
-          text: messageData.text || '',
-          time: new Date(record.created_at).getTime(),
-          read: isActiveChat,
-          mediaType: messageData.mediaType || null,
-          mediaUrl: messageData.mediaUrl || null,
-          mediaName: messageData.mediaName || null,
-          mediaKey: messageData.mediaKey || null,
-          mime: messageData.mime || null,
-          mediaItems: messageData.mediaItems || undefined,
-          audioMetadata: messageData.audioMetadata || undefined,
-          duration: messageData.duration || undefined,
-          waveform: messageData.waveform || undefined,
-          linkPreview: messageData.linkPreview || undefined,
-        });
-
-        if (isActiveChat) {
-          sendEncryptedReadReceipt(record.chat_id, [msgId], Date.now());
+        for (const [chatId, rState] of ratchetStateUpdates.entries()) {
+          updateChat(chatId, { ratchetState: rState });
         }
 
-        try {
-          await supabaseService.markMessageDelivered(record.id);
-        } catch (err) {
-          console.error('[MainLayout] Failed to mark delivered:', err);
+        for (const del of deleteActions) {
+          useChatStore.getState().deleteMessage(del.chatId, del.messageId);
         }
+
+        if (receiptUpdates.size > 0) {
+          useChatStore.setState((s) => {
+            const updatedMap = { ...s.messagesByChatId };
+            for (const [tChatId, rInfo] of receiptUpdates.entries()) {
+              const currentMsgs = updatedMap[tChatId] || [];
+              updatedMap[tChatId] = currentMsgs.map((m) => {
+                const isTarget = (m.id && rInfo.targetIds.has(m.id)) || (rInfo.targetTime && m.time <= rInfo.targetTime && m.isOutgoing);
+                if (isTarget) {
+                  return { ...m, read: true, status: 'read' as const, readAt: rInfo.readAt };
+                }
+                return m;
+              });
+            }
+            return { messagesByChatId: updatedMap };
+          });
+        }
+
+        if (batchMessages.length > 0) {
+          addMessagesBatch(batchMessages);
+        }
+
+        for (const item of readReceiptsToSend) {
+          sendEncryptedReadReceipt(item.chatId, [item.msgId], Date.now());
+        }
+
+        if (deliveredIds.length > 0) {
+          Promise.allSettled(
+            deliveredIds.map((id) => supabaseService.markMessageDelivered(id))
+          ).catch(() => {});
+        }
+      };
+
+      for (const key of keysToCheck) {
+        const records = await supabaseService.getPendingMessages(key);
+        if (records.length === 0) continue;
+
+        const activeId = useChatStore.getState().activeChatId;
+        const visibleChats = useChatStore.getState().chats.slice(0, 10);
+        const priorityChatIds = new Set([activeId, ...visibleChats.map(c => c.id)].filter(Boolean) as string[]);
+
+        const priorityBatch: OfflineMessageRecord[] = [];
+        const remainingBatch: OfflineMessageRecord[] = [];
+
+        for (const record of records) {
+          if (priorityChatIds.has(record.chat_id)) {
+            priorityBatch.push(record);
+          } else {
+            remainingBatch.push(record);
+          }
+        }
+
+        await processBatch(priorityBatch);
+        if (remainingBatch.length > 0) {
+          await processBatch(remainingBatch);
         }
       }
 
       for (const key of keysToCheck) {
         try {
           const nonRecords = await supabaseService.getPendingNonMessages(key);
+          const nonDeliveredIds: string[] = [];
+          const nonBatchMessages: Array<{ chatId: string; message: any }> = [];
+
           for (const record of nonRecords) {
             if (processedMessageIds.current.has(record.id)) continue;
             processedMessageIds.current.add(record.id);
@@ -1441,7 +1511,7 @@ export const MainLayout = () => {
             try {
               messageData = JSON.parse(record.ciphertext);
             } catch {
-              await supabaseService.markNonMessageDelivered(record.id);
+              nonDeliveredIds.push(record.id);
               continue;
             }
 
@@ -1462,7 +1532,7 @@ export const MainLayout = () => {
                 if (useChatStore.getState().activeChatId === record.chat_id) {
                   useChatStore.getState().setActiveChat(null);
                 }
-                await supabaseService.markNonMessageDelivered(record.id);
+                nonDeliveredIds.push(record.id);
                 continue;
               }
               if (messageData.action === 'clear-history') {
@@ -1477,20 +1547,20 @@ export const MainLayout = () => {
                   unreadCount: 0,
                   lastReadTimestamp: Date.now()
                 });
-                await supabaseService.markNonMessageDelivered(record.id);
+                nonDeliveredIds.push(record.id);
                 continue;
               }
             }
 
             if (useChatStore.getState().deletedChatIds?.includes(record.chat_id)) {
-              await supabaseService.markNonMessageDelivered(record.id);
+              nonDeliveredIds.push(record.id);
               continue;
             }
 
             const currentChats = useChatStore.getState().chats;
             const chat = currentChats.find(c => c.id === record.chat_id);
             if (!chat) {
-              await supabaseService.markNonMessageDelivered(record.id);
+              nonDeliveredIds.push(record.id);
               continue;
             }
 
@@ -1499,18 +1569,18 @@ export const MainLayout = () => {
               if (targetId) {
                 useChatStore.getState().deleteMessage(record.chat_id, targetId);
               }
-              await supabaseService.markNonMessageDelivered(record.id);
+              nonDeliveredIds.push(record.id);
               continue;
             }
 
             if (messageData?.type === 'profile-update') {
-              const myCode = useChatStore.getState().myCode;
+              const currentMyCode = useChatStore.getState().myCode;
               const myUserId = useAuthStore.getState().userId;
               const isMine =
                 (myUserId && (messageData.userId === myUserId || messageData.senderUserId === myUserId || messageData.senderId === myUserId)) ||
-                (myCode && (messageData.senderCode === myCode || messageData.senderId === myCode));
+                (currentMyCode && (messageData.senderCode === currentMyCode || messageData.senderId === currentMyCode));
               if (isMine) {
-                await supabaseService.markNonMessageDelivered(record.id);
+                nonDeliveredIds.push(record.id);
                 continue;
               }
               const updates: Partial<Chat> = {};
@@ -1519,39 +1589,52 @@ export const MainLayout = () => {
               if (messageData.hideProfileId !== undefined) {
                 updates.hideProfileId = Boolean(messageData.hideProfileId);
               }
-              if (messageData.senderCode && (!myCode || messageData.senderCode !== myCode)) {
+              if (messageData.senderCode && (!currentMyCode || messageData.senderCode !== currentMyCode)) {
                 updates.peerCode = messageData.senderCode;
               }
               if (Object.keys(updates).length > 0) {
                 updateChat(record.chat_id, updates);
               }
-              await supabaseService.markNonMessageDelivered(record.id);
+              nonDeliveredIds.push(record.id);
               continue;
             }
 
             const msgId = messageData?.id || record.id;
             const isNonActiveChat = useChatStore.getState().activeChatId === record.chat_id && typeof document !== 'undefined' && document.visibilityState === 'visible';
-            addMessage(record.chat_id, {
-              id: msgId,
-              senderId: record.sender_id,
-              sender: messageData?.sender || chat.name || record.sender_id,
-              isOutgoing: false,
-              text: messageData.text || '',
-              time: new Date(record.created_at).getTime(),
-              read: isNonActiveChat,
-              mediaType: messageData.mediaType || null,
-              mediaUrl: messageData.mediaUrl || null,
-              mediaName: messageData.mediaName || null,
-              mediaKey: messageData.mediaKey || null,
-              mime: messageData.mime || null,
-              mediaItems: messageData.mediaItems || undefined,
-              audioMetadata: messageData.audioMetadata || undefined,
-              duration: messageData.duration || undefined,
-              waveform: messageData.waveform || undefined,
-              linkPreview: messageData.linkPreview || undefined,
+            nonBatchMessages.push({
+              chatId: record.chat_id,
+              message: {
+                id: msgId,
+                senderId: record.sender_id,
+                sender: messageData?.sender || chat.name || record.sender_id,
+                isOutgoing: false,
+                text: messageData.text || '',
+                time: new Date(record.created_at).getTime(),
+                read: isNonActiveChat,
+                mediaType: messageData.mediaType || null,
+                mediaUrl: messageData.mediaUrl || null,
+                mediaName: messageData.mediaName || null,
+                mediaKey: messageData.mediaKey || null,
+                mime: messageData.mime || null,
+                mediaItems: messageData.mediaItems || undefined,
+                audioMetadata: messageData.audioMetadata || undefined,
+                duration: messageData.duration || undefined,
+                waveform: messageData.waveform || undefined,
+                linkPreview: messageData.linkPreview || undefined,
+              },
             });
 
-            await supabaseService.markNonMessageDelivered(record.id);
+            nonDeliveredIds.push(record.id);
+          }
+
+          if (nonBatchMessages.length > 0) {
+            addMessagesBatch(nonBatchMessages);
+          }
+
+          if (nonDeliveredIds.length > 0) {
+            Promise.allSettled(
+              nonDeliveredIds.map((id) => supabaseService.markNonMessageDelivered(id))
+            ).catch(() => {});
           }
         } catch (err) {
           console.warn('[MainLayout] Failed to load non_messages for', key, err);
@@ -1562,7 +1645,7 @@ export const MainLayout = () => {
     } finally {
       isLoadingPendingRef.current = false;
     }
-  }, [nickname, myCode, addMessage, updateChat]);
+  }, [nickname, myCode, addMessage, addMessagesBatch, updateChat]);
 
   const checkedRecoveryChatsRef = useRef<Set<string>>(new Set());
 

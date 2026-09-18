@@ -10,23 +10,6 @@ import { Avatar } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 
-const callDarkThemeVars: React.CSSProperties = {
-  '--bg-primary': '#0f0e15',
-  '--bg-secondary': '#171622',
-  '--accent-color': '#7C3AED',
-  '--accent-light': '#9061F9',
-  '--accent-dark': '#5B21B6',
-  '--surface-container': 'rgba(255, 255, 255, 0.08)',
-  '--surface-container-strong': 'rgba(255, 255, 255, 0.16)',
-  '--surface-container-soft': 'rgba(255, 255, 255, 0.05)',
-  '--surface-muted': 'rgba(255, 255, 255, 0.10)',
-  '--surface-muted-strong': 'rgba(255, 255, 255, 0.16)',
-  '--text-main': '#ffffff',
-  '--text-dim': '#8a96a3',
-  '--text-heading': '#ffffff',
-  '--settings-on-primary': '#ffffff',
-} as React.CSSProperties;
-
 const accentButtonStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, var(--accent-color), var(--accent-dark))',
   color: 'var(--settings-on-primary, #ffffff)',
@@ -48,7 +31,7 @@ const StaticBackground = () => (
       position: 'absolute',
       inset: 0,
       zIndex: 0,
-      backgroundColor: '#0f0e15',
+      backgroundColor: 'var(--bg-primary)',
     }}
   />
 );
@@ -197,14 +180,6 @@ export const CallWindow = () => {
       setExpandedShare(null);
     }
   }, [isConnected, isConnecting]);
-
-  useEffect(() => {
-    if (isRemoteScreenShareActive) {
-      setExpandedShare('remote');
-    } else if (hasLocalScreenShare) {
-      setExpandedShare('local');
-    }
-  }, [isRemoteScreenShareActive, hasLocalScreenShare]);
 
   const [localDuration, setLocalDuration] = useState<number>(0);
 
@@ -559,11 +534,9 @@ export const CallWindow = () => {
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[400] flex flex-col justify-between overflow-hidden"
           style={{
-            backgroundColor: '#0f0e15',
-            color: '#ffffff',
+            backgroundColor: 'var(--bg-primary)',
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            ...callDarkThemeVars,
           }}
         >
           <StaticBackground />
@@ -623,11 +596,9 @@ export const CallWindow = () => {
       className="fixed inset-0 z-[400] flex flex-col justify-between overflow-hidden select-none"
       style={{
         display: isMinimized ? 'none' : 'flex',
-        backgroundColor: '#0f0e15',
-        color: '#ffffff',
+        backgroundColor: 'var(--bg-primary)',
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        ...callDarkThemeVars,
       }}
     >
       {(isRemoteVideoActive || isRemoteScreenShareActive) && (
@@ -730,7 +701,7 @@ export const CallWindow = () => {
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
         {isDualStream ? (
           expandedShare === 'remote' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachRemoteScreenShare}
@@ -781,7 +752,7 @@ export const CallWindow = () => {
               </div>
             </div>
           ) : expandedShare === 'local' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachLocalScreenShare}
@@ -902,9 +873,7 @@ export const CallWindow = () => {
             onClick={() => setExpandedShare(expandedShare === 'remote' ? null : 'remote')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'remote'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
-                : isRemoteScreenShareActive
-                ? 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
@@ -947,8 +916,8 @@ export const CallWindow = () => {
             onClick={() => setExpandedShare(expandedShare === 'local' ? null : 'local')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'local'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
-                : 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
+                : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
               borderRadius: expandedShare === 'local' ? 0 : '24px',

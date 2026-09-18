@@ -17,10 +17,9 @@ export const CallVerificationBadge: React.FC<CallVerificationBadgeProps> = ({
     <div
       className={`relative inline-flex items-center justify-center select-none px-4 py-2 rounded-full shadow-md ${className}`}
       style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+        backgroundColor: 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
         ...style,
       }}
     >

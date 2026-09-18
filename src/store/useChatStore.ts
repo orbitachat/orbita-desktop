@@ -442,6 +442,14 @@ interface ChatState {
   togglePinChat: (chatId: string) => void;
   updateLastMsg: (chatId: string, msg: string) => void;
   addMessage: (chatId: string, message: Message, encryptedText?: string, index?: number) => void;
+  addMessagesBatch: (
+    items: Array<{
+      chatId: string;
+      message: Message;
+      encryptedText?: string;
+      index?: number;
+    }>
+  ) => void;
   deleteMessage: (chatId: string, messageId: string) => void;
   updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
   editMessage: (chatId: string, messageId: string, newText: string, encryptedText?: string, index?: number) => void;
@@ -940,6 +948,77 @@ export const useChatStore = create<ChatState>()(
                 }
               : c
           ),
+        });
+      },
+      addMessagesBatch: (items) => {
+        if (!items || items.length === 0) return;
+        const state = get();
+        const deletedChatIds = state.deletedChatIds || [];
+        const ttl = state.messageTTLSeconds || undefined;
+        const newMessagesByChatId = { ...state.messagesByChatId };
+        const chatUpdates = new Map<string, { lastMsg?: string; unreadDelta: number }>();
+
+        for (const item of items) {
+          const { chatId, message, encryptedText, index } = item;
+          if (deletedChatIds.includes(chatId)) continue;
+          const chat = state.chats.find(c => c.id === chatId);
+          if (!chat) continue;
+
+          const currentList = newMessagesByChatId[chatId] || [];
+          if (message.id && currentList.some(m => m.id === message.id)) {
+            continue;
+          }
+
+          const enrichedMessage: Message = {
+            ...message,
+            ttlSeconds: ttl,
+            expiresAt: ttl ? Date.now() + ttl * 1000 : undefined,
+            status: message.status || 'sent',
+            id: message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            encryptedText: encryptedText || message.text,
+            index: index ?? message.index,
+            mediaType: message.mediaType,
+            mediaUrl: message.mediaUrl,
+            mediaName: message.mediaName,
+            mime: message.mime,
+            mediaItems: message.mediaItems,
+            audioMetadata: message.audioMetadata,
+            width: message.width,
+            height: message.height,
+            duration: message.duration,
+            reactions: message.reactions,
+          };
+
+          const updatedList = [...currentList, enrichedMessage];
+          newMessagesByChatId[chatId] = updatedList.length > MAX_MESSAGES_PER_CHAT
+            ? updatedList.slice(-MAX_MESSAGES_PER_CHAT)
+            : updatedList;
+
+          const currentChatUpdate = chatUpdates.get(chatId) || {
+            unreadDelta: 0,
+            lastMsg: undefined,
+          };
+
+          currentChatUpdate.unreadDelta += 1;
+          currentChatUpdate.lastMsg = message.text || (message.mediaItems && message.mediaItems.length > 0 ? '[MediaGroup]' : (message.mediaType ? `[${message.mediaType}]` : ''));
+          chatUpdates.set(chatId, currentChatUpdate);
+        }
+
+        if (chatUpdates.size === 0) return;
+
+        set({
+          messagesByChatId: newMessagesByChatId,
+          chats: state.chats.map(c => {
+            const update = chatUpdates.get(c.id);
+            if (!update) return c;
+            const isActive = state.activeChatId === c.id;
+            const newUnreadCount = isActive ? 0 : (c.unreadCount ?? 0) + update.unreadDelta;
+            return {
+              ...c,
+              lastMsg: update.lastMsg ?? c.lastMsg,
+              unreadCount: newUnreadCount,
+            };
+          }),
         });
       },
       deleteMessage: (chatId, messageId) => {

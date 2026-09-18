@@ -133,14 +133,6 @@ export const CallWindowView = () => {
     const applyVars = (vars: Record<string, string>) => {
       const root = document.documentElement;
       Object.entries(vars).forEach(([key, val]) => {
-        if (
-          key.startsWith('--bg-') ||
-          key.startsWith('--surface-') ||
-          key.startsWith('--text-') ||
-          key.startsWith('--accent-')
-        ) {
-          return;
-        }
         root.style.setProperty(key, val as string);
       });
     };
@@ -167,22 +159,9 @@ export const CallWindowView = () => {
     } catch {}
     applyFont(initialFont);
 
-    const bg = '#0f0e15';
+    const bg = 'color-mix(in srgb, var(--accent-color, #7C3AED) 8%, var(--bg-primary, #14111d))';
     document.documentElement.style.backgroundColor = bg;
     document.body.style.backgroundColor = bg;
-    document.documentElement.style.setProperty('--bg-primary', '#0f0e15');
-    document.documentElement.style.setProperty('--bg-secondary', '#171622');
-    document.documentElement.style.setProperty('--accent-color', '#7C3AED');
-    document.documentElement.style.setProperty('--accent-light', '#9061F9');
-    document.documentElement.style.setProperty('--accent-dark', '#5B21B6');
-    document.documentElement.style.setProperty('--surface-container', 'rgba(255, 255, 255, 0.08)');
-    document.documentElement.style.setProperty('--surface-container-strong', 'rgba(255, 255, 255, 0.16)');
-    document.documentElement.style.setProperty('--surface-container-soft', 'rgba(255, 255, 255, 0.05)');
-    document.documentElement.style.setProperty('--surface-muted', 'rgba(255, 255, 255, 0.10)');
-    document.documentElement.style.setProperty('--surface-muted-strong', 'rgba(255, 255, 255, 0.16)');
-    document.documentElement.style.setProperty('--text-main', '#ffffff');
-    document.documentElement.style.setProperty('--text-dim', '#8a96a3');
-    document.documentElement.style.setProperty('--settings-on-primary', '#ffffff');
 
     const orbita = (window as any).orbita;
 
@@ -393,14 +372,6 @@ export const CallWindowView = () => {
   const hasAnyActiveStream = hasRemoteStream || hasLocalScreenShare;
   const duration = callData?.duration ?? 0;
   const statusMessage = callData?.statusMessage ?? '';
-
-  useEffect(() => {
-    if (isRemoteScreenShareActive) {
-      setExpandedShare('remote');
-    } else if (hasLocalScreenShare) {
-      setExpandedShare('local');
-    }
-  }, [isRemoteScreenShareActive, hasLocalScreenShare]);
 
   const isIncoming = !!incomingCall || (activeCall?.direction === 'incoming' && callState === 'ringing');
   const otherName = activeCall?.otherName || incomingCall?.otherName || incomingCall?.from || activeCall?.chatId || '';
@@ -870,7 +841,7 @@ export const CallWindowView = () => {
 
         {isDualStream ? (
           expandedShare === 'remote' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachRemoteScreenShare}
@@ -921,7 +892,7 @@ export const CallWindowView = () => {
               </div>
             </div>
           ) : expandedShare === 'local' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachLocalScreenShare}
@@ -1042,9 +1013,7 @@ export const CallWindowView = () => {
             onClick={() => setExpandedShare(expandedShare === 'remote' ? null : 'remote')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'remote'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
-                : isRemoteScreenShareActive
-                ? 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
@@ -1087,8 +1056,8 @@ export const CallWindowView = () => {
             onClick={() => setExpandedShare(expandedShare === 'local' ? null : 'local')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'local'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
-                : 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
+                : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
               borderRadius: expandedShare === 'local' ? 0 : '24px',
