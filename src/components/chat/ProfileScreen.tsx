@@ -11,6 +11,7 @@ import { VerifiedBadge } from '../common/VerifiedBadge';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
 import { EmojiPicker } from './EmojiPicker';
 import { AddGroupMemberModal } from './AddGroupMemberModal';
+import { DeleteGroupModal } from './DeleteGroupModal';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
 import {
   Picture as GravityPictureIcon,
@@ -1040,6 +1041,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const isChannel = chat?.type === 'channel';
   const isGroup = chat?.type === 'group';
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [isDeleteGroupModalOpen, setIsDeleteGroupModalOpen] = useState(false);
+  const [groupModalMode, setGroupModalMode] = useState<'delete' | 'leave'>('delete');
 
   const isChannelOwner = useMemo(() => {
     if (!isChannel || !chat) return false;
@@ -1067,6 +1070,35 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (chat.members?.some((m) => (m.userId === myUserId || m.nickname === myNickname) && (m.role === 'admin' || m.role === 'owner'))) return true;
     return false;
   }, [isGroup, chat, isGroupOwner, myUserId, myNickname]);
+
+  const isProfileIdHidden = useMemo(() => {
+    if (isChannel) return false;
+    const myCode = useChatStore.getState().myCode;
+    if (myCode && (chat?.peerCode === myCode || chat?.id === myCode)) {
+      return false;
+    }
+    return Boolean(chat?.hideProfileId);
+  }, [isChannel, chat?.hideProfileId, chat?.peerCode, chat?.id]);
+
+  const profileId = useMemo(() => {
+    if (!chat) return '';
+    if (isChannel) return chat.id;
+    if (chatId === 'notes') return '';
+    if (isProfileIdHidden) return '';
+    const rawCode = (chat.peerCode && !chat.peerCode.includes('-')) ? chat.peerCode : (chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined);
+    return rawCode || '';
+  }, [isChannel, chat, chatId, isProfileIdHidden]);
+
+  const formattedProfileId = useMemo(() => {
+    if (!profileId) return '';
+    return profileId;
+  }, [profileId]);
+
+  useEffect(() => {
+    if (!chat) {
+      onClose();
+    }
+  }, [chat, onClose]);
 
   useEffect(() => {
     if (!chat || chat.type !== 'group') return;
@@ -1300,6 +1332,20 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       setIsSavingChannel(false);
     });
   }, [chat, isSavingChannel, editName, editDescription, editAvatarUrl, updateChat]);
+
+  const handleConfirmGroupAction = useCallback(async () => {
+    if (!chat) return;
+    const targetChatId = chat.id;
+    const currentMode = groupModalMode;
+    setIsDeleteGroupModalOpen(false);
+    onClose();
+    if (currentMode === 'delete') {
+      await groupService.deleteGroup(targetChatId);
+    } else {
+      await groupService.leaveGroup(targetChatId, myNickname, myUserId);
+    }
+    useChatStore.getState().deleteChat(targetChatId);
+  }, [chat, groupModalMode, onClose, myNickname, myUserId]);
 
   const innerContentRef = useRef<HTMLDivElement>(null);
   const [targetHeight, setTargetHeight] = useState<number | null>(null);
@@ -1652,11 +1698,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   }, [subTab, mediaGroups, searchQuery, chat]);
 
   if (!chat) {
-    return (
-      <div className="flex items-center justify-center h-full" style={{ minHeight: '400px' }}>
-        <MD3CircularSpinner size="large" />
-      </div>
-    );
+    return null;
   }
 
   const formatSubscribers = (count: number) => {
@@ -1865,29 +1907,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       </div>
     );
   };
-
-  const isProfileIdHidden = useMemo(() => {
-    if (isChannel) return false;
-    const myCode = useChatStore.getState().myCode;
-    if (myCode && (chat?.peerCode === myCode || chat?.id === myCode)) {
-      return false;
-    }
-    return Boolean(chat?.hideProfileId);
-  }, [isChannel, chat?.hideProfileId, chat?.peerCode, chat?.id]);
-
-  const profileId = useMemo(() => {
-    if (!chat) return '';
-    if (isChannel) return chat.id;
-    if (chatId === 'notes') return '';
-    if (isProfileIdHidden) return '';
-    const rawCode = (chat.peerCode && !chat.peerCode.includes('-')) ? chat.peerCode : (chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined);
-    return rawCode || '';
-  }, [isChannel, chat, chatId, isProfileIdHidden]);
-
-  const formattedProfileId = useMemo(() => {
-    if (!profileId) return '';
-    return profileId;
-  }, [profileId]);
 
   const renderMainContent = () => (
     <div
@@ -2676,15 +2695,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           {isGroupOwner ? (
             <button
               type="button"
-              onClick={async () => {
-                if (window.confirm(t('groupSettings.delete_group_confirm', 'Вы уверены, что хотите удалить группу? Это действие нельзя отменить.'))) {
-                  await groupService.deleteGroup(chat.id);
-                  useChatStore.setState((s) => ({
-                    chats: s.chats.filter((c) => c.id !== chat.id),
-                    activeChatId: s.activeChatId === chat.id ? null : s.activeChatId,
-                  }));
-                  onClose();
-                }
+              onClick={() => {
+                setGroupModalMode('delete');
+                setIsDeleteGroupModalOpen(true);
               }}
               aria-label={t('groupSettings.delete_group', 'Удалить группу')}
               style={{
@@ -2711,15 +2724,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           ) : (
             <button
               type="button"
-              onClick={async () => {
-                if (window.confirm(t('groupSettings.leave_group_confirm', 'Вы уверены, что хотите покинуть группу?'))) {
-                  await groupService.leaveGroup(chat.id, myNickname, myUserId);
-                  useChatStore.setState((s) => ({
-                    chats: s.chats.filter((c) => c.id !== chat.id),
-                    activeChatId: s.activeChatId === chat.id ? null : s.activeChatId,
-                  }));
-                  onClose();
-                }
+              onClick={() => {
+                setGroupModalMode('leave');
+                setIsDeleteGroupModalOpen(true);
               }}
               aria-label={t('groupSettings.leave_group', 'Покинуть группу')}
               style={{
@@ -3424,6 +3431,15 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           isOpen={isAddMemberModalOpen}
           onClose={() => setIsAddMemberModalOpen(false)}
           group={chat}
+        />
+      )}
+
+      {isGroup && (
+        <DeleteGroupModal
+          isOpen={isDeleteGroupModalOpen}
+          onClose={() => setIsDeleteGroupModalOpen(false)}
+          onConfirm={handleConfirmGroupAction}
+          mode={groupModalMode}
         />
       )}
     </>

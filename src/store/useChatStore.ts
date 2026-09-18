@@ -1580,6 +1580,7 @@ export const useChatStore = create<ChatState>()(
           return {
             chats: s.chats.filter(c => c.id !== chatId),
             activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
+            activeProfileChatId: s.activeProfileChatId === chatId ? null : s.activeProfileChatId,
             messagesByChatId: restMessages,
             pinnedChatIds: (s.pinnedChatIds || []).filter((id) => id !== chatId),
             deletedChatIds: Array.from(new Set([...(s.deletedChatIds || []), chatId])),
