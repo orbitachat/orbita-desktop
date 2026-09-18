@@ -254,6 +254,87 @@ class SupabaseService {
     }
   }
 
+  async deleteChatData(chatId: string, recipientId?: string | string[], senderId?: string): Promise<void> {
+    if (!chatId || chatId === 'notes') return;
+
+    if (this.client) {
+      try {
+        await this.client.from('messages').delete().eq('chat_id', chatId);
+      } catch {}
+      try {
+        await this.client.from('non_messages').delete().eq('chat_id', chatId);
+      } catch {}
+      try {
+        await this.client.from('offline_handshakes').delete().eq('chat_id', chatId);
+      } catch {}
+      try {
+        await this.client.from('reactions').delete().eq('chat_id', chatId);
+      } catch {}
+      try {
+        await this.client.from('profile_updates').delete().eq('chat_id', chatId);
+      } catch {}
+
+      if (recipientId) {
+        const recipients = Array.isArray(recipientId) ? recipientId : [recipientId];
+        for (const rId of recipients) {
+          if (!rId) continue;
+          try {
+            const deletePayload = JSON.stringify({
+              type: 'system',
+              action: 'delete-chat',
+              chatId,
+            });
+            const eventId = `sys_del_${chatId}_${rId}_${Date.now()}`;
+            await this.client.from('non_messages').insert({
+              id: eventId,
+              chat_id: chatId,
+              sender_id: senderId || 'system',
+              recipient_id: rId,
+              ciphertext: deletePayload,
+              delivered: false,
+            });
+          } catch {}
+        }
+      }
+    }
+  }
+
+  async clearChatHistory(chatId: string, recipientId?: string | string[], senderId?: string): Promise<void> {
+    if (!chatId || chatId === 'notes') return;
+
+    if (this.client) {
+      try {
+        await this.client.from('messages').delete().eq('chat_id', chatId);
+      } catch {}
+      try {
+        await this.client.from('reactions').delete().eq('chat_id', chatId);
+      } catch {}
+
+      if (recipientId) {
+        const recipients = Array.isArray(recipientId) ? recipientId : [recipientId];
+        for (const rId of recipients) {
+          if (!rId) continue;
+          try {
+            const clearPayload = JSON.stringify({
+              type: 'system',
+              action: 'clear-history',
+              chatId,
+            });
+            const eventId = `sys_clr_${chatId}_${rId}_${Date.now()}`;
+            await this.client.from('non_messages').insert({
+              id: eventId,
+              chat_id: chatId,
+              sender_id: senderId || 'system',
+              recipient_id: rId,
+              ciphertext: clearPayload,
+              delivered: false,
+            });
+          } catch {}
+        }
+      }
+    }
+  }
+
   async getPendingMessages(recipientId: string): Promise<OfflineMessageRecord[]> {
     const activeRelays = relayRouter.getActiveRelaysForMe(recipientId);
     const allMessages: OfflineMessageRecord[] = [];

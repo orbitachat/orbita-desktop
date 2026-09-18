@@ -1811,7 +1811,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (isChannel) return chat.id;
     if (chatId === 'notes') return '';
     if (isProfileIdHidden) return '';
-    return chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || '';
+    const rawCode = (chat.peerCode && !chat.peerCode.includes('-')) ? chat.peerCode : (chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined);
+    return rawCode || '';
   }, [isChannel, chat, chatId, isProfileIdHidden]);
 
   const formattedProfileId = useMemo(() => {

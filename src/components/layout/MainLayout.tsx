@@ -1190,7 +1190,7 @@ export const MainLayout = () => {
           processedIds.add(hs.id);
 
           const currentChats = useChatStore.getState().chats;
-          if (currentChats.some(c => c.id === hs.chat_id)) {
+          if (currentChats.some(c => c.id === hs.chat_id) || useChatStore.getState().deletedChatIds?.includes(hs.chat_id)) {
             await supabaseService.markHandshakeConsumed(hs.id);
             continue;
           }
@@ -1253,8 +1253,8 @@ export const MainLayout = () => {
           const currentChats = useChatStore.getState().chats;
           const existing = currentChats.find(c => c.id === conf.chat_id);
 
-          if (!existing) {
-            console.warn('[Handshake] Confirmation received but chat not found, consuming:', conf.chat_id);
+          if (!existing || useChatStore.getState().deletedChatIds?.includes(conf.chat_id)) {
+            console.warn('[Handshake] Confirmation received but chat not found or deleted, consuming:', conf.chat_id);
             await supabaseService.markHandshakeConsumed(conf.id).catch(() => {});
             continue;
           }
@@ -1308,6 +1308,12 @@ export const MainLayout = () => {
           if (processedMessageIds.current.has(record.id)) {
             continue;
           }
+
+        if (useChatStore.getState().deletedChatIds?.includes(record.chat_id)) {
+          processedMessageIds.current.add(record.id);
+          supabaseService.markMessageDelivered(record.id).catch(() => {});
+          continue;
+        }
 
         const currentChats = useChatStore.getState().chats;
         let chat = currentChats.find(c => c.id === record.chat_id);
@@ -1435,6 +1441,48 @@ export const MainLayout = () => {
             try {
               messageData = JSON.parse(record.ciphertext);
             } catch {
+              await supabaseService.markNonMessageDelivered(record.id);
+              continue;
+            }
+
+            if (messageData?.type === 'system') {
+              if (messageData.action === 'delete-chat') {
+                if (activeSubscriptions.current.has(record.chat_id)) {
+                  const sub = activeSubscriptions.current.get(record.chat_id)!;
+                  sub.channel.unbind_all();
+                  getPusher().unsubscribe(`private-chat-${record.chat_id}`);
+                  activeSubscriptions.current.delete(record.chat_id);
+                }
+                if (ablyMessageUnsubscribes.current.has(record.chat_id)) {
+                  const unsub = ablyMessageUnsubscribes.current.get(record.chat_id)!;
+                  unsub();
+                  ablyMessageUnsubscribes.current.delete(record.chat_id);
+                }
+                useChatStore.getState().deleteChat(record.chat_id);
+                if (useChatStore.getState().activeChatId === record.chat_id) {
+                  useChatStore.getState().setActiveChat(null);
+                }
+                await supabaseService.markNonMessageDelivered(record.id);
+                continue;
+              }
+              if (messageData.action === 'clear-history') {
+                useChatStore.setState((state) => ({
+                  messagesByChatId: {
+                    ...state.messagesByChatId,
+                    [record.chat_id]: [],
+                  }
+                }));
+                updateChat(record.chat_id, {
+                  lastMsg: t('common.history_cleared'),
+                  unreadCount: 0,
+                  lastReadTimestamp: Date.now()
+                });
+                await supabaseService.markNonMessageDelivered(record.id);
+                continue;
+              }
+            }
+
+            if (useChatStore.getState().deletedChatIds?.includes(record.chat_id)) {
               await supabaseService.markNonMessageDelivered(record.id);
               continue;
             }
@@ -2610,6 +2658,7 @@ export const MainLayout = () => {
     const channel = pusher.subscribe(`private-chat-${chatId}`);
 
     const handleMessage = (data: any) => {
+      if (useChatStore.getState().deletedChatIds?.includes(chatId)) return;
       let chat = useChatStore.getState().chats.find((c) => c.id === chatId);
       if (!chat) {
         chat = useChatStore.getState().restoreDeletedChat(chatId) || undefined;
@@ -2681,9 +2730,10 @@ export const MainLayout = () => {
 
       if (data.type === 'system') {
         if (data.action === 'delete-chat') {
-          useChatStore.setState({
-            chats: useChatStore.getState().chats.filter((c) => c.id !== chatId),
-          });
+          useChatStore.getState().deleteChat(chatId);
+          if (useChatStore.getState().activeChatId === chatId) {
+            useChatStore.getState().setActiveChat(null);
+          }
           if (activeSubscriptions.current.has(chatId)) {
             const sub = activeSubscriptions.current.get(chatId)!;
             sub.channel.unbind_all();
@@ -2803,7 +2853,7 @@ export const MainLayout = () => {
           }
 
           const msgId = messageData?.id || data.messageId || data.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const senderCode = messageData?.senderId || messageData?.senderCode || data.senderId || data.senderCode || chat.peerCode;
+          const senderCode = messageData?.senderCode || data.senderCode || (!messageData?.senderId?.includes('-') ? messageData?.senderId : undefined) || chat.peerCode;
           const senderNick = messageData?.sender || data.sender;
           const senderAvatar = messageData?.avatarUrl || data.avatarUrl;
 
@@ -2816,7 +2866,7 @@ export const MainLayout = () => {
           if (senderAvatar && (!chat.avatarUrl || chat.avatarUrl === avatarUrl)) {
             chatUpdates.avatarUrl = senderAvatar;
           }
-          if (senderCode && !chat.peerCode) {
+          if (senderCode && !senderCode.includes('-') && !chat.peerCode) {
             chatUpdates.peerCode = senderCode;
           }
           if (Object.keys(chatUpdates).length > 0) {
@@ -3258,11 +3308,28 @@ export const MainLayout = () => {
     const chat = chats.find(c => c.id === chatId);
     if (!chat) return;
     if (chat.sharedSecret && chat.id !== 'notes') {
-      const pusher = getPusher();
-      const channel = pusher.subscribe(`private-chat-${chatId}`);
-      const sendSystemMsg = () => channel.trigger('client-message', { sender: nickname, type: 'system', action: 'clear-history', text: '' });
-      if (channel.subscribed) sendSystemMsg();
-      else channel.bind('pusher:subscription_succeeded', sendSystemMsg);
+      const clearPayload = {
+        type: 'system',
+        action: 'clear-history',
+        chatId,
+        sender: nickname,
+        senderCode: myCode,
+        senderId: useAuthStore.getState().userId,
+      };
+      try {
+        const pusher = getPusher();
+        const channel = pusher.subscribe(`private-chat-${chatId}`);
+        const sendSystemMsg = () => {
+          try { channel.trigger('client-message', clearPayload); } catch {}
+        };
+        if (channel.subscribed) sendSystemMsg();
+        else channel.bind('pusher:subscription_succeeded', sendSystemMsg);
+      } catch {}
+      try {
+        ablyService.sendMessage(chatId, clearPayload).catch(() => {});
+      } catch {}
+      const recipients = [chat.peerCode, chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined].filter(Boolean) as string[];
+      supabaseService.clearChatHistory(chatId, recipients.length > 0 ? recipients : undefined, myCode).catch(() => {});
     }
     useChatStore.setState((state) => ({
       messagesByChatId: {
@@ -3294,8 +3361,47 @@ export const MainLayout = () => {
         unsub();
         ablyMessageUnsubscribes.current.delete(chatId);
       }
+    } else {
+      if (chat.id !== 'notes') {
+        const deletePayload = {
+          type: 'system',
+          action: 'delete-chat',
+          chatId,
+          sender: nickname,
+          senderCode: myCode,
+          senderId: useAuthStore.getState().userId,
+        };
+        try {
+          const pusher = getPusher();
+          const channel = pusher.subscribe(`private-chat-${chatId}`);
+          const sendSys = () => {
+            try { channel.trigger('client-message', deletePayload); } catch {}
+          };
+          if (channel.subscribed) sendSys();
+          else channel.bind('pusher:subscription_succeeded', sendSys);
+        } catch {}
+        try {
+          ablyService.sendMessage(chatId, deletePayload).catch(() => {});
+        } catch {}
+        const recipients = [chat.peerCode, chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined].filter(Boolean) as string[];
+        supabaseService.deleteChatData(chatId, recipients.length > 0 ? recipients : undefined, myCode).catch(() => {});
+      }
+      if (activeSubscriptions.current.has(chatId)) {
+        const sub = activeSubscriptions.current.get(chatId)!;
+        sub.channel.unbind_all();
+        getPusher().unsubscribe(`private-chat-${chatId}`);
+        activeSubscriptions.current.delete(chatId);
+      }
+      if (ablyMessageUnsubscribes.current.has(chatId)) {
+        const unsub = ablyMessageUnsubscribes.current.get(chatId)!;
+        unsub();
+        ablyMessageUnsubscribes.current.delete(chatId);
+      }
     }
     useChatStore.getState().deleteChat(chatId);
+    if (useChatStore.getState().activeChatId === chatId) {
+      useChatStore.getState().setActiveChat(null);
+    }
     setChatContextMenu(prev => ({ ...prev, visible: false }));
   };
 
@@ -3399,7 +3505,7 @@ export const MainLayout = () => {
       if (isBotFound && chat.id === orbitosService.BOT_ID) return false;
       return (
         chat.name.toLowerCase().includes(q) ||
-        (chat.id && chat.id.toLowerCase().includes(q))
+        (chat.peerCode && chat.peerCode.toLowerCase().includes(q))
       );
     });
   }, [sortedChats, searchQuery, isSupportFound, isBotFound]);
