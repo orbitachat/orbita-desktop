@@ -229,7 +229,7 @@ class GroupService {
     } catch {}
   }
 
-  async kickMember(groupId: string, targetNickname: string, adminNickname: string): Promise<void> {
+  async kickMember(groupId: string, targetNickname: string, adminNickname: string, targetUserCode?: string): Promise<void> {
     try {
       await fetch(`${this.getWorkerUrl()}/groups/kick`, {
         method: 'POST',
@@ -237,6 +237,7 @@ class GroupService {
         body: JSON.stringify({
           groupId,
           targetNickname,
+          targetUserCode: targetUserCode || null,
           adminNickname,
         }),
       });
@@ -280,13 +281,14 @@ class GroupService {
   async updateMemberRole(
     groupId: string,
     targetNickname: string,
-    role: 'admin' | 'member'
+    role: 'admin' | 'member',
+    targetUserCode?: string
   ): Promise<boolean> {
     try {
       const res = await fetch(`${this.getWorkerUrl()}/groups/role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, targetNickname, role }),
+        body: JSON.stringify({ groupId, targetNickname, targetUserCode: targetUserCode || null, role }),
       });
       return res.ok;
     } catch {

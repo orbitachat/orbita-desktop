@@ -1057,19 +1057,27 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (!isGroup || !chat) return false;
     if (chat.isOwner) return true;
     if (chat.role === 'owner') return true;
-    if (myNickname && chat.creatorNickname === myNickname) return true;
-    if (myUserId && chat.creatorId === myUserId) return true;
-    if (myUserId && chat.members?.some((m) => (m.userId === myUserId || m.nickname === myNickname) && m.role === 'owner')) return true;
+    const currentCode = useChatStore.getState().myCode;
+    if (currentCode && chat.creatorCode && chat.creatorCode === currentCode) return true;
+    if (myUserId && chat.creatorId && chat.creatorId === myUserId) return true;
+    if (chat.members?.some((m: any) => {
+      const id = m.userId || m.userCode;
+      return id && ((myUserId && id === myUserId) || (currentCode && id === currentCode)) && m.role === 'owner';
+    })) return true;
     return false;
-  }, [isGroup, chat, myUserId, myNickname]);
+  }, [isGroup, chat, myUserId]);
 
   const isGroupAdmin = useMemo(() => {
     if (!isGroup || !chat) return false;
     if (isGroupOwner) return true;
     if (chat.role === 'admin') return true;
-    if (chat.members?.some((m) => (m.userId === myUserId || m.nickname === myNickname) && (m.role === 'admin' || m.role === 'owner'))) return true;
+    const currentCode = useChatStore.getState().myCode;
+    if (chat.members?.some((m: any) => {
+      const id = m.userId || m.userCode;
+      return id && ((myUserId && id === myUserId) || (currentCode && id === currentCode)) && (m.role === 'admin' || m.role === 'owner');
+    })) return true;
     return false;
-  }, [isGroup, chat, isGroupOwner, myUserId, myNickname]);
+  }, [isGroup, chat, isGroupOwner, myUserId]);
 
   const isProfileIdHidden = useMemo(() => {
     if (isChannel) return false;
@@ -2549,14 +2557,19 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {(chat.members || []).map((member) => {
+            {(chat.members || []).map((member, index) => {
               const isMemberOwner = member.role === 'owner';
               const isMemberAdmin = member.role === 'admin';
-              const isSelf = (myNickname && member.nickname === myNickname) || (myUserId && member.userId === myUserId);
+              const memberCode = member.userId || (member as any).userCode;
+              const currentCode = useChatStore.getState().myCode;
+              const isSelf = Boolean(
+                (memberCode && currentCode && memberCode === currentCode) ||
+                (memberCode && myUserId && memberCode === myUserId)
+              );
 
               return (
                 <div
-                  key={member.userId || member.nickname}
+                  key={memberCode || `${member.nickname}_${index}`}
                   style={{
                     padding: '10px 20px',
                     display: 'flex',
@@ -2622,10 +2635,12 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                           type="button"
                           onClick={async () => {
                             const newRole = isMemberAdmin ? 'member' : 'admin';
-                            await groupService.updateMemberRole(chat.id, member.nickname, newRole);
-                            const updatedMembers = (chat.members || []).map((m) =>
-                              m.nickname === member.nickname ? { ...m, role: newRole as any } : m
-                            );
+                            await groupService.updateMemberRole(chat.id, member.nickname, newRole, memberCode);
+                            const updatedMembers = (chat.members || []).map((m: any) => {
+                              const mCode = m.userId || m.userCode;
+                              const isTarget = memberCode && mCode ? mCode === memberCode : m.nickname === member.nickname;
+                              return isTarget ? { ...m, role: newRole as any } : m;
+                            });
                             updateChat(chat.id, { members: updatedMembers });
                           }}
                           aria-label={isMemberAdmin ? t('groupSettings.demote', 'Снять права') : t('groupSettings.promote', 'Назначить админом')}
@@ -2650,8 +2665,12 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                         type="button"
                         onClick={async () => {
                           if (window.confirm(`${t('groupSettings.kick', 'Исключить')} ${member.nickname}?`)) {
-                            await groupService.kickMember(chat.id, member.nickname, myNickname);
-                            const updatedMembers = (chat.members || []).filter((m) => m.nickname !== member.nickname);
+                            await groupService.kickMember(chat.id, member.nickname, myNickname, memberCode);
+                            const updatedMembers = (chat.members || []).filter((m: any) => {
+                              const mCode = m.userId || m.userCode;
+                              if (memberCode && mCode) return mCode !== memberCode;
+                              return m.nickname !== member.nickname;
+                            });
                             updateChat(chat.id, {
                               members: updatedMembers,
                               membersCount: Math.max(1, (chat.membersCount || updatedMembers.length + 1) - 1),

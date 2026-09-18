@@ -232,6 +232,7 @@ export interface Chat {
   notificationsEnabled?: boolean;
   description?: string;
   creatorId?: string;
+  creatorCode?: string;
   creatorNickname?: string;
   subscribersCount?: number;
   isOwner?: boolean;

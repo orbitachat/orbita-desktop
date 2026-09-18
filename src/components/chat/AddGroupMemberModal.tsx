@@ -21,8 +21,8 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [addingNicknames, setAddingNicknames] = useState<Record<string, boolean>>({});
-  const [addedNicknames, setAddedNicknames] = useState<Record<string, boolean>>({});
+  const [addingContactIds, setAddingContactIds] = useState<Record<string, boolean>>({});
+  const [addedContactIds, setAddedContactIds] = useState<Record<string, boolean>>({});
 
   const chats = useChatStore((s) => s.chats);
   const updateChat = useChatStore((s) => s.updateChat);
@@ -38,14 +38,36 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
   const inviteCode = currentChat.inviteCode || currentChat.id;
   const inviteLink = `https://orbita-chess-network.alwaysdata.net/g/${inviteCode}`;
 
-  const existingMemberKeys = useMemo(() => {
+  const existingMemberIds = useMemo(() => {
     const set = new Set<string>();
-    currentMembers.forEach((m) => {
-      if (m.nickname) set.add(m.nickname.trim().toLowerCase());
-      if (m.userId) set.add(m.userId.trim().toLowerCase());
+    currentMembers.forEach((m: any) => {
+      const code = m.userId || m.userCode;
+      if (code) {
+        set.add(String(code).trim().toLowerCase());
+      }
     });
+    if (currentChat.creatorCode) {
+      set.add(String(currentChat.creatorCode).trim().toLowerCase());
+    }
+    if (currentChat.creatorId) {
+      set.add(String(currentChat.creatorId).trim().toLowerCase());
+    }
     return set;
-  }, [currentMembers]);
+  }, [currentMembers, currentChat.creatorCode, currentChat.creatorId]);
+
+  const isContactInGroup = useCallback(
+    (contact: Chat) => {
+      const peerCode = contact.peerCode ? String(contact.peerCode).trim().toLowerCase() : null;
+      const chatId = contact.id ? String(contact.id).trim().toLowerCase() : null;
+      const nameIsCode = contact.name && contact.name.length === 36 ? contact.name.trim().toLowerCase() : null;
+
+      if (peerCode && existingMemberIds.has(peerCode)) return true;
+      if (chatId && existingMemberIds.has(chatId)) return true;
+      if (nameIsCode && existingMemberIds.has(nameIsCode)) return true;
+      return false;
+    },
+    [existingMemberIds]
+  );
 
   const contacts = useMemo(() => {
     return chats.filter(
@@ -77,11 +99,11 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
 
   const handleAddContact = useCallback(
     async (contact: Chat) => {
-      if (isGroupFull || addingNicknames[contact.name]) return;
+      if (isGroupFull || addingContactIds[contact.id]) return;
 
-      setAddingNicknames((prev) => ({ ...prev, [contact.name]: true }));
+      setAddingContactIds((prev) => ({ ...prev, [contact.id]: true }));
       try {
-        const userCode = contact.peerCode || contact.id;
+        const userCode = contact.peerCode || (contact.name && contact.name.length === 36 ? contact.name : undefined) || contact.id;
         await groupService.addMember(
           currentChat.id,
           inviteCode,
@@ -93,6 +115,7 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
         const newMember = {
           nickname: contact.name,
           userId: userCode,
+          userCode: userCode,
           role: 'member' as const,
           lastSeen: Date.now(),
           avatarUrl: contact.avatarUrl || null,
@@ -104,12 +127,12 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
           membersCount: (currentChat.membersCount || currentMembers.length) + 1,
         });
 
-        setAddedNicknames((prev) => ({ ...prev, [contact.name]: true }));
+        setAddedContactIds((prev) => ({ ...prev, [contact.id]: true }));
       } catch {} finally {
-        setAddingNicknames((prev) => ({ ...prev, [contact.name]: false }));
+        setAddingContactIds((prev) => ({ ...prev, [contact.id]: false }));
       }
     },
-    [isGroupFull, addingNicknames, currentChat.id, currentChat.membersCount, inviteCode, currentMembers, updateChat]
+    [isGroupFull, addingContactIds, currentChat.id, currentChat.membersCount, inviteCode, currentMembers, updateChat]
   );
 
   if (!isOpen) return null;
@@ -252,11 +275,9 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
                 </div>
               ) : (
                 filteredContacts.map((contact) => {
-                  const alreadyMember =
-                    existingMemberKeys.has(contact.name.trim().toLowerCase()) ||
-                    (contact.peerCode && existingMemberKeys.has(contact.peerCode.trim().toLowerCase()));
-                  const isAdded = Boolean(addedNicknames[contact.name]);
-                  const isAdding = Boolean(addingNicknames[contact.name]);
+                  const alreadyMember = isContactInGroup(contact);
+                  const isAdded = Boolean(addedContactIds[contact.id]);
+                  const isAdding = Boolean(addingContactIds[contact.id]);
 
                   return (
                     <div

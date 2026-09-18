@@ -1487,6 +1487,7 @@ module.exports = async function handler(req, res) {
             const members = (membersData || []).map((m) => ({
               nickname: m.nickname,
               userCode: m.user_code,
+              userId: m.user_code || m.user_id,
               role: m.role || 'member',
               joinedAt: new Date(m.joined_at || groupData.created_at).getTime(),
               lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
@@ -1571,6 +1572,7 @@ module.exports = async function handler(req, res) {
           const formattedMembers = (allMembers || []).map((m) => ({
             nickname: m.nickname,
             userCode: m.user_code,
+            userId: m.user_code || m.user_id,
             role: m.role || 'member',
             joinedAt: new Date(m.joined_at || groupData.created_at).getTime(),
             lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
@@ -1628,16 +1630,23 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/groups/kick' && req.method === 'POST') {
-      const { groupId, targetNickname, adminNickname } = body;
-      if (!groupId || !targetNickname) return sendError(res, 'Missing kick parameters', 400);
+      const { groupId, targetNickname, targetUserCode, adminNickname } = body;
+      if (!groupId || (!targetNickname && !targetUserCode)) return sendError(res, 'Missing kick parameters', 400);
 
       const supabase = getGroupsSupabaseClient();
       if (supabase) {
         try {
-          await supabase.from('group_members').delete().eq('group_id', groupId).eq('nickname', targetNickname);
+          let deleteQuery = supabase.from('group_members').delete().eq('group_id', groupId);
+          if (targetUserCode) {
+            deleteQuery = deleteQuery.eq('user_code', targetUserCode);
+          } else {
+            deleteQuery = deleteQuery.eq('nickname', targetNickname);
+          }
+          await deleteQuery;
           await triggerGroupPusherEvent(`presence-group-${groupId}`, 'kick', {
             groupId,
             target: targetNickname,
+            targetUserCode,
             admin: adminNickname,
           });
           return sendJson(res, { status: 'ok' });
@@ -1695,16 +1704,23 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/groups/role' && req.method === 'POST') {
-      const { groupId, targetNickname, role } = body;
-      if (!groupId || !targetNickname || !role) return sendError(res, 'Missing parameters', 400);
+      const { groupId, targetNickname, targetUserCode, role } = body;
+      if (!groupId || (!targetNickname && !targetUserCode) || !role) return sendError(res, 'Missing parameters', 400);
 
       const supabase = getGroupsSupabaseClient();
       if (supabase) {
         try {
-          await supabase.from('group_members').update({ role }).eq('group_id', groupId).eq('nickname', targetNickname);
+          let roleQuery = supabase.from('group_members').update({ role }).eq('group_id', groupId);
+          if (targetUserCode) {
+            roleQuery = roleQuery.eq('user_code', targetUserCode);
+          } else {
+            roleQuery = roleQuery.eq('nickname', targetNickname);
+          }
+          await roleQuery;
           await triggerGroupPusherEvent(`presence-group-${groupId}`, 'member-role-updated', {
             groupId,
             targetNickname,
+            targetUserCode,
             role,
           });
           return sendJson(res, { status: 'ok' });
