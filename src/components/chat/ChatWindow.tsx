@@ -6467,20 +6467,24 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     >
       <div
         ref={headerRef}
-        className="sticky top-0 z-20 w-full"
+        className="sticky top-0 z-20 w-full select-none"
         style={{
           backgroundColor: 'var(--bg-primary)',
           borderBottom: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
         }}
       >
         <header
-          className="flex justify-center w-full"
+          className="flex justify-center w-full select-none"
           style={{
             padding: '10px 16px',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         >
           <div
-            className="flex items-center justify-between w-full"
+            className="flex items-center justify-between w-full select-none"
             style={{
               maxWidth: '100%',
               borderRadius: 0,
@@ -6488,7 +6492,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               padding: '0',
             }}
           >
-            <div className="flex items-center gap-3 flex-1 min-w-0" onClick={() => setActiveProfileChatId(activeChatId)} style={{ cursor: 'pointer' }}>
+            <div className="flex items-center gap-3 flex-1 min-w-0 select-none" onClick={() => setActiveProfileChatId(activeChatId)} style={{ cursor: 'pointer', userSelect: 'none', WebkitUserSelect: 'none' }}>
               {isMobileView && onBack && (
                 <button
                   type="button"
@@ -6508,15 +6512,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   <Avatar src={activeChat?.avatarUrl} alt={activeChat?.name} className="w-10 h-10 rounded-full flex-shrink-0" />
                 )
               )}
-              <div className="flex flex-col min-w-0 flex-1" style={{ gap: 0 }}>
-                <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex flex-col min-w-0 flex-1 select-none" style={{ gap: 0, userSelect: 'none', WebkitUserSelect: 'none' }}>
+                <div className="flex items-center gap-1.5 min-w-0 select-none">
                   {activeChat?.type === 'channel' && (
                     <ChannelMegaphoneIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
                   )}
                   {activeChat?.type === 'bot' && (
                     <BotIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" style={{ marginRight: 2 }} />
                   )}
-                  <h2 className="font-bold text-[14px] truncate" style={{ color: 'var(--text-main)' }}>
+                  <h2 className="font-bold text-[14px] truncate select-none" style={{ color: 'var(--text-main)', userSelect: 'none', WebkitUserSelect: 'none' }}>
                     {activeChatId === 'notes' ? t('connectModal.notes') : activeChat?.name}
                   </h2>
                   {activeChat?.type === 'bot' && (
@@ -6533,7 +6537,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     </span>
                   )}
                 </div>
-                <div>
+                <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                   {activeChatId === 'notes' ? null : activeChat?.type === 'channel' ? (
                     <span className="text-[11px] font-medium text-[var(--text-dim)]">
                       {activeChat.subscribersCount
