@@ -72,9 +72,9 @@ if (process.platform === 'win32') {
   console.log('[App] AppUserModelId set to: com.saizzi.orbita');
 }
 
-app.commandLine.appendSwitch('disk-cache-size', '536870912');
-app.commandLine.appendSwitch('media-cache-size', '536870912');
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=2048 --expose-gc');
+app.commandLine.appendSwitch('disk-cache-size', '268435456');
+app.commandLine.appendSwitch('media-cache-size', '67108864');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512 --expose-gc');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
@@ -2518,9 +2518,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
 
   callWindow.on('closed', () => {
     callWindow = null;
-    if (!isQuitting) {
-      initCallWindowPrewarm();
-    }
+    currentCallStateCache = null;
   });
 
   const queryStr = buildCallUrlQuery(initialPayload || currentCallStateCache);
@@ -2560,15 +2558,7 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
   return win;
 }
 
-function initCallWindowPrewarm() {
-  setTimeout(() => {
-    try {
-      if (!isQuitting && (!callWindow || callWindow.isDestroyed())) {
-        initOrGetCallWindow();
-      }
-    } catch { }
-  }, 1200);
-}
+function initCallWindowPrewarm() {}
 
 ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
   createOrShowCallWindow(payload);
@@ -2578,8 +2568,8 @@ ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-call-window', () => {
   if (callWindow && !callWindow.isDestroyed()) {
     currentCallStateCache = null;
-    callWindow.webContents.send('orbita:call-state', null);
-    callWindow.hide();
+    callWindow.destroy();
+    callWindow = null;
   }
   return { success: true };
 });
@@ -2714,9 +2704,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
 
   mediaWindow.on('closed', () => {
     mediaWindow = null;
-    if (!isQuitting) {
-      initMediaWindowPrewarm();
-    }
+    currentMediaPayloadCache = null;
   });
 
   if (isPackaged) {
@@ -2728,17 +2716,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
   return mediaWindow;
 }
 
-function initMediaWindowPrewarm() {
-  setTimeout(() => {
-    try {
-      if (!isQuitting && (!mediaWindow || mediaWindow.isDestroyed())) {
-        const win = initOrGetMediaWindow();
-        win.setPosition(-32000, -32000);
-        win.showInactive();
-      }
-    } catch { }
-  }, 100);
-}
+function initMediaWindowPrewarm() {}
 
 function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
   if (initialPayload) {
@@ -2779,8 +2757,8 @@ ipcMain.handle('orbita:open-media-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-media-window', () => {
   if (mediaWindow && !mediaWindow.isDestroyed()) {
     currentMediaPayloadCache = null;
-    mediaWindow.webContents.send('orbita:media-payload', null);
-    mediaWindow.setPosition(-32000, -32000);
+    mediaWindow.destroy();
+    mediaWindow = null;
   }
   return { success: true };
 });
@@ -3083,8 +3061,6 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     mainWindow?.webContents.send('window:state-changed', mainWindow.isMaximized());
-    initCallWindowPrewarm();
-    initMediaWindowPrewarm();
   });
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -3138,10 +3114,37 @@ function createMainWindow() {
     mainWindow.loadURL('http://127.0.0.1:5173');
   }
 
+  mainWindow.on('minimize', () => {
+    if (global.gc) {
+      try { global.gc(); } catch { }
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+      } catch { }
+    }
+  });
+
   mainWindow.on('close', (e) => {
     if (!isQuitting && showInTraySetting && mainWindow && !mainWindow.isDestroyed()) {
       e.preventDefault();
       mainWindow.hide();
+      if (callWindow && !callWindow.isDestroyed() && !currentCallStateCache) {
+        callWindow.destroy();
+        callWindow = null;
+      }
+      if (mediaWindow && !mediaWindow.isDestroyed()) {
+        mediaWindow.destroy();
+        mediaWindow = null;
+      }
+      if (global.gc) {
+        try { global.gc(); } catch { }
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+        } catch { }
+      }
     }
   });
 
@@ -3530,7 +3533,12 @@ app.whenReady().then(async () => {
         global.gc();
       } catch { }
     }
-  }, 15000);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+      } catch { }
+    }
+  }, 30000);
 });
 
 app.on('window-all-closed', () => {
