@@ -1200,10 +1200,12 @@ function initStorageDb(): Promise<void> {
 function closeStorageDb(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (appDbInstance) {
-      appDbInstance.close((err) => {
-        appDbInstance = null;
-        if (err) reject(err);
-        else resolve();
+      appDbInstance.run('PRAGMA wal_checkpoint(TRUNCATE);', () => {
+        appDbInstance!.close((err) => {
+          appDbInstance = null;
+          if (err) reject(err);
+          else resolve();
+        });
       });
     } else {
       resolve();

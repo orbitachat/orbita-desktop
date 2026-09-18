@@ -285,25 +285,54 @@ export function clampTextScale(value: number): number {
   return Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, n));
 }
 
-// Кастомный storage через IPC с безопасным фоллбэком на localStorage
+let setItemTimer: any = null;
+let pendingStorageKey: string | null = null;
+let pendingStorageVal: string | null = null;
+
+const flushStorageSet = () => {
+  if (pendingStorageKey && pendingStorageVal !== null) {
+    const key = pendingStorageKey;
+    const val = pendingStorageVal;
+    pendingStorageKey = null;
+    pendingStorageVal = null;
+    if (typeof window !== 'undefined' && (window as any).orbita?.storageSet) {
+      (window as any).orbita.storageSet(key, val).catch(() => {});
+    }
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', flushStorageSet);
+}
+
 const ipcStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
+    if (pendingStorageKey === name && pendingStorageVal !== null) {
+      return pendingStorageVal;
+    }
     if ((window as any).orbita?.storageGet) {
       return await (window as any).orbita.storageGet(name);
     }
     return localStorage.getItem(name);
   },
-  setItem: async (name: string, value: string): Promise<void> => {
-    if (typeof window === 'undefined') return;
-    if ((window as any).orbita?.storageSet) {
-      await (window as any).orbita.storageSet(name, value);
-    } else {
-      localStorage.setItem(name, value);
-    }
+  setItem: (name: string, value: string): Promise<void> => {
+    if (typeof window === 'undefined') return Promise.resolve();
+    pendingStorageKey = name;
+    pendingStorageVal = value;
+    if (setItemTimer) clearTimeout(setItemTimer);
+    setItemTimer = setTimeout(() => {
+      flushStorageSet();
+    }, 2000);
+    return Promise.resolve();
   },
   removeItem: async (name: string): Promise<void> => {
     if (typeof window === 'undefined') return;
+    if (pendingStorageKey === name) {
+      pendingStorageKey = null;
+      pendingStorageVal = null;
+    }
+    if (setItemTimer) clearTimeout(setItemTimer);
     if ((window as any).orbita?.storageRemove) {
       await (window as any).orbita.storageRemove(name);
     } else {
@@ -1624,7 +1653,12 @@ export const useChatStore = create<ChatState>()(
         pinnedChatIds: state.pinnedChatIds,
         deletedChatIds: state.deletedChatIds,
         deletedChatSessions: state.deletedChatSessions,
-        messagesByChatId: state.messagesByChatId,
+        messagesByChatId: Object.fromEntries(
+          Object.entries(state.messagesByChatId || {}).map(([id, msgs]) => [
+            id,
+            Array.isArray(msgs) ? msgs.slice(-100) : [],
+          ])
+        ),
         passcode: state.passcode,
         currentTheme: state.currentTheme,
         dotOverlay: state.dotOverlay,
@@ -1671,7 +1705,6 @@ export const useChatStore = create<ChatState>()(
         linkPreviewsEnabled: state.linkPreviewsEnabled,
         hideProfileId: state.hideProfileId,
         recentEmojis: state.recentEmojis,
-        isEmojiPanelOpen: state.isEmojiPanelOpen,
         autoUpdate: state.autoUpdate,
         showInSystemTray: state.showInSystemTray,
         autoLaunch: state.autoLaunch,
