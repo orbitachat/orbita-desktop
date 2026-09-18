@@ -49,18 +49,23 @@ interface CallStatePayload {
 }
 
 const accentButtonStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, var(--accent-color, #7C3AED), var(--accent-dark, #5B21B6))',
-  color: 'var(--settings-on-primary, #ffffff)',
+  backgroundColor: '#22c55e',
+  color: '#ffffff',
+  boxShadow: '0 4px 14px rgba(34, 197, 94, 0.35)',
 };
 
 const rejectButtonStyle: React.CSSProperties = {
-  backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 8%, rgba(255, 255, 255, 0.16))',
-  color: 'var(--text-main, #ffffff)',
+  backgroundColor: '#ef4444',
+  color: '#ffffff',
+  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
 };
 
 const neutralButtonStyle = (active: boolean): React.CSSProperties => ({
-  backgroundColor: active ? 'var(--surface-container-strong, rgba(255,255,255,0.15))' : 'var(--surface-muted, rgba(255,255,255,0.08))',
-  color: active ? 'var(--accent-color, #a995ec)' : 'var(--text-dim, #8a96a3)',
+  backgroundColor: active ? '#ffffff' : 'rgba(255, 255, 255, 0.15)',
+  color: active ? '#121214' : '#ffffff',
+  boxShadow: active ? '0 4px 14px rgba(255, 255, 255, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.3)',
+  border: '1px solid rgba(255, 255, 255, 0.12)',
+  transition: 'all 0.2s ease',
 });
 
 export const CallWindowView = () => {
@@ -133,6 +138,14 @@ export const CallWindowView = () => {
     const applyVars = (vars: Record<string, string>) => {
       const root = document.documentElement;
       Object.entries(vars).forEach(([key, val]) => {
+        if (
+          key.startsWith('--bg-') ||
+          key.startsWith('--surface-') ||
+          key.startsWith('--text-') ||
+          key.startsWith('--accent-')
+        ) {
+          return;
+        }
         root.style.setProperty(key, val as string);
       });
     };
@@ -159,9 +172,16 @@ export const CallWindowView = () => {
     } catch {}
     applyFont(initialFont);
 
-    const bg = 'color-mix(in srgb, var(--accent-color, #7C3AED) 8%, var(--bg-primary, #14111d))';
+    const bg = '#0f0e15';
     document.documentElement.style.backgroundColor = bg;
     document.body.style.backgroundColor = bg;
+    document.documentElement.style.setProperty('--bg-primary', '#0f0e15');
+    document.documentElement.style.setProperty('--bg-secondary', '#171622');
+    document.documentElement.style.setProperty('--accent-color', '#5c54e5');
+    document.documentElement.style.setProperty('--accent-light', '#7c75f2');
+    document.documentElement.style.setProperty('--accent-dark', '#443db8');
+    document.documentElement.style.setProperty('--text-main', '#ffffff');
+    document.documentElement.style.setProperty('--text-dim', 'rgba(255, 255, 255, 0.7)');
 
     const orbita = (window as any).orbita;
 
@@ -372,6 +392,14 @@ export const CallWindowView = () => {
   const hasAnyActiveStream = hasRemoteStream || hasLocalScreenShare;
   const duration = callData?.duration ?? 0;
   const statusMessage = callData?.statusMessage ?? '';
+
+  useEffect(() => {
+    if (isRemoteScreenShareActive) {
+      setExpandedShare('remote');
+    } else if (hasLocalScreenShare) {
+      setExpandedShare('local');
+    }
+  }, [isRemoteScreenShareActive, hasLocalScreenShare]);
 
   const isIncoming = !!incomingCall || (activeCall?.direction === 'incoming' && callState === 'ringing');
   const otherName = activeCall?.otherName || incomingCall?.otherName || incomingCall?.from || activeCall?.chatId || '';
@@ -841,7 +869,7 @@ export const CallWindowView = () => {
 
         {isDualStream ? (
           expandedShare === 'remote' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachRemoteScreenShare}
@@ -892,7 +920,7 @@ export const CallWindowView = () => {
               </div>
             </div>
           ) : expandedShare === 'local' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachLocalScreenShare}
@@ -1013,7 +1041,9 @@ export const CallWindowView = () => {
             onClick={() => setExpandedShare(expandedShare === 'remote' ? null : 'remote')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'remote'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
+                : isRemoteScreenShareActive
+                ? 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
@@ -1056,8 +1086,8 @@ export const CallWindowView = () => {
             onClick={() => setExpandedShare(expandedShare === 'local' ? null : 'local')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'local'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
-                : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
+                : 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
             }`}
             style={{
               borderRadius: expandedShare === 'local' ? 0 : '24px',
@@ -1203,7 +1233,7 @@ export const CallWindowView = () => {
               >
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <VideoOff size={20} color="#ffffff" />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -1217,7 +1247,7 @@ export const CallWindowView = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-colors flex-shrink-0" style={rejectButtonStyle}>
                 <X size={20} color="#ffffff" />
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.cancel')}
               </span>
             </button>
@@ -1231,7 +1261,7 @@ export const CallWindowView = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md flex-shrink-0" style={accentButtonStyle}>
                 <Phone size={20} color="#ffffff" />
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.call')}
               </span>
             </button>
@@ -1247,7 +1277,7 @@ export const CallWindowView = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md flex-shrink-0" style={neutralButtonStyle(isMicEnabled)}>
                 {isMicEnabled ? <Mic size={20} /> : <MicOff size={20} />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {isMicEnabled ? t('call.mic') : t('call.mic_off')}
               </span>
             </button>
@@ -1261,7 +1291,7 @@ export const CallWindowView = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all flex-shrink-0" style={neutralButtonStyle(isVideoEnabled)}>
                 {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -1279,7 +1309,7 @@ export const CallWindowView = () => {
                 >
                   {hasLocalScreenShare ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
                 </div>
-                <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+                <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                   {t('call.screen_share')}
                 </span>
               </button>
@@ -1294,7 +1324,7 @@ export const CallWindowView = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-colors flex-shrink-0" style={rejectButtonStyle}>
                 <X size={20} color="#ffffff" />
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.hang_up')}
               </span>
             </button>
@@ -1309,7 +1339,7 @@ export const CallWindowView = () => {
             <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-colors flex-shrink-0" style={rejectButtonStyle}>
               <X size={20} color="#ffffff" />
             </div>
-            <span className="text-center truncate w-full" style={{ color: 'var(--text-dim, #8a96a3)', fontSize: '11px', fontWeight: 500 }}>
+            <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
               {t('call.close')}
             </span>
           </button>

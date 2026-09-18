@@ -11,18 +11,23 @@ import { CallVerificationBadge } from './CallVerificationBadge';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 
 const accentButtonStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, var(--accent-color), var(--accent-dark))',
-  color: 'var(--settings-on-primary, #ffffff)',
+  backgroundColor: '#22c55e',
+  color: '#ffffff',
+  boxShadow: '0 4px 14px rgba(34, 197, 94, 0.35)',
 };
 
 const rejectButtonStyle: React.CSSProperties = {
-  backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 8%, rgba(255, 255, 255, 0.16))',
-  color: 'var(--text-main, #ffffff)',
+  backgroundColor: '#ef4444',
+  color: '#ffffff',
+  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
 };
 
 const neutralButtonStyle = (active: boolean): React.CSSProperties => ({
-  backgroundColor: active ? 'var(--surface-container-strong)' : 'var(--surface-muted)',
-  color: active ? 'var(--accent-color)' : 'var(--text-dim)',
+  backgroundColor: active ? '#ffffff' : 'rgba(255, 255, 255, 0.15)',
+  color: active ? '#121214' : '#ffffff',
+  boxShadow: active ? '0 4px 14px rgba(255, 255, 255, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.3)',
+  border: '1px solid rgba(255, 255, 255, 0.12)',
+  transition: 'all 0.2s ease',
 });
 
 const StaticBackground = () => (
@@ -180,6 +185,14 @@ export const CallWindow = () => {
       setExpandedShare(null);
     }
   }, [isConnected, isConnecting]);
+
+  useEffect(() => {
+    if (isRemoteScreenShareActive) {
+      setExpandedShare('remote');
+    } else if (hasLocalScreenShare) {
+      setExpandedShare('local');
+    }
+  }, [isRemoteScreenShareActive, hasLocalScreenShare]);
 
   const [localDuration, setLocalDuration] = useState<number>(0);
 
@@ -596,7 +609,8 @@ export const CallWindow = () => {
       className="fixed inset-0 z-[400] flex flex-col justify-between overflow-hidden select-none"
       style={{
         display: isMinimized ? 'none' : 'flex',
-        backgroundColor: 'var(--bg-primary)',
+        backgroundColor: '#0f0e15',
+        color: '#ffffff',
         userSelect: 'none',
         WebkitUserSelect: 'none',
       }}
@@ -701,7 +715,7 @@ export const CallWindow = () => {
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 w-full px-4 min-h-0 overflow-hidden">
         {isDualStream ? (
           expandedShare === 'remote' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachRemoteScreenShare}
@@ -752,7 +766,7 @@ export const CallWindow = () => {
               </div>
             </div>
           ) : expandedShare === 'local' ? (
-            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5">
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-0">
               <div className="relative w-full h-full flex items-center justify-center">
                 <video
                   ref={attachLocalScreenShare}
@@ -873,7 +887,9 @@ export const CallWindow = () => {
             onClick={() => setExpandedShare(expandedShare === 'remote' ? null : 'remote')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'remote'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
+                : isRemoteScreenShareActive
+                ? 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
             }`}
             style={{
@@ -916,8 +932,8 @@ export const CallWindow = () => {
             onClick={() => setExpandedShare(expandedShare === 'local' ? null : 'local')}
             className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
               expandedShare === 'local'
-                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
-                : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
+                ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-0'
+                : 'w-full flex-1 max-h-full rounded-2xl mx-3 my-1'
             }`}
             style={{
               borderRadius: expandedShare === 'local' ? 0 : '24px',
@@ -1027,7 +1043,7 @@ export const CallWindow = () => {
               >
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <VideoOff size={20} color="#ffffff" />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -1041,7 +1057,7 @@ export const CallWindow = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
                 <X size={20} color="#ffffff" />
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.cancel')}
               </span>
             </button>
@@ -1058,7 +1074,7 @@ export const CallWindow = () => {
               >
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <Phone size={20} color="#ffffff" />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.call')}
               </span>
             </button>
@@ -1077,7 +1093,7 @@ export const CallWindow = () => {
               >
                 {isMicEnabled ? <Mic size={20} /> : <MicOff size={20} />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {isMicEnabled ? t('call.mic') : t('call.mic_off')}
               </span>
             </button>
@@ -1094,7 +1110,7 @@ export const CallWindow = () => {
               >
                 {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -1112,7 +1128,7 @@ export const CallWindow = () => {
                 >
                   {hasLocalScreenShare ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
                 </div>
-                <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+                <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                   {t('call.screen_share')}
                 </span>
               </button>
@@ -1127,7 +1143,7 @@ export const CallWindow = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
                 <PhoneOff size={20} color="#ffffff" />
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.hang_up')}
               </span>
             </button>
@@ -1142,7 +1158,7 @@ export const CallWindow = () => {
             <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
               <X size={20} color="#ffffff" />
             </div>
-            <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
+            <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
               {t('call.close')}
             </span>
           </button>
