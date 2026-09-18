@@ -7,6 +7,8 @@ import {
   isValidGroupCode,
 } from '../lib/groupCrypto';
 
+
+
 export interface GroupMemberInfo {
   nickname: string;
   userCode?: string;
@@ -388,6 +390,20 @@ class GroupService {
       });
     } catch {}
   }
+  async fetchMyGroups(userCode: string): Promise<(GroupInfo & { role: string })[]> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/my?userCode=${encodeURIComponent(userCode)}`);
+      if (res.ok) {
+        const data = await res.json();
+        return (data.groups || []).map((g: any) => ({
+          ...g,
+          sharedSecret: isValidGroupCode(g.code) ? deriveGroupKey(g.code) : undefined,
+        }));
+      }
+    } catch {}
+    return [];
+  }
+
   async notifyMember(targetUserCode: string, group: GroupInfo): Promise<void> {
     try {
       await fetch(`${this.getWorkerUrl()}/groups/notify-member`, {

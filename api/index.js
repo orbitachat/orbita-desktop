@@ -1464,6 +1464,70 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (pathname === '/groups/my' && req.method === 'GET') {
+      const userCode = query.userCode || query.user_code;
+      if (!userCode) return sendError(res, 'Missing userCode', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (!supabase) return sendError(res, 'Groups database not configured', 500);
+
+      try {
+        const { data: memberRows } = await supabase
+          .from('group_members')
+          .select('group_id, role')
+          .eq('user_code', userCode);
+
+        if (!memberRows || memberRows.length === 0) {
+          return sendJson(res, { groups: [] });
+        }
+
+        const groupIds = memberRows.map((r) => r.group_id);
+        const { data: groups } = await supabase
+          .from('groups')
+          .select('*')
+          .in('id', groupIds);
+
+        const roleMap = {};
+        memberRows.forEach((r) => { roleMap[r.group_id] = r.role; });
+
+        const result = await Promise.all((groups || []).map(async (g) => {
+          const { data: members } = await supabase
+            .from('group_members')
+            .select('*')
+            .eq('group_id', g.id);
+
+          const formattedMembers = (members || []).map((m) => ({
+            nickname: m.nickname,
+            userCode: m.user_code,
+            userId: m.user_code || m.user_id,
+            role: m.role || 'member',
+            joinedAt: new Date(m.joined_at || g.created_at).getTime(),
+            lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
+            avatarUrl: m.avatar_url || null,
+          }));
+
+          return {
+            id: g.id,
+            code: g.code,
+            name: g.name,
+            description: g.description || '',
+            avatarUrl: g.avatar_url || null,
+            creatorNickname: g.creator_nickname,
+            creatorCode: g.creator_code || null,
+            membersCount: g.members_count || formattedMembers.length || 1,
+            maxMembers: g.max_members || 10,
+            members: formattedMembers,
+            createdAt: new Date(g.created_at).getTime(),
+            role: roleMap[g.id] || 'member',
+          };
+        }));
+
+        return sendJson(res, { groups: result });
+      } catch (err) {
+        return sendError(res, err.message || 'Failed to load groups', 500);
+      }
+    }
+
     if (pathname === '/groups/get' && req.method === 'GET') {
       const code = query.code || query.id;
       if (!code) return sendError(res, 'Missing group code or id', 400);

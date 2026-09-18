@@ -1342,6 +1342,40 @@ export const MainLayout = () => {
     }
   }, [nickname, myCode, addIncomingFriendRequest, updateChat]);
 
+  const loadPendingGroups = useCallback(async () => {
+    if (!myCode) return;
+    try {
+      const serverGroups = await groupService.fetchMyGroups(myCode);
+      if (!serverGroups || serverGroups.length === 0) return;
+      const currentChats = useChatStore.getState().chats;
+      const currentIds = new Set(currentChats.map((c) => c.id));
+      for (const g of serverGroups) {
+        if (currentIds.has(g.id)) continue;
+        useChatStore.getState().addChat({
+          id: g.id,
+          type: 'group',
+          name: g.name,
+          description: g.description || '',
+          lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+          online: false,
+          sharedSecret: g.sharedSecret,
+          role: (g.role as any) || 'member',
+          inviteCode: g.code,
+          creatorNickname: g.creatorNickname,
+          creatorCode: g.creatorCode || undefined,
+          avatarUrl: g.avatarUrl || undefined,
+          members: (g.members || []) as any[],
+          membersCount: g.membersCount || 1,
+          createdAt: g.createdAt || Date.now(),
+          unreadCount: 0,
+          lastReadTimestamp: Date.now(),
+          muted: false,
+          notificationsEnabled: true,
+        });
+      }
+    } catch {}
+  }, [myCode]);
+
   const loadPendingMessages = useCallback(async () => {
     if (!nickname && !myCode) return;
     if (isLoadingPendingRef.current) {
@@ -1959,6 +1993,8 @@ export const MainLayout = () => {
   loadPendingHandshakesRef.current = loadPendingHandshakes;
   const loadPendingMessagesRef = useRef(loadPendingMessages);
   loadPendingMessagesRef.current = loadPendingMessages;
+  const loadPendingGroupsRef = useRef(loadPendingGroups);
+  loadPendingGroupsRef.current = loadPendingGroups;
   const recoverProfilesRef = useRef(recoverCorruptedFriendProfiles);
   recoverProfilesRef.current = recoverCorruptedFriendProfiles;
   const syncOfflineProfilesRef = useRef(syncOfflineFriendProfiles);
@@ -2013,6 +2049,7 @@ export const MainLayout = () => {
         await Promise.allSettled([
           loadPendingHandshakesRef.current(),
           loadPendingMessagesRef.current(),
+          loadPendingGroupsRef.current(),
           syncOfflineProfilesRef.current(),
         ]);
 
