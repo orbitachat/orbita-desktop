@@ -77,7 +77,6 @@ app.commandLine.appendSwitch('media-cache-size', '67108864');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512 --expose-gc');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-accelerated-video-encode');
@@ -359,6 +358,8 @@ async function initMediaDb(): Promise<sqlite3.Database> {
 
   const dbPath = path.join(dir, MEDIA_DB_NAME);
   mediaDbInstance = new sqlite3.Database(dbPath);
+  mediaDbInstance.run('PRAGMA journal_mode = WAL;');
+  mediaDbInstance.run('PRAGMA synchronous = NORMAL;');
 
   return new Promise((resolve, reject) => {
     mediaDbInstance!.run(
@@ -1159,6 +1160,8 @@ function initStorageDb(): Promise<void> {
   return new Promise((resolve, reject) => {
     const dbPath = getAppDbPath();
     appDbInstance = new sqlite3.Database(dbPath);
+    appDbInstance.run('PRAGMA journal_mode = WAL;');
+    appDbInstance.run('PRAGMA synchronous = NORMAL;');
     appDbInstance.serialize(() => {
       appDbInstance!.run(
         `
@@ -1213,7 +1216,24 @@ function getDb(): sqlite3.Database {
   return appDbInstance;
 }
 
+const kvWriteQueue = new Map<string, { value: string; timer: NodeJS.Timeout }>();
+
+function flushKvWritesSync() {
+  for (const [key, item] of kvWriteQueue.entries()) {
+    clearTimeout(item.timer);
+    try {
+      const encrypted = encryptData(Buffer.from(item.value, 'utf8')).toString('base64');
+      getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted]);
+    } catch { }
+  }
+  kvWriteQueue.clear();
+}
+
 function getKvValue(key: string): Promise<string | null> {
+  const pending = kvWriteQueue.get(key);
+  if (pending) {
+    return Promise.resolve(pending.value);
+  }
   return new Promise((resolve, reject) => {
     getDb().get(`SELECT value FROM ${KV_TABLE} WHERE key = ?`, [key], (err, row: any) => {
       if (err) return reject(err);
@@ -1230,11 +1250,25 @@ function getKvValue(key: string): Promise<string | null> {
 
 function setKvValue(key: string, value: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const encrypted = encryptData(Buffer.from(value, 'utf8')).toString('base64');
-    getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted], (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
+    const existing = kvWriteQueue.get(key);
+    if (existing) {
+      clearTimeout(existing.timer);
+    }
+    const timer = setTimeout(() => {
+      kvWriteQueue.delete(key);
+      try {
+        const encrypted = encryptData(Buffer.from(value, 'utf8')).toString('base64');
+        getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      } catch (e) {
+        reject(e);
+      }
+    }, key === 'orbita-chat-storage' ? 1000 : 300);
+
+    kvWriteQueue.set(key, { value, timer });
+    resolve();
   });
 }
 
@@ -2373,12 +2407,16 @@ function getSavedCallWindowBounds(): { width: number; height: number; x?: number
   return { width: 440, height: 640 };
 }
 
+let callBoundsSaveTimeout: NodeJS.Timeout | null = null;
 function saveCallWindowBounds(win: BrowserWindow) {
-  try {
-    if (!win || win.isDestroyed() || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return;
-    const bounds = win.getBounds();
-    fs.writeFileSync(CALL_BOUNDS_FILE, JSON.stringify(bounds), 'utf8');
-  } catch { }
+  if (callBoundsSaveTimeout) clearTimeout(callBoundsSaveTimeout);
+  callBoundsSaveTimeout = setTimeout(() => {
+    try {
+      if (!win || win.isDestroyed() || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return;
+      const bounds = win.getBounds();
+      fs.promises.writeFile(CALL_BOUNDS_FILE, JSON.stringify(bounds), 'utf8').catch(() => {});
+    } catch { }
+  }, 400);
 }
 
 function buildCallUrlQuery(payload?: any): string {
@@ -2615,15 +2653,19 @@ function getSavedMediaWindowBounds(): { width: number; height: number; x?: numbe
   return { width: 900, height: 700 };
 }
 
+let mediaBoundsSaveTimeout: NodeJS.Timeout | null = null;
 function saveMediaWindowBounds(win: BrowserWindow) {
-  try {
-    if (!win || win.isDestroyed() || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return;
-    const bounds = win.getBounds();
-    if (bounds.x <= -10000 || bounds.y <= -10000) return;
-    const display = screen.getDisplayMatching(bounds);
-    if (bounds.width >= display.bounds.width && bounds.height >= display.bounds.height) return;
-    fs.writeFileSync(MEDIA_BOUNDS_FILE, JSON.stringify(bounds), 'utf8');
-  } catch { }
+  if (mediaBoundsSaveTimeout) clearTimeout(mediaBoundsSaveTimeout);
+  mediaBoundsSaveTimeout = setTimeout(() => {
+    try {
+      if (!win || win.isDestroyed() || win.isMaximized() || win.isMinimized() || win.isFullScreen()) return;
+      const bounds = win.getBounds();
+      if (bounds.x <= -10000 || bounds.y <= -10000) return;
+      const display = screen.getDisplayMatching(bounds);
+      if (bounds.width >= display.bounds.width && bounds.height >= display.bounds.height) return;
+      fs.promises.writeFile(MEDIA_BOUNDS_FILE, JSON.stringify(bounds), 'utf8').catch(() => {});
+    } catch { }
+  }, 400);
 }
 
 function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
@@ -3038,7 +3080,7 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: true,
+      backgroundThrottling: false,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Desktop',
@@ -3551,6 +3593,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  flushKvWritesSync();
   if (callWindow && !callWindow.isDestroyed()) {
     callWindow.destroy();
     callWindow = null;
