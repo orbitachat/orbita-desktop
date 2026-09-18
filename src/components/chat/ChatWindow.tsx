@@ -6706,7 +6706,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       >
         {isCallActive && (
           <div
-            className="active-call-header-bar w-full flex items-center justify-between px-6 select-none transition-all cursor-pointer relative shadow-sm"
+            className="active-call-header-bar w-full flex items-center justify-between select-none transition-all cursor-pointer relative shadow-sm"
             style={{
               height: '42px',
               borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
@@ -6718,7 +6718,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               } catch {}
             }}
           >
-            <div className="flex items-center gap-3.5 z-10 pl-1">
+            <div className="flex items-center gap-2.5 z-10 pl-3">
               <button
                 type="button"
                 aria-label={isCallMicEnabled ? t('call.mic') : t('call.mic_off')}
@@ -6758,7 +6758,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               </div>
             </div>
 
-            <div className="flex items-center ml-auto z-10 pr-1">
+            <div className="flex items-center ml-auto z-10 pr-4">
               <button
                 type="button"
                 aria-label={t('call.hang_up')}
@@ -6773,7 +6773,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     setTimeout(() => { try { bc.close(); } catch {} }, 300);
                   } catch {}
                 }}
-                className="bg-transparent border-0 outline-none p-0 cursor-pointer flex items-center justify-center text-white transition-all hover:scale-110 hover:text-red-400 flex-shrink-0"
+                className="w-9 h-9 bg-transparent border-0 outline-none p-0 cursor-pointer flex items-center justify-center text-white transition-all hover:scale-110 hover:text-red-400 flex-shrink-0"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" className="w-[22px] h-[22px] text-white">
                   <path fill="currentColor" d="M12 8q2.95 0 5.813 1.188T22.9 12.75q.3.3.3.7t-.3.7l-2.3 2.25q-.275.275-.638.3t-.662-.2l-2.9-2.2q-.2-.15-.3-.35t-.1-.45v-2.85q-.95-.3-1.95-.475T12 10t-2.05.175T8 10.65v2.85q0 .25-.1.45t-.3.35l-2.9 2.2q-.3.225-.663.2t-.637-.3l-2.3-2.25q-.3-.3-.3-.7t.3-.7q2.2-2.375 5.075-3.562T12 8" />
