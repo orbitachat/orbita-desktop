@@ -771,7 +771,7 @@ export const CallWindowView = () => {
 
   return (
     <div
-      className="w-full h-full min-h-screen flex flex-col justify-between overflow-hidden select-none relative"
+      className="fixed inset-0 w-full h-full flex flex-col justify-between overflow-hidden select-none"
       style={{
         backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-main, #ffffff)',
@@ -837,7 +837,7 @@ export const CallWindowView = () => {
         </div>
       )}
 
-      <div className="flex flex-col items-center justify-center flex-1 py-2 z-10 w-full relative">
+      <div className="flex flex-col items-center justify-center flex-1 py-2 z-10 w-full relative min-h-0 overflow-hidden">
 
         {isDualStream ? (
           expandedShare === 'remote' ? (
@@ -848,7 +848,7 @@ export const CallWindowView = () => {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-contain"
+                  className="w-full h-full max-w-full max-h-full object-contain"
                   style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
                 />
                 <video
@@ -856,7 +856,7 @@ export const CallWindowView = () => {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-contain"
+                  className="w-full h-full max-w-full max-h-full object-contain"
                   style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
                 />
                 <div className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-[12px] font-semibold text-white/90 select-none pointer-events-none">
@@ -1025,7 +1025,7 @@ export const CallWindowView = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-contain"
+              className="w-full h-full max-w-full max-h-full object-contain"
               style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
             />
             <video
@@ -1033,7 +1033,7 @@ export const CallWindowView = () => {
               autoPlay
               playsInline
               muted
-              className={`w-full h-full ${expandedShare === 'remote' ? 'object-contain' : 'object-cover'}`}
+              className={`w-full h-full max-w-full max-h-full ${expandedShare === 'remote' ? 'object-contain' : 'object-cover'}`}
               style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
             />
             <button
@@ -1068,7 +1068,7 @@ export const CallWindowView = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-contain"
+              className="w-full h-full max-w-full max-h-full object-contain"
             />
             <button
               type="button"

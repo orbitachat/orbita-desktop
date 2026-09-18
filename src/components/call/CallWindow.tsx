@@ -885,7 +885,7 @@ export const CallWindow = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-contain"
+              className="w-full h-full max-w-full max-h-full object-contain"
               style={{ display: isRemoteScreenShareActive ? 'block' : 'none' }}
             />
             <video
@@ -893,7 +893,7 @@ export const CallWindow = () => {
               autoPlay
               playsInline
               muted
-              className={`w-full h-full ${expandedShare === 'remote' ? 'object-contain' : 'object-cover'}`}
+              className={`w-full h-full max-w-full max-h-full ${expandedShare === 'remote' ? 'object-contain' : 'object-cover'}`}
               style={{ display: !isRemoteScreenShareActive && isRemoteVideoActive ? 'block' : 'none' }}
             />
             <button
@@ -928,7 +928,7 @@ export const CallWindow = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-contain"
+              className="w-full h-full max-w-full max-h-full object-contain"
             />
             <button
               type="button"
