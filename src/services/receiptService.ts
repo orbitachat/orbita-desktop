@@ -32,11 +32,15 @@ export async function sendEncryptedReadReceipt(chatId: string, messageIds: strin
 
     state.updateChat(chatId, { ratchetState: ratchet.getState() });
 
-    const recipientTargets = Array.from(new Set([chat.peerCode, chat.name].filter(Boolean))) as string[];
+    const myUserId = useAuthStore.getState().userId;
+    const recipientTargets = Array.from(new Set([
+      chat.peerCode,
+      chat.name && chat.name.length === 36 ? chat.name : undefined,
+    ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
     for (const recipientId of recipientTargets) {
       await supabaseService.sendOfflineMessage(
         chatId,
-        myNickname,
+        myUserId || myCode || myNickname,
         recipientId,
         ciphertext,
         index,

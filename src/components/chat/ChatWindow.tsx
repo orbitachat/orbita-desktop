@@ -2604,7 +2604,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       if (activeChat?.type === 'channel') {
         channelService.deletePost(activeChatId, msgId, myUserId);
       } else {
-        const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+        const recipientTargets = Array.from(new Set([
+          activeChat?.peerCode,
+          activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
+        ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
         for (const rId of recipientTargets) {
           supabaseService.deleteMessage(activeChatId, msgId, rId, myCode).catch(() => {});
         }
@@ -3708,7 +3711,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         if (!freshChat?.ratchetState) {
           // E2EE session not yet established — save plaintext to non_messages until peer accepts handshake
           console.log('[ChatWindow] No ratchetState yet — saving to non_messages offline queue');
-          const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+          const recipientTargets = Array.from(new Set([
+            activeChat?.peerCode,
+            activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
+          ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
           if (activeChat?.type === 'private') {
             const plaintext = JSON.stringify(messageData);
             for (const recipientId of recipientTargets) {
@@ -3768,7 +3774,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         };
         if (channel.subscribed) doSendPusher(); else channel.bind('pusher:subscription_succeeded', doSendPusher);
 
-        const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+        const recipientTargets = Array.from(new Set([
+          activeChat?.peerCode,
+          activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
+        ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
         if (activeChat?.type === 'private') {
           for (const recipientId of recipientTargets) {
             await supabaseService.sendOfflineMessage(
@@ -3971,7 +3980,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         channelService.deletePost(activeChatId, targetMsgId, myUserId);
       }
     } else if (targetMsgId) {
-      const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+      const recipientTargets = Array.from(new Set([
+        activeChat?.peerCode,
+        activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
+      ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
       for (const rId of recipientTargets) {
         supabaseService.deleteMessage(activeChatId, targetMsgId, rId, myCode).catch(() => {});
       }
@@ -4226,7 +4238,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           };
         });
       } else if (data?.type === 'reaction' && data?.emoji && data?.sender) {
-        if (data.sender === myNickname) return;
+        const isSelf = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === myNickname)
+        );
+        if (isSelf) return;
         const targetId = data.messageId || data.id;
         if (targetId) {
           useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
@@ -4256,8 +4273,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       : `private-chat-${activeChatId}`;
     const channel = pusher.subscribe(channelName);
 
-    const handleReaction = (data: { chatId?: string; messageIndex?: number; messageId?: string; id?: string; emoji?: string; sender?: string; action?: 'add' | 'remove' | 'toggle'; type?: string }) => {
-      if (data.sender === myNickname) return;
+    const handleReaction = (data: { chatId?: string; messageIndex?: number; messageId?: string; id?: string; emoji?: string; sender?: string; action?: 'add' | 'remove' | 'toggle'; type?: string; senderUserId?: string; senderId?: string; senderCode?: string; userId?: string }) => {
+      const isSelf = Boolean(
+        (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+        (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+        (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === myNickname)
+      );
+      if (isSelf) return;
       const targetId = data.messageId || data.id;
       if (targetId && data.emoji && data.sender) {
         useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
@@ -4266,7 +4288,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     const handleClientMessage = (data: any) => {
       if (data.type === 'reaction' && data.emoji && data.sender) {
-        if (data.sender === myNickname) return;
+        const isSelf = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === myNickname)
+        );
+        if (isSelf) return;
         const targetId = data.messageId || data.id;
         if (targetId) {
           useChatStore.getState().setReaction(activeChatId, targetId, data.emoji, data.sender, data.action || 'add');
@@ -4314,7 +4341,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         return;
       }
       const sender = post.sender || post.senderNickname || 'Channel';
-      const isMine = myNickname ? sender === myNickname : false;
+      const isMine = Boolean(
+        (myUserId && (post.senderUserId === myUserId || post.userId === myUserId || post.senderId === myUserId)) ||
+        (myCode && (post.senderCode === myCode || post.senderId === myCode)) ||
+        (!post.senderUserId && !post.senderCode && !post.senderId && myNickname ? sender === myNickname : false)
+      );
       useChatStore.getState().addMessage(activeChatId, {
         id: post.id,
         sender,
@@ -5281,7 +5312,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
 
           try {
-            const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+            const recipientTargets = Array.from(new Set([
+              activeChat?.peerCode,
+              activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
+            ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
             if (activeChat?.type === 'private') {
               for (const rId of recipientTargets) {
                 await supabaseService.sendOfflineMessage(
@@ -5527,7 +5561,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
 
           try {
-            const recipientTargets = Array.from(new Set([activeChat?.peerCode, activeChat?.name].filter(Boolean))) as string[];
+            const recipientTargets = Array.from(new Set([
+              activeChat?.peerCode,
+              activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
+            ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
             if (activeChat?.type === 'private') {
               for (const rId of recipientTargets) {
                 await supabaseService.sendOfflineMessage(

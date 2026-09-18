@@ -182,7 +182,7 @@ export interface UserProfile {
 export function isMessageOutgoing(
   msg: Message | null | undefined,
   myCode?: string | null,
-  myNickname?: string | null,
+  _myNickname?: string | null,
   chat?: Chat | null,
   myUserId?: string | null
 ): boolean {
@@ -202,8 +202,8 @@ export function isMessageOutgoing(
   if (chat && chat.peerCode && msg.senderId) {
     return msg.senderId !== chat.peerCode;
   }
-  if (chat && chat.type === 'private' && myNickname && chat.name === myNickname) {
-    return msg.status !== undefined;
+  if (chat && chat.id === 'notes') {
+    return true;
   }
   return false;
 }

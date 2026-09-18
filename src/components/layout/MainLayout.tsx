@@ -934,7 +934,7 @@ export const MainLayout = () => {
         .chats.find(
           (c) =>
             c.type === 'private' &&
-            (c.id === chatId || c.name === data.senderNickname)
+            (c.id === chatId || (data.senderCode && c.peerCode === data.senderCode))
         );
       if (existing) {
         console.log('Ignoring duplicate handshake request from', data.senderNickname);
@@ -1178,7 +1178,7 @@ export const MainLayout = () => {
 
   const loadPendingHandshakes = useCallback(async () => {
     if (!nickname && !myCode) return;
-    const keysToCheck = Array.from(new Set([myCode, nickname].filter(Boolean))) as string[];
+    const keysToCheck = Array.from(new Set([myCode, useAuthStore.getState().userId].filter(Boolean))) as string[];
     const processedIds = new Set<string>();
 
     try {
@@ -1299,7 +1299,7 @@ export const MainLayout = () => {
     }
     isLoadingPendingRef.current = true;
     try {
-      const keysToCheck = Array.from(new Set([nickname, myCode].filter(Boolean))) as string[];
+      const keysToCheck = Array.from(new Set([myCode, useAuthStore.getState().userId].filter(Boolean))) as string[];
       for (const key of keysToCheck) {
         const records = await supabaseService.getPendingMessages(key);
         if (records.length === 0) continue;
@@ -1528,7 +1528,6 @@ export const MainLayout = () => {
       if (checkedRecoveryChatsRef.current.has(chat.id)) continue;
       const is36CharCode = Boolean(chat.name && chat.name.length === 36 && !chat.name.includes(' '));
       const isCorruptedName =
-        (nickname && chat.name === nickname) ||
         chat.name === 'Peppe' ||
         chat.name === 'Saizzi' ||
         chat.name === 'undefined' ||
@@ -1550,10 +1549,13 @@ export const MainLayout = () => {
       let recoveredPeerCode: string | undefined = (chat.peerCode && chat.peerCode !== 'undefined' && chat.peerCode !== 'null' && (!myCode || chat.peerCode !== myCode)) ? chat.peerCode : undefined;
 
       const msgs = useChatStore.getState().messagesByChatId[chat.id] || [];
+      const myUserId = useAuthStore.getState().userId;
       for (const m of msgs) {
         if (
+          !m.isOutgoing &&
+          (!myUserId || m.senderId !== myUserId) &&
+          (!myCode || m.senderId !== myCode) &&
           m.sender &&
-          m.sender !== nickname &&
           m.sender !== 'Peppe' &&
           m.sender !== 'Saizzi' &&
           m.sender !== 'YOU' &&
@@ -1591,8 +1593,8 @@ export const MainLayout = () => {
             }
             break;
           } else if (
+            hs.sender_code && myCode && hs.sender_code !== myCode &&
             hs.sender_nickname &&
-            hs.sender_nickname !== nickname &&
             hs.sender_nickname !== 'Peppe' &&
             hs.sender_nickname !== 'Saizzi' &&
             hs.sender_nickname !== 'undefined' &&
@@ -1678,7 +1680,6 @@ export const MainLayout = () => {
       const finalAvatar = updatesFinal.avatarUrl !== undefined ? updatesFinal.avatarUrl : chat.avatarUrl;
       const finalPeerCode = updatesFinal.peerCode !== undefined ? updatesFinal.peerCode : chat.peerCode;
       const stillCorrupted =
-        (nickname && finalName === nickname) ||
         finalName === 'Peppe' ||
         finalName === 'Saizzi' ||
         (avatarUrl && finalAvatar === avatarUrl) ||
@@ -1690,7 +1691,6 @@ export const MainLayout = () => {
   }, [nickname, avatarUrl, myCode, updateChat]);
 
   const syncOfflineFriendProfiles = useCallback(async () => {
-    const myNickname = useAuthStore.getState().nickname;
     const myCode = useChatStore.getState().myCode;
     const currentChats = useChatStore.getState().chats;
     const privateChats = currentChats.filter((c) => c.type === 'private' && c.id !== 'notes');
@@ -1726,7 +1726,7 @@ export const MainLayout = () => {
         if (updates.hideProfileId === undefined && targetPeerCode) {
           const pub = await supabaseService.lookupPublicProfile(targetPeerCode);
           if (pub) {
-            if (pub.nickname && pub.nickname !== chat.name && pub.nickname !== myNickname && pub.nickname !== nickname && !updates.name) updates.name = pub.nickname;
+            if (pub.nickname && pub.nickname !== chat.name && !updates.name) updates.name = pub.nickname;
             if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl && !updates.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
             if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null) {
               updates.hideProfileId = Boolean(pub.hide_profile_id);
@@ -2217,7 +2217,13 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'reaction' && data.emoji && data.sender) {
-        if (data.sender === nickname) return;
+        const myUserId = useAuthStore.getState().userId;
+        const isSelf = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === nickname)
+        );
+        if (isSelf) return;
         const targetId = data.messageId || data.id;
         if (targetId) {
           useChatStore.getState().setReaction(chatId, targetId, data.emoji, data.sender, data.action || 'add');
@@ -2225,7 +2231,13 @@ export const MainLayout = () => {
         return;
       }
 
-      if (data.sender === nickname) return;
+      const myUserId = useAuthStore.getState().userId;
+      const isSelfMessage = Boolean(
+        (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+        (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+        (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === nickname)
+      );
+      if (isSelfMessage) return;
 
       decryptMessage(data.text, chat.sharedSecret!).then((decrypted) => {
         let parsedData: any;
@@ -2256,7 +2268,13 @@ export const MainLayout = () => {
     };
 
     const handleReaction = (data: any) => {
-      if (data.sender === nickname) return;
+      const myUserId = useAuthStore.getState().userId;
+      const isSelf = Boolean(
+        (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+        (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+        (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === nickname)
+      );
+      if (isSelf) return;
       const targetId = data.messageId || data.id;
       if (targetId && data.emoji && data.sender) {
         useChatStore.getState().setReaction(chatId, targetId, data.emoji, data.sender, data.action || 'add');
@@ -2307,7 +2325,12 @@ export const MainLayout = () => {
 
       const sender = post.sender || post.senderNickname || 'Channel';
       const myNickname = useAuthStore.getState().nickname;
-      const isMine = myNickname ? sender === myNickname : false;
+      const myUserId = useAuthStore.getState().userId;
+      const isMine = Boolean(
+        (myUserId && (post.senderUserId === myUserId || post.userId === myUserId || post.senderId === myUserId)) ||
+        (myCode && (post.senderCode === myCode || post.senderId === myCode)) ||
+        (!post.senderUserId && !post.senderCode && !post.senderId && myNickname ? sender === myNickname : false)
+      );
 
       const newMsg: Message = {
         id: post.id,
@@ -2526,9 +2549,10 @@ export const MainLayout = () => {
           });
           const newItems: Message[] = [];
           const myNickname = useAuthStore.getState().nickname;
+          const myUserId = useAuthStore.getState().userId;
           posts.forEach((post) => {
             if (!existingIds.has(post.id)) {
-              const isMine = myNickname ? post.sender === myNickname : false;
+              const isMine = (myUserId && post.senderId) ? post.senderId === myUserId : (myNickname ? post.sender === myNickname : false);
               newItems.push({
                 id: post.id,
                 sender: post.sender,
@@ -2596,9 +2620,10 @@ export const MainLayout = () => {
       if (!chat) {
         chat = useChatStore.getState().restoreDeletedChat(chatId) || undefined;
       }
+      const myUserId = useAuthStore.getState().userId;
       const isSelf = Boolean(
+        (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
         (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
-        (nickname && (data.sender === nickname || data.senderNickname === nickname)) ||
         data.sender === 'YOU' ||
         (data.messageId && processedMessageIds.current.has(data.messageId))
       );
@@ -2790,8 +2815,8 @@ export const MainLayout = () => {
           const senderAvatar = messageData?.avatarUrl || data.avatarUrl;
 
           const chatUpdates: Partial<Chat> = {};
-          if (senderNick && senderNick !== nickname && senderNick !== 'Peppe' && senderNick !== 'Saizzi' && senderNick !== 'YOU') {
-            if (chat.name.length === 36 || chat.name === 'Peppe' || chat.name === 'Saizzi' || chat.name === nickname) {
+          if (senderNick && senderNick !== 'Peppe' && senderNick !== 'Saizzi' && senderNick !== 'YOU' && senderNick !== 'undefined' && senderNick !== 'null') {
+            if (chat.name.length === 36 || chat.name === 'Peppe' || chat.name === 'Saizzi' || !chat.name) {
               chatUpdates.name = senderNick;
             }
           }
@@ -3083,8 +3108,10 @@ export const MainLayout = () => {
     };
 
     const handleReaction = (data: any) => {
+      const myUserId = useAuthStore.getState().userId;
       const isSelf = Boolean(
-        myCode && (data.senderCode === myCode || data.senderId === myCode)
+        (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+        (myCode && (data.senderCode === myCode || data.senderId === myCode))
       );
       if (isSelf) return;
       const targetId = data.messageId || data.id;
