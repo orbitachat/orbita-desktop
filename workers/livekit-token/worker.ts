@@ -761,6 +761,7 @@ export default {
           description?: string;
           avatarUrl?: string | null;
           creatorNickname: string;
+          creatorId?: string;
         };
 
         if (!body.name || !body.creatorNickname) {
