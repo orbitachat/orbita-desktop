@@ -11,23 +11,18 @@ import { CallVerificationBadge } from './CallVerificationBadge';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 
 const accentButtonStyle: React.CSSProperties = {
-  backgroundColor: '#22c55e',
-  color: '#ffffff',
-  boxShadow: '0 4px 14px rgba(34, 197, 94, 0.35)',
+  background: 'linear-gradient(135deg, var(--accent-color), var(--accent-dark))',
+  color: 'var(--settings-on-primary, #ffffff)',
 };
 
 const rejectButtonStyle: React.CSSProperties = {
-  backgroundColor: '#ef4444',
-  color: '#ffffff',
-  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
+  backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 8%, rgba(255, 255, 255, 0.16))',
+  color: 'var(--text-main, #ffffff)',
 };
 
 const neutralButtonStyle = (active: boolean): React.CSSProperties => ({
-  backgroundColor: active ? '#ffffff' : 'rgba(255, 255, 255, 0.15)',
-  color: active ? '#121214' : '#ffffff',
-  boxShadow: active ? '0 4px 14px rgba(255, 255, 255, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.3)',
-  border: '1px solid rgba(255, 255, 255, 0.12)',
-  transition: 'all 0.2s ease',
+  backgroundColor: active ? 'var(--surface-container-strong)' : 'var(--surface-muted)',
+  color: active ? 'var(--accent-color)' : 'var(--text-dim)',
 });
 
 const StaticBackground = () => (
@@ -1043,7 +1038,7 @@ export const CallWindow = () => {
               >
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <VideoOff size={20} color="#ffffff" />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -1057,7 +1052,7 @@ export const CallWindow = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
                 <X size={20} color="#ffffff" />
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.cancel')}
               </span>
             </button>
@@ -1074,7 +1069,7 @@ export const CallWindow = () => {
               >
                 {isVideoEnabled ? <Video size={20} color="#ffffff" /> : <Phone size={20} color="#ffffff" />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.call')}
               </span>
             </button>
@@ -1093,7 +1088,7 @@ export const CallWindow = () => {
               >
                 {isMicEnabled ? <Mic size={20} /> : <MicOff size={20} />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {isMicEnabled ? t('call.mic') : t('call.mic_off')}
               </span>
             </button>
@@ -1110,7 +1105,7 @@ export const CallWindow = () => {
               >
                 {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {isVideoEnabled ? t('call.camera_off') : t('call.camera_on')}
               </span>
             </button>
@@ -1128,7 +1123,7 @@ export const CallWindow = () => {
                 >
                   {hasLocalScreenShare ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
                 </div>
-                <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+                <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                   {t('call.screen_share')}
                 </span>
               </button>
@@ -1143,7 +1138,7 @@ export const CallWindow = () => {
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
                 <PhoneOff size={20} color="#ffffff" />
               </div>
-              <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+              <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
                 {t('call.hang_up')}
               </span>
             </button>
@@ -1158,7 +1153,7 @@ export const CallWindow = () => {
             <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
               <X size={20} color="#ffffff" />
             </div>
-            <span className="text-center truncate w-full" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '11px', fontWeight: 500 }}>
+            <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
               {t('call.close')}
             </span>
           </button>
