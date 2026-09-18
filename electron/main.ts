@@ -3191,40 +3191,103 @@ async function fetchLatestGitHubRelease(): Promise<{
   downloadUrl?: string;
   fileName?: string;
 }> {
-  const res = await electronNet.fetch('https://api.github.com/repos/orbitachat/orbita-desktop/releases/latest', {
-    headers: {
-      'User-Agent': `Orbita-Desktop/${app.getVersion()}`,
-      'Accept': 'application/vnd.github.v3+json',
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`GitHub API error: ${res.status}`);
-  }
-  const data: any = await res.json();
-  const remoteTag = (data?.tag_name || '').replace(/^v/, '');
-  if (!remoteTag) {
-    throw new Error('No tag found in release');
-  }
   const currentVersion = app.getVersion();
-  const exeAsset = Array.isArray(data?.assets)
-    ? data.assets.find((a: any) => typeof a?.name === 'string' && a.name.endsWith('.exe'))
-    : null;
 
-  latestGitHubRelease = {
-    version: remoteTag,
-    releaseNotes: typeof data?.body === 'string' ? data.body : undefined,
-    downloadUrl: exeAsset?.browser_download_url,
-    fileName: exeAsset?.name,
-  };
+  try {
+    const res = await electronNet.fetch('https://api.github.com/repos/orbitachat/orbita-desktop/releases/latest', {
+      headers: {
+        'User-Agent': `Orbita-Desktop/${currentVersion}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data: any = await res.json();
+      const remoteTag = (data?.tag_name || '').replace(/^v/, '');
+      if (remoteTag) {
+        const exeAsset = Array.isArray(data?.assets)
+          ? data.assets.find((a: any) => typeof a?.name === 'string' && a.name.endsWith('.exe'))
+          : null;
 
-  const hasUpdate = compareVersions(remoteTag, currentVersion) > 0;
-  return {
-    hasUpdate,
-    version: remoteTag,
-    releaseNotes: latestGitHubRelease.releaseNotes,
-    downloadUrl: latestGitHubRelease.downloadUrl,
-    fileName: latestGitHubRelease.fileName,
-  };
+        latestGitHubRelease = {
+          version: remoteTag,
+          releaseNotes: typeof data?.body === 'string' ? data.body : undefined,
+          downloadUrl: exeAsset?.browser_download_url || `https://github.com/orbitachat/orbita-desktop/releases/download/v${remoteTag}/setup_${remoteTag}.exe`,
+          fileName: exeAsset?.name || `setup_${remoteTag}.exe`,
+        };
+
+        const hasUpdate = compareVersions(remoteTag, currentVersion) > 0;
+        return {
+          hasUpdate,
+          version: remoteTag,
+          releaseNotes: latestGitHubRelease.releaseNotes,
+          downloadUrl: latestGitHubRelease.downloadUrl,
+          fileName: latestGitHubRelease.fileName,
+        };
+      }
+    }
+  } catch {}
+
+  try {
+    const webRes = await electronNet.fetch('https://github.com/orbitachat/orbita-desktop/releases/latest', {
+      headers: {
+        'User-Agent': `Orbita-Desktop/${currentVersion}`,
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(10000),
+    });
+    const finalUrl = webRes.url || '';
+    const match = finalUrl.match(/\/tag\/v?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
+    let remoteTag = match ? match[1] : null;
+    if (!remoteTag && webRes.ok) {
+      const html = await webRes.text();
+      const htmlMatch = html.match(/\/releases\/tag\/v?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
+      remoteTag = htmlMatch ? htmlMatch[1] : null;
+    }
+    if (remoteTag) {
+      latestGitHubRelease = {
+        version: remoteTag,
+        downloadUrl: `https://github.com/orbitachat/orbita-desktop/releases/download/v${remoteTag}/setup_${remoteTag}.exe`,
+        fileName: `setup_${remoteTag}.exe`,
+      };
+      const hasUpdate = compareVersions(remoteTag, currentVersion) > 0;
+      return {
+        hasUpdate,
+        version: remoteTag,
+        downloadUrl: latestGitHubRelease.downloadUrl,
+        fileName: latestGitHubRelease.fileName,
+      };
+    }
+  } catch {}
+
+  try {
+    const rawRes = await electronNet.fetch('https://raw.githubusercontent.com/orbitachat/orbita-desktop/main/package.json', {
+      headers: {
+        'User-Agent': `Orbita-Desktop/${currentVersion}`,
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (rawRes.ok) {
+      const pkgData: any = await rawRes.json();
+      const remoteTag = typeof pkgData?.version === 'string' ? pkgData.version.trim() : null;
+      if (remoteTag) {
+        latestGitHubRelease = {
+          version: remoteTag,
+          downloadUrl: `https://github.com/orbitachat/orbita-desktop/releases/download/v${remoteTag}/setup_${remoteTag}.exe`,
+          fileName: `setup_${remoteTag}.exe`,
+        };
+        const hasUpdate = compareVersions(remoteTag, currentVersion) > 0;
+        return {
+          hasUpdate,
+          version: remoteTag,
+          downloadUrl: latestGitHubRelease.downloadUrl,
+          fileName: latestGitHubRelease.fileName,
+        };
+      }
+    }
+  } catch {}
+
+  throw new Error('Check updates failed');
 }
 
 async function downloadUpdateAsset(url: string, fileName: string): Promise<string> {
@@ -3234,6 +3297,7 @@ async function downloadUpdateAsset(url: string, fileName: string): Promise<strin
     headers: {
       'User-Agent': `Orbita-Desktop/${app.getVersion()}`,
     },
+    redirect: 'follow',
   });
   if (!response.ok || !response.body) {
     throw new Error(`Download failed: ${response.status}`);
