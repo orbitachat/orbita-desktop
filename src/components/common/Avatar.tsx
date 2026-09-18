@@ -76,10 +76,13 @@ export const Avatar = ({ src, alt = '', className = '', style }: AvatarProps) =>
       return '19px';
     }
     if (className.includes('w-[20px]') || className.includes('w-5')) {
-      return '10.5px';
+      return '8.5px';
+    }
+    if (className.includes('w-6') || className.includes('w-[24px]')) {
+      return '10px';
     }
     if (className.includes('w-8') || className.includes('w-7')) {
-      return '15px';
+      return '12px';
     }
     return '1.35rem';
   }, [className, style?.fontSize]);

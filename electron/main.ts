@@ -2595,9 +2595,12 @@ ipcMain.handle('orbita:get-call-state', () => {
   return currentCallStateCache;
 });
 
-ipcMain.on('orbita:send-call-action', (_event, action: any) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
+ipcMain.on('orbita:send-call-action', (event, action: any) => {
+  if (mainWindow && !mainWindow.isDestroyed() && event.sender !== mainWindow.webContents) {
     mainWindow.webContents.send('orbita:call-action', action);
+  }
+  if (callWindow && !callWindow.isDestroyed() && event.sender !== callWindow.webContents) {
+    callWindow.webContents.send('orbita:call-action', action);
   }
 });
 

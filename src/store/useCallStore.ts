@@ -76,6 +76,7 @@ interface CallStore {
   handleCancel: (roomName?: string) => void;
   handleHangup: (roomName?: string) => void;
   toggleMic: () => Promise<void>;
+  setMicEnabled: (enabled: boolean) => Promise<void>;
   toggleVideo: (explicitVal?: boolean) => Promise<void>;
   openScreenPicker: () => void;
   closeScreenPicker: () => void;
@@ -899,14 +900,24 @@ export const useCallStore = create<CallStore>((set, get) => {
       get().endCall(false);
     },
 
-    toggleMic: async () => {
+    setMicEnabled: async (enabled: boolean) => {
       const state = get();
-      const next = !state.isMicEnabled;
-      set({ isMicEnabled: next });
-      if (state.activeCall) set({ activeCall: { ...state.activeCall, isMuted: !next } });
+      if (state.isMicEnabled === enabled) return;
+      set({ isMicEnabled: enabled });
+      if (state.activeCall) set({ activeCall: { ...state.activeCall, isMuted: !enabled } });
       try {
-        if (next) { await liveKitService.enableMicrophone(); } else { await liveKitService.disableMicrophone(); }
-      } catch (err) { console.error(`${LOG_PREFIX} toggleMic failed:`, err); }
+        if (enabled) {
+          await liveKitService.enableMicrophone();
+        } else {
+          await liveKitService.disableMicrophone();
+        }
+      } catch (err) {
+        console.error(`${LOG_PREFIX} setMicEnabled failed:`, err);
+      }
+    },
+
+    toggleMic: async () => {
+      return get().setMicEnabled(!get().isMicEnabled);
     },
 
     toggleVideo: async (explicitVal?: boolean) => {
@@ -1031,7 +1042,16 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
       try { void liveKitService.stopScreenShare(); } catch {}
       store.endCall(false);
       break;
-    case 'toggleMic': store.toggleMic(); break;
+    case 'toggleMic':
+      if (typeof action.payload === 'boolean') {
+        store.setMicEnabled(action.payload);
+      } else {
+        store.toggleMic();
+      }
+      break;
+    case 'setMicEnabled':
+      store.setMicEnabled(!!action.payload);
+      break;
     case 'toggleVideo': store.toggleVideo(action.payload); break;
     case 'toggleScreenShare': store.toggleScreenShare(); break;
     case 'startScreenShareWithOptions': store.startScreenShareWithOptions(action.payload); break;

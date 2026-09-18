@@ -220,6 +220,10 @@ export const CallWindowView = () => {
   const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
   const [expandedShare, setExpandedShare] = useState<'remote' | 'local' | null>(null);
 
+  const handleToggleMicRef = useRef<(() => Promise<void>) | null>(null);
+  const handleHangupRef = useRef<((action: 'cancelCall' | 'endCall' | 'rejectCall') => Promise<void>) | null>(null);
+  const micEnabledRef = useRef(true);
+
   useEffect(() => {
     const applyVars = (vars: Record<string, string>) => {
       const root = document.documentElement;
@@ -309,6 +313,30 @@ export const CallWindowView = () => {
       }
     });
 
+    const unsubCallAction = orbita?.onCallAction?.((action: any) => {
+      if (action?.type === 'toggleMic') {
+        const target = typeof action?.payload === 'boolean' ? action.payload : !micEnabledRef.current;
+        micEnabledRef.current = target;
+        setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
+        if (target) {
+          liveKitService.enableMicrophone().catch(() => {});
+        } else {
+          liveKitService.disableMicrophone().catch(() => {});
+        }
+      } else if (action?.type === 'setMicEnabled') {
+        const target = !!action.payload;
+        micEnabledRef.current = target;
+        setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
+        if (target) {
+          liveKitService.enableMicrophone().catch(() => {});
+        } else {
+          liveKitService.disableMicrophone().catch(() => {});
+        }
+      } else if (action?.type === 'endCall' || action?.type === 'cancelCall') {
+        handleHangupRef.current?.('endCall');
+      }
+    });
+
     let broadcastChannel: BroadcastChannel | null = null;
     try {
       broadcastChannel = new BroadcastChannel('orbita-call-channel');
@@ -321,6 +349,28 @@ export const CallWindowView = () => {
             }
           } else {
             resetCallStateAndDisconnect();
+          }
+        } else if (event.data?.type === 'CALL_ACTION') {
+          if (event.data.action === 'toggleMic') {
+            const target = typeof event.data?.payload === 'boolean' ? event.data.payload : !micEnabledRef.current;
+            micEnabledRef.current = target;
+            setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
+            if (target) {
+              liveKitService.enableMicrophone().catch(() => {});
+            } else {
+              liveKitService.disableMicrophone().catch(() => {});
+            }
+          } else if (event.data.action === 'setMicEnabled') {
+            const target = !!event.data.payload;
+            micEnabledRef.current = target;
+            setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
+            if (target) {
+              liveKitService.enableMicrophone().catch(() => {});
+            } else {
+              liveKitService.disableMicrophone().catch(() => {});
+            }
+          } else if (event.data.action === 'endCall' || event.data.action === 'cancelCall') {
+            handleHangupRef.current?.('endCall');
           }
         }
       };
@@ -349,6 +399,7 @@ export const CallWindowView = () => {
       unsubFontChanged?.();
       unsubThemeChanged?.();
       unsubState?.();
+      unsubCallAction?.();
       broadcastChannel?.close();
       window.removeEventListener('focus', handleFocusSync);
       document.removeEventListener('visibilitychange', handleFocusSync);
@@ -454,7 +505,8 @@ export const CallWindowView = () => {
   const isConnecting = callState === 'connecting';
   const isEnded = callState === 'ended';
 
-  const isMicEnabled = callData?.isMicEnabled ?? false;
+  const isMicEnabled = callData?.isMicEnabled ?? true;
+  micEnabledRef.current = isMicEnabled;
   const isVideoEnabled = callData?.isVideoEnabled ?? (activeCall?.callType === 'video');
   const isScreenSharing = (isConnected || isConnecting) && (callData?.isScreenSharing ?? false);
   const hasLocalScreenShare = (isConnected || isConnecting) && (isLocalScreenShareActive || isScreenSharing);
@@ -628,7 +680,11 @@ export const CallWindowView = () => {
         }
         if (cancelled || !token || !url) return;
         await liveKitService.connect(roomName, token, url, sessionKey);
-        await liveKitService.enableMicrophone();
+        if (micEnabledRef.current) {
+          await liveKitService.enableMicrophone();
+        } else {
+          await liveKitService.disableMicrophone();
+        }
         if (isVideoEnabled) {
           await liveKitService.enableCamera();
         }
@@ -847,6 +903,7 @@ export const CallWindowView = () => {
 
   const handleToggleMic = async () => {
     const next = !isMicEnabled;
+    micEnabledRef.current = next;
     setCallData((prev) => (prev ? { ...prev, isMicEnabled: next } : prev));
     if (next) {
       await liveKitService.enableMicrophone();
@@ -855,6 +912,21 @@ export const CallWindowView = () => {
     }
     sendAction('toggleMic', next);
   };
+
+  handleToggleMicRef.current = handleToggleMic;
+  handleHangupRef.current = handleHangupOrCancel;
+
+  const prevMicRef = useRef(isMicEnabled);
+  useEffect(() => {
+    if (prevMicRef.current !== isMicEnabled && liveKitService.isConnected) {
+      prevMicRef.current = isMicEnabled;
+      if (isMicEnabled) {
+        liveKitService.enableMicrophone().catch(() => {});
+      } else {
+        liveKitService.disableMicrophone().catch(() => {});
+      }
+    }
+  }, [isMicEnabled]);
 
   const handleToggleVideo = async () => {
     const next = !isVideoEnabled;
