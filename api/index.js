@@ -1646,6 +1646,75 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { status: 'ok' });
     }
 
+    if (pathname === '/groups/update' && req.method === 'POST') {
+      const { groupId, name, description, avatarUrl } = body;
+      if (!groupId) return sendError(res, 'Missing groupId', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          const updateData = { updated_at: new Date().toISOString() };
+          if (typeof name === 'string' && name.trim()) updateData.name = name.trim();
+          if (typeof description === 'string') updateData.description = description.trim();
+          if (avatarUrl !== undefined) updateData.avatar_url = avatarUrl;
+
+          await supabase.from('groups').update(updateData).eq('id', groupId);
+
+          await triggerGroupPusherEvent(`presence-group-${groupId}`, 'group-updated', {
+            groupId,
+            name: updateData.name,
+            description: updateData.description,
+            avatarUrl: updateData.avatar_url,
+          });
+
+          return sendJson(res, { status: 'ok', group: updateData });
+        } catch (err) {
+          return sendError(res, err.message || 'Update failed', 500);
+        }
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
+    if (pathname === '/groups/delete' && req.method === 'POST') {
+      const { groupId } = body;
+      if (!groupId) return sendError(res, 'Missing groupId', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('groups').delete().eq('id', groupId);
+          await triggerGroupPusherEvent(`presence-group-${groupId}`, 'group-deleted', {
+            groupId,
+          });
+          return sendJson(res, { status: 'ok' });
+        } catch (err) {
+          return sendError(res, err.message || 'Delete failed', 500);
+        }
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
+    if (pathname === '/groups/role' && req.method === 'POST') {
+      const { groupId, targetNickname, role } = body;
+      if (!groupId || !targetNickname || !role) return sendError(res, 'Missing parameters', 400);
+
+      const supabase = getGroupsSupabaseClient();
+      if (supabase) {
+        try {
+          await supabase.from('group_members').update({ role }).eq('group_id', groupId).eq('nickname', targetNickname);
+          await triggerGroupPusherEvent(`presence-group-${groupId}`, 'member-role-updated', {
+            groupId,
+            targetNickname,
+            role,
+          });
+          return sendJson(res, { status: 'ok' });
+        } catch (err) {
+          return sendError(res, err.message || 'Role update failed', 500);
+        }
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
     if (pathname === '/groups/messages' && req.method === 'GET') {
       const groupId = query.groupId || query.id;
       const limit = parseInt(query.limit || '100', 10);

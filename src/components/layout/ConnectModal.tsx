@@ -126,23 +126,30 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
 
     if (type === 'group') {
       try {
-        const res = await groupService.createGroup(trimmed, '', myNickname, myCode);
+        const res = await groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl);
         if (res && res.group) {
           const newChat: Chat = {
             id: res.group.id,
             type: 'group',
             name: res.group.name,
+            description: res.group.description || descriptionValue || '',
             lastMsg: 'E2EE_SECURE_CHANNEL_READY',
             online: false,
             sharedSecret: res.sharedSecret,
             role: 'owner',
+            isOwner: true,
+            creatorNickname: myNickname,
+            creatorId: myCode,
             inviteCode: res.group.code,
-            avatarUrl: avatarUrl || undefined,
+            avatarUrl: res.group.avatarUrl || avatarUrl || undefined,
             members: (res.group.members || []).map((m) => ({
+              userId: m.userCode,
               nickname: m.nickname,
               role: (m.role as 'owner' | 'admin' | 'member') || 'member',
               lastSeen: m.lastSeen || Date.now(),
+              avatarUrl: m.avatarUrl || null,
             })),
+            membersCount: 1,
             createdAt: Date.now(),
             unreadCount: 0,
             lastReadTimestamp: Date.now(),
@@ -315,14 +322,14 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
             </div>
           </div>
 
-          {type === 'channel' && (
+          {(type === 'channel' || type === 'group') && (
             <div className="relative w-full flex flex-col pt-3">
               <input
                 type="text"
                 value={descriptionValue}
                 onChange={(e) => setDescriptionValue(e.target.value)}
-                placeholder={t('channel.description_optional', 'Описание (необязательно)')}
-                aria-label={t('channel.description_optional', 'Описание (необязательно)')}
+                placeholder={type === 'group' ? t('groupSettings.group_desc', 'Описание группы') : t('channel.description_optional', 'Описание (необязательно)')}
+                aria-label={type === 'group' ? t('groupSettings.group_desc', 'Описание группы') : t('channel.description_optional', 'Описание (необязательно)')}
                 className="w-full bg-transparent outline-none text-[13.5px] text-[var(--text-main, #ffffff)] placeholder:text-[var(--text-dim, #9ca3af)] py-1.5 transition-colors"
                 style={{
                   border: 'none',

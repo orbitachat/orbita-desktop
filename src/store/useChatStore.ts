@@ -169,6 +169,7 @@ export interface ChatMember {
   nickname: string;
   role: 'owner' | 'admin' | 'member';
   lastSeen: number;
+  avatarUrl?: string | null;
 }
 
 export interface UserProfile {

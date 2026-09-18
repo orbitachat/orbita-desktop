@@ -40,7 +40,8 @@ class GroupService {
     name: string,
     description: string,
     creatorNickname: string,
-    creatorCode?: string
+    creatorCode?: string,
+    avatarUrl?: string | null
   ): Promise<{ group: GroupInfo; sharedSecret: string } | null> {
     const code = generateGroupCode();
     const id = deriveGroupId(code);
@@ -52,6 +53,7 @@ class GroupService {
       role: 'owner',
       joinedAt: Date.now(),
       lastSeen: Date.now(),
+      avatarUrl: avatarUrl || null,
     };
 
     try {
@@ -63,7 +65,7 @@ class GroupService {
           code,
           name: name.trim(),
           description: description.trim(),
-          avatarUrl: null,
+          avatarUrl: avatarUrl || null,
           creatorNickname,
           creatorCode: creatorCode || null,
           maxMembers: 10,
@@ -239,6 +241,84 @@ class GroupService {
         }),
       });
     } catch {}
+  }
+
+  async updateGroup(
+    groupId: string,
+    data: { name?: string; description?: string; avatarUrl?: string | null }
+  ): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          name: data.name,
+          description: data.description,
+          avatarUrl: data.avatarUrl,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async deleteGroup(groupId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async updateMemberRole(
+    groupId: string,
+    targetNickname: string,
+    role: 'admin' | 'member'
+  ): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, targetNickname, role }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async addMember(
+    groupId: string,
+    groupCode: string,
+    nickname: string,
+    userCode?: string,
+    avatarUrl?: string | null
+  ): Promise<GroupInfo | null> {
+    try {
+      const res = await fetch(`${this.getWorkerUrl()}/groups/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: groupId,
+          code: groupCode,
+          nickname,
+          userCode: userCode || nickname,
+          avatarUrl: avatarUrl || null,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.group || null;
+      }
+    } catch {}
+    return null;
   }
 
   async fetchGroupMessages(groupId: string, limit = 100): Promise<any[]> {

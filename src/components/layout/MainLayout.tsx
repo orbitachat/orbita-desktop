@@ -2434,6 +2434,36 @@ export const MainLayout = () => {
     channel.bind('group-call-ended', () => {
       useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
     });
+    channel.bind('member-joined', (data: any) => {
+      if (data?.members) {
+        useChatStore.getState().updateChat(chatId, { members: data.members, membersCount: data.members.length });
+      }
+    });
+    channel.bind('member-left', (data: any) => {
+      const current = useChatStore.getState().chats.find((c) => c.id === chatId);
+      const updated = (current?.members || []).filter((m: any) => m.nickname !== data?.nickname);
+      useChatStore.getState().updateChat(chatId, { members: updated, membersCount: updated.length });
+    });
+    channel.bind('group-updated', (data: any) => {
+      const updates: any = {};
+      if (data?.name) updates.name = data.name;
+      if (data?.description !== undefined) updates.description = data.description;
+      if (data?.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
+      useChatStore.getState().updateChat(chatId, updates);
+    });
+    channel.bind('group-deleted', () => {
+      useChatStore.setState((s) => ({
+        chats: s.chats.filter((c) => c.id !== chatId),
+        activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
+      }));
+    });
+    channel.bind('member-role-updated', (data: any) => {
+      const current = useChatStore.getState().chats.find((c) => c.id === chatId);
+      const updated = (current?.members || []).map((m: any) =>
+        m.nickname === data?.targetNickname ? { ...m, role: data.role } : m
+      );
+      useChatStore.getState().updateChat(chatId, { members: updated });
+    });
     activeSubscriptions.current.set(chatId, { channel, handler: handleMessage });
     startPingForChat(chatId);
     return channel;

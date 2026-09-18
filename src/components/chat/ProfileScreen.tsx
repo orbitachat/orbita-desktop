@@ -2,13 +2,15 @@ import { useState, useRef, useCallback, memo, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { channelService } from '../../services/channelService';
+import { groupService } from '../../services/groupService';
 import { supabaseService } from '../../services/supabaseService';
-import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft } from 'lucide-react';
+import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft, UserPlus, ShieldCheck, Trash2, LogOut } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { BotIcon } from '../common/BotIcon';
 import { VerifiedBadge } from '../common/VerifiedBadge';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
 import { EmojiPicker } from './EmojiPicker';
+import { AddGroupMemberModal } from './AddGroupMemberModal';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
 import {
   Picture as GravityPictureIcon,
@@ -1036,6 +1038,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const voiceCallsEnabled = useChatStore((state) => state.voiceCallsEnabled);
 
   const isChannel = chat?.type === 'channel';
+  const isGroup = chat?.type === 'group';
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+
   const isChannelOwner = useMemo(() => {
     if (!isChannel || !chat) return false;
     if (chat.isOwner) return true;
@@ -1044,6 +1049,60 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (myUserId && chat.members?.some((m) => m.userId === myUserId && m.role === 'owner')) return true;
     return false;
   }, [isChannel, chat, myUserId]);
+
+  const isGroupOwner = useMemo(() => {
+    if (!isGroup || !chat) return false;
+    if (chat.isOwner) return true;
+    if (chat.role === 'owner') return true;
+    if (myNickname && chat.creatorNickname === myNickname) return true;
+    if (myUserId && chat.creatorId === myUserId) return true;
+    if (myUserId && chat.members?.some((m) => (m.userId === myUserId || m.nickname === myNickname) && m.role === 'owner')) return true;
+    return false;
+  }, [isGroup, chat, myUserId, myNickname]);
+
+  const isGroupAdmin = useMemo(() => {
+    if (!isGroup || !chat) return false;
+    if (isGroupOwner) return true;
+    if (chat.role === 'admin') return true;
+    if (chat.members?.some((m) => (m.userId === myUserId || m.nickname === myNickname) && (m.role === 'admin' || m.role === 'owner'))) return true;
+    return false;
+  }, [isGroup, chat, isGroupOwner, myUserId, myNickname]);
+
+  useEffect(() => {
+    if (!chat || chat.type !== 'group') return;
+    groupService.getGroup(chat.inviteCode || chat.id).then((info) => {
+      if (info) {
+        const current = useChatStore.getState().chats.find((c) => c.id === chat.id);
+        const currentUserId = useAuthStore.getState().userId;
+        const isCreator = Boolean(
+          current?.isOwner ||
+          current?.role === 'owner' ||
+          (currentUserId && info.creatorCode && info.creatorCode === currentUserId) ||
+          (currentUserId && chat.creatorId && chat.creatorId === currentUserId) ||
+          (myNickname && info.creatorNickname === myNickname)
+        );
+        const updates: Partial<Chat> = {
+          name: info.name,
+          description: info.description,
+          avatarUrl: info.avatarUrl || current?.avatarUrl || undefined,
+          membersCount: info.membersCount,
+          inviteCode: info.code,
+          members: (info.members || []).map((m) => ({
+            userId: m.userCode,
+            nickname: m.nickname,
+            role: m.role,
+            lastSeen: m.lastSeen || Date.now(),
+            avatarUrl: m.avatarUrl || null,
+          })),
+        };
+        if (isCreator) {
+          updates.isOwner = true;
+          updates.role = 'owner';
+        }
+        updateChat(chat.id, updates);
+      }
+    });
+  }, [chat?.id, chat?.type, updateChat, myNickname]);
 
   const handleCopyChannelKey = useCallback((customId?: string | React.MouseEvent) => {
     const idToCopy = (typeof customId === 'string' && customId) ? customId : chat?.id;
@@ -1222,11 +1281,19 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         }
       }
 
-      await channelService.updateChannel(chat.id, {
-        name: newName,
-        description: newDesc,
-        avatarUrl: finalAvatarUrl,
-      });
+      if (chat.type === 'group') {
+        await groupService.updateGroup(chat.id, {
+          name: newName,
+          description: newDesc,
+          avatarUrl: finalAvatarUrl,
+        });
+      } else {
+        await channelService.updateChannel(chat.id, {
+          name: newName,
+          description: newDesc,
+          avatarUrl: finalAvatarUrl,
+        });
+      }
     })().catch((err) => {
       console.error('Failed to save channel in background:', err);
     }).finally(() => {
@@ -1605,9 +1672,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     ? ''
     : chat.type === 'channel'
       ? formatSubscribers(chat.subscribersCount || 0)
-      : chat.online
-        ? t('userStatus.online')
-        : formatLastSeen(chat.lastSeen, t);
+      : chat.type === 'group'
+        ? t('groupSettings.members_count', { count: chat.membersCount || chat.members?.length || 1 })
+        : chat.online
+          ? t('userStatus.online')
+          : formatLastSeen(chat.lastSeen, t);
 
   const filteredMessages = (messagesList: Message[]) => {
     if (!searchQuery.trim()) return messagesList;
@@ -2020,7 +2089,99 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.sound')}</span>
         </button>
 
-        {isChannel ? (
+        {isGroup ? (
+          <>
+            <button
+              onClick={handleCallClick}
+              disabled={!voiceCallsEnabled}
+              aria-label={t('profile.call')}
+              style={{
+                width: '74px',
+                height: '56px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                background: 'var(--surface-container, #282828)',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '0',
+                color: 'var(--text-main)',
+                cursor: !voiceCallsEnabled ? 'not-allowed' : 'pointer',
+                opacity: !voiceCallsEnabled ? 0.4 : 1,
+                flexShrink: 0,
+                outline: 'none',
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 42 42" fill="var(--text-dim, #8e8e93)">
+                <path d="M15.562 20.766c-1.328-1.922-2.118-4.241-2.281-4.438c1.945-1.356 5.749-3.06 5.962-5.505c.271-3.159-5.081-9.763-6.107-9.823c-2.808.03-7.947 4.782-8.556 6.218c-1.132 2.969-.571 5.732 1.375 9.732c2.478 5.95 11.682 17.237 16.947 20.78c3.484 2.674 6.029 3.724 9.068 3.09c1.413-.268 6.516-4.455 7.027-7.286c.125-1.05-5.807-8.011-8.875-8.287c-2.382-.22-4.666 3.346-6.303 5.089c-.163-.208-1.559-1.297-3.057-3.021c-1.95-2.049-3.762-4.456-5.2-6.549" />
+              </svg>
+              <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.call')}</span>
+            </button>
+
+            <button
+              onClick={() => setIsAddMemberModalOpen(true)}
+              aria-label={t('groupSettings.add_member', 'Добавить участника')}
+              style={{
+                width: '74px',
+                height: '56px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                background: 'var(--surface-container, #282828)',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '0',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                flexShrink: 0,
+                outline: 'none',
+              }}
+            >
+              <UserPlus size={20} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('common.add', 'Добавить')}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const link = `https://orbita-chess-network.alwaysdata.net/g/${chat.inviteCode || chat.id}`;
+                navigator.clipboard.writeText(link);
+                setCopiedKey(true);
+                setTimeout(() => setCopiedKey(false), 2000);
+              }}
+              aria-label={t('groupSettings.copy_link', 'Скопировать ссылку')}
+              style={{
+                width: '74px',
+                height: '56px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                background: 'var(--surface-container, #282828)',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '0',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                flexShrink: 0,
+                outline: 'none',
+              }}
+            >
+              {copiedKey ? (
+                <Check size={20} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
+              ) : (
+                <Copy size={20} style={{ color: 'var(--text-dim, #8e8e93)' }} />
+              )}
+              <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>
+                {copiedKey ? t('profile.copied', 'Скопирован') : t('groupSettings.invite_link', 'Ссылка')}
+              </span>
+            </button>
+          </>
+        ) : isChannel ? (
           <button
             onClick={handleCopyChannelKey}
             aria-label={copiedKey ? 'Скопирован' : 'Ключ'}
@@ -2081,7 +2242,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         )}
       </div>
 
-      {(isChannel || Boolean(profileId) || isProfileIdHidden || Boolean(chat.description)) && (
+      {(isChannel || isGroup || Boolean(profileId) || isProfileIdHidden || Boolean(chat.description)) && (
         <div
           style={{
             backgroundColor: 'var(--md-surface, #211c2e)',
@@ -2093,7 +2254,121 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             boxSizing: 'border-box',
           }}
         >
-          {isChannel ? (
+          {isGroup ? (
+            <>
+              {chat.description ? (
+                <div
+                  onClick={isGroupAdmin ? () => setIsEditingChannel(true) : undefined}
+                  style={{
+                    padding: '12px 20px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    cursor: isGroupAdmin ? 'pointer' : 'default',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
+                    {chat.description}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('channel.description', 'Описание')}
+                  </div>
+                </div>
+              ) : isGroupAdmin ? (
+                <div
+                  onClick={() => setIsEditingChannel(true)}
+                  style={{
+                    padding: '12px 20px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span style={{ fontSize: '14px', color: 'var(--accent-color, #9b7dd4)' }}>
+                    + {t('groupSettings.add_description', 'Добавить описание')}
+                  </span>
+                  <Pencil size={14} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
+                </div>
+              ) : null}
+
+              <div
+                onClick={() => {
+                  const link = `https://orbita-chess-network.alwaysdata.net/g/${chat.inviteCode || chat.id}`;
+                  navigator.clipboard.writeText(link);
+                  setCopiedKey(true);
+                  setTimeout(() => setCopiedKey(false), 2000);
+                }}
+                style={{
+                  padding: '12px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <span
+                    style={{
+                      fontSize: '13.5px',
+                      fontWeight: 500,
+                      color: 'var(--accent-color, #9b7dd4)',
+                      wordBreak: 'break-all',
+                      lineHeight: 1.3,
+                      fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                    }}
+                  >
+                    https://orbita-chess-network.alwaysdata.net/g/{chat.inviteCode || chat.id}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('groupSettings.invite_link', 'Ссылка-приглашение')}
+                  </span>
+                </div>
+                <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
+                  {copiedKey ? <Check size={18} /> : <Copy size={18} />}
+                </div>
+              </div>
+
+              <div
+                onClick={() => {
+                  navigator.clipboard.writeText(chat.inviteCode || chat.id);
+                  setCopiedKey(true);
+                  setTimeout(() => setCopiedKey(false), 2000);
+                }}
+                style={{
+                  padding: '12px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <span
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--text-main, #ffffff)',
+                      fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    {chat.inviteCode || chat.id}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('groupSettings.group_code', 'Код группы')}
+                  </span>
+                </div>
+                <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
+                  {copiedKey ? <Check size={18} /> : <Copy size={18} />}
+                </div>
+              </div>
+            </>
+          ) : isChannel ? (
             chat.description ? (
               <div
                 onClick={isChannelOwner ? () => setIsEditingChannel(true) : undefined}
@@ -2148,7 +2423,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             </div>
           ) : null}
 
-          {(profileId || isProfileIdHidden) ? (
+          {!isGroup && (profileId || isProfileIdHidden) ? (
             <div
               onClick={isProfileIdHidden ? undefined : () => handleCopyChannelKey(profileId)}
               style={{
@@ -2198,6 +2473,277 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               )}
             </div>
           ) : null}
+        </div>
+      )}
+
+      {isGroup && (
+        <div
+          style={{
+            backgroundColor: 'var(--md-surface, #211c2e)',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            marginBottom: '16px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            style={{
+              padding: '12px 20px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                {t('groupSettings.participants', 'Участники')}
+              </span>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-dim)' }}>
+                {chat.members?.length || 1} / 10
+              </span>
+            </div>
+            {isGroupAdmin && (chat.members?.length || 1) < 10 && (
+              <button
+                type="button"
+                onClick={() => setIsAddMemberModalOpen(true)}
+                aria-label={t('groupSettings.add_member', 'Добавить участника')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-color, #9b7dd4)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 6px',
+                  borderRadius: '6px',
+                }}
+              >
+                <UserPlus size={15} />
+                <span>{t('common.add', 'Добавить')}</span>
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {(chat.members || []).map((member) => {
+              const isMemberOwner = member.role === 'owner';
+              const isMemberAdmin = member.role === 'admin';
+              const isSelf = (myNickname && member.nickname === myNickname) || (myUserId && member.userId === myUserId);
+
+              return (
+                <div
+                  key={member.userId || member.nickname}
+                  style={{
+                    padding: '10px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                    <Avatar
+                      src={member.avatarUrl}
+                      alt={member.nickname}
+                      className="w-9 h-9 rounded-full flex-shrink-0"
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="truncate" style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
+                          {member.nickname}
+                        </span>
+                        {isMemberOwner ? (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: 'rgba(155, 125, 212, 0.2)',
+                              color: 'var(--accent-color, #9b7dd4)',
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            {t('groupSettings.owner', 'Владелец')}
+                          </span>
+                        ) : isMemberAdmin ? (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                              color: '#60a5fa',
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            {t('groupSettings.admin', 'Админ')}
+                          </span>
+                        ) : null}
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                        {member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isGroupAdmin && !isMemberOwner && !isSelf && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {isGroupOwner && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const newRole = isMemberAdmin ? 'member' : 'admin';
+                            await groupService.updateMemberRole(chat.id, member.nickname, newRole);
+                            const updatedMembers = (chat.members || []).map((m) =>
+                              m.nickname === member.nickname ? { ...m, role: newRole as any } : m
+                            );
+                            updateChat(chat.id, { members: updatedMembers });
+                          }}
+                          aria-label={isMemberAdmin ? t('groupSettings.demote', 'Снять права') : t('groupSettings.promote', 'Назначить админом')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: isMemberAdmin ? 'var(--text-dim)' : 'var(--accent-color, #9b7dd4)',
+                            cursor: 'pointer',
+                            padding: '6px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                          className="hover:bg-white/10 transition-colors"
+                        >
+                          <ShieldCheck size={16} />
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`${t('groupSettings.kick', 'Исключить')} ${member.nickname}?`)) {
+                            await groupService.kickMember(chat.id, member.nickname, myNickname);
+                            const updatedMembers = (chat.members || []).filter((m) => m.nickname !== member.nickname);
+                            updateChat(chat.id, {
+                              members: updatedMembers,
+                              membersCount: Math.max(1, (chat.membersCount || updatedMembers.length + 1) - 1),
+                            });
+                          }
+                        }}
+                        aria-label={t('groupSettings.kick', 'Исключить')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          padding: '6px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        className="hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {isGroup && (
+        <div
+          style={{
+            width: '100%',
+            padding: '0 16px',
+            marginBottom: '16px',
+            boxSizing: 'border-box',
+          }}
+        >
+          {isGroupOwner ? (
+            <button
+              type="button"
+              onClick={async () => {
+                if (window.confirm(t('groupSettings.delete_group_confirm', 'Вы уверены, что хотите удалить группу? Это действие нельзя отменить.'))) {
+                  await groupService.deleteGroup(chat.id);
+                  useChatStore.setState((s) => ({
+                    chats: s.chats.filter((c) => c.id !== chat.id),
+                    activeChatId: s.activeChatId === chat.id ? null : s.activeChatId,
+                  }));
+                  onClose();
+                }
+              }}
+              aria-label={t('groupSettings.delete_group', 'Удалить группу')}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: '#f87171',
+                fontSize: '13.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'background 0.15s',
+              }}
+              className="hover:bg-red-500/20"
+            >
+              <Trash2 size={16} />
+              <span>{t('groupSettings.delete_group', 'Удалить группу')}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={async () => {
+                if (window.confirm(t('groupSettings.leave_group_confirm', 'Вы уверены, что хотите покинуть группу?'))) {
+                  await groupService.leaveGroup(chat.id, myNickname, myUserId);
+                  useChatStore.setState((s) => ({
+                    chats: s.chats.filter((c) => c.id !== chat.id),
+                    activeChatId: s.activeChatId === chat.id ? null : s.activeChatId,
+                  }));
+                  onClose();
+                }
+              }}
+              aria-label={t('groupSettings.leave_group', 'Покинуть группу')}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: '#f87171',
+                fontSize: '13.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'background 0.15s',
+              }}
+              className="hover:bg-red-500/20"
+            >
+              <LogOut size={16} />
+              <span>{t('groupSettings.leave_group', 'Покинуть группу')}</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -2471,15 +3017,15 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
           <span style={{ fontSize: '12px', color: 'var(--accent-color, #7C3AED)', fontWeight: 500, marginBottom: '2px' }}>
-            {t('channel.channel_name', 'Название канала')}
+            {isGroup ? t('groupSettings.group_name', 'Название группы') : t('channel.channel_name', 'Название канала')}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--accent-color, #7C3AED)', paddingBottom: '4px' }}>
             <input
               type="text"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              placeholder={t('channel.channel_name_placeholder', 'Название')}
-              aria-label={t('channel.channel_name', 'Название канала')}
+              placeholder={isGroup ? t('groupSettings.group_name', 'Название группы') : t('channel.channel_name_placeholder', 'Название')}
+              aria-label={isGroup ? t('groupSettings.group_name', 'Название группы') : t('channel.channel_name', 'Название канала')}
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -2532,13 +3078,13 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
       <div style={{ display: 'flex', flexDirection: 'column', marginTop: '28px', width: '100%' }}>
         <span style={{ fontSize: '13px', color: 'var(--text-dim, #8e8e93)', marginBottom: '6px' }}>
-          {t('channel.description_optional', 'Описание (необязательно)')}
+          {isGroup ? t('groupSettings.group_desc', 'Описание группы') : t('channel.description_optional', 'Описание (необязательно)')}
         </span>
         <textarea
           value={editDescription}
           onChange={(e) => setEditDescription(e.target.value)}
-          placeholder={t('channel.description_optional', 'Описание (необязательно)')}
-          aria-label={t('channel.description_optional', 'Описание (необязательно)')}
+          placeholder={isGroup ? t('groupSettings.group_desc', 'Описание группы') : t('channel.description_optional', 'Описание (необязательно)')}
+          aria-label={isGroup ? t('groupSettings.group_desc', 'Описание группы') : t('channel.description_optional', 'Описание (необязательно)')}
           rows={3}
           style={{
             width: '100%',
@@ -2677,7 +3223,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               </button>
 
               <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
-                {t('channel.edit_channel', 'Редактировать канал')}
+                {isGroup ? t('groupSettings.edit_group', 'Редактировать группу') : t('channel.edit_channel', 'Редактировать канал')}
               </span>
 
               <button
@@ -2723,11 +3269,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 zIndex: 30,
               }}
             >
-              {isChannelOwner && (
+              {(isChannelOwner || isGroupAdmin) && (
                 <button
                   type="button"
                   onClick={() => setIsEditingChannel(true)}
-                  aria-label={t('channel.edit_channel', 'Редактировать канал')}
+                  aria-label={isGroup ? t('groupSettings.edit_group', 'Редактировать группу') : t('channel.edit_channel', 'Редактировать канал')}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -2870,6 +3416,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           sharedSecret={chat.sharedSecret}
           showCarouselAlways={true}
           onClose={() => setViewerState((prev) => ({ ...prev, isOpen: false }))}
+        />
+      )}
+
+      {isGroup && chat && (
+        <AddGroupMemberModal
+          isOpen={isAddMemberModalOpen}
+          onClose={() => setIsAddMemberModalOpen(false)}
+          group={chat}
         />
       )}
     </>

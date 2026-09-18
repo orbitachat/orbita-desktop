@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, File, ArrowLeft,
   Copy, Image as ImageIcon, Download as DownloadIcon,
-  CheckCircle, Trash, ChevronDown, Search, Phone
+  CheckCircle, Trash, ChevronDown, Search, Phone, UserPlus
 } from 'lucide-react';
+import { GroupEmptyCard } from './GroupEmptyCard';
+import { AddGroupMemberModal } from './AddGroupMemberModal';
 import { useChatStore, type Message, type MediaItem, type LinkPreviewData, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge } from '../ui/DeveloperBadge';
@@ -1812,6 +1814,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const [isSendAsTxtModalOpen, setIsSendAsTxtModalOpen] = useState(false);
   const [isSupportTicketsModalOpen, setIsSupportTicketsModalOpen] = useState(false);
   const [unsafeLinkData, setUnsafeLinkData] = useState<{ isOpen: boolean; url: string }>({ isOpen: false, url: '' });
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
 
   useEffect(() => {
     const handleReplyTicketEvent = (e: any) => {
@@ -6704,6 +6707,18 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   </svg>
                 </button>
               )}
+              {activeChat?.type === 'group' && (
+                <button
+                  className="p-2 transition-colors duration-200 text-[var(--text-dim)] hover:text-[var(--text-main)] cursor-pointer bg-transparent border-none outline-none flex items-center justify-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAddMemberModalOpen(true);
+                  }}
+                  aria-label={t('groupSettings.add_member', 'Добавить участника')}
+                >
+                  <UserPlus size={20} />
+                </button>
+              )}
               <button
                 className="p-2 transition-colors duration-200 text-[var(--text-dim)] hover:text-[var(--text-main)] cursor-pointer bg-transparent border-none outline-none flex items-center justify-center"
                 onClick={(e) => {
@@ -6892,6 +6907,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           {messages.length === 0 ? (
             activeChat?.type === 'channel' ? (
               <ChannelEmptyCard key={activeChat.id} chat={activeChat} />
+            ) : activeChat?.type === 'group' ? (
+              <GroupEmptyCard key={activeChat.id} chat={activeChat} />
             ) : (
               <EmptyChatGreeting
                 onSendGreeting={() => triggerMessage('👋')}
@@ -7461,6 +7478,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           )}
         </AnimatePresence>,
         document.body
+      )}
+
+      {activeChat?.type === 'group' && (
+        <AddGroupMemberModal
+          isOpen={isAddMemberModalOpen}
+          onClose={() => setIsAddMemberModalOpen(false)}
+          group={activeChat}
+        />
       )}
     </div>
   );
