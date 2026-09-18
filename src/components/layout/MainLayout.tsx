@@ -1470,9 +1470,8 @@ export const MainLayout = () => {
               if (messageData.nickname !== undefined) updates.name = messageData.nickname;
               if (messageData.hideProfileId !== undefined) {
                 updates.hideProfileId = Boolean(messageData.hideProfileId);
-                if (updates.hideProfileId) updates.peerCode = undefined;
               }
-              if (!updates.hideProfileId && messageData.senderCode && (!myCode || messageData.senderCode !== myCode)) {
+              if (messageData.senderCode && (!myCode || messageData.senderCode !== myCode)) {
                 updates.peerCode = messageData.senderCode;
               }
               if (Object.keys(updates).length > 0) {
@@ -1651,7 +1650,6 @@ export const MainLayout = () => {
       const updatesFinal: Partial<Chat> = { ...updates };
       if (isHidden) {
         updatesFinal.hideProfileId = true;
-        updatesFinal.peerCode = undefined;
       }
       if (recoveredName && recoveredName !== chat.name && recoveredName !== 'undefined' && recoveredName !== 'null') {
         updatesFinal.name = recoveredName;
@@ -1663,12 +1661,10 @@ export const MainLayout = () => {
       } else if (recoveredAvatar && recoveredAvatar !== chat.avatarUrl && recoveredAvatar !== 'undefined' && recoveredAvatar !== 'null') {
         updatesFinal.avatarUrl = recoveredAvatar;
       }
-      if (!isHidden) {
-        if (recoveredPeerCode && recoveredPeerCode !== chat.peerCode && recoveredPeerCode !== 'undefined' && recoveredPeerCode !== 'null') {
-          updatesFinal.peerCode = recoveredPeerCode;
-        } else if (chat.peerCode && myCode && chat.peerCode === myCode && !recoveredPeerCode) {
-          updatesFinal.peerCode = undefined;
-        }
+      if (recoveredPeerCode && recoveredPeerCode !== chat.peerCode && recoveredPeerCode !== 'undefined' && recoveredPeerCode !== 'null') {
+        updatesFinal.peerCode = recoveredPeerCode;
+      } else if (chat.peerCode && myCode && chat.peerCode === myCode && !recoveredPeerCode) {
+        updatesFinal.peerCode = undefined;
       }
 
       if (Object.keys(updatesFinal).length > 0) {
@@ -1716,9 +1712,8 @@ export const MainLayout = () => {
           if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
           if (update.hide_profile_id !== undefined && update.hide_profile_id !== null) {
             updates.hideProfileId = Boolean(update.hide_profile_id);
-            if (updates.hideProfileId) updates.peerCode = undefined;
           }
-          if (!updates.hideProfileId && !chat.hideProfileId && update.sender_code && update.sender_code !== myCode && !chat.peerCode) {
+          if (update.sender_code && update.sender_code !== myCode && !chat.peerCode) {
             updates.peerCode = update.sender_code;
           }
         }
@@ -1730,7 +1725,6 @@ export const MainLayout = () => {
             if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl && !updates.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
             if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null) {
               updates.hideProfileId = Boolean(pub.hide_profile_id);
-              if (updates.hideProfileId) updates.peerCode = undefined;
             }
           }
         }
@@ -2735,9 +2729,8 @@ export const MainLayout = () => {
         if (data.nickname !== undefined) updates.name = data.nickname;
         if (data.hideProfileId !== undefined) {
           updates.hideProfileId = Boolean(data.hideProfileId);
-          if (updates.hideProfileId) updates.peerCode = undefined;
         }
-        if (!updates.hideProfileId && data.senderCode && (!myCode || data.senderCode !== myCode)) {
+        if (data.senderCode && (!myCode || data.senderCode !== myCode)) {
           updates.peerCode = data.senderCode;
         }
         updateChat(chatId, updates);

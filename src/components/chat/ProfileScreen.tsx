@@ -1096,7 +1096,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   useEffect(() => {
     if (!chat || chat.type !== 'private' || chatId === 'notes') return;
     const myCode = useChatStore.getState().myCode;
-    const myNickname = useAuthStore.getState().nickname;
     const targetCode = (chat.peerCode && chat.peerCode !== myCode)
       ? chat.peerCode
       : (chat.name && chat.name.length === 36 && chat.name !== myCode)
@@ -1111,16 +1110,17 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         let updateAvatar: string | undefined = undefined;
 
         const update = await supabaseService.getLatestProfileUpdate(chat.id, myCode || undefined);
+        const myUserId = useAuthStore.getState().userId;
         const isMyOwnUpdate = update && (
           (myCode && update.sender_code === myCode) ||
-          (myNickname && update.nickname === myNickname)
+          (myUserId && (update.user_id === myUserId || update.sender_id === myUserId))
         );
 
         if (update && !isMyOwnUpdate) {
           if (update.hide_profile_id !== undefined && update.hide_profile_id !== null) {
             hideVal = Boolean(update.hide_profile_id);
           }
-          if (update.nickname && update.nickname !== myNickname) updateNick = update.nickname;
+          if (update.nickname) updateNick = update.nickname;
           if (update.avatar_url !== undefined) updateAvatar = update.avatar_url || undefined;
         }
 
@@ -1129,7 +1129,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           if (pub && pub.hide_profile_id !== undefined && pub.hide_profile_id !== null) {
             hideVal = Boolean(pub.hide_profile_id);
           }
-          if (pub?.nickname && pub.nickname !== myNickname && !updateNick) updateNick = pub.nickname;
+          if (pub?.nickname && !updateNick) updateNick = pub.nickname;
           if (pub?.avatar_url !== undefined && !updateAvatar) updateAvatar = pub.avatar_url || undefined;
         }
 
@@ -1138,9 +1138,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         const chatUpdates: Partial<Chat> = {};
         if (hideVal !== null && hideVal !== Boolean(chat.hideProfileId)) {
           chatUpdates.hideProfileId = hideVal;
-          if (hideVal) {
-            chatUpdates.peerCode = undefined;
-          }
         }
         if (updateNick && updateNick !== chat.name) {
           chatUpdates.name = updateNick;

@@ -854,9 +854,6 @@ export const useChatStore = create<ChatState>()(
             chats: state.chats.map((c) => {
               if (c.id === chatId) {
                 const next = { ...c, ...cleanUpdates };
-                if (next.hideProfileId) {
-                  delete next.peerCode;
-                }
                 return next;
               }
               return c;
