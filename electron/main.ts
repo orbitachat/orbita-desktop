@@ -360,6 +360,7 @@ async function initMediaDb(): Promise<sqlite3.Database> {
   mediaDbInstance = new sqlite3.Database(dbPath);
   mediaDbInstance.run('PRAGMA journal_mode = WAL;');
   mediaDbInstance.run('PRAGMA synchronous = NORMAL;');
+  mediaDbInstance.run('PRAGMA wal_autocheckpoint = 250;');
 
   return new Promise((resolve, reject) => {
     mediaDbInstance!.run(
@@ -1162,6 +1163,7 @@ function initStorageDb(): Promise<void> {
     appDbInstance = new sqlite3.Database(dbPath);
     appDbInstance.run('PRAGMA journal_mode = WAL;');
     appDbInstance.run('PRAGMA synchronous = NORMAL;');
+    appDbInstance.run('PRAGMA wal_autocheckpoint = 250;');
     appDbInstance.serialize(() => {
       appDbInstance!.run(
         `

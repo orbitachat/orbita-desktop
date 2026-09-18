@@ -1652,11 +1652,16 @@ export const useChatStore = create<ChatState>()(
         chats: state.chats,
         pinnedChatIds: state.pinnedChatIds,
         deletedChatIds: state.deletedChatIds,
-        deletedChatSessions: state.deletedChatSessions,
+        deletedChatSessions: Object.fromEntries(
+          Object.entries(state.deletedChatSessions || {}).map(([id, session]) => {
+            const { messages: _, ...rest } = (session as any) || {};
+            return [id, rest];
+          })
+        ),
         messagesByChatId: Object.fromEntries(
           Object.entries(state.messagesByChatId || {}).map(([id, msgs]) => [
             id,
-            Array.isArray(msgs) ? msgs.slice(-100) : [],
+            Array.isArray(msgs) ? msgs.slice(-50) : [],
           ])
         ),
         passcode: state.passcode,
