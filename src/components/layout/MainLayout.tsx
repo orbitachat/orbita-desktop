@@ -68,6 +68,8 @@ import { VerifiedBadge } from '../common/VerifiedBadge';
 import { BotAvatar } from '../common/BotAvatar';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
+import { groupService } from '../../services/groupService';
+import { extractGroupCode, isValidGroupCode, deriveGroupKey } from '../../lib/groupCrypto';
 import { orbitosService } from '../../services/orbitosService';
 import { supportService } from '../../services/supportService';
 
@@ -1053,10 +1055,44 @@ export const MainLayout = () => {
       updateChat(data.chatId, updates);
     };
 
+    const handleGroupAdded = (data: any) => {
+      if (!data?.group) return;
+      const g = data.group;
+      if (!g.id || !g.code) return;
+      const existing = useChatStore.getState().chats.find((c) => c.id === g.id || c.inviteCode === g.code);
+      if (existing) return;
+      const sharedSecret = g.sharedSecret || (isValidGroupCode(g.code) ? deriveGroupKey(g.code) : undefined);
+      useChatStore.setState((s) => ({
+        chats: [{
+          id: g.id,
+          type: 'group' as const,
+          name: g.name,
+          description: g.description || '',
+          lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+          online: false,
+          sharedSecret,
+          role: 'member' as const,
+          inviteCode: g.code,
+          creatorNickname: g.creatorNickname,
+          creatorCode: g.creatorCode || undefined,
+          avatarUrl: g.avatarUrl || undefined,
+          members: g.members || [],
+          membersCount: g.membersCount || 1,
+          maxMembers: g.maxMembers || 10,
+          createdAt: g.createdAt || Date.now(),
+          unreadCount: 0,
+          lastReadTimestamp: Date.now(),
+          muted: false,
+          notificationsEnabled: true,
+        }, ...s.chats],
+      }));
+    };
+
     keysToListen.forEach((key) => {
       const channel = pusher.subscribe(`private-handshake-${key}`);
       channel.bind('client-request-identity', handleRequest);
       channel.bind('client-identity-confirmed', handleConfirm);
+      channel.bind('client-group-added', handleGroupAdded);
       const unsubAbly = ablyService.subscribeToHandshake(key, handleRequest, handleConfirm);
 
       unsubscribes.push(() => {
@@ -2221,8 +2257,44 @@ export const MainLayout = () => {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).orbita?.onDeepLink) {
-      const unsub = (window as any).orbita.onDeepLink((url: string) => {
+      const unsub = (window as any).orbita.onDeepLink(async (url: string) => {
         if (!url) return;
+        const groupCode = extractGroupCode(url);
+        if (groupCode && isValidGroupCode(groupCode)) {
+          const authData = (() => { try { return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state || {}; } catch { return {}; } })();
+          const nick = authData.nickname || nickname;
+          const uCode = authData.userId || myCode;
+          try {
+            const result = await groupService.joinGroup(url, nick, uCode);
+            if (result?.group) {
+              const existing = useChatStore.getState().chats.find((c) => c.id === result.group.id);
+              if (!existing) {
+                useChatStore.getState().addChat({
+                  id: result.group.id,
+                  type: 'group',
+                  name: result.group.name,
+                  description: result.group.description || '',
+                  lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+                  online: false,
+                  sharedSecret: result.sharedSecret,
+                  role: 'member',
+                  inviteCode: result.group.code,
+                  creatorNickname: result.group.creatorNickname,
+                  avatarUrl: result.group.avatarUrl || undefined,
+                  members: (result.group.members || []) as any[],
+                  membersCount: result.group.membersCount || 1,
+                  createdAt: result.group.createdAt || Date.now(),
+                  unreadCount: 0,
+                  lastReadTimestamp: Date.now(),
+                  muted: false,
+                  notificationsEnabled: true,
+                });
+                useChatStore.getState().setActiveChat(result.group.id);
+              }
+            }
+          } catch {}
+          return;
+        }
         const code = extractCodeFromInput(url);
         if (code && code.length === 36) {
           handleConnectRequest(code.toUpperCase(), () => {});
@@ -2230,7 +2302,7 @@ export const MainLayout = () => {
       });
       return unsub;
     }
-  }, [handleConnectRequest]);
+  }, [handleConnectRequest, nickname, myCode]);
 
   const subscribeToGroupChat = useCallback((chatId: string) => {
     const pusher = getGroupPusher();

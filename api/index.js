@@ -1731,6 +1731,23 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { status: 'ok' });
     }
 
+    if (pathname === '/groups/notify-member' && req.method === 'POST') {
+      const { targetUserCode, group } = body;
+      if (!targetUserCode || !group) return sendError(res, 'Missing targetUserCode or group', 400);
+
+      const allPusherServers = [...PUSHER_CONFIGS, ...GROUP_PUSHER_CONFIGS];
+      let triggered = false;
+      for (const server of allPusherServers) {
+        try {
+          await triggerPusherEventOnServer(server, `private-handshake-${targetUserCode}`, 'client-group-added', { group });
+          triggered = true;
+          break;
+        } catch {}
+      }
+
+      return sendJson(res, { status: triggered ? 'ok' : 'no_server' });
+    }
+
     if (pathname === '/groups/messages' && req.method === 'GET') {
       const groupId = query.groupId || query.id;
       const limit = parseInt(query.limit || '100', 10);

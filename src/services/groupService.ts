@@ -388,6 +388,15 @@ class GroupService {
       });
     } catch {}
   }
+  async notifyMember(targetUserCode: string, group: GroupInfo): Promise<void> {
+    try {
+      await fetch(`${this.getWorkerUrl()}/groups/notify-member`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserCode, group }),
+      });
+    } catch {}
+  }
 }
 
 export const groupService = new GroupService();

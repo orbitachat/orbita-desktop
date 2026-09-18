@@ -2007,12 +2007,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         </p>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '20px', padding: '0 16px', width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px', padding: '0 12px', width: '100%', boxSizing: 'border-box', flexWrap: 'wrap' }}>
         <button
           onClick={handleChatClick}
           aria-label={t('profile.chat')}
           style={{
-            width: '92px',
+            flex: '1 1 0',
+            minWidth: '64px',
+            maxWidth: '92px',
             height: '56px',
             display: 'flex',
             flexDirection: 'column',
@@ -2025,7 +2027,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             padding: '0',
             color: 'var(--text-main)',
             cursor: 'pointer',
-            flexShrink: 0,
             outline: 'none',
           }}
         >
@@ -2035,11 +2036,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.chat')}</span>
         </button>
 
+
         <button
           onClick={handleSoundClick}
           aria-label={t('profile.sound')}
           style={{
-            width: '92px',
+            flex: '1 1 0',
+            minWidth: '64px',
+            maxWidth: '92px',
             height: '56px',
             display: 'flex',
             flexDirection: 'column',
@@ -2052,7 +2056,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             padding: '0',
             color: 'var(--text-main)',
             cursor: 'pointer',
-            flexShrink: 0,
             outline: 'none',
           }}
         >
@@ -2123,7 +2126,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               disabled={!voiceCallsEnabled}
               aria-label={t('profile.call')}
               style={{
-                width: '74px',
+                flex: '1 1 0',
+                minWidth: '60px',
+                maxWidth: '80px',
                 height: '56px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -2137,7 +2142,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 color: 'var(--text-main)',
                 cursor: !voiceCallsEnabled ? 'not-allowed' : 'pointer',
                 opacity: !voiceCallsEnabled ? 0.4 : 1,
-                flexShrink: 0,
                 outline: 'none',
               }}
             >
@@ -2151,7 +2155,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               onClick={() => setIsAddMemberModalOpen(true)}
               aria-label={t('groupSettings.add_member', 'Добавить участника')}
               style={{
-                width: '74px',
+                flex: '1 1 0',
+                minWidth: '60px',
+                maxWidth: '80px',
                 height: '56px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -2164,7 +2170,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 padding: '0',
                 color: 'var(--text-main)',
                 cursor: 'pointer',
-                flexShrink: 0,
                 outline: 'none',
               }}
             >
@@ -2181,7 +2186,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               }}
               aria-label={t('groupSettings.copy_link', 'Скопировать ссылку')}
               style={{
-                width: '74px',
+                flex: '1 1 0',
+                minWidth: '60px',
+                maxWidth: '80px',
                 height: '56px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -2194,7 +2201,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 padding: '0',
                 color: 'var(--text-main)',
                 cursor: 'pointer',
-                flexShrink: 0,
                 outline: 'none',
               }}
             >
@@ -2213,7 +2219,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             onClick={handleCopyChannelKey}
             aria-label={copiedKey ? 'Скопирован' : 'Ключ'}
             style={{
-              width: '92px',
+              flex: '1 1 0',
+              minWidth: '64px',
+              maxWidth: '92px',
               height: '56px',
               display: 'flex',
               flexDirection: 'column',
@@ -2226,7 +2234,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               padding: '0',
               color: 'var(--text-main)',
               cursor: 'pointer',
-              flexShrink: 0,
               outline: 'none',
             }}
           >
@@ -2243,7 +2250,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             disabled={!voiceCallsEnabled || chatId === 'notes'}
             aria-label={t('profile.call')}
             style={{
-              width: '92px',
+              flex: '1 1 0',
+              minWidth: '64px',
+              maxWidth: '92px',
               height: '56px',
               display: 'flex',
               flexDirection: 'column',
@@ -2257,7 +2266,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               color: 'var(--text-main)',
               cursor: (!voiceCallsEnabled || chatId === 'notes') ? 'not-allowed' : 'pointer',
               opacity: (!voiceCallsEnabled || chatId === 'notes') ? 0.4 : 1,
-              flexShrink: 0,
               outline: 'none',
             }}
           >

@@ -104,7 +104,7 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
       setAddingContactIds((prev) => ({ ...prev, [contact.id]: true }));
       try {
         const userCode = contact.peerCode || (contact.name && contact.name.length === 36 ? contact.name : undefined) || contact.id;
-        await groupService.addMember(
+        const updatedGroup = await groupService.addMember(
           currentChat.id,
           inviteCode,
           contact.name,
@@ -127,13 +127,21 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
           membersCount: (currentChat.membersCount || currentMembers.length) + 1,
         });
 
+        if (updatedGroup && userCode) {
+          await groupService.notifyMember(userCode, {
+            ...updatedGroup,
+            sharedSecret: currentChat.sharedSecret,
+          } as any);
+        }
+
         setAddedContactIds((prev) => ({ ...prev, [contact.id]: true }));
       } catch {} finally {
         setAddingContactIds((prev) => ({ ...prev, [contact.id]: false }));
       }
     },
-    [isGroupFull, addingContactIds, currentChat.id, currentChat.membersCount, inviteCode, currentMembers, updateChat]
+    [isGroupFull, addingContactIds, currentChat.id, currentChat.membersCount, currentChat.sharedSecret, inviteCode, currentMembers, updateChat]
   );
+
 
   if (!isOpen) return null;
 
