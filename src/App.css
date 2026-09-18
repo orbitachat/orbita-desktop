@@ -827,3 +827,21 @@ textarea::selection,
   background: transparent !important;
   color: inherit !important;
 }
+
+@keyframes activeCallBarGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.active-call-header-bar {
+  background: linear-gradient(115deg, var(--accent-color, #7C3AED), #2563eb, #0ea5e9, #06b6d4, #6366f1, var(--accent-color, #7C3AED));
+  background-size: 260% 260%;
+  animation: activeCallBarGradient 14s ease infinite;
+}

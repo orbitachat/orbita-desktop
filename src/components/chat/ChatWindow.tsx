@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, File, ArrowLeft,
   Copy, Image as ImageIcon, Download as DownloadIcon,
-  CheckCircle, Trash, ChevronDown, Search, Phone, UserPlus, Mic, MicOff
+  CheckCircle, Trash, ChevronDown, Search, Phone, UserPlus
 } from 'lucide-react';
 import { GroupEmptyCard } from './GroupEmptyCard';
 import { AddGroupMemberModal } from './AddGroupMemberModal';
@@ -6706,11 +6706,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       >
         {isCallActive && (
           <div
-            className="w-full flex items-center justify-between px-3 select-none transition-all cursor-pointer relative"
+            className="active-call-header-bar w-full flex items-center justify-between px-3 select-none transition-all cursor-pointer relative shadow-sm"
             style={{
               height: '38px',
-              background: 'linear-gradient(90deg, var(--accent-color, #7C3AED), color-mix(in srgb, var(--accent-color, #7C3AED) 75%, var(--bg-primary, #181424)))',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
             }}
             onClick={() => {
               try {
@@ -6719,7 +6718,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               } catch {}
             }}
           >
-            <div className="flex items-center gap-2 z-10">
+            <div className="flex items-center gap-2.5 z-10">
               <button
                 type="button"
                 aria-label={isCallMicEnabled ? t('call.mic') : t('call.mic_off')}
@@ -6729,7 +6728,18 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 }}
                 className="w-7 h-7 rounded-md flex items-center justify-center bg-black/25 hover:bg-black/40 text-white transition-all border-0 cursor-pointer flex-shrink-0"
               >
-                {isCallMicEnabled ? <Mic size={15} /> : <MicOff size={15} />}
+                {isCallMicEnabled ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" className="w-4 h-4 text-white">
+                    <g fill="currentColor">
+                      <path d="M13 5a1 1 0 0 1 1 1a6 6 0 0 1-5.005 5.915Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 2 0a4 4 0 1 0 8 0a1 1 0 0 1 1-1" />
+                      <path d="M8 1a3 3 0 0 1 3 3v2a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3" />
+                    </g>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" className="w-4 h-4 text-white">
+                    <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
+                  </svg>
+                )}
               </button>
               <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center shadow">
                 <Avatar
@@ -6738,12 +6748,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   className="w-full h-full object-cover"
                 />
               </div>
-            </div>
-
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none max-w-[50%]">
-              <span className="text-[13px] font-semibold text-white truncate text-center">
-                {currentCallName}
-              </span>
             </div>
 
             <div className="flex items-center ml-auto z-10">
@@ -6759,7 +6763,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 25%, #06b6d4)',
                 }}
               >
-                <Phone className="rotate-[135deg]" size={14} color="#ffffff" />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" className="w-4 h-4 text-white">
+                  <path fill="currentColor" d="M12 8q2.95 0 5.813 1.188T22.9 12.75q.3.3.3.7t-.3.7l-2.3 2.25q-.275.275-.638.3t-.662-.2l-2.9-2.2q-.2-.15-.3-.35t-.1-.45v-2.85q-.95-.3-1.95-.475T12 10t-2.05.175T8 10.65v2.85q0 .25-.1.45t-.3.35l-2.9 2.2q-.3.225-.663.2t-.637-.3l-2.3-2.25q-.3-.3-.3-.7t.3-.7q2.2-2.375 5.075-3.562T12 8" />
+                </svg>
               </button>
             </div>
           </div>
