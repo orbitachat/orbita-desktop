@@ -63,9 +63,8 @@ export function useAudioRecorder() {
     }
   }, []);
 
-  const computeNormalizedWaveform = useCallback((rawSamples: number[], targetBars = 54): number[] => {
+  const computeNormalizedWaveform = useCallback((rawSamples: number[], targetBars = 66): number[] => {
     if (rawSamples.length === 0) {
-      // Default placeholder pattern if empty
       return Array.from({ length: targetBars }, () => Math.floor(Math.random() * 40) + 10);
     }
 

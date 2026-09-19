@@ -1491,7 +1491,7 @@ const VoiceMessagePlayer = memo(({
     }
   };
 
-  const BAR_COUNT = 54;
+  const BAR_COUNT = 66;
   const bars = useMemo(() => {
     if (msg?.waveform && msg.waveform.length > 0) {
       const src = msg.waveform;
