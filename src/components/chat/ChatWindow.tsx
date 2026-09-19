@@ -1646,8 +1646,8 @@ const VoiceMessagePlayer = memo(({
         <div
           ref={waveformRef}
           onMouseDown={handleMouseDown}
-          className="flex items-center gap-[1.5px] cursor-pointer"
-          style={{ height: '22px', padding: '1px 0' }}
+          className="flex items-center cursor-pointer"
+          style={{ height: '22px', gap: '1px' }}
         >
           {bars.map((h, idx) => {
             const barStart = idx / BAR_COUNT;
@@ -1666,14 +1666,17 @@ const VoiceMessagePlayer = memo(({
               fillRatio = (progressRatio - barStart) * BAR_COUNT;
             }
 
+            const barHeight = Math.max(3, Math.round((h / 100) * 20));
+
             return (
               <div
                 key={idx}
                 style={{
-                  flex: 1,
-                  maxWidth: '2.5px',
-                  minWidth: '1.5px',
-                  height: `${h}%`,
+                  width: '2px',
+                  minWidth: '2px',
+                  maxWidth: '2px',
+                  height: `${barHeight}px`,
+                  flexShrink: 0,
                   backgroundColor: fillRatio > 0
                     ? (isOwn
                         ? '#ffffff'
@@ -1681,7 +1684,7 @@ const VoiceMessagePlayer = memo(({
                     : (isOwn
                         ? 'rgba(255, 255, 255, 0.4)'
                         : 'color-mix(in srgb, var(--text-main) 30%, transparent)'),
-                  borderRadius: '1.5px',
+                  borderRadius: '1px',
                   willChange: 'background-color',
                   transform: 'translateZ(0)',
                   transition: 'background-color 0.12s ease-out',
