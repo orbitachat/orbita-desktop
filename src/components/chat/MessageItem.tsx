@@ -332,7 +332,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
 
             <MessageText
               text={parsed.body}
-              timeNode={!hasLinkPreview && !hasReactions ? timeBadge : undefined}
+              timeNode={!hasLinkPreview ? timeBadge : undefined}
               themeColor={isOwn ? '#ffffff' : (themeColor || 'var(--accent-color)')}
               isOwn={isOwn}
               isEmojiOnly={isEmoji && emojiCount >= 4}
@@ -394,7 +394,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 </div>
               )}
 
-              {hasLinkPreview && !hasReactions && (
+              {hasLinkPreview && (
                 <div
                   className="flex justify-end items-center select-none message-time-badge"
                   style={{
@@ -410,18 +410,13 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               )}
 
               {hasReactions && (
-                <div className="flex items-end justify-between gap-2 mt-1 min-w-0 w-full select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
-                  <div className="flex-1 min-w-0">
-                    <MessageReactions
-                      reactions={msg.reactions}
-                      onToggleReaction={(emoji) => onToggleReaction?.(emoji)}
-                      isOwn={isOwn}
-                      isSmallMessage={isShortMessage}
-                    />
-                  </div>
-                  <div className="flex-shrink-0 ml-auto flex items-center gap-1 self-end pb-0.5 select-none message-time-badge" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
-                    {timeBadge}
-                  </div>
+                <div className="flex items-center mt-1 min-w-0 w-full select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                  <MessageReactions
+                    reactions={msg.reactions}
+                    onToggleReaction={(emoji) => onToggleReaction?.(emoji)}
+                    isOwn={isOwn}
+                    isSmallMessage={isShortMessage}
+                  />
                 </div>
               )}
             </div>

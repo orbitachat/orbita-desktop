@@ -1713,6 +1713,8 @@ export const MainLayout = () => {
                 duration: messageData.duration || undefined,
                 waveform: messageData.waveform || undefined,
                 linkPreview: messageData.linkPreview || undefined,
+                width: messageData.width || undefined,
+                height: messageData.height || undefined,
               },
             });
 
@@ -3208,6 +3210,8 @@ export const MainLayout = () => {
               duration: messageData.duration || undefined,
               waveform: messageData.waveform || undefined,
               linkPreview: messageData.linkPreview || undefined,
+              width: messageData.width || undefined,
+              height: messageData.height || undefined,
             },
             data.ciphertext,
             data.index
@@ -3226,7 +3230,12 @@ export const MainLayout = () => {
             const activeChatId = useChatStore.getState().activeChatId;
             if (activeChatId !== chatId) {
               let notifBody = messageData.text;
-              if (!notifBody) {
+              if (
+                messageData.mediaType === 'sticker' ||
+                (typeof notifBody === 'string' && (/^\[Sticker\]/i.test(notifBody.trim()) || /(\.stickers|\/stickers|stickers\/|bisquit)/i.test(notifBody)))
+              ) {
+                notifBody = t('chatWindow.sticker') || 'Стикер';
+              } else if (!notifBody) {
                 if (messageData.mediaType === 'image') notifBody = t('chatWindow.photo') || '📷 Фотография';
                 else if (messageData.mediaType === 'video') notifBody = t('chatWindow.video') || '📹 Видео';
                 else if (messageData.mediaType === 'voice') notifBody = t('chatWindow.voice_message') || '🎤 Голосовое сообщение';

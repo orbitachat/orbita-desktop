@@ -74,9 +74,16 @@ export function showNotification(
     notificationNativeWindows,
   } = state;
 
-  // Формируем заголовок, тело сообщения и аватарку согласно настройкам и текущему языку
   let finalTitle = title;
   let finalBody = body;
+  if (
+    typeof finalBody === 'string' &&
+    (/^\[Sticker\]/i.test(finalBody.trim()) ||
+      /(\.stickers|\/stickers|stickers\/)/i.test(finalBody) ||
+      /bisquit/i.test(finalBody))
+  ) {
+    finalBody = i18n.t('chatWindow.sticker') || 'Стикер';
+  }
   let finalAvatarUrl: string | undefined = avatarUrl || undefined;
 
   const isNameHidden = Boolean(notificationHideContent || !notificationShowName);

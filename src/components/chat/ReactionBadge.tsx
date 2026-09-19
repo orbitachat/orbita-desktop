@@ -176,9 +176,10 @@ export const MessageReactions: React.FC<MessageReactionsProps> = React.memo(({
   activeChatId,
   isSmallMessage = false,
 }) => {
-  if (!reactions || Object.keys(reactions).length === 0) return null;
+  if (!reactions) return null;
 
-  const entries = Object.entries(reactions);
+  const entries = Object.entries(reactions).filter(([_, users]) => Array.isArray(users) && users.length > 0);
+  if (entries.length === 0) return null;
 
   return (
     <div

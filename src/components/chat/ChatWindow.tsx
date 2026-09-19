@@ -1194,10 +1194,14 @@ const EncryptedMedia = memo(({
     );
   }
 
+  const initialWidth = (msgWidth && msgHeight && msgHeight > 0)
+    ? (clampedAspect < 1 ? Math.min(440, Math.round(380 * clampedAspect)) : Math.min(440, msgWidth))
+    : 440;
+
   return (
     <div
       style={{
-        width: 'min(440px, 100%)',
+        width: `${initialWidth}px`,
         maxWidth: '100%',
         aspectRatio: `${clampedAspect}`,
         maxHeight: '380px',
@@ -5488,6 +5492,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               ...f,
               type: f.type,
               key: f.key,
+              width: f.width,
+              height: f.height,
+              duration: f.duration,
               audioMetadata: f.audioMetadata ? {
                 title: f.audioMetadata.title,
                 artist: f.audioMetadata.artist,
@@ -6318,7 +6325,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     borderRadius: customRadius,
                     padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
                     overflow: 'hidden',
-                    width: 'fit-content',
+                    width: isPhotoGroup ? 'min(440px, 85vw)' : 'fit-content',
                     maxWidth: 'min(440px, 75%)',
                     boxSizing: 'border-box',
                   })}
@@ -6508,8 +6515,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
             {media.type === 'image' && (
               <div
-                className="max-w-[min(440px, 75%)] w-fit relative rounded-xl overflow-hidden shadow-lg cursor-pointer"
-                style={{ border: 'none', maxWidth: 'min(440px, 75%)', width: 'fit-content', borderRadius: customRadius || bubbleRadius }}
+                className="max-w-[min(440px, 75%)] relative rounded-xl overflow-hidden shadow-lg cursor-pointer"
+                style={{
+                  border: 'none',
+                  maxWidth: 'min(440px, 75%)',
+                  width: msg.width && msg.height && msg.height > 0
+                    ? `${Math.min(440, (msg.width / msg.height) < 1 ? Math.round(380 * Math.max(0.6, msg.width / msg.height)) : msg.width)}px`
+                    : 'min(440px, 75vw)',
+                  borderRadius: customRadius || bubbleRadius,
+                }}
               >
                 <EncryptedMedia
                   url={media.url!}
@@ -6529,8 +6543,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
             {media.type === 'video' && (
               <div
-                className="max-w-[min(440px, 75%)] w-fit relative rounded-xl overflow-hidden shadow-lg cursor-pointer"
-                style={{ border: 'none', maxWidth: 'min(440px, 75%)', width: 'fit-content', borderRadius: customRadius || bubbleRadius }}
+                className="max-w-[min(440px, 75%)] relative rounded-xl overflow-hidden shadow-lg cursor-pointer"
+                style={{
+                  border: 'none',
+                  maxWidth: 'min(440px, 75%)',
+                  width: msg.width && msg.height && msg.height > 0
+                    ? `${Math.min(440, (msg.width / msg.height) < 1 ? Math.round(380 * Math.max(0.6, msg.width / msg.height)) : msg.width)}px`
+                    : 'min(440px, 75vw)',
+                  borderRadius: customRadius || bubbleRadius,
+                }}
               >
                 <EncryptedMedia
                   url={media.url!}

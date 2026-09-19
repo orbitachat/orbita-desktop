@@ -180,7 +180,7 @@ export const TelegramAlbumGrid = memo(({
     <div
       className="flex flex-col overflow-hidden w-full select-none"
       style={{
-        width: '100%',
+        width: 'min(440px, 100%)',
         maxWidth: `${maxWidth}px`,
         userSelect: 'none',
         WebkitUserSelect: 'none',
