@@ -829,7 +829,9 @@ textarea::selection,
 }
 
 .active-call-header-bar {
-  background: linear-gradient(90deg, var(--accent-color, #7C3AED) 0%, #2563eb 50%, #06b6d4 100%);
+  background: #14111d;
+  position: relative;
+  overflow: hidden;
 }
 
 .reaction-badge-btn {

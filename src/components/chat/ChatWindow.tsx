@@ -1718,6 +1718,19 @@ const VoiceMessagePlayer = memo(({
   );
 });
 
+const CALL_GRADIENTS = [
+  'linear-gradient(90deg, var(--accent-color, #7C3AED) 0%, #2563eb 50%, #06b6d4 100%)',
+  'linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)',
+  'linear-gradient(90deg, #0284c7 0%, #2563eb 50%, #7c3aed 100%)',
+  'linear-gradient(90deg, #0d9488 0%, #0284c7 50%, #6366f1 100%)',
+  'linear-gradient(90deg, #6366f1 0%, #9333ea 50%, #e11d48 100%)',
+  'linear-gradient(90deg, #059669 0%, #0d9488 50%, #2563eb 100%)',
+  'linear-gradient(90deg, #8b5cf6 0%, #ec4899 50%, #f43f5e 100%)',
+  'linear-gradient(90deg, #2563eb 0%, #06b6d4 50%, #10b981 100%)',
+  'linear-gradient(90deg, #6d28d9 0%, #3b82f6 50%, #14b8a6 100%)',
+  'linear-gradient(90deg, #4338ca 0%, #6d28d9 50%, #0284c7 100%)',
+];
+
 interface ChatWindowProps {
   isMobileView?: boolean;
   onBack?: () => void;
@@ -1998,6 +2011,47 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const currentCallChat = activeCall ? chats.find((c) => c.id === activeCall.chatId) : null;
   const currentCallName = currentCallChat?.name || (activeCall as any)?.otherName || activeChat?.name || '';
   const currentCallAvatar = currentCallChat?.avatarUrl || (activeCall as any)?.otherAvatar || (currentCallChat?.id === activeChatId ? activeChat?.avatarUrl : null);
+
+  const currentCallGradientRef = useRef(CALL_GRADIENTS[0]);
+  const activeCallBgLayerRef = useRef<0 | 1>(0);
+  const [callBgLayer1, setCallBgLayer1] = useState(CALL_GRADIENTS[0]);
+  const [callBgLayer2, setCallBgLayer2] = useState(CALL_GRADIENTS[1]);
+  const [activeCallBgLayer, setActiveCallBgLayer] = useState<0 | 1>(0);
+
+  useEffect(() => {
+    if (!isCallActive) return;
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNextChange = () => {
+      const intervals = [15000, 30000, 60000];
+      const delay = intervals[Math.floor(Math.random() * intervals.length)];
+
+      timeoutId = setTimeout(() => {
+        const available = CALL_GRADIENTS.filter((g) => g !== currentCallGradientRef.current);
+        const nextGrad = available[Math.floor(Math.random() * available.length)] || CALL_GRADIENTS[0];
+        currentCallGradientRef.current = nextGrad;
+
+        if (activeCallBgLayerRef.current === 0) {
+          setCallBgLayer2(nextGrad);
+          setActiveCallBgLayer(1);
+          activeCallBgLayerRef.current = 1;
+        } else {
+          setCallBgLayer1(nextGrad);
+          setActiveCallBgLayer(0);
+          activeCallBgLayerRef.current = 0;
+        }
+
+        scheduleNextChange();
+      }, delay);
+    };
+
+    scheduleNextChange();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isCallActive]);
   const sharedSecret = useMemo(() => {
     if (activeChat?.type === 'channel') {
       return activeChat.sharedSecret || deriveChannelKey(activeChat.id);
@@ -6849,7 +6903,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       >
         {isCallActive && (
           <div
-            className="active-call-header-bar w-full flex items-center justify-between select-none transition-all cursor-pointer relative shadow-sm"
+            className="active-call-header-bar w-full flex items-center justify-between select-none cursor-pointer relative shadow-sm overflow-hidden"
             style={{
               height: '42px',
               borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
@@ -6861,6 +6915,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               } catch {}
             }}
           >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: callBgLayer1,
+                opacity: activeCallBgLayer === 0 ? 1 : 0,
+                transition: 'opacity 3.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                pointerEvents: 'none',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: callBgLayer2,
+                opacity: activeCallBgLayer === 1 ? 1 : 0,
+                transition: 'opacity 3.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                pointerEvents: 'none',
+              }}
+            />
             <div className="flex items-center gap-2.5 z-10 pl-3">
               <button
                 type="button"
