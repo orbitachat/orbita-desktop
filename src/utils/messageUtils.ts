@@ -1,7 +1,7 @@
 export function formatPreviewText(rawText: string, t: any): string {
   if (!rawText) return '';
   const clean = rawText.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n?/, '').trim();
-  if (/^\[Sticker\]/i.test(clean)) return t('chatWindow.sticker', 'Стикер');
+  if (/^\[Sticker\]/i.test(clean) || clean.includes('/stickers/') || clean.includes('\\stickers\\') || clean.includes('.stickers')) return t('chatWindow.sticker', 'Стикер');
   if (/^\[GIF\]/i.test(clean)) return 'GIF';
   if (/^\[Photo\]/i.test(clean)) return t('chatWindow.photo', 'Фотография');
   if (/^\[Video\]/i.test(clean)) return t('chatWindow.video', 'Видео');

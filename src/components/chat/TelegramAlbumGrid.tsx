@@ -176,11 +176,24 @@ export const TelegramAlbumGrid = memo(({
     };
   }, [customRadius]);
 
+  const containerWidth = useMemo(() => {
+    if (items.length === 1 && items[0].width && items[0].height && items[0].height > 0) {
+      const r = items[0].width / items[0].height;
+      if (r < 1) {
+        const clampedR = Math.max(0.6, r);
+        const w = Math.round(380 * clampedR);
+        return `min(${w}px, 100%)`;
+      }
+      return `min(${Math.min(maxWidth, Math.max(260, items[0].width))}px, 100%)`;
+    }
+    return `min(${maxWidth}px, 100%)`;
+  }, [items, maxWidth]);
+
   return (
     <div
       className="flex flex-col overflow-hidden w-full select-none"
       style={{
-        width: 'min(440px, 100%)',
+        width: containerWidth,
         maxWidth: `${maxWidth}px`,
         userSelect: 'none',
         WebkitUserSelect: 'none',

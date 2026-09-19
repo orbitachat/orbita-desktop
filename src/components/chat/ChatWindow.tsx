@@ -194,8 +194,10 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
   }
 
   const text = msg.text || '';
-  const stickerMatch = text.match(/^\[Sticker\]\s*(.+)$/i);
-  if (stickerMatch) return { type: 'sticker', url: stickerMatch[1].trim() };
+  const stickerMatch = text.match(/^\[Sticker\]\s*(\S+.*)$/i);
+  if (stickerMatch) return { type: 'sticker', url: msg.mediaUrl || stickerMatch[1].trim(), fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
+  const stickerMatchGeneric = text.match(/^\[Sticker\]/i);
+  if (stickerMatchGeneric) return { type: 'sticker', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
 
   const gifMatch = text.match(/^\[GIF\]\s*(.+)$/i);
   if (gifMatch) return { type: 'video', url: gifMatch[1].trim(), fileName: msg.mediaName || 'animation.mp4', mime: 'video/mp4' };
@@ -882,6 +884,7 @@ const CallMessage = memo(
 );
 
 const SpoilerSpan: React.FC<{ content: string }> = ({ content }) => {
+  const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
   return (
     <span
@@ -898,7 +901,7 @@ const SpoilerSpan: React.FC<{ content: string }> = ({ content }) => {
         transition: 'filter 0.2s ease, background-color 0.2s ease',
         userSelect: revealed ? 'text' : 'none',
       }}
-      title={revealed ? '' : 'Нажмите, чтобы показать'}
+      aria-label={revealed ? undefined : t('chatWindow.clickToShowSpoiler')}
     >
       {content}
     </span>
@@ -3889,7 +3892,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     setInputText('');
     stopTyping();
     if (replyingTo) {
-      const cleanText = replyingTo.text.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ').trim();
+      let cleanText = replyingTo.text.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ').trim();
+      if (/^\[Sticker\]/i.test(cleanText) || cleanText.includes('/stickers/') || cleanText.includes('\\stickers\\') || cleanText.includes('.stickers')) {
+        cleanText = '[Sticker]';
+      }
       const idTag = replyingTo.senderId ? `[id:${replyingTo.id || ''}:${replyingTo.senderId}] ` : (replyingTo.id ? `[id:${replyingTo.id}] ` : '');
       triggerMessage(`↩ ${idTag}${replyingTo.sender}: ${truncateText(cleanText, 200)}, ${formatTime(replyingTo.time)}\n${textToSend}`, undefined, linkPreview);
     } else {
@@ -4327,6 +4333,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             mediaName: parsedData?.mediaName || row.media_name || undefined,
             mediaKey: parsedData?.mediaKey || row.media_key || undefined,
             mime: parsedData?.mime || row.mime || undefined,
+            mediaItems: parsedData?.mediaItems || undefined,
+            width: parsedData?.width || (row as any).width || undefined,
+            height: parsedData?.height || (row as any).height || undefined,
             duration: parsedData?.duration || row.duration || undefined,
             waveform: parsedData?.waveform || row.waveform || undefined,
             audioMetadata: parsedData?.audioMetadata || row.audio_metadata || undefined,
@@ -4506,6 +4515,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               mediaName: parsed?.mediaName || data.mediaName || undefined,
               mediaKey: parsed?.mediaKey || data.mediaKey || undefined,
               mime: parsed?.mime || data.mime || undefined,
+              mediaItems: parsed?.mediaItems || data.mediaItems || undefined,
+              width: parsed?.width || data.width || undefined,
+              height: parsed?.height || data.height || undefined,
               duration: parsed?.duration || data.duration || undefined,
               waveform: parsed?.waveform || data.waveform || undefined,
               audioMetadata: parsed?.audioMetadata || data.audioMetadata || undefined,
@@ -4685,7 +4697,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const handleReply = (index: number) => {
     if (activeChat?.type === 'channel' && !isChannelOwner) return;
     const originalMessage = messages[index];
-    const cleanText = originalMessage.text.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ').trim();
+    let cleanText = originalMessage.text.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ').trim();
+    if (/^\[Sticker\]/i.test(cleanText) || cleanText.includes('/stickers/') || cleanText.includes('\\stickers\\') || cleanText.includes('.stickers')) {
+      cleanText = '[Sticker]';
+    }
     const originalSenderId = originalMessage.senderId || (originalMessage.sender === myNickname ? myCode : activeChat?.peerCode);
     setReplyingTo({
       id: originalMessage.id,
@@ -6300,6 +6315,23 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         const isPhotoGroup = effectiveMediaItems.some((it) => it.type === 'photo' || it.type === 'video');
         const isAudioGroup = effectiveMediaItems.every((it) => it.type === 'audio' || it.mime?.startsWith('audio/'));
 
+        let groupBubbleWidth = 'min(440px, 85vw)';
+        if (isPhotoGroup && effectiveMediaItems.length === 1) {
+          const it = effectiveMediaItems[0];
+          const w = it.width || msg.width;
+          const h = it.height || msg.height;
+          if (w && h && h > 0) {
+            const ratio = w / h;
+            if (ratio < 1) {
+              const clampedR = Math.max(0.6, ratio);
+              const computedW = Math.round(380 * clampedR);
+              groupBubbleWidth = `min(${computedW}px, 75%)`;
+            } else {
+              groupBubbleWidth = `min(${Math.min(440, Math.max(260, w))}px, 75%)`;
+            }
+          }
+        }
+
         return (
           <div style={{ ...highlightWrapperStyle }}>
             <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -6325,7 +6357,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     borderRadius: customRadius,
                     padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
                     overflow: 'hidden',
-                    width: isPhotoGroup ? 'min(440px, 85vw)' : 'fit-content',
+                    width: isPhotoGroup ? groupBubbleWidth : 'fit-content',
                     maxWidth: 'min(440px, 75%)',
                     boxSizing: 'border-box',
                   })}

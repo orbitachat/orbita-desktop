@@ -343,6 +343,8 @@
       "selected_count": "Выбрано: {{count}}",
       "more_emojis": "Ещё эмодзи",
       "collapse": "Свернуть",
+      "draft": "Черновик",
+      "clickToShowSpoiler": "Нажмите, чтобы показать",
       "recents": "Недавние",
       "no_audio_messages": "Нет аудиосообщений",
       "no_voice_messages": "Нет голосовых сообщений",

@@ -253,7 +253,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
       );
     }
     const cleanText = text.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ');
-    if (/^\[Sticker\]/i.test(cleanText)) {
+    if (/^\[Sticker\]/i.test(cleanText) || cleanText.includes('/stickers/') || cleanText.includes('\\stickers\\') || cleanText.includes('.stickers')) {
       return (
         <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
       );
@@ -310,7 +310,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
   if (!chat.lastMsg && !lastMsg) return t('common.no_messages');
 
   let cleanText = chat.lastMsg || '';
-  if (/^\[Sticker\]/i.test(cleanText)) {
+  if (/^\[Sticker\]/i.test(cleanText) || cleanText.includes('/stickers/') || cleanText.includes('\\stickers\\') || cleanText.includes('.stickers')) {
     return (
       <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
     );
@@ -579,7 +579,7 @@ const ChatListItem = React.memo(({
             >
               {showDraft ? (
                 <span className="truncate block min-w-0">
-                  <span style={{ color: '#ef4444', fontWeight: 600 }}>Черновик: </span>
+                  <span style={{ color: '#ef4444', fontWeight: 600 }}>{t('chatWindow.draft', 'Черновик')}: </span>
                   <span>{draftText}</span>
                 </span>
               ) : (
@@ -1503,6 +1503,10 @@ export const MainLayout = () => {
               mediaKey: messageData.mediaKey || null,
               mime: messageData.mime || null,
               mediaItems: messageData.mediaItems || undefined,
+              width: messageData.width || undefined,
+              height: messageData.height || undefined,
+              blurPreview: messageData.blurPreview || undefined,
+              thumbnail: messageData.thumbnail || undefined,
               audioMetadata: messageData.audioMetadata || undefined,
               duration: messageData.duration || undefined,
               waveform: messageData.waveform || undefined,
@@ -2560,6 +2564,9 @@ export const MainLayout = () => {
           mediaName: parsedData?.mediaName || data.mediaName || undefined,
           mediaKey: parsedData?.mediaKey || data.mediaKey || undefined,
           mime: parsedData?.mime || data.mime || undefined,
+          mediaItems: parsedData?.mediaItems || data.mediaItems || undefined,
+          width: parsedData?.width || data.width || undefined,
+          height: parsedData?.height || data.height || undefined,
           duration: parsedData?.duration || data.duration || undefined,
           waveform: parsedData?.waveform || data.waveform || undefined,
           audioMetadata: parsedData?.audioMetadata || data.audioMetadata || undefined,

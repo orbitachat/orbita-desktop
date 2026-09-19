@@ -1,8 +1,20 @@
-// src/components/chat/ReactionBadge.tsx
 import React, { useMemo } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { Avatar } from '../common/Avatar';
+
+const POPULAR_REACTIONS: Record<string, number> = {
+  '👍': 1,
+  '❤️': 2,
+  '🔥': 3,
+  '🎉': 4,
+  '😂': 5,
+  '😮': 6,
+  '😢': 7,
+  '👏': 8,
+  '🙏': 9,
+  '👎': 10,
+};
 
 interface ReactionBadgeProps {
   emoji: string;
@@ -31,7 +43,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
   const isChannel = currentChat?.type === 'channel';
   const hasReacted = Boolean((myCode && users.includes(myCode)) || users.includes(myNickname) || users.includes('YOU'));
 
-  // Определение avatarUrl для каждого пользователя
   const getAvatarUrl = (userNick: string): string | null | undefined => {
     if (userNick === myNickname || userNick === 'YOU') {
       return myAvatarUrl;
@@ -45,7 +56,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
     return null;
   };
 
-  // В личных чатах показываем до 2 аватарок (от меня и от собеседника)
   const displayUsers = useMemo(() => {
     return users.slice(0, 2);
   }, [users]);
@@ -80,7 +90,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
         boxSizing: 'border-box',
       }}
     >
-      {/* Слева эмодзи */}
       <span
         className="emoji-font"
         style={{
@@ -94,7 +103,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
         {emoji}
       </span>
 
-      {/* В сообществах (каналах): исключительно цифра рядом с реакцией (Скрин 1) */}
       {isChannel ? (
         <span
           className="tabular-nums text-white"
@@ -110,7 +118,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
           {users.length}
         </span>
       ) : (
-        /* В личных чатах: аватарки с разделением без цифры (Скрин 2) */
         <div
           style={{
             display: 'inline-flex',
@@ -176,9 +183,18 @@ export const MessageReactions: React.FC<MessageReactionsProps> = React.memo(({
   activeChatId,
   isSmallMessage = false,
 }) => {
-  if (!reactions) return null;
+  const entries = useMemo(() => {
+    if (!reactions) return [];
+    return Object.entries(reactions)
+      .filter(([_, users]) => Array.isArray(users) && users.length > 0)
+      .sort(([a], [b]) => {
+        const orderA = POPULAR_REACTIONS[a] ?? 100;
+        const orderB = POPULAR_REACTIONS[b] ?? 100;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.localeCompare(b);
+      });
+  }, [reactions]);
 
-  const entries = Object.entries(reactions).filter(([_, users]) => Array.isArray(users) && users.length > 0);
   if (entries.length === 0) return null;
 
   return (

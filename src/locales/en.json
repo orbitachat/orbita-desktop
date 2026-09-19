@@ -333,6 +333,8 @@
       "voice_messages_in_development": "Voice messages are in development",
       "more_emojis": "More emojis",
       "collapse": "Collapse",
+      "draft": "Draft",
+      "clickToShowSpoiler": "Click to show",
       "recents": "Recent",
       "no_audio_messages": "No audio messages",
       "no_voice_messages": "No voice messages",
