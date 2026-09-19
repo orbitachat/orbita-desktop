@@ -2501,7 +2501,6 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
     },
     title: 'Orbita Call',
     show: false,
-    skipTaskbar: true,
     icon: icon && !icon.isEmpty() ? icon : undefined,
   });
 
@@ -2515,9 +2514,8 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
       e.preventDefault();
       currentCallStateCache = null;
       if (callWindow && !callWindow.isDestroyed()) {
-        callWindow.webContents.send('orbita:call-state', null);
-        callWindow.setSkipTaskbar(true);
         callWindow.hide();
+        callWindow.webContents.send('orbita:call-state', null);
       }
     }
   });
@@ -2598,7 +2596,6 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
     win.webContents.send('orbita:call-state', currentCallStateCache);
   }
 
-  win.setSkipTaskbar(false);
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
@@ -2618,7 +2615,6 @@ function initCallWindowPrewarm() {
   if (callWindow && !callWindow.isDestroyed()) return;
   try {
     const win = initOrGetCallWindow();
-    win.setSkipTaskbar(true);
     if (win.isVisible()) win.hide();
   } catch { }
 }
@@ -2631,9 +2627,8 @@ ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-call-window', () => {
   if (callWindow && !callWindow.isDestroyed()) {
     currentCallStateCache = null;
-    callWindow.webContents.send('orbita:call-state', null);
-    callWindow.setSkipTaskbar(true);
     callWindow.hide();
+    callWindow.webContents.send('orbita:call-state', null);
     if (global.gc) {
       try { global.gc(); } catch { }
     }
@@ -3231,7 +3226,6 @@ function createMainWindow() {
       e.preventDefault();
       mainWindow.hide();
       if (callWindow && !callWindow.isDestroyed() && !currentCallStateCache) {
-        callWindow.setSkipTaskbar(true);
         callWindow.hide();
       }
       if (mediaWindow && !mediaWindow.isDestroyed()) {

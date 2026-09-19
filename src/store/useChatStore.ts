@@ -306,6 +306,21 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushStorageSet);
 }
 
+const getCachedChatStoreState = () => {
+  try {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('orbita-chat-storage');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed?.state || null;
+      }
+    }
+  } catch {}
+  return null;
+};
+
+const initialCachedChatState = getCachedChatStoreState();
+
 const ipcStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
@@ -313,12 +328,21 @@ const ipcStorage: StateStorage = {
       return pendingStorageVal;
     }
     if ((window as any).orbita?.storageGet) {
-      return await (window as any).orbita.storageGet(name);
+      const val = await (window as any).orbita.storageGet(name);
+      if (val) {
+        try {
+          localStorage.setItem(name, val);
+        } catch {}
+      }
+      return val;
     }
     return localStorage.getItem(name);
   },
   setItem: (name: string, value: string): Promise<void> => {
     if (typeof window === 'undefined') return Promise.resolve();
+    try {
+      localStorage.setItem(name, value);
+    } catch {}
     pendingStorageKey = name;
     pendingStorageVal = value;
     if (setItemTimer) clearTimeout(setItemTimer);
@@ -329,6 +353,9 @@ const ipcStorage: StateStorage = {
   },
   removeItem: async (name: string): Promise<void> => {
     if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(name);
+    } catch {}
     if (pendingStorageKey === name) {
       pendingStorageKey = null;
       pendingStorageVal = null;
@@ -586,7 +613,7 @@ interface ChatState {
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
-      usersById: {},
+      usersById: (initialCachedChatState?.usersById && typeof initialCachedChatState.usersById === 'object') ? initialCachedChatState.usersById : {},
       setUserProfile: (userId, profile) =>
         set((state) => {
           if (!userId) return state;
@@ -604,13 +631,13 @@ export const useChatStore = create<ChatState>()(
           };
         }),
       getUserProfile: (userId) => get().usersById[userId],
-      chats: [],
-      pinnedChatIds: [],
-      deletedChatIds: [],
-      deletedChatSessions: {},
+      chats: Array.isArray(initialCachedChatState?.chats) ? initialCachedChatState.chats : [],
+      pinnedChatIds: Array.isArray(initialCachedChatState?.pinnedChatIds) ? initialCachedChatState.pinnedChatIds : [],
+      deletedChatIds: Array.isArray(initialCachedChatState?.deletedChatIds) ? initialCachedChatState.deletedChatIds : [],
+      deletedChatSessions: (initialCachedChatState?.deletedChatSessions && typeof initialCachedChatState.deletedChatSessions === 'object') ? initialCachedChatState.deletedChatSessions : {},
       activeChatId: null,
       activeProfileChatId: null,
-      messagesByChatId: {},
+      messagesByChatId: (initialCachedChatState?.messagesByChatId && typeof initialCachedChatState.messagesByChatId === 'object') ? initialCachedChatState.messagesByChatId : {},
       passcode: null,
       currentTheme: 'system',
       chatColor: DEFAULT_CHAT_COLOR,
