@@ -2612,11 +2612,13 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
 }
 
 function initCallWindowPrewarm() {
-  if (callWindow && !callWindow.isDestroyed()) return;
-  try {
-    const win = initOrGetCallWindow();
-    if (win.isVisible()) win.hide();
-  } catch { }
+  setTimeout(() => {
+    try {
+      if (!isQuitting && (!callWindow || callWindow.isDestroyed())) {
+        initOrGetCallWindow();
+      }
+    } catch { }
+  }, 1200);
 }
 
 ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
@@ -2800,12 +2802,15 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
 }
 
 function initMediaWindowPrewarm() {
-  if (mediaWindow && !mediaWindow.isDestroyed()) return;
-  try {
-    const win = initOrGetMediaWindow();
-    win.setPosition(-32000, -32000);
-    win.showInactive();
-  } catch { }
+  setTimeout(() => {
+    try {
+      if (!isQuitting && (!mediaWindow || mediaWindow.isDestroyed())) {
+        const win = initOrGetMediaWindow();
+        win.setPosition(-32000, -32000);
+        win.showInactive();
+      }
+    } catch { }
+  }, 100);
 }
 
 function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
@@ -3157,6 +3162,8 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     mainWindow?.webContents.send('window:state-changed', mainWindow.isMaximized());
+    initCallWindowPrewarm();
+    initMediaWindowPrewarm();
   });
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -3631,17 +3638,6 @@ app.whenReady().then(async () => {
   setupTray();
   setupAutoUpdater();
 
-  const prewarmBackgroundWindows = () => {
-    initCallWindowPrewarm();
-    initMediaWindowPrewarm();
-  };
-
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.once('did-finish-load', () => {
-      setTimeout(prewarmBackgroundWindows, 1500);
-    });
-  }
-  setTimeout(prewarmBackgroundWindows, 4000);
 
   setInterval(() => {
     if (global.gc) {
