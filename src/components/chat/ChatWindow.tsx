@@ -3153,10 +3153,53 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     updateChatThumb();
   }, [visibleMessages.length, updateChatThumb]);
 
+  const hasAudioTrack = useAudioStore((state) => Boolean(state.currentTrack));
+
+  useEffect(() => {
+    if (atBottomRef.current) {
+      const el = messagesContainerRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+        requestAnimationFrame(() => {
+          if (el && atBottomRef.current) {
+            el.scrollTop = el.scrollHeight;
+          }
+        });
+        setTimeout(() => {
+          if (el && atBottomRef.current) {
+            el.scrollTop = el.scrollHeight;
+          }
+        }, 50);
+      }
+    }
+  }, [hasAudioTrack]);
+
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => updateChatThumb());
+    let prevHeight = el.clientHeight;
+    const ro = new ResizeObserver((entries) => {
+      updateChatThumb();
+      for (const entry of entries) {
+        const newHeight = entry.contentRect.height;
+        if (prevHeight && Math.abs(newHeight - prevHeight) > 1) {
+          const wasAtBottom = atBottomRef.current || (el.scrollHeight - el.scrollTop - prevHeight <= 80);
+          if (wasAtBottom) {
+            el.scrollTop = el.scrollHeight;
+            requestAnimationFrame(() => {
+              if (el) {
+                el.scrollTop = el.scrollHeight;
+                atBottomRef.current = true;
+                setShowScrollDown(false);
+              }
+            });
+          }
+          prevHeight = newHeight;
+        } else if (!prevHeight) {
+          prevHeight = newHeight;
+        }
+      }
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [updateChatThumb]);

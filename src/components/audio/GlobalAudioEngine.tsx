@@ -1,14 +1,7 @@
-// src/components/audio/GlobalAudioEngine.tsx
 import { useEffect, useRef } from 'react';
 import { useAudioStore } from '../../store/useAudioStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
 
-/**
- * Headless Global Audio Engine that lives continuously in MainLayout.
- * It manages the persistent HTML Audio instance, media decryption,
- * playback state, time updates, and MediaSession integration.
- * This guarantees audio never stutters or resets when navigating between views.
- */
 export const GlobalAudioEngine = () => {
   const currentTrack = useAudioStore((state) => state.currentTrack);
   const isPlaying = useAudioStore((state) => state.isPlaying);
@@ -28,7 +21,6 @@ export const GlobalAudioEngine = () => {
     currentTrack?.message?.id || currentTrack?.id
   );
 
-  // Initialize persistent audio element once
   useEffect(() => {
     const audio = new Audio();
     audio.preload = 'metadata';
@@ -47,13 +39,16 @@ export const GlobalAudioEngine = () => {
     };
 
     const handleEnded = () => {
-      const { repeat } = useAudioStore.getState();
-      if (repeat === 'one') {
+      const state = useAudioStore.getState();
+      if (audioRef.current) {
+        audioRef.current.volume = state.volume;
+      }
+      if (state.repeat === 'one') {
         audio.currentTime = 0;
         audio.play().catch(() => {});
-        useAudioStore.getState().setCurrentTime(0);
+        state.setCurrentTime(0);
       } else {
-        useAudioStore.getState().next();
+        state.next();
       }
     };
 
@@ -61,7 +56,6 @@ export const GlobalAudioEngine = () => {
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
 
-    // Subscribe to external seek without causing component re-renders
     const unsub = useAudioStore.subscribe((state, prevState) => {
       if (!audio.src || state.isSeeking) return;
       if (Math.abs(state.currentTime - prevState.currentTime) > 0.5 && Math.abs(audio.currentTime - state.currentTime) > 0.5) {
@@ -80,21 +74,54 @@ export const GlobalAudioEngine = () => {
     };
   }, []);
 
-  // Volume synchronization
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
 
-  // PlaybackRate synchronization
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = useAudioStore.getState().volume;
+    }
+  }, [currentTrack?.id]);
+
+  useEffect(() => {
+    let animId: number;
+
+    const checkFade = () => {
+      const audio = audioRef.current;
+      if (audio && isPlaying && !isSeeking && audio.duration && isFinite(audio.duration) && audio.duration > 1.5 && currentTrack?.mediaType !== 'voice') {
+        const remaining = audio.duration - audio.currentTime;
+        const baseVol = useAudioStore.getState().volume;
+        if (remaining <= 0.5 && remaining >= 0) {
+          const factor = Math.max(0, Math.min(1, remaining / 0.5));
+          const clamped = Math.max(0, Math.min(1, baseVol * factor));
+          audio.volume = clamped;
+        } else if (Math.abs(audio.volume - baseVol) > 0.01) {
+          audio.volume = baseVol;
+        }
+      }
+      if (isPlaying) {
+        animId = requestAnimationFrame(checkFade);
+      }
+    };
+
+    if (isPlaying) {
+      animId = requestAnimationFrame(checkFade);
+    }
+
+    return () => {
+      cancelAnimationFrame(animId);
+    };
+  }, [isPlaying, isSeeking, currentTrack?.id, currentTrack?.mediaType]);
+
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
 
-  // Clear audio when no track
   useEffect(() => {
     if (!currentTrack && audioRef.current) {
       audioRef.current.pause();
@@ -104,12 +131,12 @@ export const GlobalAudioEngine = () => {
     }
   }, [currentTrack]);
 
-  // Update audio source on blobUrl change
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (blobUrl && blobUrl !== prevBlobUrlRef.current) {
+      audio.volume = useAudioStore.getState().volume;
       audio.src = blobUrl;
       audio.load();
       prevBlobUrlRef.current = blobUrl;
@@ -119,7 +146,6 @@ export const GlobalAudioEngine = () => {
     }
   }, [blobUrl, isPlaying]);
 
-  // Handle seeking / scrubbing: pause audio element while user is dragging, resume on release
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !audio.src) return;
@@ -128,13 +154,13 @@ export const GlobalAudioEngine = () => {
       audio.pause();
     } else {
       audio.currentTime = useAudioStore.getState().currentTime;
+      audio.volume = useAudioStore.getState().volume;
       if (isPlaying) {
         audio.play().catch(() => {});
       }
     }
   }, [isSeeking, isPlaying]);
 
-  // Play / Pause synchronization (when not seeking)
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !audio.src || isSeeking) return;
@@ -149,7 +175,6 @@ export const GlobalAudioEngine = () => {
     }
   }, [isPlaying, isSeeking]);
 
-  // MediaSession
   useEffect(() => {
     if (!currentTrack || !('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
