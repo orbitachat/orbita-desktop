@@ -1385,6 +1385,13 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, time
   );
 });
 
+const formatVoiceTime = (seconds: number) => {
+  if (!seconds || !isFinite(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 const VoiceMessagePlayer = memo(({
   url,
   fileName,
@@ -1426,9 +1433,10 @@ const VoiceMessagePlayer = memo(({
   const [isDragging, setIsDragging] = useState(false);
 
   const waveformRef = useRef<HTMLDivElement>(null);
+  const progressOverlayRef = useRef<HTMLDivElement>(null);
+  const timeDisplayRef = useRef<HTMLSpanElement>(null);
   const { blobUrl } = useDecryptedMedia(url, sharedSecret, fileName, mime, chatId, messageId);
 
-  // Lightweight duration calculation using HTMLAudioElement
   useEffect(() => {
     if (!blobUrl || (localDuration > 0 && isFinite(localDuration))) return;
     let isMounted = true;
@@ -1531,6 +1539,12 @@ const VoiceMessagePlayer = memo(({
     if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     rafIdRef.current = requestAnimationFrame(() => {
       setDragProgressRatio(ratio);
+      if (progressOverlayRef.current) {
+        progressOverlayRef.current.style.width = `${ratio * 100}%`;
+      }
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = `${formatVoiceTime(newTime)} / ${formatVoiceTime(effectiveDuration)}`;
+      }
     });
   }, [effectiveDuration]);
 
@@ -1583,12 +1597,65 @@ const VoiceMessagePlayer = memo(({
     };
   }, [isDragging, updateSeekVisual, commitSeek]);
 
-  const formatTime = (seconds: number) => {
-    if (!seconds || !isFinite(seconds) || seconds < 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  useEffect(() => {
+    let animId: number;
+    let lastAudioTime = 0;
+    let lastSyncTime = performance.now();
+
+    const tick = () => {
+      if (dragStateRef.current.isDragging) return;
+
+      const getLiveTime = useAudioStore.getState().getLiveTime;
+      const liveAudioTime = isCurrentTrack
+        ? (getLiveTime ? getLiveTime() : useAudioStore.getState().currentTime)
+        : 0;
+      const now = performance.now();
+
+      if (liveAudioTime !== lastAudioTime) {
+        lastAudioTime = liveAudioTime;
+        lastSyncTime = now;
+      }
+
+      let currentExactTime = liveAudioTime;
+      const playbackRate = useAudioStore.getState().playbackRate || 1;
+      if (isPlaying && playbackRate > 0) {
+        const elapsedSec = ((now - lastSyncTime) / 1000) * playbackRate;
+        currentExactTime = Math.min(effectiveDuration, liveAudioTime + elapsedSec);
+      }
+
+      const ratio = effectiveDuration > 0 ? Math.min(1, currentExactTime / effectiveDuration) : 0;
+      if (progressOverlayRef.current) {
+        progressOverlayRef.current.style.width = `${ratio * 100}%`;
+      }
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = `${formatVoiceTime(currentExactTime)} / ${formatVoiceTime(effectiveDuration)}`;
+      }
+
+      if (isPlaying) {
+        animId = requestAnimationFrame(tick);
+      }
+    };
+
+    if (isPlaying) {
+      animId = requestAnimationFrame(tick);
+    } else {
+      const ratio = dragProgressRatio !== null
+        ? dragProgressRatio
+        : (effectiveDuration > 0 ? Math.min(1, effectiveCurrentTime / effectiveDuration) : 0);
+      if (progressOverlayRef.current) {
+        progressOverlayRef.current.style.width = `${ratio * 100}%`;
+      }
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = isPlaying || effectiveCurrentTime > 0
+          ? `${formatVoiceTime(effectiveCurrentTime)} / ${formatVoiceTime(effectiveDuration)}`
+          : formatVoiceTime(effectiveDuration);
+      }
+    }
+
+    return () => {
+      cancelAnimationFrame(animId);
+    };
+  }, [isPlaying, isCurrentTrack, effectiveDuration, effectiveCurrentTime, dragProgressRatio]);
 
   if (!blobUrl) {
     return (
@@ -1612,7 +1679,6 @@ const VoiceMessagePlayer = memo(({
     );
   }
 
-  const isEnded = isCurrentTrack && effectiveDuration > 0 && (effectiveCurrentTime >= effectiveDuration - 0.05);
   const progressRatio = dragProgressRatio !== null ? dragProgressRatio : (effectiveDuration > 0 ? Math.min(1, effectiveCurrentTime / effectiveDuration) : 0);
   const displayCurrentTime = dragProgressRatio !== null ? dragProgressRatio * effectiveDuration : effectiveCurrentTime;
 
@@ -1646,28 +1712,11 @@ const VoiceMessagePlayer = memo(({
         <div
           ref={waveformRef}
           onMouseDown={handleMouseDown}
-          className="flex items-center cursor-pointer"
-          style={{ height: '22px', gap: '1px' }}
+          className="relative flex items-center cursor-pointer select-none"
+          style={{ height: '22px', gap: '1px', userSelect: 'none' }}
         >
           {bars.map((h, idx) => {
-            const barStart = idx / BAR_COUNT;
-            const barEnd = (idx + 1) / BAR_COUNT;
-
-            let fillRatio = 0;
-            if (isEnded && effectiveCurrentTime > 0) {
-              fillRatio = 1;
-            } else if (effectiveCurrentTime <= 0) {
-              fillRatio = 0;
-            } else if (progressRatio >= barEnd) {
-              fillRatio = 1;
-            } else if (progressRatio <= barStart) {
-              fillRatio = 0;
-            } else {
-              fillRatio = (progressRatio - barStart) * BAR_COUNT;
-            }
-
             const barHeight = Math.max(3, Math.round((h / 100) * 20));
-
             return (
               <div
                 key={idx}
@@ -1677,28 +1726,68 @@ const VoiceMessagePlayer = memo(({
                   maxWidth: '2px',
                   height: `${barHeight}px`,
                   flexShrink: 0,
-                  backgroundColor: fillRatio > 0
-                    ? (isOwn
-                        ? '#ffffff'
-                        : `color-mix(in srgb, var(--accent-color, #7C3AED) ${Math.round(fillRatio * 100)}%, color-mix(in srgb, var(--text-main) 30%, transparent))`)
-                    : (isOwn
-                        ? 'rgba(255, 255, 255, 0.4)'
-                        : 'color-mix(in srgb, var(--text-main) 30%, transparent)'),
+                  backgroundColor: isOwn
+                    ? 'rgba(255, 255, 255, 0.4)'
+                    : 'color-mix(in srgb, var(--text-main) 30%, transparent)',
                   borderRadius: '1px',
-                  willChange: 'background-color',
                   transform: 'translateZ(0)',
-                  transition: 'background-color 0.12s ease-out',
                 }}
               />
             );
           })}
+
+          <div
+            ref={progressOverlayRef}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: `${progressRatio * 100}%`,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+              willChange: 'width',
+              transform: 'translateZ(0)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                height: '22px',
+                gap: '1px',
+                width: 'max-content',
+              }}
+            >
+              {bars.map((h, idx) => {
+                const barHeight = Math.max(3, Math.round((h / 100) * 20));
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      width: '2px',
+                      minWidth: '2px',
+                      maxWidth: '2px',
+                      height: `${barHeight}px`,
+                      flexShrink: 0,
+                      backgroundColor: isOwn
+                        ? '#ffffff'
+                        : 'var(--accent-color, #7C3AED)',
+                      borderRadius: '1px',
+                      transform: 'translateZ(0)',
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-between" style={{ fontSize: '10.5px', color: isOwn ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-dim)', marginTop: '1px' }}>
-          <span className="tabular-nums">
+          <span ref={timeDisplayRef} className="tabular-nums">
             {isPlaying || displayCurrentTime > 0
-              ? `${formatTime(displayCurrentTime)} / ${formatTime(effectiveDuration)}`
-              : formatTime(effectiveDuration)}
+              ? `${formatVoiceTime(displayCurrentTime)} / ${formatVoiceTime(effectiveDuration)}`
+              : formatVoiceTime(effectiveDuration)}
           </span>
         </div>
       </div>
