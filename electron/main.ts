@@ -72,9 +72,9 @@ if (process.platform === 'win32') {
   console.log('[App] AppUserModelId set to: com.saizzi.orbita');
 }
 
-app.commandLine.appendSwitch('disk-cache-size', '268435456');
-app.commandLine.appendSwitch('media-cache-size', '67108864');
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512 --expose-gc');
+app.commandLine.appendSwitch('disk-cache-size', '67108864');
+app.commandLine.appendSwitch('media-cache-size', '33554432');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --expose-gc');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
@@ -2496,7 +2496,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Call',
@@ -2560,6 +2560,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
   callWindow.on('hide', () => {
     if (callWindow && !callWindow.isDestroyed()) {
       callWindow.webContents.send('orbita:call-visibility-changed', false);
+      callWindow.webContents.setBackgroundThrottling(true);
     }
   });
 
@@ -2592,6 +2593,10 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
 
   const win = initOrGetCallWindow(initialPayload);
 
+  if (!win.isDestroyed()) {
+    win.webContents.setBackgroundThrottling(false);
+  }
+
   if (currentCallStateCache && !win.isDestroyed()) {
     win.webContents.send('orbita:call-state', currentCallStateCache);
   }
@@ -2618,7 +2623,7 @@ function initCallWindowPrewarm() {
         initOrGetCallWindow();
       }
     } catch { }
-  }, 1200);
+  }, 45000);
 }
 
 ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
@@ -2732,7 +2737,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Media',
@@ -2752,6 +2757,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
       if (mediaWindow && !mediaWindow.isDestroyed()) {
         mediaWindow.webContents.send('orbita:media-payload', null);
         mediaWindow.setPosition(-32000, -32000);
+        mediaWindow.webContents.setBackgroundThrottling(true);
       }
     }
   });
@@ -2805,12 +2811,10 @@ function initMediaWindowPrewarm() {
   setTimeout(() => {
     try {
       if (!isQuitting && (!mediaWindow || mediaWindow.isDestroyed())) {
-        const win = initOrGetMediaWindow();
-        win.setPosition(-32000, -32000);
-        win.showInactive();
+        initOrGetMediaWindow();
       }
     } catch { }
-  }, 100);
+  }, 45000);
 }
 
 function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
@@ -2823,6 +2827,10 @@ function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
   const display = mainWindow && !mainWindow.isDestroyed()
     ? screen.getDisplayMatching(mainWindow.getBounds())
     : screen.getPrimaryDisplay();
+
+  if (!win.isDestroyed()) {
+    win.webContents.setBackgroundThrottling(false);
+  }
 
   if (currentMediaPayloadCache && !win.isDestroyed()) {
     win.webContents.send('orbita:media-payload', currentMediaPayloadCache);
