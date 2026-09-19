@@ -1165,8 +1165,9 @@ function initStorageDb(): Promise<void> {
     const dbPath = getAppDbPath();
     appDbInstance = new sqlite3.Database(dbPath);
     appDbInstance.run('PRAGMA journal_mode = WAL;');
-    appDbInstance.run('PRAGMA synchronous = NORMAL;');
-    appDbInstance.run('PRAGMA wal_autocheckpoint = 250;');
+    appDbInstance.run('PRAGMA synchronous = OFF;');
+    appDbInstance.run('PRAGMA wal_autocheckpoint = 5000;');
+    appDbInstance.run('PRAGMA cache_size = -8192;');
     appDbInstance.serialize(() => {
       appDbInstance!.run(
         `
@@ -1272,7 +1273,7 @@ function setKvValue(key: string, value: string): Promise<void> {
       } catch (e) {
         reject(e);
       }
-    }, key === 'orbita-chat-storage' ? 1000 : 300);
+    }, key === 'orbita-chat-storage' ? 5000 : 2000);
 
     kvWriteQueue.set(key, { value, timer });
     resolve();
