@@ -63,8 +63,7 @@ export function useAudioRecorder() {
     }
   }, []);
 
-  // Normalizes sampled array into fixed number of bars (e.g., 36 bars between 5 and 100)
-  const computeNormalizedWaveform = useCallback((rawSamples: number[], targetBars = 36): number[] => {
+  const computeNormalizedWaveform = useCallback((rawSamples: number[], targetBars = 54): number[] => {
     if (rawSamples.length === 0) {
       // Default placeholder pattern if empty
       return Array.from({ length: targetBars }, () => Math.floor(Math.random() * 40) + 10);

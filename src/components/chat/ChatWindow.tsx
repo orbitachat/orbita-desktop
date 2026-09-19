@@ -1491,7 +1491,7 @@ const VoiceMessagePlayer = memo(({
     }
   };
 
-  const BAR_COUNT = 36;
+  const BAR_COUNT = 54;
   const bars = useMemo(() => {
     if (msg?.waveform && msg.waveform.length > 0) {
       const src = msg.waveform;
@@ -1601,7 +1601,7 @@ const VoiceMessagePlayer = memo(({
           padding: '8px 12px 8px 8px',
           border: 'none',
           borderRadius: customRadius || bubbleRadius,
-          width: '260px',
+          width: '280px',
           height: '64px',
           boxSizing: 'border-box',
         }}
@@ -1626,7 +1626,7 @@ const VoiceMessagePlayer = memo(({
         padding: '8px 12px 8px 8px',
         border: 'none',
         borderRadius: customRadius || bubbleRadius,
-        width: '260px',
+        width: '280px',
         height: '64px',
         boxSizing: 'border-box',
         overflow: 'hidden',
@@ -1646,8 +1646,8 @@ const VoiceMessagePlayer = memo(({
         <div
           ref={waveformRef}
           onMouseDown={handleMouseDown}
-          className="flex items-center gap-[2px] cursor-pointer"
-          style={{ height: '20px', padding: '1px 0' }}
+          className="flex items-center gap-[1.5px] cursor-pointer"
+          style={{ height: '22px', padding: '1px 0' }}
         >
           {bars.map((h, idx) => {
             const barStart = idx / BAR_COUNT;
@@ -1671,8 +1671,8 @@ const VoiceMessagePlayer = memo(({
                 key={idx}
                 style={{
                   flex: 1,
-                  maxWidth: '3px',
-                  minWidth: '2px',
+                  maxWidth: '2.5px',
+                  minWidth: '1.5px',
                   height: `${h}%`,
                   backgroundColor: fillRatio > 0
                     ? (isOwn
@@ -1681,7 +1681,7 @@ const VoiceMessagePlayer = memo(({
                     : (isOwn
                         ? 'rgba(255, 255, 255, 0.4)'
                         : 'color-mix(in srgb, var(--text-main) 30%, transparent)'),
-                  borderRadius: '2px',
+                  borderRadius: '1.5px',
                   willChange: 'background-color',
                   transform: 'translateZ(0)',
                   transition: 'background-color 0.12s ease-out',
@@ -3533,31 +3533,59 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const triggerMessage = async (
     text: string,
     mediaPayload?: { type: string; url: string; key?: string; name?: string; mime?: string; audioMetadata?: AudioMetadata; duration?: number; waveform?: number[] },
-    linkPreviewPayload?: LinkPreviewData
+    linkPreviewPayload?: LinkPreviewData,
+    existingMessageId?: string
   ) => {
     if (!activeChatId) return;
 
     if (activeChatId === 'notes') {
-      const localMessage: Message = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        senderId: myCode,
-        sender: myNickname,
-        isOutgoing: true,
-        text: text,
-        time: Date.now(),
-        read: true,
-        status: 'sent',
-        mediaType: mediaPayload?.type as any,
-        mediaUrl: mediaPayload?.url,
-        mediaName: mediaPayload?.name,
-        mediaKey: mediaPayload?.key,
-        mime: mediaPayload?.mime,
-        audioMetadata: mediaPayload?.audioMetadata,
-        duration: mediaPayload?.duration,
-        waveform: mediaPayload?.waveform,
-        linkPreview: linkPreviewPayload,
-      };
-      addMessage(activeChatId, localMessage);
+      if (existingMessageId) {
+        useChatStore.setState((state) => {
+          const currentMsgs = state.messagesByChatId[activeChatId] || [];
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: currentMsgs.map((m) =>
+                m.id === existingMessageId
+                  ? {
+                      ...m,
+                      text,
+                      status: 'sent' as const,
+                      uploading: false,
+                      mediaUrl: mediaPayload?.url,
+                      mediaKey: mediaPayload?.key,
+                      mediaName: mediaPayload?.name,
+                      mime: mediaPayload?.mime,
+                      duration: mediaPayload?.duration,
+                      waveform: mediaPayload?.waveform,
+                    }
+                  : m
+              ),
+            },
+          };
+        });
+      } else {
+        const localMessage: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          senderId: myCode,
+          sender: myNickname,
+          isOutgoing: true,
+          text: text,
+          time: Date.now(),
+          read: true,
+          status: 'sent',
+          mediaType: mediaPayload?.type as any,
+          mediaUrl: mediaPayload?.url,
+          mediaName: mediaPayload?.name,
+          mediaKey: mediaPayload?.key,
+          mime: mediaPayload?.mime,
+          audioMetadata: mediaPayload?.audioMetadata,
+          duration: mediaPayload?.duration,
+          waveform: mediaPayload?.waveform,
+          linkPreview: linkPreviewPayload,
+        };
+        addMessage(activeChatId, localMessage);
+      }
       setInputText('');
       setReplyingTo(null);
       requestAnimationFrame(() => scrollToBottom(false));
@@ -3565,25 +3593,52 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     if (activeChatId === 'system_orbitos' || activeChatId === 'system_support') {
-      const localMessage: Message = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        senderId: myCode,
-        sender: myNickname,
-        isOutgoing: true,
-        text: text,
-        time: Date.now(),
-        read: true,
-        status: 'sent',
-        mediaType: mediaPayload?.type as any,
-        mediaUrl: mediaPayload?.url,
-        mediaName: mediaPayload?.name,
-        mediaKey: mediaPayload?.key,
-        mime: mediaPayload?.mime,
-        audioMetadata: mediaPayload?.audioMetadata,
-        duration: mediaPayload?.duration,
-        waveform: mediaPayload?.waveform,
-      };
-      addMessage(activeChatId, localMessage);
+      if (existingMessageId) {
+        useChatStore.setState((state) => {
+          const currentMsgs = state.messagesByChatId[activeChatId] || [];
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: currentMsgs.map((m) =>
+                m.id === existingMessageId
+                  ? {
+                      ...m,
+                      text,
+                      status: 'sent' as const,
+                      uploading: false,
+                      mediaUrl: mediaPayload?.url,
+                      mediaKey: mediaPayload?.key,
+                      mediaName: mediaPayload?.name,
+                      mime: mediaPayload?.mime,
+                      duration: mediaPayload?.duration,
+                      waveform: mediaPayload?.waveform,
+                    }
+                  : m
+              ),
+            },
+          };
+        });
+      } else {
+        const localMessage: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          senderId: myCode,
+          sender: myNickname,
+          isOutgoing: true,
+          text: text,
+          time: Date.now(),
+          read: true,
+          status: 'sent',
+          mediaType: mediaPayload?.type as any,
+          mediaUrl: mediaPayload?.url,
+          mediaName: mediaPayload?.name,
+          mediaKey: mediaPayload?.key,
+          mime: mediaPayload?.mime,
+          audioMetadata: mediaPayload?.audioMetadata,
+          duration: mediaPayload?.duration,
+          waveform: mediaPayload?.waveform,
+        };
+        addMessage(activeChatId, localMessage);
+      }
       updateChat(activeChatId, { lastMsg: mediaPayload?.name || text || '📎' });
       setInputText('');
       setReplyingTo(null);
@@ -3595,7 +3650,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
       return;
     }
-
 
     const chat = useChatStore.getState().chats.find((c) => c.id === activeChatId);
 
@@ -3610,28 +3664,49 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       setReplyingTo(null);
       requestAnimationFrame(() => scrollToBottom(false));
 
-      const optimisticId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const optimisticMessage: Message = {
-        id: optimisticId,
-        sender: myNickname,
-        senderId: myUserId,
-        text: sentText || '',
-        time: Date.now(),
-        read: true,
-        status: 'sending',
-        isOutgoing: true,
-        mediaType: (sentMedia?.type as Message['mediaType']) || undefined,
-        mediaUrl: sentMedia?.url || undefined,
-        mediaName: sentMedia?.name || undefined,
-        mediaKey: sentMedia?.key,
-        mime: sentMedia?.mime || undefined,
-        audioMetadata: sentMedia?.audioMetadata || undefined,
-        duration: sentMedia?.duration || undefined,
-        waveform: sentMedia?.waveform || undefined,
-        linkPreview: sentPreview || undefined,
-      };
-
-      addMessage(activeChatId, optimisticMessage);
+      const optimisticId = existingMessageId || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      if (existingMessageId) {
+        useChatStore.setState((state) => {
+          const currentMsgs = state.messagesByChatId[activeChatId] || [];
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: currentMsgs.map((m) =>
+                m.id === existingMessageId
+                  ? {
+                      ...m,
+                      text: sentText || '',
+                      mediaUrl: sentMedia?.url || m.mediaUrl,
+                      mediaKey: sentMedia?.key || m.mediaKey,
+                      uploading: false,
+                    }
+                  : m
+              ),
+            },
+          };
+        });
+      } else {
+        const optimisticMessage: Message = {
+          id: optimisticId,
+          sender: myNickname,
+          senderId: myUserId,
+          text: sentText || '',
+          time: Date.now(),
+          read: true,
+          status: 'sending',
+          isOutgoing: true,
+          mediaType: (sentMedia?.type as Message['mediaType']) || undefined,
+          mediaUrl: sentMedia?.url || undefined,
+          mediaName: sentMedia?.name || undefined,
+          mediaKey: sentMedia?.key,
+          mime: sentMedia?.mime || undefined,
+          audioMetadata: sentMedia?.audioMetadata || undefined,
+          duration: sentMedia?.duration || undefined,
+          waveform: sentMedia?.waveform || undefined,
+          linkPreview: sentPreview || undefined,
+        };
+        addMessage(activeChatId, optimisticMessage);
+      }
       updateChat(activeChatId, { lastMsg: sentText || sentMedia?.name || 'Новый пост' });
 
       channelService.publishPost(
@@ -3671,7 +3746,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const pusher = getPusher();
     if (!chat) return;
 
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = existingMessageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const networkAudioMetadata = mediaPayload?.audioMetadata ? {
       title: mediaPayload.audioMetadata.title,
       artist: mediaPayload.audioMetadata.artist,
@@ -3698,7 +3773,36 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       waveform: mediaPayload?.waveform,
       linkPreview: linkPreviewPayload,
     };
-    addMessage(activeChatId, localMessage);
+
+    if (existingMessageId) {
+      useChatStore.setState((state) => {
+        const currentMsgs = state.messagesByChatId[activeChatId] || [];
+        return {
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [activeChatId]: currentMsgs.map((m) =>
+              m.id === messageId
+                ? {
+                    ...m,
+                    text,
+                    status: 'sent' as const,
+                    uploading: false,
+                    mediaUrl: mediaPayload?.url || m.mediaUrl,
+                    mediaKey: mediaPayload?.key || m.mediaKey,
+                    mediaName: mediaPayload?.name || m.mediaName,
+                    mime: mediaPayload?.mime || m.mime,
+                    duration: mediaPayload?.duration || m.duration,
+                    waveform: mediaPayload?.waveform || m.waveform,
+                    audioMetadata: mediaPayload?.audioMetadata || m.audioMetadata,
+                  }
+                : m
+            ),
+          },
+        };
+      });
+    } else {
+      addMessage(activeChatId, localMessage);
+    }
     setInputText('');
     setReplyingTo(null);
 
@@ -5067,60 +5171,97 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'webm';
     const voiceFileName = `voice_${Date.now()}.${ext}`;
 
-    try {
-      const isPublic = isBotChat || isChannel;
-      let fileKey: string | undefined = undefined;
-      let encryptedBase64: string;
+    const localBlobUrl = URL.createObjectURL(blob);
+    const optimisticMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      if (isPublic) {
-        const arrayBuffer = await blob.arrayBuffer();
-        const uint8 = new Uint8Array(arrayBuffer);
-        let binary = '';
-        const chunkSz = 8192;
-        for (let j = 0; j < uint8.length; j += chunkSz) {
-          binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(j, j + chunkSz)));
+    mediaManager.setDirectDecryptedMedia(localBlobUrl, '', blob, blob.type || 'audio/webm;codecs=opus', activeChatId, optimisticMessageId);
+
+    const optimisticMessage: Message = {
+      id: optimisticMessageId,
+      senderId: myCode,
+      sender: myNickname,
+      isOutgoing: true,
+      text: `[Audio] ${voiceFileName}`,
+      time: Date.now(),
+      read: true,
+      status: 'sending',
+      uploading: true,
+      mediaType: 'voice',
+      mediaUrl: localBlobUrl,
+      mediaName: voiceFileName,
+      mime: blob.type || 'audio/webm;codecs=opus',
+      duration,
+      waveform,
+    };
+
+    addMessage(activeChatId, optimisticMessage);
+    updateChat(activeChatId, { lastMsg: voiceFileName || t('chatWindow.voice_message') });
+    requestAnimationFrame(() => scrollToBottom(false));
+
+    (async () => {
+      try {
+        const isPublic = isBotChat || isChannel;
+        let fileKey: string | undefined = undefined;
+        let encryptedBase64: string;
+
+        if (isPublic) {
+          const arrayBuffer = await blob.arrayBuffer();
+          const uint8 = new Uint8Array(arrayBuffer);
+          let binary = '';
+          const chunkSz = 8192;
+          for (let j = 0; j < uint8.length; j += chunkSz) {
+            binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(j, j + chunkSz)));
+          }
+          encryptedBase64 = btoa(binary);
+        } else {
+          const arrayBuffer = await blob.arrayBuffer();
+          fileKey = generateEphemeralKey();
+          const encryptedBlob = await encryptFile(arrayBuffer, fileKey);
+          encryptedBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result as string).split(',')[1]);
+            reader.readAsDataURL(encryptedBlob);
+          });
         }
-        encryptedBase64 = btoa(binary);
-      } else {
-        const arrayBuffer = await blob.arrayBuffer();
-        fileKey = generateEphemeralKey();
-        const encryptedBlob = await encryptFile(arrayBuffer, fileKey);
-        encryptedBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.readAsDataURL(encryptedBlob);
-        });
-      }
 
-      const tempPath = await window.orbita.writeTempFile(encryptedBase64, isPublic ? ext : undefined);
-      if (!tempPath) {
+        const tempPath = await window.orbita.writeTempFile(encryptedBase64, isPublic ? ext : undefined);
+        if (!tempPath) {
+          showToast(t('chatWindow.upload_failed'));
+          useChatStore.getState().deleteMessage(activeChatId, optimisticMessageId);
+          return;
+        }
+
+        const publicId = `orbita_${Date.now()}`;
+        const result = await window.orbita.uploadToCloudinary(tempPath, publicId);
+        window.orbita.deleteTempFile?.(tempPath);
+
+        if (result.success && result.secure_url) {
+          mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey || '', blob, blob.type || 'audio/webm;codecs=opus', activeChatId, optimisticMessageId);
+          await triggerMessage(
+            `[Audio] ${voiceFileName}`,
+            {
+              type: 'voice',
+              url: result.secure_url,
+              key: fileKey,
+              name: voiceFileName,
+              mime: blob.type || 'audio/webm;codecs=opus',
+              duration,
+              waveform,
+            },
+            undefined,
+            optimisticMessageId
+          );
+        } else {
+          showToast(t('chatWindow.upload_failed'));
+          useChatStore.getState().deleteMessage(activeChatId, optimisticMessageId);
+        }
+      } catch (error) {
+        console.error('Failed to upload recorded audio:', error);
         showToast(t('chatWindow.upload_failed'));
-        return;
+        useChatStore.getState().deleteMessage(activeChatId, optimisticMessageId);
       }
-
-      const publicId = `orbita_${Date.now()}`;
-      const result = await window.orbita.uploadToCloudinary(tempPath, publicId);
-      window.orbita.deleteTempFile?.(tempPath);
-
-      if (result.success && result.secure_url) {
-        mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey || '', blob, blob.type || 'audio/webm;codecs=opus', activeChatId);
-        await triggerMessage(`[Audio] ${voiceFileName}`, {
-          type: 'voice',
-          url: result.secure_url,
-          key: fileKey,
-          name: voiceFileName,
-          mime: blob.type || 'audio/webm;codecs=opus',
-          duration,
-          waveform,
-        });
-      } else {
-        showToast(t('chatWindow.upload_failed'));
-      }
-    } catch (error) {
-      console.error('Failed to upload recorded audio:', error);
-      showToast(t('chatWindow.upload_failed'));
-    }
-  }, [sharedSecret, activeChatId, activeChat?.type, isChannelOwner, stopAudioRecording, triggerMessage, showToast, t]);
+    })();
+  }, [sharedSecret, activeChatId, activeChat?.type, isChannelOwner, stopAudioRecording, triggerMessage, showToast, t, myCode, myNickname, addMessage, updateChat, scrollToBottom]);
 
   const getMediaDimensionsForFile = useCallback(async (
     filePath: string,
