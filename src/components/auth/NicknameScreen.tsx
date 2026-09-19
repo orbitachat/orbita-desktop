@@ -1,7 +1,8 @@
-// src/components/auth/NicknameScreen.tsx
 import { useState } from 'react';
 import { Box, Typography, TextField, Button, Stack } from '@mui/material';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useChatStore } from '../../store/useChatStore';
+import { generateRandomCode } from '../../lib/codes';
 import { useTranslation } from 'react-i18next';
 
 export const NicknameScreen = () => {
@@ -12,7 +13,11 @@ export const NicknameScreen = () => {
   const handleNext = () => {
     if (value.trim().length >= 2) {
       setNickname(value.trim());
-      setStep('main'); // ← переход сразу в главное окно
+      const currentCode = useChatStore.getState().myCode;
+      if (!currentCode) {
+        useChatStore.getState().setMyCode(generateRandomCode());
+      }
+      setStep('main');
     }
   };
 

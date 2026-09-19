@@ -241,6 +241,7 @@ export interface Chat {
   isSubscribed?: boolean;
   channelKey?: string;
   peerCode?: string;
+  originalPeerCode?: string;
   isBlocked?: boolean;
   hideProfileId?: boolean;
   updatedAt?: number;
@@ -407,6 +408,8 @@ interface ChatState {
   linkPreviewsEnabled: boolean;
   hideProfileId: boolean;
   setHideProfileId: (hide: boolean) => void;
+  _hasHydrated: boolean;
+  setHasHydrated: (val: boolean) => void;
 
   recentEmojis: string[];
 
@@ -669,6 +672,7 @@ export const useChatStore = create<ChatState>()(
       typingIndicatorsEnabled: true,
       linkPreviewsEnabled: true,
       hideProfileId: false,
+      _hasHydrated: false,
 
       recentEmojis: [],
 
@@ -1557,6 +1561,7 @@ export const useChatStore = create<ChatState>()(
       setTypingIndicatorsEnabled: (enabled) => set({ typingIndicatorsEnabled: enabled }),
       setLinkPreviewsEnabled: (enabled) => set({ linkPreviewsEnabled: enabled }),
       setHideProfileId: (hide) => set({ hideProfileId: hide }),
+      setHasHydrated: (val) => set({ _hasHydrated: val }),
 
       addRecentEmoji: (emoji: string) => {
         set((state) => {
@@ -1781,6 +1786,9 @@ export const useChatStore = create<ChatState>()(
         return persistedState;
       },
       onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHasHydrated(true);
+        }
         if (state && !Array.isArray(state.pinnedChatIds)) {
           state.pinnedChatIds = [];
         }

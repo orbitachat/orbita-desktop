@@ -1093,7 +1093,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (isChannel) return chat.id;
     if (chatId === 'notes') return '';
     if (isProfileIdHidden) return '';
-    const rawCode = (chat.peerCode && !chat.peerCode.includes('-')) ? chat.peerCode : (chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined);
+    const rawCode = (chat.peerCode && !chat.peerCode.includes('-'))
+      ? chat.peerCode
+      : (chat.originalPeerCode && !chat.originalPeerCode.includes('-'))
+        ? chat.originalPeerCode
+        : (chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined);
     return rawCode || '';
   }, [isChannel, chat, chatId, isProfileIdHidden]);
 
@@ -1237,6 +1241,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         const chatUpdates: Partial<Chat> = {};
         if (hideVal !== null && hideVal !== Boolean(chat.hideProfileId)) {
           chatUpdates.hideProfileId = hideVal;
+          if (!hideVal) {
+            if (!chat.peerCode && chat.originalPeerCode) {
+              chatUpdates.peerCode = chat.originalPeerCode;
+            } else if (update?.sender_code && update.sender_code !== myCode) {
+              chatUpdates.peerCode = update.sender_code;
+              chatUpdates.originalPeerCode = update.sender_code;
+            }
+          }
         }
         if (updateNick && updateNick !== chat.name) {
           chatUpdates.name = updateNick;

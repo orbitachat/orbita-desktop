@@ -97,6 +97,10 @@ export const useAuthStore = create<AuthState>()(
         document.documentElement.removeAttribute('data-theme');
         localStorage.removeItem('orbita-auth-storage');
         localStorage.removeItem('orbita-chat-storage');
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageRemove) {
+          (window as any).orbita.storageRemove('orbita-auth-storage').catch(() => {});
+          (window as any).orbita.storageRemove('orbita-chat-storage').catch(() => {});
+        }
         useChatStore.getState().resetChats();
         set({
           userId: getInitialUserId(),

@@ -647,6 +647,7 @@ export const MainLayout = () => {
     addChannelChat,
     hideProfileId,
     deletedChatSessions,
+    _hasHydrated,
   } = useChatStore(useShallow(state => ({
     chats: state.chats,
     activeChatId: state.activeChatId,
@@ -674,6 +675,7 @@ export const MainLayout = () => {
     addChannelChat: state.addChannelChat,
     hideProfileId: state.hideProfileId,
     deletedChatSessions: state.deletedChatSessions,
+    _hasHydrated: state._hasHydrated,
   })));
   const isServerConnected = useConnectionStore((state) => state.isServerConnected);
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
@@ -823,8 +825,10 @@ export const MainLayout = () => {
   }, []);
 
   useEffect(() => {
-    if (!myCode) setMyCode(generateRandomCode());
-  }, []);
+    if (_hasHydrated && !myCode && step === 'main') {
+      setMyCode(generateRandomCode());
+    }
+  }, [_hasHydrated, myCode, step, setMyCode]);
 
   useEffect(() => {
     if (step === 'main' && nickname && myCode) {
@@ -1038,6 +1042,7 @@ export const MainLayout = () => {
         name: data.nickname || existing.name,
         avatarUrl: data.avatarUrl ?? existing.avatarUrl,
         peerCode: peerCode,
+        originalPeerCode: peerCode || existing.originalPeerCode || existing.peerCode,
       };
 
       if (existing.sharedSecret && !existing.ratchetState) {
@@ -1166,9 +1171,9 @@ export const MainLayout = () => {
       ratchetState: ratchet.getState(),
       avatarUrl: req.avatarUrl ?? undefined,
       peerCode: req.senderCode,
+      originalPeerCode: req.senderCode,
     });
 
-    // Send confirmation over Ably
     ablyService.sendHandshakeConfirm(req.senderCode, {
       nickname,
       publicKey: myKeys.publicKey,
@@ -1672,6 +1677,12 @@ export const MainLayout = () => {
               }
               if (messageData.senderCode && (!currentMyCode || messageData.senderCode !== currentMyCode)) {
                 updates.peerCode = messageData.senderCode;
+                updates.originalPeerCode = messageData.senderCode;
+              } else if (updates.hideProfileId === false) {
+                const currentChat = useChatStore.getState().chats.find((c) => c.id === record.chat_id);
+                if (currentChat?.originalPeerCode) {
+                  updates.peerCode = currentChat.originalPeerCode;
+                }
               }
               if (Object.keys(updates).length > 0) {
                 updateChat(record.chat_id, updates);
@@ -2176,6 +2187,7 @@ export const MainLayout = () => {
             ratchetState: ratchet.getState(),
             avatarUrl: data.avatarUrl ?? undefined,
             peerCode: peerCode,
+            originalPeerCode: peerCode || friendCode,
           });
         } else {
           addChat({
@@ -2189,6 +2201,7 @@ export const MainLayout = () => {
             ratchetState: ratchet.getState(),
             avatarUrl: data.avatarUrl ?? undefined,
             peerCode: peerCode,
+            originalPeerCode: peerCode || friendCode,
           });
         }
         cleanup();
@@ -2211,7 +2224,6 @@ export const MainLayout = () => {
         setIsHandshaking(false);
       };
 
-      // Add local chat with our handshake private key
       addChat({
         id: chatId,
         type: 'private',
@@ -2222,13 +2234,12 @@ export const MainLayout = () => {
         sharedSecret: myKeys.privateKey,
         avatarUrl: undefined,
         peerCode: friendCode,
+        originalPeerCode: friendCode,
       });
       setActiveChat(chatId);
 
-      // Мгновенный поиск публичной карточки друга в реестре профилей
       supabaseService.lookupPublicProfile(friendCode).then((friendProfile) => {
         if (friendProfile && !settled) {
-          console.log('[Handshake] Found instant public profile for friend:', friendProfile);
           if (friendProfile.public_key) {
             const sharedSecret = deriveSharedSecret(myKeys.privateKey, friendProfile.public_key);
             const rootKey = deriveRootKey(sharedSecret);
@@ -2242,6 +2253,7 @@ export const MainLayout = () => {
               lastMsg: 'E2EE_SECURE_CHANNEL_READY',
               hideProfileId: isFriendHidden || undefined,
               peerCode: isFriendHidden ? undefined : friendCode,
+              originalPeerCode: friendCode,
             });
           } else {
             const isFriendHidden = Boolean(friendProfile.hide_profile_id);
@@ -2250,6 +2262,7 @@ export const MainLayout = () => {
               avatarUrl: friendProfile.avatar_url ?? undefined,
               hideProfileId: isFriendHidden || undefined,
               peerCode: isFriendHidden ? undefined : friendCode,
+              originalPeerCode: friendCode,
             });
           }
         }
@@ -3078,6 +3091,9 @@ export const MainLayout = () => {
         }
         if (data.senderCode && (!myCode || data.senderCode !== myCode)) {
           updates.peerCode = data.senderCode;
+          updates.originalPeerCode = data.senderCode;
+        } else if (updates.hideProfileId === false && chat.originalPeerCode) {
+          updates.peerCode = chat.originalPeerCode;
         }
         updateChat(chatId, updates);
         return;

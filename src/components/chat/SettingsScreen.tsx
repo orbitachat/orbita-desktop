@@ -13,7 +13,6 @@ import { useDeviceStore } from '../../store/useDeviceStore';
 import { useTranslation } from 'react-i18next';
 import { NotificationMonitor, NotificationCountSelector } from '../settings/NotificationPreview';
 import { MessageStatus } from '../MessageStatus';
-import { generateRandomCode } from '../../lib/codes';
 import { getPusher } from '../../utils/pusher';
 import { Avatar } from '../common/Avatar';
 import { ablyService } from '../../services/ablyService';
@@ -2242,7 +2241,6 @@ export const SettingsScreen = () => {
     notificationNativeWindows, setNotificationNativeWindows,
     notificationRespectFocus, setNotificationRespectFocus,
     myCode,
-    setMyCode,
     autoUpdate, setAutoUpdate,
     showInSystemTray, setShowInSystemTray,
     autoLaunch, setAutoLaunch,
@@ -2581,12 +2579,6 @@ export const SettingsScreen = () => {
     { value: 'Caveat', label: 'Caveat', native: 'Handwriting' },
     { value: 'Pacifico', label: 'Pacifico', native: 'Handwriting' },
   ];
-
-  useEffect(() => {
-    if (!myCode) {
-      setMyCode(generateRandomCode());
-    }
-  }, [myCode, setMyCode]);
 
   const sendProfileUpdate = useCallback((updates: { avatarUrl?: string | null; nickname?: string }) => {
     broadcastProfileUpdate(updates);
