@@ -632,13 +632,14 @@ class ChannelService {
     postId: string,
     emoji: string,
     userId: string,
-    action?: 'add' | 'remove' | 'toggle'
+    action?: 'add' | 'remove' | 'toggle',
+    sessionId?: string
   ): Promise<Record<string, string[]> | null> {
     try {
       const res = await fetch(`${W}/channels/reaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId, postId, emoji, userId, action: action || 'toggle' }),
+        body: JSON.stringify({ channelId, postId, emoji, userId, action: action || 'toggle', sessionId }),
       });
 
       if (res.ok) {
@@ -653,6 +654,7 @@ class ChannelService {
               userId,
               action: action || 'toggle',
               reactions,
+              sessionId,
             }).catch(() => {});
           } catch {}
         }

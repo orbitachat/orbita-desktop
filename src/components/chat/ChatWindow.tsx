@@ -4232,7 +4232,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       const finalAction: 'add' | 'remove' = isPresent ? 'add' : 'remove';
 
       if (activeChat?.type === 'channel') {
-        channelService.toggleReaction(activeChatId, msgId, emoji, reactionUserId, finalAction);
+        channelService.toggleReaction(activeChatId, msgId, emoji, reactionUserId, finalAction, CLIENT_SESSION_ID);
         return;
       }
 
@@ -4440,14 +4440,42 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           subscribersCount: data.subscribersCount,
         });
       } else if (data?.type === 'reaction-updated' && data?.postId && data?.reactions) {
+        if (data.sessionId && data.sessionId === CLIENT_SESSION_ID) return;
+        const currentMyUserId = useAuthStore.getState().userId;
+        const currentMyNickname = useAuthStore.getState().nickname;
+        const currentMyCode = useChatStore.getState().myCode;
+        const isSelf = Boolean(
+          (currentMyUserId && (data.userId === currentMyUserId || data.senderUserId === currentMyUserId || data.senderId === currentMyUserId)) ||
+          (currentMyCode && (data.senderCode === currentMyCode || data.senderId === currentMyCode || data.userId === currentMyCode)) ||
+          (currentMyNickname && (data.userId === currentMyNickname || data.sender === currentMyNickname)) ||
+          data.userId === 'YOU'
+        );
+        if (isSelf) return;
+
+        const aliases = new Set([currentMyUserId, currentMyCode, currentMyNickname, 'YOU'].filter(Boolean).map((s) => s!.toLowerCase()));
+
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[activeChatId] || [];
           return {
             messagesByChatId: {
               ...state.messagesByChatId,
-              [activeChatId]: currentMsgs.map((m) =>
-                m.id === data.postId ? { ...m, reactions: data.reactions } : m
-              ),
+              [activeChatId]: currentMsgs.map((m) => {
+                if (m.id !== data.postId) return m;
+                const merged: Record<string, string[]> = {};
+                const allEmojis = new Set([...Object.keys(m.reactions || {}), ...Object.keys(data.reactions || {})]);
+                for (const em of allEmojis) {
+                  const serverUsers = (data.reactions[em] || []).filter((u: string) => !aliases.has(u.toLowerCase()));
+                  const hadSelf = (m.reactions?.[em] || []).some((u: string) => aliases.has(u.toLowerCase()));
+                  const finalUsers = hadSelf ? [...serverUsers, 'YOU'] : serverUsers;
+                  if (finalUsers.length > 0) {
+                    merged[em] = finalUsers;
+                  }
+                }
+                return {
+                  ...m,
+                  reactions: Object.keys(merged).length > 0 ? merged : undefined,
+                };
+              }),
             },
           };
         });
@@ -4643,14 +4671,42 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     const handleChannelReaction = (data: any) => {
       if (data?.postId && data?.reactions) {
+        if (data.sessionId && data.sessionId === CLIENT_SESSION_ID) return;
+        const currentMyUserId = useAuthStore.getState().userId;
+        const currentMyNickname = useAuthStore.getState().nickname;
+        const currentMyCode = useChatStore.getState().myCode;
+        const isSelf = Boolean(
+          (currentMyUserId && (data.userId === currentMyUserId || data.senderUserId === currentMyUserId || data.senderId === currentMyUserId)) ||
+          (currentMyCode && (data.senderCode === currentMyCode || data.senderId === currentMyCode || data.userId === currentMyCode)) ||
+          (currentMyNickname && (data.userId === currentMyNickname || data.sender === currentMyNickname)) ||
+          data.userId === 'YOU'
+        );
+        if (isSelf) return;
+
+        const aliases = new Set([currentMyUserId, currentMyCode, currentMyNickname, 'YOU'].filter(Boolean).map((s) => s!.toLowerCase()));
+
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[activeChatId] || [];
           return {
             messagesByChatId: {
               ...state.messagesByChatId,
-              [activeChatId]: currentMsgs.map((m) =>
-                m.id === data.postId ? { ...m, reactions: data.reactions } : m
-              ),
+              [activeChatId]: currentMsgs.map((m) => {
+                if (m.id !== data.postId) return m;
+                const merged: Record<string, string[]> = {};
+                const allEmojis = new Set([...Object.keys(m.reactions || {}), ...Object.keys(data.reactions || {})]);
+                for (const em of allEmojis) {
+                  const serverUsers = (data.reactions[em] || []).filter((u: string) => !aliases.has(u.toLowerCase()));
+                  const hadSelf = (m.reactions?.[em] || []).some((u: string) => aliases.has(u.toLowerCase()));
+                  const finalUsers = hadSelf ? [...serverUsers, 'YOU'] : serverUsers;
+                  if (finalUsers.length > 0) {
+                    merged[em] = finalUsers;
+                  }
+                }
+                return {
+                  ...m,
+                  reactions: Object.keys(merged).length > 0 ? merged : undefined,
+                };
+              }),
             },
           };
         });

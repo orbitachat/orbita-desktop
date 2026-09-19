@@ -1354,7 +1354,7 @@ module.exports = async function handler(req, res) {
       if (!body.channelId || !body.postId || !body.emoji || !body.userId) {
         return sendError(res, 'Missing reaction parameters', 400);
       }
-      const targetUserId = toUuid(body.userId) || String(body.userId);
+      const targetUserId = String(body.userId);
       const supabase = getChannelsSupabaseClient();
       let updatedReactions = {};
       if (supabase) {
@@ -1369,11 +1369,11 @@ module.exports = async function handler(req, res) {
             }
           }
           const currentUsers = Array.isArray(reactions[body.emoji]) ? reactions[body.emoji] : [];
-          const alreadyPresent = currentUsers.includes(targetUserId);
+          const alreadyPresent = currentUsers.some(u => u === targetUserId || u.toLowerCase() === targetUserId.toLowerCase());
           if (body.action === 'add' || (!body.action && !alreadyPresent) || (body.action === 'toggle' && !alreadyPresent)) {
-            reactions[body.emoji] = [...currentUsers.filter((u) => u !== targetUserId), targetUserId];
+            reactions[body.emoji] = [...currentUsers.filter((u) => u !== targetUserId && u.toLowerCase() !== targetUserId.toLowerCase()), targetUserId];
           } else {
-            const filtered = currentUsers.filter((u) => u !== targetUserId);
+            const filtered = currentUsers.filter((u) => u !== targetUserId && u.toLowerCase() !== targetUserId.toLowerCase());
             if (filtered.length > 0) reactions[body.emoji] = filtered;
             else delete reactions[body.emoji];
           }
@@ -1385,6 +1385,7 @@ module.exports = async function handler(req, res) {
         postId: body.postId,
         emoji: body.emoji,
         userId: body.userId,
+        sessionId: body.sessionId,
         action: body.action || 'toggle',
         reactions: updatedReactions,
       });
@@ -1393,6 +1394,7 @@ module.exports = async function handler(req, res) {
         postId: body.postId,
         emoji: body.emoji,
         userId: body.userId,
+        sessionId: body.sessionId,
         action: body.action || 'toggle',
         reactions: updatedReactions,
       });

@@ -32,19 +32,41 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
   const myCode = useChatStore((s) => s.myCode);
 
   const hasReacted = useMemo(() => {
-    return Boolean(
-      (myUserId && users.includes(myUserId)) ||
-      (myCode && users.includes(myCode)) ||
-      (myNickname && users.includes(myNickname)) ||
-      users.includes('YOU')
-    );
+    const lowerUserId = myUserId ? myUserId.toLowerCase() : null;
+    const lowerCode = myCode ? myCode.toLowerCase() : null;
+    const lowerNick = myNickname ? myNickname.toLowerCase() : null;
+    return users.some((u) => {
+      const lowerU = u.toLowerCase();
+      return (
+        (myUserId && u === myUserId) ||
+        (lowerUserId && lowerU === lowerUserId) ||
+        (myCode && u === myCode) ||
+        (lowerCode && lowerU === lowerCode) ||
+        (myNickname && u === myNickname) ||
+        (lowerNick && lowerU === lowerNick) ||
+        u === 'YOU' ||
+        lowerU === 'you'
+      );
+    });
   }, [users, myUserId, myCode, myNickname]);
 
   const uniqueCount = useMemo(() => {
+    const lowerUserId = myUserId ? myUserId.toLowerCase() : null;
+    const lowerCode = myCode ? myCode.toLowerCase() : null;
+    const lowerNick = myNickname ? myNickname.toLowerCase() : null;
     let count = 0;
     let countedSelf = false;
     for (const u of users) {
-      const isMe = (myUserId && u === myUserId) || (myCode && u === myCode) || (myNickname && u === myNickname) || u === 'YOU';
+      const lowerU = u.toLowerCase();
+      const isMe =
+        (myUserId && u === myUserId) ||
+        (lowerUserId && lowerU === lowerUserId) ||
+        (myCode && u === myCode) ||
+        (lowerCode && lowerU === lowerCode) ||
+        (myNickname && u === myNickname) ||
+        (lowerNick && lowerU === lowerNick) ||
+        u === 'YOU' ||
+        lowerU === 'you';
       if (isMe) {
         if (!countedSelf) {
           countedSelf = true;

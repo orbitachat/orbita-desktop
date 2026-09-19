@@ -1186,16 +1186,16 @@ export default {
             }
 
             const currentUsers = Array.isArray(reactions[body.emoji]) ? reactions[body.emoji] : [];
-            const alreadyPresent = currentUsers.includes(body.userId);
+            const alreadyPresent = currentUsers.some((u) => u === body.userId || u.toLowerCase() === body.userId.toLowerCase());
 
             if (
               body.action === 'add' ||
               (!body.action && !alreadyPresent) ||
               (body.action === 'toggle' && !alreadyPresent)
             ) {
-              reactions[body.emoji] = [...currentUsers.filter((u) => u !== body.userId), body.userId];
+              reactions[body.emoji] = [...currentUsers.filter((u) => u !== body.userId && u.toLowerCase() !== body.userId.toLowerCase()), body.userId];
             } else {
-              const filtered = currentUsers.filter((u) => u !== body.userId);
+              const filtered = currentUsers.filter((u) => u !== body.userId && u.toLowerCase() !== body.userId.toLowerCase());
               if (filtered.length > 0) {
                 reactions[body.emoji] = filtered;
               } else {
@@ -1214,11 +1214,11 @@ export default {
           }
         }
 
-        // Трансляция обновления реакции
         await triggerPusherEvent(env, `public-channel-${body.channelId}`, 'reaction-updated', {
           postId: body.postId,
           emoji: body.emoji,
           userId: body.userId,
+          sessionId: body.sessionId,
           action: body.action || 'toggle',
           reactions: updatedReactions,
         });

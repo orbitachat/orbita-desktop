@@ -2768,14 +2768,41 @@ export const MainLayout = () => {
     const handleReaction = (data: any) => {
       console.log('[MainLayout] Received channel reaction update:', data);
       if (data?.postId && data?.reactions) {
+        const currentMyUserId = useAuthStore.getState().userId;
+        const currentMyNickname = useAuthStore.getState().nickname;
+        const currentMyCode = useChatStore.getState().myCode;
+        const isSelf = Boolean(
+          (currentMyUserId && (data.userId === currentMyUserId || data.senderUserId === currentMyUserId || data.senderId === currentMyUserId)) ||
+          (currentMyCode && (data.senderCode === currentMyCode || data.senderId === currentMyCode || data.userId === currentMyCode)) ||
+          (currentMyNickname && (data.userId === currentMyNickname || data.sender === currentMyNickname)) ||
+          data.userId === 'YOU'
+        );
+        if (isSelf) return;
+
+        const aliases = new Set([currentMyUserId, currentMyCode, currentMyNickname, 'YOU'].filter(Boolean).map((s) => s!.toLowerCase()));
+
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[channelId] || [];
           return {
             messagesByChatId: {
               ...state.messagesByChatId,
-              [channelId]: currentMsgs.map((m) =>
-                m.id === data.postId ? { ...m, reactions: data.reactions } : m
-              ),
+              [channelId]: currentMsgs.map((m) => {
+                if (m.id !== data.postId) return m;
+                const merged: Record<string, string[]> = {};
+                const allEmojis = new Set([...Object.keys(m.reactions || {}), ...Object.keys(data.reactions || {})]);
+                for (const em of allEmojis) {
+                  const serverUsers = (data.reactions[em] || []).filter((u: string) => !aliases.has(u.toLowerCase()));
+                  const hadSelf = (m.reactions?.[em] || []).some((u: string) => aliases.has(u.toLowerCase()));
+                  const finalUsers = hadSelf ? [...serverUsers, 'YOU'] : serverUsers;
+                  if (finalUsers.length > 0) {
+                    merged[em] = finalUsers;
+                  }
+                }
+                return {
+                  ...m,
+                  reactions: Object.keys(merged).length > 0 ? merged : undefined,
+                };
+              }),
             },
           };
         });
