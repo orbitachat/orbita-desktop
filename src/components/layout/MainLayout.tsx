@@ -45,6 +45,7 @@ import { NotesAvatar } from '../common/NotesAvatar';
 import { GlobalAudioPlayer } from '../audio/GlobalAudioPlayer';
 import { GlobalAudioEngine } from '../audio/GlobalAudioEngine';
 import { CallMiniPlayer } from '../call/CallMiniPlayer';
+import { ActiveCallBar } from '../call/ActiveCallBar';
 import { useShallow } from 'zustand/react/shallow';
 import { type ConfirmActionType } from '../common/ActionConfirmModal';
 import { useConnectionStore } from '../../store/useConnectionStore';
@@ -4016,6 +4017,7 @@ export const MainLayout = () => {
   const SIDEBAR_MIN_WIDTH = 260;
 
   const isCallMinimized = useCallStore((state) => state.isMinimized && !!state.activeCall);
+  const isCallActive = useCallStore((state) => !!state.activeCall && (state.callState === 'connected' || state.callState === 'connecting' || state.callState === 'ringing'));
   const showCallModalsInWindow = !((window as any).orbita?.openCallWindow);
 
   const maxSidebarWidth = useMemo(() => {
@@ -4269,6 +4271,10 @@ export const MainLayout = () => {
                 </div>
               )}
 
+              {isMobileView && !activeChatId && (
+                <ActiveCallBar />
+              )}
+
               <div
                 className="relative flex-1 min-h-0 overflow-hidden flex flex-col"
                 onMouseEnter={showChatScrollbar}
@@ -4279,7 +4285,7 @@ export const MainLayout = () => {
                   onScroll={handleChatListScroll}
                   className="flex-1 chat-list-scrollbar select-none"
                   style={{
-                    marginTop: '9px',
+                    marginTop: (isMobileView && isCallActive) ? '0px' : '9px',
                     paddingTop: '0px',
                     overflowY: 'scroll',
                     overflowX: 'hidden',
@@ -4582,7 +4588,10 @@ export const MainLayout = () => {
                     }}
                   />
                 ) : (
-                  <ChatPlaceholder />
+                  <>
+                    <ActiveCallBar />
+                    <ChatPlaceholder />
+                  </>
                 )}
               </div>
             </div>
