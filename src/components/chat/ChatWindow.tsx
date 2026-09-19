@@ -1613,20 +1613,23 @@ const VoiceMessagePlayer = memo(({
         : 0;
       const now = performance.now();
 
-      if (liveAudioTime !== lastAudioTime) {
-        lastAudioTime = liveAudioTime;
-        lastSyncTime = now;
-      }
-
       let currentExactTime = liveAudioTime;
       const playbackRate = useAudioStore.getState().playbackRate || 1;
       if (isPlaying && playbackRate > 0) {
-        const elapsedSec = ((now - lastSyncTime) / 1000) * playbackRate;
-        currentExactTime = Math.min(effectiveDuration, liveAudioTime + elapsedSec);
+        let expectedTime = ((now - lastSyncTime) / 1000) * playbackRate;
+        if (Math.abs(liveAudioTime - expectedTime) > 0.3 || liveAudioTime < 0.1) {
+          lastSyncTime = now - (liveAudioTime * 1000) / playbackRate;
+          expectedTime = liveAudioTime;
+        }
+        currentExactTime = Math.min(effectiveDuration, expectedTime);
+      }
+
+      if (liveAudioTime !== lastAudioTime) {
+        lastAudioTime = liveAudioTime;
       }
 
       let ratio = effectiveDuration > 0 ? Math.min(1, currentExactTime / effectiveDuration) : 0;
-      if (effectiveDuration > 0 && currentExactTime >= effectiveDuration - 0.08) {
+      if (effectiveDuration > 0 && currentExactTime >= effectiveDuration - 0.4) {
         ratio = 1;
       }
       if (progressOverlayRef.current) {
@@ -1647,7 +1650,7 @@ const VoiceMessagePlayer = memo(({
       let ratio = dragProgressRatio !== null
         ? dragProgressRatio
         : (effectiveDuration > 0 ? Math.min(1, effectiveCurrentTime / effectiveDuration) : 0);
-      if (effectiveDuration > 0 && effectiveCurrentTime >= effectiveDuration - 0.08) {
+      if (effectiveDuration > 0 && effectiveCurrentTime >= effectiveDuration - 0.4) {
         ratio = 1;
       }
       if (progressOverlayRef.current) {
@@ -3251,25 +3254,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   }, [visibleMessages.length, updateChatThumb]);
 
   const hasAudioTrack = useAudioStore((state) => Boolean(state.currentTrack));
-
-  useEffect(() => {
-    if (atBottomRef.current) {
-      const el = messagesContainerRef.current;
-      if (el) {
-        el.scrollTop = el.scrollHeight;
-        requestAnimationFrame(() => {
-          if (el && atBottomRef.current) {
-            el.scrollTop = el.scrollHeight;
-          }
-        });
-        setTimeout(() => {
-          if (el && atBottomRef.current) {
-            el.scrollTop = el.scrollHeight;
-          }
-        }, 50);
-      }
-    }
-  }, [hasAudioTrack]);
 
   useEffect(() => {
     const el = messagesContainerRef.current;

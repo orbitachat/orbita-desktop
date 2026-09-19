@@ -64,6 +64,28 @@ export const GlobalAudioEngine = () => {
       }
     };
 
+    let fadeAnimId: number;
+    const fadeTick = () => {
+      if (audioRef.current) {
+        const a = audioRef.current;
+        const state = useAudioStore.getState();
+        const dur = a.duration;
+        const current = a.currentTime;
+        
+        if (isFinite(dur) && dur > 0.5 && !state.isSeeking && !a.paused) {
+          const timeRemaining = dur - current;
+          if (timeRemaining <= 0.5 && timeRemaining >= 0) {
+            const volRatio = Math.max(0, timeRemaining / 0.5);
+            a.volume = state.volume * volRatio;
+          } else if (a.volume !== state.volume) {
+            a.volume = state.volume;
+          }
+        }
+      }
+      fadeAnimId = requestAnimationFrame(fadeTick);
+    };
+    fadeAnimId = requestAnimationFrame(fadeTick);
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('durationchange', syncDuration);
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -77,6 +99,7 @@ export const GlobalAudioEngine = () => {
     });
 
     return () => {
+      cancelAnimationFrame(fadeAnimId);
       useAudioStore.setState({ getLiveTime: undefined });
       unsub();
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);

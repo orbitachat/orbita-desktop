@@ -289,6 +289,7 @@ export function clampTextScale(value: number): number {
 let setItemTimer: any = null;
 let pendingStorageKey: string | null = null;
 let pendingStorageVal: string | null = null;
+let lastSavedValues: Record<string, string> = {};
 
 const flushStorageSet = () => {
   if (pendingStorageKey && pendingStorageVal !== null) {
@@ -312,19 +313,29 @@ const ipcStorage: StateStorage = {
     if (pendingStorageKey === name && pendingStorageVal !== null) {
       return pendingStorageVal;
     }
+    let val = null;
     if ((window as any).orbita?.storageGet) {
-      return await (window as any).orbita.storageGet(name);
+      val = await (window as any).orbita.storageGet(name);
+    } else {
+      val = localStorage.getItem(name);
     }
-    return localStorage.getItem(name);
+    if (val !== null) lastSavedValues[name] = val;
+    return val;
   },
   setItem: (name: string, value: string): Promise<void> => {
     if (typeof window === 'undefined') return Promise.resolve();
+    
+    if (lastSavedValues[name] === value) {
+      return Promise.resolve();
+    }
+    lastSavedValues[name] = value;
+
     pendingStorageKey = name;
     pendingStorageVal = value;
     if (setItemTimer) clearTimeout(setItemTimer);
     setItemTimer = setTimeout(() => {
       flushStorageSet();
-    }, 2000);
+    }, 5000);
     return Promise.resolve();
   },
   removeItem: async (name: string): Promise<void> => {
@@ -933,6 +944,8 @@ export const useChatStore = create<ChatState>()(
           }
 
           if (!hasChanges) return state;
+
+          console.log('[DEBUG] updateChat hasChanges in:', chatId, 'keys:', Object.keys(cleanUpdates).filter(k => (target as any)[k] !== (cleanUpdates as any)[k]));
 
           const nextChats = [...state.chats];
           nextChats[targetIndex] = { ...target, ...cleanUpdates };

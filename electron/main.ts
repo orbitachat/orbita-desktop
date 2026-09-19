@@ -1256,8 +1256,31 @@ function getKvValue(key: string): Promise<string | null> {
   });
 }
 
+const kvLastValues = new Map<string, any>();
+
 function setKvValue(key: string, value: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (key === 'orbita-chat-storage') {
+      try {
+        const parsed = JSON.parse(value);
+        const last = kvLastValues.get(key);
+        if (last) {
+          const changedKeys: string[] = [];
+          for (const k of Object.keys(parsed.state)) {
+            if (JSON.stringify(parsed.state[k]) !== JSON.stringify(last.state[k])) {
+              changedKeys.push(k);
+            }
+          }
+          if (changedKeys.length > 0) {
+            console.log(`[KV DIFF] ${key} changed keys:`, changedKeys);
+          }
+        }
+        kvLastValues.set(key, parsed);
+      } catch (e) {
+        console.error('[KV DIFF ERROR]', e);
+      }
+    }
+
     const existing = kvWriteQueue.get(key);
     if (existing) {
       clearTimeout(existing.timer);
@@ -1265,6 +1288,7 @@ function setKvValue(key: string, value: string): Promise<void> {
     const timer = setTimeout(() => {
       kvWriteQueue.delete(key);
       try {
+        console.log(`[KV] Writing to DB: ${key}`);
         const encrypted = encryptData(Buffer.from(value, 'utf8')).toString('base64');
         getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted], (err) => {
           if (err) reject(err);
@@ -3174,8 +3198,6 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     mainWindow?.webContents.send('window:state-changed', mainWindow.isMaximized());
-    initCallWindowPrewarm();
-    initMediaWindowPrewarm();
   });
 
   mainWindow.webContents.on('before-input-event', (event, input) => {

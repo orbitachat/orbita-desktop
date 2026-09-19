@@ -169,15 +169,18 @@ export const GlobalAudioPlayer = () => {
       const liveAudioTime = getLiveTime ? getLiveTime() : useAudioStore.getState().currentTime;
       const now = performance.now();
 
-      if (liveAudioTime !== lastAudioTime) {
-        lastAudioTime = liveAudioTime;
-        lastSyncTime = now;
-      }
-
       let currentExactTime = liveAudioTime;
       if (isPlaying && playbackRate > 0) {
-        const elapsedSec = (now - lastSyncTime) / 1000 * playbackRate;
-        currentExactTime = Math.min(duration, liveAudioTime + elapsedSec);
+        let expectedTime = ((now - lastSyncTime) / 1000) * playbackRate;
+        if (Math.abs(liveAudioTime - expectedTime) > 0.3 || liveAudioTime < 0.1) {
+          lastSyncTime = now - (liveAudioTime * 1000) / playbackRate;
+          expectedTime = liveAudioTime;
+        }
+        currentExactTime = Math.min(duration, expectedTime);
+      }
+
+      if (liveAudioTime !== lastAudioTime) {
+        lastAudioTime = liveAudioTime;
       }
 
       const pct = duration > 0 ? (currentExactTime / duration) * 100 : 0;
