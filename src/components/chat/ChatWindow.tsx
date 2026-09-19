@@ -1729,6 +1729,24 @@ const CALL_GRADIENTS = [
   'linear-gradient(90deg, #2563eb 0%, #06b6d4 50%, #10b981 100%)',
   'linear-gradient(90deg, #6d28d9 0%, #3b82f6 50%, #14b8a6 100%)',
   'linear-gradient(90deg, #4338ca 0%, #6d28d9 50%, #0284c7 100%)',
+  'linear-gradient(90deg, #a21caf 0%, #c026d3 50%, #7c3aed 100%)',
+  'linear-gradient(90deg, #ea580c 0%, #f43f5e 50%, #9333ea 100%)',
+  'linear-gradient(90deg, #7c3aed 0%, #ec4899 50%, #f43f5e 100%)',
+  'linear-gradient(90deg, #be123c 0%, #e11d48 50%, #f97316 100%)',
+  'linear-gradient(90deg, #1d4ed8 0%, #6366f1 50%, #d946ef 100%)',
+  'linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #3b82f6 100%)',
+  'linear-gradient(90deg, #581c87 0%, #7e22ce 50%, #a855f7 100%)',
+  'linear-gradient(90deg, #d97706 0%, #ea580c 50%, #e11d48 100%)',
+  'linear-gradient(90deg, #312e81 0%, #2563eb 50%, #0d9488 100%)',
+  'linear-gradient(90deg, #831843 0%, #be185d 50%, #6b21a8 100%)',
+  'linear-gradient(90deg, #0284c7 0%, #06b6d4 50%, #4f46e5 100%)',
+  'linear-gradient(90deg, #9333ea 0%, #3b82f6 50%, #06b6d4 100%)',
+  'linear-gradient(90deg, #e11d48 0%, #c026d3 50%, #4c1d95 100%)',
+  'linear-gradient(90deg, #047857 0%, #10b981 50%, #0e7490 100%)',
+  'linear-gradient(90deg, #6b21a8 0%, #8b5cf6 50%, #2563eb 100%)',
+  'linear-gradient(90deg, #9f1239 0%, #d946ef 50%, #0284c7 100%)',
+  'linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #38bdf8 100%)',
+  'linear-gradient(90deg, #581c87 0%, #be123c 50%, #ea580c 100%)',
 ];
 
 interface ChatWindowProps {
@@ -2024,9 +2042,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleNextChange = () => {
-      const intervals = [15000, 30000, 60000];
-      const delay = intervals[Math.floor(Math.random() * intervals.length)];
-
       timeoutId = setTimeout(() => {
         const available = CALL_GRADIENTS.filter((g) => g !== currentCallGradientRef.current);
         const nextGrad = available[Math.floor(Math.random() * available.length)] || CALL_GRADIENTS[0];
@@ -2043,7 +2058,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
 
         scheduleNextChange();
-      }, delay);
+      }, 30000);
     };
 
     scheduleNextChange();
