@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 
@@ -30,7 +30,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
   const myUserId = useAuthStore((s) => s.userId);
   const myCode = useChatStore((s) => s.myCode);
-  const [popping, setPopping] = useState(false);
 
   const hasReacted = useMemo(() => {
     return Boolean(
@@ -60,8 +59,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setPopping(true);
-    setTimeout(() => setPopping(false), 200);
     onToggle(emoji);
   };
 
@@ -75,10 +72,8 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
         borderRadius: '9999px',
         backgroundColor: hasReacted
           ? 'var(--accent-color, #7C3AED)'
-          : 'rgba(255, 255, 255, 0.08)',
-        border: hasReacted
-          ? '1px solid var(--accent-color, #7C3AED)'
-          : '1px solid rgba(255, 255, 255, 0.08)',
+          : 'rgba(255, 255, 255, 0.16)',
+        border: 'none',
         outline: 'none',
         cursor: 'pointer',
         height: '28px',
@@ -91,8 +86,7 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
         boxSizing: 'border-box',
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        transform: popping ? 'scale(1.08)' : 'scale(1)',
-        transition: 'transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.18s ease, border-color 0.18s ease',
+        transition: 'background-color 0.15s ease, transform 0.1s ease',
       }}
     >
       <span
@@ -103,8 +97,6 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transform: popping ? 'scale(1.2)' : 'scale(1)',
-          transition: 'transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
         {emoji}
@@ -114,11 +106,11 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
         style={{
           fontSize: '12.5px',
           fontWeight: 600,
-          color: hasReacted ? '#ffffff' : 'rgba(255, 255, 255, 0.85)',
+          color: hasReacted ? '#ffffff' : 'rgba(255, 255, 255, 0.9)',
           lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
-          transition: 'color 0.18s ease',
+          transition: 'color 0.15s ease',
         }}
       >
         {uniqueCount}

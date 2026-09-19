@@ -4213,7 +4213,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const reactionUserId = myUserId || myCode || myNickname || 'YOU';
     setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle', userAliases);
 
-    setContextMenu(prev => ({ ...prev, visible: false }));
+    setContextMenu(prev => (prev.visible ? { ...prev, visible: false } : prev));
 
     if (activeChatId === 'notes') return;
 

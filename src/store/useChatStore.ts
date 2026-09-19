@@ -1135,57 +1135,60 @@ export const useChatStore = create<ChatState>()(
 
         const isTargetUser = (u: string) => aliases.has(u);
 
+        let targetIdx = -1;
+        if (typeof messageIndexOrId === 'number' && messageIndexOrId >= 0 && messageIndexOrId < messages.length) {
+          targetIdx = messageIndexOrId;
+        } else {
+          targetIdx = messages.findIndex(
+            (m) => m.id && (m.id === targetStr || m.id === targetStr.replace(/_part_\d+$/, ''))
+          );
+        }
+
+        if (targetIdx === -1) {
+          return 'add';
+        }
+
+        const m = messages[targetIdx];
+        const currentReactions: Record<string, string[]> = { ...(m.reactions || {}) };
+        const usersForEmoji = currentReactions[emoji] ? [...currentReactions[emoji]] : [];
+        const alreadyPresent = usersForEmoji.some(isTargetUser);
+
         let resultingAction: 'add' | 'remove' = 'add';
-        let matchFound = false;
-
-        const updated = messages.map((m, idx) => {
-          const isMatch =
-            (m.id && (m.id === targetStr || m.id === targetStr.replace(/_part_\d+$/, ''))) ||
-            (typeof messageIndexOrId === 'number' && idx === messageIndexOrId);
-          if (!isMatch) return m;
-          matchFound = true;
-
-          const currentReactions: Record<string, string[]> = { ...(m.reactions || {}) };
-          const usersForEmoji = Array.from(currentReactions[emoji] || []);
-          const alreadyPresent = usersForEmoji.some(isTargetUser);
-
-          let newUsers: string[];
-          if (action === 'add') {
-            newUsers = alreadyPresent ? usersForEmoji : [...usersForEmoji.filter((u) => !isTargetUser(u)), user];
-            resultingAction = 'add';
-          } else if (action === 'remove') {
+        let newUsers: string[];
+        if (action === 'add') {
+          newUsers = alreadyPresent ? usersForEmoji : [...usersForEmoji.filter((u) => !isTargetUser(u)), user];
+          resultingAction = 'add';
+        } else if (action === 'remove') {
+          newUsers = usersForEmoji.filter((u) => !isTargetUser(u));
+          resultingAction = 'remove';
+        } else {
+          if (alreadyPresent) {
             newUsers = usersForEmoji.filter((u) => !isTargetUser(u));
             resultingAction = 'remove';
           } else {
-            if (alreadyPresent) {
-              newUsers = usersForEmoji.filter((u) => !isTargetUser(u));
-              resultingAction = 'remove';
-            } else {
-              newUsers = [...usersForEmoji.filter((u) => !isTargetUser(u)), user];
-              resultingAction = 'add';
-            }
+            newUsers = [...usersForEmoji.filter((u) => !isTargetUser(u)), user];
+            resultingAction = 'add';
           }
-
-          if (newUsers.length > 0) {
-            currentReactions[emoji] = newUsers;
-          } else {
-            delete currentReactions[emoji];
-          }
-
-          return {
-            ...m,
-            reactions: Object.keys(currentReactions).length > 0 ? currentReactions : undefined,
-          };
-        });
-
-        if (matchFound) {
-          set({
-            messagesByChatId: {
-              ...state.messagesByChatId,
-              [chatId]: updated,
-            },
-          });
         }
+
+        if (newUsers.length > 0) {
+          currentReactions[emoji] = newUsers;
+        } else {
+          delete currentReactions[emoji];
+        }
+
+        const updated = [...messages];
+        updated[targetIdx] = {
+          ...m,
+          reactions: Object.keys(currentReactions).length > 0 ? currentReactions : undefined,
+        };
+
+        set({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [chatId]: updated,
+          },
+        });
 
         return resultingAction;
       },
