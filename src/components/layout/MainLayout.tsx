@@ -4030,14 +4030,14 @@ export const MainLayout = () => {
   }, []);
 
   const handleSelectChat = useCallback((chatId: string) => {
-    if (chatId === activeChatId) return;
+    if (chatId === useChatStore.getState().activeChatId) return;
     if (useChatStore.getState().isRecordingVoice) {
       setPendingSwitchChatId(chatId);
       setShowVoiceDiscardModal(true);
       return;
     }
     setActiveChat(chatId);
-  }, [activeChatId, setActiveChat]);
+  }, [setActiveChat]);
 
   const handleSelectFoundSupport = useCallback(() => {
     supportService.initSupportChat(t, myCode);

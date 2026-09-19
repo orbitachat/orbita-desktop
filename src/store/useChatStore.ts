@@ -786,25 +786,35 @@ export const useChatStore = create<ChatState>()(
       setCodeRotationSpeed: (speed) => set({ codeRotationSpeed: speed }),
       setNextCodeRotationTime: (time) => set({ nextCodeRotationTime: time }),
       setActiveChat: (id) => {
-        const previousActiveId = get().activeChatId;
-        if (previousActiveId && previousActiveId !== id) {
-          const prevChat = get().chats.find(c => c.id === previousActiveId);
+        const state = get();
+        const previousActiveId = state.activeChatId;
+        if (previousActiveId === id) return;
+
+        let nextChats = state.chats;
+        let chatsChanged = false;
+
+        if (previousActiveId) {
+          const prevChat = nextChats.find(c => c.id === previousActiveId);
           if (prevChat && prevChat.type === 'channel' && !prevChat.isOwner && prevChat.isSubscribed === false) {
-            set({
-              chats: get().chats.filter(c => c.id !== previousActiveId),
-            });
+            nextChats = nextChats.filter(c => c.id !== previousActiveId);
+            chatsChanged = true;
           }
         }
-        set({ activeChatId: id });
+
         if (id) {
-          const chat = get().chats.find(c => c.id === id);
-          if (chat) {
-            set({
-              chats: get().chats.map(c =>
-                c.id === id ? { ...c, unreadCount: 0, lastReadTimestamp: Date.now() } : c
-              ),
-            });
+          const chat = nextChats.find(c => c.id === id);
+          if (chat && (chat.unreadCount ?? 0) > 0) {
+            nextChats = nextChats.map(c =>
+              c.id === id ? { ...c, unreadCount: 0, lastReadTimestamp: Date.now() } : c
+            );
+            chatsChanged = true;
           }
+        }
+
+        if (chatsChanged) {
+          set({ activeChatId: id, chats: nextChats });
+        } else {
+          set({ activeChatId: id });
         }
       },
       setActiveProfileChatId: (id) => set({ activeProfileChatId: id }),

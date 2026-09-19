@@ -1766,12 +1766,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   }, [rawMessages]);
 
   const [renderedCount, setRenderedCount] = useState<number>(getOptimalMessageBatchSize);
+  const [prevChatId, setPrevChatId] = useState<string | null>(activeChatId);
   const prevScrollHeightRef = useRef<number | null>(null);
   const prevScrollTopRef = useRef<number | null>(null);
 
+  if (prevChatId !== activeChatId) {
+    setPrevChatId(activeChatId);
+    setRenderedCount(getOptimalMessageBatchSize());
+  }
+
   useEffect(() => {
     decryptedUrlCache.clear();
-    setRenderedCount(getOptimalMessageBatchSize());
     prevScrollHeightRef.current = null;
     prevScrollTopRef.current = null;
   }, [activeChatId]);
@@ -6472,6 +6477,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             isGroup={activeChat?.type === 'group'}
             onLinkClick={handleLinkClick}
             onButtonClick={handleMessageButtonClick}
+            activeChat={activeChat}
           />
         </div>
       );

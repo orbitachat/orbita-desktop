@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DeveloperBadge } from '../ui/DeveloperBadge';
 import { Pin } from 'lucide-react';
-import { Message, useChatStore } from '../../store/useChatStore';
+import { Message, Chat, useChatStore } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { parseReplyChain, countEmojis, formatTimeOfDay, markdownToHtml, formatPreviewText } from '../../utils/messageUtils';
 import { isEmojiOnly } from '../../lib/emoji-data';
@@ -23,6 +23,7 @@ interface MessageItemProps {
   isGroup?: boolean;
   onLinkClick?: (url: string) => void;
   onButtonClick?: (button: { text: string; action: string; channelId?: string; url?: string; data?: string; icon?: 'channel' | 'backup' | 'help' | 'link' }) => void;
+  activeChat?: Chat;
 }
 
 const MessageText = ({
@@ -100,12 +101,11 @@ const MessageText = ({
 };
 
 export const MessageItem: React.FC<MessageItemProps> = React.memo(
-  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, onLinkClick, onButtonClick }) => {
+  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, onLinkClick, onButtonClick, activeChat: activeChatProp }) => {
     const { t } = useTranslation();
     const myCode = useChatStore((s) => s.myCode);
     const myNickname = useAuthStore((s) => s.nickname);
-    const activeChatId = useChatStore((s) => s.activeChatId);
-    const activeChat = useChatStore((s) => s.chats.find(c => c.id === activeChatId));
+    const activeChat = activeChatProp || useChatStore((s) => s.chats.find(c => c.id === s.activeChatId));
     const parsed = useMemo(() => parseReplyChain(msg.text), [msg.text]);
     const isEmoji = useMemo(() => isEmojiOnly(parsed.body) && parsed.body.trim().length > 0, [parsed.body]);
     const emojiCount = useMemo(() => (isEmoji ? countEmojis(parsed.body) : 0), [parsed.body, isEmoji]);
@@ -131,7 +131,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
       return 'inherit';
     }, [isEmoji, emojiCount]);
 
-    const isChannel = useChatStore((s) => s.chats.find((c) => c.id === s.activeChatId)?.type === 'channel');
+    const isChannel = activeChat?.type === 'channel';
 
     const timeBadge = (
       <span
