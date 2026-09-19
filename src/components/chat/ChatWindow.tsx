@@ -12,7 +12,7 @@ import { AddGroupMemberModal } from './AddGroupMemberModal';
 import { useChatStore, type Message, type MediaItem, type LinkPreviewData, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge } from '../ui/DeveloperBadge';
-import { getPusher, getGroupPusher } from '../../utils/pusher';
+import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher';
 import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
@@ -1978,6 +1978,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     type: null,
   });
   const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const reactionDebounceTimers = useRef<Map<string, any>>(new Map());
   const [mediaViewerState, setMediaViewerState] = useState<{
     isOpen: boolean;
     initialIndex: number;
@@ -4208,49 +4209,70 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (!targetMsg || !targetMsg.id) return;
     const msgId = targetMsg.id;
 
-    const reactionUserId = myUserId || myNickname;
-    const action = setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle');
+    const reactionUserId = myUserId || myCode || myNickname || 'YOU';
+    setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle');
 
     setContextMenu(prev => ({ ...prev, visible: false }));
 
     if (activeChatId === 'notes') return;
 
-    if (activeChat?.type === 'channel') {
-      channelService.toggleReaction(activeChatId, msgId, emoji, reactionUserId, action);
-      return;
+    const timerKey = `${activeChatId}:${msgId}:${emoji}`;
+    const existingTimer = reactionDebounceTimers.current.get(timerKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
     }
 
-    const payload = {
-      chatId: activeChatId,
-      messageId: msgId,
-      emoji,
-      sender: myNickname,
-      senderId: myUserId || myCode,
-      senderUserId: myUserId,
-      action,
-    };
+    const timer = setTimeout(() => {
+      reactionDebounceTimers.current.delete(timerKey);
+      const latestMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+      const latestMsg = latestMsgs.find(m => m.id === msgId);
+      const currentUsers = latestMsg?.reactions?.[emoji] || [];
+      const isPresent = currentUsers.includes(reactionUserId) || (myCode ? currentUsers.includes(myCode) : false) || (myUserId ? currentUsers.includes(myUserId) : false) || currentUsers.includes(myNickname);
+      const finalAction: 'add' | 'remove' = isPresent ? 'add' : 'remove';
 
-    supabaseService.saveReaction(activeChatId, undefined, msgId, emoji, reactionUserId, action);
+      if (activeChat?.type === 'channel') {
+        channelService.toggleReaction(activeChatId, msgId, emoji, reactionUserId, finalAction);
+        return;
+      }
 
-    ablyService.sendMessage(activeChatId, {
-      ...payload,
-      type: 'reaction',
-    });
-
-    try {
-      const pusher = getPusher();
-      const channelName = activeChat?.type === 'group' ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
-      const channel = pusher.subscribe(channelName);
-      const send = () => {
-        channel.trigger('client-message', {
-          ...payload,
-          type: 'reaction',
-        });
+      const payload = {
+        chatId: activeChatId,
+        messageId: msgId,
+        emoji,
+        sender: myNickname,
+        senderId: myUserId || myCode || myNickname,
+        senderUserId: myUserId,
+        action: finalAction,
+        sessionId: CLIENT_SESSION_ID,
       };
-      if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
-    } catch (err) {
-      console.error('Failed to broadcast reaction:', err);
-    }
+
+      supabaseService.saveReaction(activeChatId, undefined, msgId, emoji, reactionUserId, finalAction).catch(() => {});
+
+      ablyService.sendMessage(activeChatId, {
+        ...payload,
+        type: 'reaction',
+      }).catch(() => {});
+
+      try {
+        const pusher = getPusher();
+        const channelName = activeChat?.type === 'group' ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+        const channel = pusher.subscribe(channelName);
+        const send = () => {
+          try {
+            channel.trigger('client-message', {
+              ...payload,
+              type: 'reaction',
+            });
+          } catch {}
+        };
+        if (channel.subscribed) send();
+        else channel.bind('pusher:subscription_succeeded', send);
+      } catch (err) {
+        console.error('Failed to broadcast reaction:', err);
+      }
+    }, 150);
+
+    reactionDebounceTimers.current.set(timerKey, timer);
   };
 
   useEffect(() => {
@@ -4533,10 +4555,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
 
       if (data.type === 'reaction' && data.emoji && data.sender) {
+        if (data.sessionId === CLIENT_SESSION_ID) return;
+        const currentMyUserId = useAuthStore.getState().userId;
+        const currentMyNickname = useAuthStore.getState().nickname;
+        const currentMyCode = useChatStore.getState().myCode;
         const isSelf = Boolean(
-          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
-          (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
-          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === myNickname)
+          (currentMyUserId && (data.senderUserId === currentMyUserId || data.userId === currentMyUserId || data.senderId === currentMyUserId)) ||
+          (currentMyCode && (data.senderCode === currentMyCode || data.senderId === currentMyCode)) ||
+          (currentMyNickname && (data.sender === currentMyNickname || data.senderNickname === currentMyNickname)) ||
+          data.sender === 'YOU'
         );
         if (isSelf) return;
         const targetId = data.messageId || data.id;

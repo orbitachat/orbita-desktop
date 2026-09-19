@@ -7,7 +7,7 @@ import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/Develope
 import { X, Trash, WifiOff, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
-import { getPusher, getGroupPusher } from '../../utils/pusher';
+import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher';
 import {
   generateChatId,
   generateKeyPair,
@@ -2481,11 +2481,13 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'reaction' && data.emoji && data.sender) {
+        if (data.sessionId === CLIENT_SESSION_ID) return;
         const myUserId = useAuthStore.getState().userId;
         const isSelf = Boolean(
           (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
           (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
-          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === nickname)
+          (nickname && (data.sender === nickname || data.senderNickname === nickname)) ||
+          data.sender === 'YOU'
         );
         if (isSelf) return;
         const targetId = data.messageId || data.id;
@@ -2985,6 +2987,7 @@ export const MainLayout = () => {
       const isSelf = Boolean(
         (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
         (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+        (nickname && (data.sender === nickname || data.senderNickname === nickname)) ||
         data.sender === 'YOU' ||
         (data.messageId && processedMessageIds.current.has(data.messageId))
       );
@@ -2992,6 +2995,7 @@ export const MainLayout = () => {
       if (isSelf) return;
 
       if (data.type === 'reaction' && data.emoji && data.sender) {
+        if (data.sessionId === CLIENT_SESSION_ID) return;
         const targetId = data.messageId || data.id;
         if (targetId) {
           useChatStore.getState().setReaction(chatId, targetId, data.emoji, data.sender, data.action || 'add');

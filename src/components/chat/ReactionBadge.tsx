@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
-import { Avatar } from '../common/Avatar';
 
 const POPULAR_REACTIONS: Record<string, number> = {
   '👍': 1,
@@ -27,42 +26,34 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
   emoji,
   users,
   onToggle,
-  activeChatId,
 }) => {
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
+  const myUserId = useAuthStore((s) => s.userId);
   const myCode = useChatStore((s) => s.myCode);
-  const myAvatarUrl = useAuthStore((s) => s.avatarUrl);
-  const chats = useChatStore((s) => s.chats);
-  const storeActiveChatId = useChatStore((s) => s.activeChatId);
 
-  const effectiveChatId = activeChatId || storeActiveChatId;
-  const currentChat = useMemo(() => {
-    return chats.find((c) => c.id === effectiveChatId);
-  }, [effectiveChatId, chats]);
+  const hasReacted = Boolean(
+    (myUserId && users.includes(myUserId)) ||
+    (myCode && users.includes(myCode)) ||
+    (myNickname && users.includes(myNickname)) ||
+    users.includes('YOU')
+  );
 
-  const isChannel = currentChat?.type === 'channel';
-  const hasReacted = Boolean((myCode && users.includes(myCode)) || users.includes(myNickname) || users.includes('YOU'));
-
-  const getAvatarUrl = (userNick: string): string | null | undefined => {
-    if (userNick === myNickname || userNick === 'YOU') {
-      return myAvatarUrl;
+  const uniqueCount = useMemo(() => {
+    let count = 0;
+    let countedSelf = false;
+    for (const u of users) {
+      const isMe = (myUserId && u === myUserId) || (myCode && u === myCode) || (myNickname && u === myNickname) || u === 'YOU';
+      if (isMe) {
+        if (!countedSelf) {
+          countedSelf = true;
+          count++;
+        }
+      } else {
+        count++;
+      }
     }
-    const chat = chats.find((c) => c.name === userNick || c.id === userNick);
-    if (chat?.avatarUrl) return chat.avatarUrl;
-
-    if (currentChat?.type === 'private') {
-      return currentChat.avatarUrl;
-    }
-    return null;
-  };
-
-  const displayUsers = useMemo(() => {
-    return users.slice(0, 2);
-  }, [users]);
-
-  const badgeBg = hasReacted
-    ? 'color-mix(in srgb, var(--accent-color, #8b5cf6) 45%, rgba(35, 30, 50, 0.95))'
-    : 'rgba(255, 255, 255, 0.12)';
+    return Math.max(1, count);
+  }, [users, myUserId, myCode, myNickname]);
 
   return (
     <button
@@ -71,29 +62,31 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
         e.stopPropagation();
         onToggle(emoji);
       }}
-      className="inline-flex items-center justify-center transition-opacity hover:opacity-90 active:opacity-75 select-none"
+      aria-label={`${emoji} ${uniqueCount}`}
       style={{
         borderRadius: '9999px',
-        backgroundColor: badgeBg,
+        backgroundColor: hasReacted
+          ? 'var(--accent-color, #7C3AED)'
+          : 'rgba(255, 255, 255, 0.12)',
         border: 'none',
         outline: 'none',
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
-        backdropFilter: 'blur(8px)',
         cursor: 'pointer',
-        height: '28px',
-        minHeight: '28px',
-        padding: isChannel ? '0 10px' : '0 6px',
-        gap: isChannel ? '6px' : '5px',
+        height: '26px',
+        minHeight: '26px',
+        padding: '0 8px',
+        gap: '4px',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         boxSizing: 'border-box',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
       }}
     >
       <span
         className="emoji-font"
         style={{
-          fontSize: '15px',
+          fontSize: '14px',
           lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
@@ -102,66 +95,19 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
       >
         {emoji}
       </span>
-
-      {isChannel ? (
-        <span
-          className="tabular-nums text-white"
-          style={{
-            fontSize: '12.5px',
-            fontWeight: 600,
-            color: '#ffffff',
-            lineHeight: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-          }}
-        >
-          {users.length}
-        </span>
-      ) : (
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-          }}
-        >
-          {displayUsers.map((u, i) => {
-            const avatarUrl = getAvatarUrl(u);
-            const isSubsequent = i > 0;
-            return (
-              <div
-                key={`${u}-${i}`}
-                style={{
-                  position: 'relative',
-                  marginLeft: isSubsequent ? '-6px' : '0',
-                  zIndex: 10 + i,
-                  borderRadius: '50%',
-                  boxShadow: isSubsequent ? `0 0 0 2.5px ${badgeBg}` : 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '20px',
-                  height: '20px',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <Avatar
-                  src={avatarUrl}
-                  alt={u}
-                  className="w-[20px] h-[20px] rounded-full"
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    fontSize: '10.5px',
-                    border: 'none',
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <span
+        className="tabular-nums"
+        style={{
+          fontSize: '12px',
+          fontWeight: 600,
+          color: '#ffffff',
+          lineHeight: 1,
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}
+      >
+        {uniqueCount}
+      </span>
     </button>
   );
 });

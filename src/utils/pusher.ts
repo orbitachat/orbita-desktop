@@ -1,6 +1,8 @@
 import Pusher from 'pusher-js';
 import { gatewayManager } from '../services/gatewayManager';
 
+export const CLIENT_SESSION_ID = Math.random().toString(36).substring(2, 10);
+
 export interface PusherServerConfig {
   id: string;
   key: string;
