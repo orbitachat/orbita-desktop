@@ -344,8 +344,10 @@ function decryptData(data: Buffer): Buffer | null {
 // -----------------------------------------------------------------------------
 const MEDIA_DIR_NAME = 'media';
 const MEDIA_DB_NAME = 'media_cache.db';
-const MAX_CACHE_SIZE = 1024 * 1024 * 1024; // 1 GB
+const MAX_CACHE_SIZE = 1024 * 1024 * 1024;
 let mediaDbInstance: sqlite3.Database | null = null;
+const lastAccessedCache = new Map<string, number>();
+const LAST_ACCESSED_TTL = 5 * 60 * 1000;
 
 function getMediaDir(): string {
   return path.join(app.getPath('userData'), MEDIA_DIR_NAME);
@@ -359,8 +361,9 @@ async function initMediaDb(): Promise<sqlite3.Database> {
   const dbPath = path.join(dir, MEDIA_DB_NAME);
   mediaDbInstance = new sqlite3.Database(dbPath);
   mediaDbInstance.run('PRAGMA journal_mode = WAL;');
-  mediaDbInstance.run('PRAGMA synchronous = NORMAL;');
-  mediaDbInstance.run('PRAGMA wal_autocheckpoint = 250;');
+  mediaDbInstance.run('PRAGMA synchronous = OFF;');
+  mediaDbInstance.run('PRAGMA wal_autocheckpoint = 2000;');
+  mediaDbInstance.run('PRAGMA cache_size = -4096;');
 
   return new Promise((resolve, reject) => {
     mediaDbInstance!.run(
@@ -553,12 +556,12 @@ async function getMediaFromCache(cacheKey: string): Promise<{ data: Buffer | nul
   const decrypted = decryptData(raw);
   if (!decrypted) return { data: null, mime: null };
 
-  await new Promise<void>((resolve, reject) => {
-    db.run('UPDATE media_cache SET last_accessed = ? WHERE cache_key = ?', [Date.now(), cacheKey], (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
+  const now = Date.now();
+  const lastUpdate = lastAccessedCache.get(cacheKey);
+  if (!lastUpdate || now - lastUpdate > LAST_ACCESSED_TTL) {
+    lastAccessedCache.set(cacheKey, now);
+    db.run('UPDATE media_cache SET last_accessed = ? WHERE cache_key = ?', [now, cacheKey]);
+  }
 
   return { data: decrypted, mime: record.mime_type };
 }
