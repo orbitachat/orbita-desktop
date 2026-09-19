@@ -125,6 +125,7 @@ interface AudioStore {
   isSeeking: boolean;
   playbackRate: number;
   isReverseOrder: boolean;
+  getLiveTime?: () => number;
 
   setTrack: (track: Track | null) => void;
   play: (track?: Track) => void;
@@ -161,6 +162,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   isSeeking: false,
   playbackRate: 1.0,
   isReverseOrder: false,
+  getLiveTime: undefined,
 
   setTrack: (track) => {
     set({

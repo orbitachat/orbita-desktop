@@ -5,6 +5,13 @@ import { createPortal } from 'react-dom';
 import { AudioQueueMenu } from './AudioQueueMenu';
 import { AudioVolumePopover, AudioOrderPopover, AudioSpeedPopover } from './AudioControlsPopups';
 
+const formatTime = (seconds: number) => {
+  if (!seconds || !isFinite(seconds)) return '00:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 export const GlobalAudioPlayer = () => {
   const { t } = useTranslation();
   const currentTrack = useAudioStore((state) => state.currentTrack);
@@ -151,17 +158,58 @@ export const GlobalAudioPlayer = () => {
   }, [isDragging, handleProgressMouseMove, handleProgressMouseUp, handleProgressTouchMove, handleProgressTouchEnd]);
 
   useEffect(() => {
-    if (dragStateRef.current.isDragging) return;
-    const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
-    if (progressFillRef.current) {
-      progressFillRef.current.style.width = `${pct}%`;
-    }
-    if (timeDisplayRef.current) {
-      timeDisplayRef.current.textContent = formatTime(currentTime);
-    }
-  }, [currentTime, duration]);
+    let animId: number;
+    let lastAudioTime = 0;
+    let lastSyncTime = performance.now();
 
-  // Close queue menu when clicking outside
+    const tick = () => {
+      if (dragStateRef.current.isDragging) return;
+
+      const getLiveTime = useAudioStore.getState().getLiveTime;
+      const liveAudioTime = getLiveTime ? getLiveTime() : useAudioStore.getState().currentTime;
+      const now = performance.now();
+
+      if (liveAudioTime !== lastAudioTime) {
+        lastAudioTime = liveAudioTime;
+        lastSyncTime = now;
+      }
+
+      let currentExactTime = liveAudioTime;
+      if (isPlaying && playbackRate > 0) {
+        const elapsedSec = (now - lastSyncTime) / 1000 * playbackRate;
+        currentExactTime = Math.min(duration, liveAudioTime + elapsedSec);
+      }
+
+      const pct = duration > 0 ? (currentExactTime / duration) * 100 : 0;
+      if (progressFillRef.current) {
+        progressFillRef.current.style.width = `${pct}%`;
+      }
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = formatTime(currentExactTime);
+      }
+
+      if (isPlaying) {
+        animId = requestAnimationFrame(tick);
+      }
+    };
+
+    if (isPlaying) {
+      animId = requestAnimationFrame(tick);
+    } else {
+      const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
+      if (progressFillRef.current) {
+        progressFillRef.current.style.width = `${pct}%`;
+      }
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = formatTime(currentTime);
+      }
+    }
+
+    return () => {
+      cancelAnimationFrame(animId);
+    };
+  }, [isPlaying, duration, playbackRate, currentTime]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -224,13 +272,6 @@ export const GlobalAudioPlayer = () => {
   }, [clearVolumeTimers]);
 
   if (!currentTrack) return null;
-
-  const formatTime = (seconds: number) => {
-    if (!seconds || !isFinite(seconds)) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const isExpanded = isHovering || isDragging;

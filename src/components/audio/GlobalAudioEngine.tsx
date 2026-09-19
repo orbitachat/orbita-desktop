@@ -26,6 +26,10 @@ export const GlobalAudioEngine = () => {
     audio.preload = 'metadata';
     audioRef.current = audio;
 
+    useAudioStore.setState({
+      getLiveTime: () => (audioRef.current ? audioRef.current.currentTime : 0),
+    });
+
     const handleLoadedMetadata = () => {
       const dur = audio.duration;
       if (isFinite(dur) && dur > 0) {
@@ -64,6 +68,7 @@ export const GlobalAudioEngine = () => {
     });
 
     return () => {
+      useAudioStore.setState({ getLiveTime: undefined });
       unsub();
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
