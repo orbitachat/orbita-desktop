@@ -945,8 +945,6 @@ export const useChatStore = create<ChatState>()(
 
           if (!hasChanges) return state;
 
-          console.log('[DEBUG] updateChat hasChanges in:', chatId, 'keys:', Object.keys(cleanUpdates).filter(k => (target as any)[k] !== (cleanUpdates as any)[k]));
-
           const nextChats = [...state.chats];
           nextChats[targetIndex] = { ...target, ...cleanUpdates };
           return { chats: nextChats };

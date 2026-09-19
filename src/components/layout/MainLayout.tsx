@@ -2110,13 +2110,7 @@ export const MainLayout = () => {
       syncAll(true);
     };
 
-    const unsubStoreDebug = useChatStore.subscribe((state, prev) => {
-      for (const key of Object.keys(state) as any) {
-        if (state[key] !== prev[key]) {
-          console.log(`[DEBUG STORE] Key changed: ${key}`);
-        }
-      }
-    });
+
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -2137,7 +2131,6 @@ export const MainLayout = () => {
 
     return () => {
       isDestroyed = true;
-      unsubStoreDebug();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('focus', handleFocus);

@@ -3252,9 +3252,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   useEffect(() => {
     updateChatThumb();
   }, [visibleMessages.length, updateChatThumb]);
-
-  const hasAudioTrack = useAudioStore((state) => Boolean(state.currentTrack));
-
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
