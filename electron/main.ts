@@ -2735,7 +2735,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: true,
+      backgroundThrottling: false,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Media',
@@ -2754,7 +2754,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
       currentMediaPayloadCache = null;
       if (mediaWindow && !mediaWindow.isDestroyed()) {
         mediaWindow.webContents.send('orbita:media-payload', null);
-        mediaWindow.hide();
+        mediaWindow.setPosition(-32000, -32000);
       }
     }
   });
@@ -2790,6 +2790,9 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
   mediaWindow.on('closed', () => {
     mediaWindow = null;
     currentMediaPayloadCache = null;
+    if (!isQuitting) {
+      initMediaWindowPrewarm();
+    }
   });
 
   if (isPackaged) {
@@ -2805,8 +2808,8 @@ function initMediaWindowPrewarm() {
   if (mediaWindow && !mediaWindow.isDestroyed()) return;
   try {
     const win = initOrGetMediaWindow();
-    win.setSkipTaskbar(true);
-    if (win.isVisible()) win.hide();
+    win.setPosition(-32000, -32000);
+    win.showInactive();
   } catch { }
 }
 
@@ -2850,7 +2853,7 @@ ipcMain.handle('orbita:close-media-window', () => {
   if (mediaWindow && !mediaWindow.isDestroyed()) {
     currentMediaPayloadCache = null;
     mediaWindow.webContents.send('orbita:media-payload', null);
-    mediaWindow.hide();
+    mediaWindow.setPosition(-32000, -32000);
     if (global.gc) {
       try { global.gc(); } catch { }
     }
@@ -2942,7 +2945,7 @@ ipcMain.handle('window:close', (event) => {
     } else if (mediaWindow && win === mediaWindow) {
       currentMediaPayloadCache = null;
       mediaWindow.webContents.send('orbita:media-payload', null);
-      mediaWindow.hide();
+      mediaWindow.setPosition(-32000, -32000);
     } else if (win === mainWindow) {
       if (showInTraySetting) {
         mainWindow.hide();
@@ -3232,7 +3235,7 @@ function createMainWindow() {
         callWindow.hide();
       }
       if (mediaWindow && !mediaWindow.isDestroyed()) {
-        mediaWindow.hide();
+        mediaWindow.setPosition(-32000, -32000);
       }
       if (global.gc) {
         try { global.gc(); } catch { }
