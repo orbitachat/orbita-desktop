@@ -491,7 +491,7 @@ interface ChatState {
   updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
   editMessage: (chatId: string, messageId: string, newText: string, encryptedText?: string, index?: number) => void;
   toggleReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string) => void;
-  setReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string, action?: 'add' | 'remove' | 'toggle') => 'add' | 'remove';
+  setReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string, action?: 'add' | 'remove' | 'toggle', userAliases?: string[]) => 'add' | 'remove';
   syncReactionsFromSupabase: (chatId: string) => Promise<void>;
   getMessages: (chatId: string) => Message[];
   setPasscode: (code: string | null) => void;
@@ -1123,10 +1123,17 @@ export const useChatStore = create<ChatState>()(
       toggleReaction: (chatId, messageIndexOrId, emoji, user) => {
         get().setReaction(chatId, messageIndexOrId, emoji, user, 'toggle');
       },
-      setReaction: (chatId, messageIndexOrId, emoji, user, action = 'toggle') => {
+      setReaction: (chatId, messageIndexOrId, emoji, user, action = 'toggle', userAliases) => {
         const state = get();
         const messages = state.messagesByChatId[chatId] || [];
         const targetStr = String(messageIndexOrId);
+
+        const aliases = new Set(userAliases || []);
+        if (state.myCode) aliases.add(state.myCode);
+        aliases.add('YOU');
+        if (user) aliases.add(user);
+
+        const isTargetUser = (u: string) => aliases.has(u);
 
         let resultingAction: 'add' | 'remove' = 'add';
         let matchFound = false;
@@ -1140,21 +1147,21 @@ export const useChatStore = create<ChatState>()(
 
           const currentReactions: Record<string, string[]> = { ...(m.reactions || {}) };
           const usersForEmoji = Array.from(currentReactions[emoji] || []);
-          const alreadyPresent = usersForEmoji.includes(user);
+          const alreadyPresent = usersForEmoji.some(isTargetUser);
 
           let newUsers: string[];
           if (action === 'add') {
-            newUsers = alreadyPresent ? usersForEmoji : [...usersForEmoji, user];
+            newUsers = alreadyPresent ? usersForEmoji : [...usersForEmoji.filter((u) => !isTargetUser(u)), user];
             resultingAction = 'add';
           } else if (action === 'remove') {
-            newUsers = usersForEmoji.filter((u) => u !== user);
+            newUsers = usersForEmoji.filter((u) => !isTargetUser(u));
             resultingAction = 'remove';
           } else {
             if (alreadyPresent) {
-              newUsers = usersForEmoji.filter((u) => u !== user);
+              newUsers = usersForEmoji.filter((u) => !isTargetUser(u));
               resultingAction = 'remove';
             } else {
-              newUsers = [...usersForEmoji, user];
+              newUsers = [...usersForEmoji.filter((u) => !isTargetUser(u)), user];
               resultingAction = 'add';
             }
           }

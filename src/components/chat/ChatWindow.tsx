@@ -4209,8 +4209,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (!targetMsg || !targetMsg.id) return;
     const msgId = targetMsg.id;
 
+    const userAliases = [myUserId, myCode, myNickname, 'YOU'].filter(Boolean) as string[];
     const reactionUserId = myUserId || myCode || myNickname || 'YOU';
-    setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle');
+    setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle', userAliases);
 
     setContextMenu(prev => ({ ...prev, visible: false }));
 

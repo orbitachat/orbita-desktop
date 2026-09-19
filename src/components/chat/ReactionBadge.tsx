@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 
@@ -30,13 +30,16 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
   const myUserId = useAuthStore((s) => s.userId);
   const myCode = useChatStore((s) => s.myCode);
+  const [popping, setPopping] = useState(false);
 
-  const hasReacted = Boolean(
-    (myUserId && users.includes(myUserId)) ||
-    (myCode && users.includes(myCode)) ||
-    (myNickname && users.includes(myNickname)) ||
-    users.includes('YOU')
-  );
+  const hasReacted = useMemo(() => {
+    return Boolean(
+      (myUserId && users.includes(myUserId)) ||
+      (myCode && users.includes(myCode)) ||
+      (myNickname && users.includes(myNickname)) ||
+      users.includes('YOU')
+    );
+  }, [users, myUserId, myCode, myNickname]);
 
   const uniqueCount = useMemo(() => {
     let count = 0;
@@ -55,42 +58,53 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
     return Math.max(1, count);
   }, [users, myUserId, myCode, myNickname]);
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopping(true);
+    setTimeout(() => setPopping(false), 200);
+    onToggle(emoji);
+  };
+
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle(emoji);
-      }}
+      onClick={handleClick}
       aria-label={`${emoji} ${uniqueCount}`}
+      className="select-none active:scale-95"
       style={{
         borderRadius: '9999px',
         backgroundColor: hasReacted
           ? 'var(--accent-color, #7C3AED)'
-          : 'rgba(255, 255, 255, 0.12)',
-        border: 'none',
+          : 'rgba(255, 255, 255, 0.08)',
+        border: hasReacted
+          ? '1px solid var(--accent-color, #7C3AED)'
+          : '1px solid rgba(255, 255, 255, 0.08)',
         outline: 'none',
         cursor: 'pointer',
-        height: '26px',
-        minHeight: '26px',
+        height: '28px',
+        minHeight: '28px',
         padding: '0 8px',
-        gap: '4px',
+        gap: '5px',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         boxSizing: 'border-box',
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        transform: popping ? 'scale(1.08)' : 'scale(1)',
+        transition: 'transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.18s ease, border-color 0.18s ease',
       }}
     >
       <span
         className="emoji-font"
         style={{
-          fontSize: '14px',
+          fontSize: '15px',
           lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
+          transform: popping ? 'scale(1.2)' : 'scale(1)',
+          transition: 'transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
         {emoji}
@@ -98,12 +112,13 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
       <span
         className="tabular-nums"
         style={{
-          fontSize: '12px',
+          fontSize: '12.5px',
           fontWeight: 600,
-          color: '#ffffff',
+          color: hasReacted ? '#ffffff' : 'rgba(255, 255, 255, 0.85)',
           lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
+          transition: 'color 0.18s ease',
         }}
       >
         {uniqueCount}
