@@ -20,12 +20,14 @@ interface ReactionBadgeProps {
   users: string[];
   onToggle: (emoji: string) => void;
   activeChatId?: string;
+  isOwn?: boolean;
 }
 
 export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
   emoji,
   users,
   onToggle,
+  isOwn = false,
 }) => {
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
   const myUserId = useAuthStore((s) => s.userId);
@@ -89,27 +91,7 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
       type="button"
       onClick={handleClick}
       aria-label={`${emoji} ${uniqueCount}`}
-      className="select-none active:scale-95"
-      style={{
-        borderRadius: '9999px',
-        backgroundColor: hasReacted
-          ? 'var(--accent-color, #7C3AED)'
-          : 'rgba(255, 255, 255, 0.16)',
-        border: 'none',
-        outline: 'none',
-        cursor: 'pointer',
-        height: '28px',
-        minHeight: '28px',
-        padding: '0 8px',
-        gap: '5px',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxSizing: 'border-box',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        transition: 'background-color 0.15s ease, transform 0.1s ease',
-      }}
+      className={`reaction-badge-btn select-none active:scale-95 ${isOwn ? 'is-own' : 'is-incoming'} ${hasReacted ? 'is-active' : 'is-inactive'}`}
     >
       <span
         className="emoji-font"
@@ -128,10 +110,10 @@ export const ReactionBadge: React.FC<ReactionBadgeProps> = React.memo(({
         style={{
           fontSize: '12.5px',
           fontWeight: 600,
-          color: hasReacted ? '#ffffff' : 'rgba(255, 255, 255, 0.9)',
           lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
+          color: 'inherit',
           transition: 'color 0.15s ease',
         }}
       >
@@ -154,7 +136,7 @@ interface MessageReactionsProps {
 export const MessageReactions: React.FC<MessageReactionsProps> = React.memo(({
   reactions,
   onToggleReaction,
-  isOwn: _isOwn = false,
+  isOwn = false,
   activeChatId,
   isSmallMessage = false,
 }) => {
@@ -190,6 +172,7 @@ export const MessageReactions: React.FC<MessageReactionsProps> = React.memo(({
           users={users}
           onToggle={onToggleReaction}
           activeChatId={activeChatId}
+          isOwn={isOwn}
         />
       ))}
     </div>

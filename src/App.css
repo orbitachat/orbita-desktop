@@ -831,3 +831,46 @@ textarea::selection,
 .active-call-header-bar {
   background: linear-gradient(90deg, var(--accent-color, #7C3AED) 0%, #2563eb 50%, #06b6d4 100%);
 }
+
+.reaction-badge-btn {
+  border-radius: 9999px !important;
+  border: none !important;
+  outline: none !important;
+  cursor: pointer;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  gap: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.reaction-badge-btn.is-incoming.is-inactive {
+  background-color: #383a42 !important;
+  color: #ffffff !important;
+}
+
+[data-theme-light="true"] .reaction-badge-btn.is-incoming.is-inactive {
+  background-color: #e2e4e9 !important;
+  color: #1b1b1b !important;
+}
+
+.reaction-badge-btn.is-incoming.is-active {
+  background-color: var(--accent-color, #7C3AED) !important;
+  color: #ffffff !important;
+}
+
+.reaction-badge-btn.is-own.is-inactive {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.reaction-badge-btn.is-own.is-active {
+  background-color: #ffffff !important;
+  color: var(--accent-color, #7C3AED) !important;
+}
