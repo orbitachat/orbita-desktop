@@ -111,6 +111,10 @@ export const MediaWindowView: React.FC = () => {
     dispatchAction({ type: 'DELETE_MESSAGE', messageId, chatId: payload?.chatId });
   };
 
+  if (!payload || !payload.items || payload.items.length === 0) {
+    return null;
+  }
+
   return (
     <div className="w-full h-full min-h-screen bg-transparent overflow-hidden select-none">
       <TelegramMediaViewer

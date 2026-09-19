@@ -2501,6 +2501,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
     },
     title: 'Orbita Call',
     show: false,
+    skipTaskbar: true,
     icon: icon && !icon.isEmpty() ? icon : undefined,
   });
 
@@ -2508,6 +2509,18 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
   if (screenProtectionSetting) {
     callWindow.setContentProtection(true);
   }
+
+  callWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      currentCallStateCache = null;
+      if (callWindow && !callWindow.isDestroyed()) {
+        callWindow.webContents.send('orbita:call-state', null);
+        callWindow.setSkipTaskbar(true);
+        callWindow.hide();
+      }
+    }
+  });
 
   callWindow.on('resize', () => {
     if (callWindow && !callWindow.isDestroyed()) {
@@ -2585,6 +2598,7 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
     win.webContents.send('orbita:call-state', currentCallStateCache);
   }
 
+  win.setSkipTaskbar(false);
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
@@ -2600,7 +2614,14 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
   return win;
 }
 
-function initCallWindowPrewarm() {}
+function initCallWindowPrewarm() {
+  if (callWindow && !callWindow.isDestroyed()) return;
+  try {
+    const win = initOrGetCallWindow();
+    win.setSkipTaskbar(true);
+    if (win.isVisible()) win.hide();
+  } catch { }
+}
 
 ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
   createOrShowCallWindow(payload);
@@ -2610,8 +2631,15 @@ ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-call-window', () => {
   if (callWindow && !callWindow.isDestroyed()) {
     currentCallStateCache = null;
-    callWindow.destroy();
-    callWindow = null;
+    callWindow.webContents.send('orbita:call-state', null);
+    callWindow.setSkipTaskbar(true);
+    callWindow.hide();
+    if (global.gc) {
+      try { global.gc(); } catch { }
+    }
+    try {
+      callWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+    } catch { }
   }
   return { success: true };
 });
@@ -2707,7 +2735,7 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Media',
@@ -2719,6 +2747,17 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
   if (screenProtectionSetting) {
     mediaWindow.setContentProtection(true);
   }
+
+  mediaWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      currentMediaPayloadCache = null;
+      if (mediaWindow && !mediaWindow.isDestroyed()) {
+        mediaWindow.webContents.send('orbita:media-payload', null);
+        mediaWindow.hide();
+      }
+    }
+  });
 
   mediaWindow.on('resize', () => {
     if (mediaWindow && !mediaWindow.isDestroyed()) {
@@ -2762,7 +2801,14 @@ function initOrGetMediaWindow(initialPayload?: any): BrowserWindow {
   return mediaWindow;
 }
 
-function initMediaWindowPrewarm() {}
+function initMediaWindowPrewarm() {
+  if (mediaWindow && !mediaWindow.isDestroyed()) return;
+  try {
+    const win = initOrGetMediaWindow();
+    win.setSkipTaskbar(true);
+    if (win.isVisible()) win.hide();
+  } catch { }
+}
 
 function createOrShowMediaWindow(initialPayload?: any): BrowserWindow {
   if (initialPayload) {
@@ -2803,8 +2849,14 @@ ipcMain.handle('orbita:open-media-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-media-window', () => {
   if (mediaWindow && !mediaWindow.isDestroyed()) {
     currentMediaPayloadCache = null;
-    mediaWindow.destroy();
-    mediaWindow = null;
+    mediaWindow.webContents.send('orbita:media-payload', null);
+    mediaWindow.hide();
+    if (global.gc) {
+      try { global.gc(); } catch { }
+    }
+    try {
+      mediaWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+    } catch { }
   }
   return { success: true };
 });
@@ -3176,12 +3228,11 @@ function createMainWindow() {
       e.preventDefault();
       mainWindow.hide();
       if (callWindow && !callWindow.isDestroyed() && !currentCallStateCache) {
-        callWindow.destroy();
-        callWindow = null;
+        callWindow.setSkipTaskbar(true);
+        callWindow.hide();
       }
       if (mediaWindow && !mediaWindow.isDestroyed()) {
-        mediaWindow.destroy();
-        mediaWindow = null;
+        mediaWindow.hide();
       }
       if (global.gc) {
         try { global.gc(); } catch { }
@@ -3189,6 +3240,16 @@ function createMainWindow() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         try {
           mainWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+        } catch { }
+      }
+      if (callWindow && !callWindow.isDestroyed()) {
+        try {
+          callWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+        } catch { }
+      }
+      if (mediaWindow && !mediaWindow.isDestroyed()) {
+        try {
+          mediaWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
         } catch { }
       }
     }
@@ -3572,6 +3633,18 @@ app.whenReady().then(async () => {
   createMainWindow();
   setupTray();
   setupAutoUpdater();
+
+  const prewarmBackgroundWindows = () => {
+    initCallWindowPrewarm();
+    initMediaWindowPrewarm();
+  };
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      setTimeout(prewarmBackgroundWindows, 1500);
+    });
+  }
+  setTimeout(prewarmBackgroundWindows, 4000);
 
   setInterval(() => {
     if (global.gc) {

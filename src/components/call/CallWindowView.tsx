@@ -973,6 +973,18 @@ export const CallWindowView = () => {
     }
   }, [hasRemoteStream]);
 
+  if (!callData || callData.callState === 'idle' || callData.callState === 'ended') {
+    return (
+      <div
+        className="fixed inset-0 w-full h-full overflow-hidden select-none"
+        style={{
+          backgroundColor: 'var(--bg-primary, #14111d)',
+          userSelect: 'none',
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 w-full h-full flex flex-col justify-between overflow-hidden select-none"
