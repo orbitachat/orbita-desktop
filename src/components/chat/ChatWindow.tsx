@@ -1387,8 +1387,9 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, time
 
 const formatVoiceTime = (seconds: number) => {
   if (!seconds || !isFinite(seconds) || seconds < 0) return '0:00';
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
+  const total = Math.round(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
@@ -1463,10 +1464,11 @@ const VoiceMessagePlayer = memo(({
     }
   }, [msg?.duration, localDuration]);
 
-  // Sync store duration if track is active
   useEffect(() => {
     if (isCurrentTrack && localDuration > 0 && (!globalDuration || globalDuration === 0)) {
       setStoreDuration(localDuration);
+    } else if (isCurrentTrack && globalDuration > 0 && Math.abs(localDuration - globalDuration) > 0.05) {
+      setLocalDuration(globalDuration);
     }
   }, [isCurrentTrack, localDuration, globalDuration, setStoreDuration]);
 
@@ -1623,7 +1625,10 @@ const VoiceMessagePlayer = memo(({
         currentExactTime = Math.min(effectiveDuration, liveAudioTime + elapsedSec);
       }
 
-      const ratio = effectiveDuration > 0 ? Math.min(1, currentExactTime / effectiveDuration) : 0;
+      let ratio = effectiveDuration > 0 ? Math.min(1, currentExactTime / effectiveDuration) : 0;
+      if (effectiveDuration > 0 && currentExactTime >= effectiveDuration - 0.08) {
+        ratio = 1;
+      }
       if (progressOverlayRef.current) {
         progressOverlayRef.current.style.width = `${ratio * 100}%`;
       }
@@ -1639,9 +1644,12 @@ const VoiceMessagePlayer = memo(({
     if (isPlaying) {
       animId = requestAnimationFrame(tick);
     } else {
-      const ratio = dragProgressRatio !== null
+      let ratio = dragProgressRatio !== null
         ? dragProgressRatio
         : (effectiveDuration > 0 ? Math.min(1, effectiveCurrentTime / effectiveDuration) : 0);
+      if (effectiveDuration > 0 && effectiveCurrentTime >= effectiveDuration - 0.08) {
+        ratio = 1;
+      }
       if (progressOverlayRef.current) {
         progressOverlayRef.current.style.width = `${ratio * 100}%`;
       }
@@ -1655,7 +1663,7 @@ const VoiceMessagePlayer = memo(({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [isPlaying, isCurrentTrack, effectiveDuration, effectiveCurrentTime, dragProgressRatio]);
+  }, [isPlaying, isCurrentTrack, effectiveDuration, dragProgressRatio]);
 
   if (!blobUrl) {
     return (
@@ -1713,7 +1721,7 @@ const VoiceMessagePlayer = memo(({
           ref={waveformRef}
           onMouseDown={handleMouseDown}
           className="relative flex items-center cursor-pointer select-none"
-          style={{ height: '22px', gap: '1px', userSelect: 'none' }}
+          style={{ height: '22px', gap: '1px', width: 'max-content', userSelect: 'none' }}
         >
           {bars.map((h, idx) => {
             const barHeight = Math.max(3, Math.round((h / 100) * 20));

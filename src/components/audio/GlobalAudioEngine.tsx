@@ -30,16 +30,24 @@ export const GlobalAudioEngine = () => {
       getLiveTime: () => (audioRef.current ? audioRef.current.currentTime : 0),
     });
 
-    const handleLoadedMetadata = () => {
+    const syncDuration = () => {
       const dur = audio.duration;
       if (isFinite(dur) && dur > 0) {
-        useAudioStore.getState().setDuration(dur);
+        const currentDur = useAudioStore.getState().duration;
+        if (!currentDur || Math.abs(currentDur - dur) > 0.05) {
+          useAudioStore.getState().setDuration(dur);
+        }
       }
+    };
+
+    const handleLoadedMetadata = () => {
+      syncDuration();
     };
 
     const handleTimeUpdate = () => {
       if (useAudioStore.getState().isSeeking) return;
       useAudioStore.getState().setCurrentTime(audio.currentTime);
+      syncDuration();
     };
 
     const handleEnded = () => {
@@ -57,6 +65,7 @@ export const GlobalAudioEngine = () => {
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('durationchange', syncDuration);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
 
@@ -71,6 +80,7 @@ export const GlobalAudioEngine = () => {
       useAudioStore.setState({ getLiveTime: undefined });
       unsub();
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('durationchange', syncDuration);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
       audio.pause();
@@ -93,6 +103,8 @@ export const GlobalAudioEngine = () => {
 
   useEffect(() => {
     let animId: number;
+    let lastVoiceTime = 0;
+    let voiceStallFrames = 0;
 
     const checkFade = () => {
       const audio = audioRef.current;
@@ -107,6 +119,43 @@ export const GlobalAudioEngine = () => {
           audio.volume = baseVol;
         }
       }
+
+      if (audio && isPlaying && !isSeeking && currentTrack?.mediaType === 'voice') {
+        const dur = (isFinite(audio.duration) && audio.duration > 0)
+          ? audio.duration
+          : (useAudioStore.getState().duration || currentTrack.duration || 0);
+
+        if (dur > 0 && audio.currentTime >= dur - 0.06) {
+          useAudioStore.getState().setCurrentTime(dur);
+          const state = useAudioStore.getState();
+          if (audioRef.current) {
+            audioRef.current.volume = state.volume;
+          }
+          state.next();
+          return;
+        }
+
+        if (audio.currentTime > 0.2 && Math.abs(audio.currentTime - lastVoiceTime) < 0.001) {
+          voiceStallFrames++;
+          if (voiceStallFrames >= 12) {
+            voiceStallFrames = 0;
+            if (dur > 0 && audio.currentTime < dur) {
+              useAudioStore.getState().setDuration(audio.currentTime);
+            }
+            useAudioStore.getState().setCurrentTime(audio.currentTime);
+            const state = useAudioStore.getState();
+            if (audioRef.current) {
+              audioRef.current.volume = state.volume;
+            }
+            state.next();
+            return;
+          }
+        } else {
+          lastVoiceTime = audio.currentTime;
+          voiceStallFrames = 0;
+        }
+      }
+
       if (isPlaying) {
         animId = requestAnimationFrame(checkFade);
       }

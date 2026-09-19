@@ -252,7 +252,7 @@ export function useAudioRecorder() {
       if (!recorder || recorder.state === 'inactive') {
         if (draftBlob) {
           const waveform = computeNormalizedWaveform(samplesRef.current);
-          const finalDuration = Math.max(1, Math.round(recordingTime));
+          const finalDuration = Math.max(0.5, recordingTime);
           cleanupStream();
           cleanupAudioContext();
           clearTimer();
@@ -268,7 +268,7 @@ export function useAudioRecorder() {
         const mimeType = recorder.mimeType || 'audio/webm';
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const waveform = computeNormalizedWaveform(samplesRef.current);
-        const finalDuration = Math.max(1, Math.round(recordingTime));
+        const finalDuration = Math.max(0.5, recordingTime);
 
         cleanupStream();
         cleanupAudioContext();
