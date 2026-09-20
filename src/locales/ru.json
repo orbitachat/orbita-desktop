@@ -1169,7 +1169,10 @@
       "zk_sync_error": "Ошибка синхронизации",
       "zk_version": "Версия конфига: {{version}}",
       "zk_show": "Показать",
-      "zk_hide": "Скрыть"
+      "zk_hide": "Скрыть",
+      "delete_cloud_backup_btn": "Удалить копию с сервера",
+      "delete_cloud_backup_confirm": "Резервная копия удалена с сервера",
+      "delete_cloud_backup_err": "Не удалось удалить копию с сервера"
     },
     "orbitos": {
       "name": "ORBITA",

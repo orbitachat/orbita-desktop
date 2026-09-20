@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download, ShieldCheck } from 'lucide-react';
+import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download, RotateCcw, Monitor } from 'lucide-react';
 import { securityService } from '../../services/securityService';
 import { useState, useRef, type ReactNode, useEffect, useCallback, memo } from 'react';
 import {
@@ -2222,7 +2222,7 @@ const HotkeySwitch = ({
   );
 };
 
-type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode' | 'backup';
+type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode' | 'backup' | 'pcBackup';
 
 export const SettingsScreen = () => {
   const { t } = useTranslation();
@@ -2523,7 +2523,8 @@ export const SettingsScreen = () => {
     language:      t('settings.language'),
     preferences:   t('settings.preferences'),
     qrCode:        t('qrModal.title', 'Получить QR-код'),
-    backup:        t('backup.menu_item', 'Резервные копии'),
+    backup:        t('backup.cloud_backup_title', 'Безопасное резервное копирование Orbita'),
+    pcBackup:      t('backup.desktop_backup_title', 'Резервное копирование на ПК'),
   };
 
   const languageDisplayOptions = [
@@ -3086,9 +3087,14 @@ export const SettingsScreen = () => {
         />
 
         <MenuItem
-          icon={<ShieldCheck size={20} color={MD3.onSurface} />}
-          label={t('backup.menu_item')}
+          icon={<RotateCcw size={20} color={MD3.onSurface} />}
+          label={t('backup.cloud_backup_title')}
           onClick={() => pushTab('backup')}
+        />
+        <MenuItem
+          icon={<Monitor size={20} color={MD3.onSurface} />}
+          label={t('backup.desktop_backup_title')}
+          onClick={() => pushTab('pcBackup')}
         />
       </Block>
 
@@ -3127,7 +3133,9 @@ export const SettingsScreen = () => {
       case 'security':
         return <PrivacySettingsScreen onOpenPassword={() => pushTab('password')} onOpenBackup={() => pushTab('backup')} />;
       case 'backup':
-        return <AccountBackupScreen onBack={handleBack} />;
+        return <AccountBackupScreen mode="cloud" />;
+      case 'pcBackup':
+        return <AccountBackupScreen mode="pc" />;
       case 'password':
         return <PasswordSettingsScreen onSaved={() => pushTab('security')} />;
       case 'connection':

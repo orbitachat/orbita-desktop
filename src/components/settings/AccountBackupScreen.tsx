@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
   Lock,
   Copy,
   Check,
   Loader2,
-  Eye,
-  EyeOff,
   RotateCcw,
-  Monitor,
-  ArrowLeft,
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
@@ -20,11 +16,10 @@ import { accountSyncService } from '../../services/accountSyncService';
 
 interface AccountBackupScreenProps {
   onBack?: () => void;
+  mode?: 'cloud' | 'pc';
 }
 
-type BackupSubView = 'main' | 'cloud' | 'pc' | 'key';
-
-export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
+export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({ mode = 'cloud' }) => {
   const { t, i18n } = useTranslation();
 
   const {
@@ -41,11 +36,11 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
   const configVersion = useAuthStore((state) => state.configVersion) || 0;
   const syncStatus = useAuthStore((state) => state.syncStatus) || 'idle';
 
-  const [subView, setSubView] = useState<BackupSubView>('main');
-  const [showMasterKey, setShowMasterKey] = useState(false);
+  const [isViewingKey, setIsViewingKey] = useState(false);
   const [hasCopiedMaster, setHasCopiedMaster] = useState(false);
   const [hasCopiedRecovery, setHasCopiedRecovery] = useState(false);
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [isDeletingCloud, setIsDeletingCloud] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isInitialSetup, setIsInitialSetup] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
@@ -72,7 +67,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
     try {
       await navigator.clipboard.writeText(seed);
       setHasCopiedMaster(true);
-      setTimeout(() => setHasCopiedMaster(false), 2500);
+      setTimeout(() => setHasCopiedMaster(false), 2000);
     } catch {}
   };
 
@@ -81,7 +76,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
     try {
       await navigator.clipboard.writeText(recoveryKey);
       setHasCopiedRecovery(true);
-      setTimeout(() => setHasCopiedRecovery(false), 2500);
+      setTimeout(() => setHasCopiedRecovery(false), 2000);
     } catch {}
   };
 
@@ -98,6 +93,19 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
     setTimeout(() => setFeedbackMessage(null), 4000);
   };
 
+  const handleDeleteCloudBackup = async () => {
+    setIsDeletingCloud(true);
+    setFeedbackMessage(null);
+    const success = await accountSyncService.deleteCloudConfig();
+    setIsDeletingCloud(false);
+    if (success) {
+      setFeedbackMessage(t('backup.delete_cloud_backup_confirm'));
+    } else {
+      setFeedbackMessage(t('backup.delete_cloud_backup_err'));
+    }
+    setTimeout(() => setFeedbackMessage(null), 4000);
+  };
+
   const handleEnableBackup = async () => {
     let chosenFolder: string | null = null;
     if (typeof window !== 'undefined' && (window as any).orbita?.selectDirectory) {
@@ -110,7 +118,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
 
     setBackupConfig({ folder: chosenFolder });
     setIsInitialSetup(true);
-    setSubView('key');
+    setIsViewingKey(true);
   };
 
   const handleKeyModalConfirm = async () => {
@@ -118,9 +126,9 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
       setIsInitialSetup(false);
       setBackupConfig({ enabled: true });
       await triggerPcBackup();
-      setSubView('pc');
+      setIsViewingKey(false);
     } else {
-      setSubView('pc');
+      setIsViewingKey(false);
     }
   };
 
@@ -227,15 +235,15 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
     );
   };
 
-  if (subView === 'key') {
+  if (isViewingKey) {
     return (
       <motion.div
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -10 }}
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.98 }}
         transition={{ duration: 0.18 }}
         style={{
-          padding: '8px 24px 32px',
+          padding: '12px 24px 32px',
           color: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
@@ -330,7 +338,31 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
             transition: 'color 0.15s ease',
           }}
         >
-          {hasCopiedRecovery ? <Check size={16} /> : <Copy size={16} />}
+          <AnimatePresence mode="wait">
+            {hasCopiedRecovery ? (
+              <motion.div
+                key="check"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                <Check size={16} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="copy"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                <Copy size={16} />
+              </motion.div>
+            )}
+          </AnimatePresence>
           <span>{hasCopiedRecovery ? t('backup.copied') : t('backup.copy_to_clipboard')}</span>
         </button>
 
@@ -338,7 +370,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
           {!isInitialSetup && (
             <button
               type="button"
-              onClick={() => setSubView('pc')}
+              onClick={() => setIsViewingKey(false)}
               aria-label={t('common.back', 'Назад')}
               style={{
                 flex: 1,
@@ -385,339 +417,17 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
     );
   }
 
-  if (subView === 'cloud') {
+  if (mode === 'pc') {
     return (
       <motion.div
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -10 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.18 }}
         style={{
-          padding: '4px 24px 32px',
+          padding: '8px 24px 32px',
           color: '#ffffff',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <button
-            type="button"
-            onClick={() => setSubView('main')}
-            aria-label={t('common.back', 'Назад')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(255, 255, 255, 0.7)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px',
-              borderRadius: '6px',
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <span style={{ fontSize: '15px', fontWeight: 650, color: '#ffffff' }}>
-            {t('backup.cloud_backup_title')}
-          </span>
-        </div>
-
-        {renderFeedback()}
-
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(155, 125, 212, 0.15)',
-              color: 'var(--accent-color, #9b7dd4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 14px',
-            }}
-          >
-            <RotateCcw size={26} />
-          </div>
-
-          <h3 style={{ fontSize: '17px', fontWeight: 700, margin: '0 0 8px', color: '#ffffff' }}>
-            {t('backup.cloud_backup_title')}
-          </h3>
-          <p
-            style={{
-              fontSize: '12.5px',
-              lineHeight: 1.5,
-              color: 'rgba(255, 255, 255, 0.65)',
-              margin: '0 auto',
-              maxWidth: '420px',
-            }}
-          >
-            {t('backup.cloud_modal_desc')}
-          </p>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
-            marginBottom: '24px',
-            padding: '0 4px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ color: 'var(--accent-color, #9b7dd4)', marginTop: '2px', flexShrink: 0 }}>
-              <Lock size={16} />
-            </div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-                {t('backup.feature_e2ee')}
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', lineHeight: 1.4 }}>
-                {t('backup.feature_e2ee_desc')}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ color: 'var(--accent-color, #9b7dd4)', marginTop: '2px', flexShrink: 0 }}>
-              <ShieldCheck size={16} />
-            </div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-                {t('backup.feature_manual')}
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', lineHeight: 1.4 }}>
-                {t('backup.feature_manual_desc')}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-            <div style={{ color: 'var(--accent-color, #9b7dd4)', marginTop: '2px', flexShrink: 0 }}>
-              <Trash2 size={16} />
-            </div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-                {t('backup.feature_delete')}
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', lineHeight: 1.4 }}>
-                {t('backup.feature_delete_desc')}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {masterSeed && (
-          <div
-            style={{
-              padding: '12px 14px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              marginBottom: '20px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.8)' }}>
-                {t('backup.zk_master_key')}
-              </span>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowMasterKey(!showMasterKey)}
-                  aria-label={showMasterKey ? t('backup.zk_hide') : t('backup.zk_show')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    fontSize: '11.5px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '2px 6px',
-                    borderRadius: '6px',
-                  }}
-                >
-                  {showMasterKey ? <EyeOff size={13} /> : <Eye size={13} />}
-                  <span>{showMasterKey ? t('backup.zk_hide') : t('backup.zk_show')}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyMasterKey}
-                  aria-label={t('backup.copy_to_clipboard')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: hasCopiedMaster ? '#4ade80' : 'var(--accent-color, #9b7dd4)',
-                    fontSize: '11.5px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '2px 6px',
-                    borderRadius: '6px',
-                  }}
-                >
-                  {hasCopiedMaster ? <Check size={13} /> : <Copy size={13} />}
-                  <span>{hasCopiedMaster ? t('backup.copied') : t('backup.copy_to_clipboard')}</span>
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
-                fontSize: '11px',
-                color: 'rgba(255, 255, 255, 0.75)',
-                wordBreak: 'break-all',
-                lineHeight: 1.45,
-                userSelect: 'text',
-                letterSpacing: showMasterKey ? '0.04em' : '0.12em',
-              }}
-            >
-              {showMasterKey ? masterSeed : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-              {t('backup.last_backup')}
-            </div>
-            <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '2px' }}>
-              {lastSyncTime ? formatBackupDate(lastSyncTime) : t('backup.never')}
-              {configVersion > 0 ? ` • ${t('backup.zk_version', { version: configVersion })}` : ''}
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              backgroundColor:
-                syncStatus === 'synced'
-                  ? 'rgba(34, 197, 94, 0.12)'
-                  : syncStatus === 'syncing'
-                  ? 'rgba(59, 130, 246, 0.12)'
-                  : syncStatus === 'error'
-                  ? 'rgba(239, 68, 68, 0.12)'
-                  : 'rgba(255, 255, 255, 0.06)',
-              color:
-                syncStatus === 'synced'
-                  ? '#4ade80'
-                  : syncStatus === 'syncing'
-                  ? '#60a5fa'
-                  : syncStatus === 'error'
-                  ? '#f87171'
-                  : 'rgba(255, 255, 255, 0.6)',
-              fontSize: '11.5px',
-              fontWeight: 600,
-            }}
-          >
-            {syncStatus === 'syncing' ? (
-              <Loader2 size={12} className="spin" />
-            ) : syncStatus === 'synced' ? (
-              <Check size={12} />
-            ) : null}
-            <span>
-              {syncStatus === 'syncing'
-                ? t('backup.zk_syncing')
-                : syncStatus === 'synced'
-                ? t('backup.zk_synced')
-                : syncStatus === 'error'
-                ? t('backup.zk_sync_error')
-                : t('backup.zk_sync_status')}
-            </span>
-          </div>
-        </div>
-
-        <div>
-          <button
-            type="button"
-            onClick={handleCloudSync}
-            disabled={isSyncingCloud || syncStatus === 'syncing'}
-            aria-label={t('backup.zk_sync_btn')}
-            style={{
-              width: '100%',
-              padding: '10px 18px',
-              borderRadius: '18px',
-              border: 'none',
-              backgroundColor: 'var(--accent-color, #6366f1)',
-              color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: isSyncingCloud || syncStatus === 'syncing' ? 'default' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              transition: 'opacity 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!isSyncingCloud) e.currentTarget.style.opacity = '0.9';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.opacity = '1';
-            }}
-          >
-            {isSyncingCloud || syncStatus === 'syncing' ? (
-              <Loader2 size={14} className="spin" />
-            ) : (
-              <RotateCcw size={14} />
-            )}
-            <span>
-              {isSyncingCloud || syncStatus === 'syncing'
-                ? t('backup.zk_syncing')
-                : t('backup.zk_sync_btn')}
-            </span>
-          </button>
-        </div>
-      </motion.div>
-    );
-  }
-
-  if (subView === 'pc') {
-    return (
-      <motion.div
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -10 }}
-        transition={{ duration: 0.18 }}
-        style={{
-          padding: '4px 24px 32px',
-          color: '#ffffff',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <button
-            type="button"
-            onClick={() => setSubView('main')}
-            aria-label={t('common.back', 'Назад')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(255, 255, 255, 0.7)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px',
-              borderRadius: '6px',
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <span style={{ fontSize: '15px', fontWeight: 650, color: '#ffffff' }}>
-            {t('backup.desktop_backup_title')}
-          </span>
-        </div>
-
         {renderFeedback()}
 
         <p
@@ -725,7 +435,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
             fontSize: '13px',
             lineHeight: 1.5,
             color: 'rgba(255, 255, 255, 0.65)',
-            margin: '0 0 20px',
+            margin: '0 0 24px',
           }}
         >
           {t('backup.pc_subscreen_desc')}
@@ -869,7 +579,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
                 type="button"
                 onClick={() => {
                   setIsInitialSetup(false);
-                  setSubView('key');
+                  setIsViewingKey(true);
                 }}
                 aria-label={t('backup.view_key')}
                 style={{
@@ -937,158 +647,301 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18 }}
       style={{
-        padding: '4px 24px 32px',
+        padding: '8px 24px 32px',
         color: '#ffffff',
       }}
     >
-      <p
-        style={{
-          fontSize: '13px',
-          lineHeight: 1.5,
-          color: 'rgba(255, 255, 255, 0.65)',
-          margin: '0 0 24px',
-        }}
-      >
-        {t('backup.main_subtitle')}
-      </p>
-
       {renderFeedback()}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              flexShrink: 0,
-              marginTop: '2px',
-            }}
-          >
-            <RotateCcw size={18} />
-          </div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff', marginBottom: '3px' }}>
-              {t('backup.cloud_backup_title')}
-            </div>
-            <div
-              style={{
-                fontSize: '12.5px',
-                color: 'rgba(255, 255, 255, 0.55)',
-                lineHeight: 1.4,
-              }}
-            >
-              {t('backup.cloud_backup_desc')}
-            </div>
-          </div>
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div
+          style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(155, 125, 212, 0.15)',
+            color: 'var(--accent-color, #9b7dd4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 14px',
+          }}
+        >
+          <RotateCcw size={26} />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setSubView('cloud')}
-          aria-label={syncStatus === 'synced' ? t('backup.manage_btn') : t('backup.setup_btn')}
+        <h3 style={{ fontSize: '17px', fontWeight: 700, margin: '0 0 8px', color: '#ffffff' }}>
+          {t('backup.cloud_backup_title')}
+        </h3>
+        <p
           style={{
-            padding: '7px 20px',
-            borderRadius: '18px',
-            border: 'none',
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
-            color: '#ffffff',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            transition: 'background-color 0.15s ease',
+            fontSize: '12.5px',
+            lineHeight: 1.5,
+            color: 'rgba(255, 255, 255, 0.65)',
+            margin: '0 auto',
+            maxWidth: '420px',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.18)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
         >
-          {syncStatus === 'synced' ? t('backup.manage_btn') : t('backup.setup_btn')}
-        </button>
+          {t('backup.cloud_modal_desc')}
+        </p>
       </div>
 
       <div
         style={{
-          height: '1px',
-          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-          margin: '22px 0',
-        }}
-      />
-
-      <div
-        style={{
-          fontSize: '13.5px',
-          fontWeight: 600,
-          color: 'rgba(255, 255, 255, 0.85)',
-          marginBottom: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px',
+          marginBottom: '22px',
+          padding: '0 4px',
         }}
       >
-        {t('backup.other_methods_title')}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              flexShrink: 0,
-              marginTop: '2px',
-            }}
-          >
-            <Monitor size={18} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ color: 'var(--accent-color, #9b7dd4)', marginTop: '2px', flexShrink: 0 }}>
+            <Lock size={16} />
           </div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '14.5px', fontWeight: 600, color: '#ffffff', marginBottom: '3px' }}>
-              {t('backup.desktop_backup_title')}
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
+              {t('backup.feature_e2ee')}
             </div>
-            <div
-              style={{
-                fontSize: '12.5px',
-                color: 'rgba(255, 255, 255, 0.55)',
-                lineHeight: 1.4,
-              }}
-            >
-              {t('backup.desktop_backup_subtitle')}
+            <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', lineHeight: 1.4 }}>
+              {t('backup.feature_e2ee_desc')}
             </div>
           </div>
         </div>
 
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ color: 'var(--accent-color, #9b7dd4)', marginTop: '2px', flexShrink: 0 }}>
+            <ShieldCheck size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
+              {t('backup.feature_manual')}
+            </div>
+            <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', lineHeight: 1.4 }}>
+              {t('backup.feature_manual_desc')}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ color: 'var(--accent-color, #9b7dd4)', marginTop: '2px', flexShrink: 0 }}>
+            <Trash2 size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
+              {t('backup.feature_delete')}
+            </div>
+            <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', lineHeight: 1.4 }}>
+              {t('backup.feature_delete_desc')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {masterSeed && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            marginBottom: '20px',
+            gap: '10px',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+              fontSize: '11.5px',
+              color: 'rgba(255, 255, 255, 0.85)',
+              wordBreak: 'break-all',
+              lineHeight: 1.45,
+              userSelect: 'all',
+              letterSpacing: '0.04em',
+              flex: 1,
+            }}
+          >
+            {masterSeed}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCopyMasterKey}
+            aria-label={t('backup.copy_to_clipboard')}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '6px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: hasCopiedMaster ? '#4ade80' : 'rgba(255, 255, 255, 0.7)',
+              flexShrink: 0,
+              transition: 'all 0.18s ease',
+            }}
+          >
+            <AnimatePresence mode="wait">
+              {hasCopiedMaster ? (
+                <motion.div
+                  key="check"
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <Check size={16} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="copy"
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <Copy size={16} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
+            {t('backup.last_backup')}
+          </div>
+          <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '2px' }}>
+            {lastSyncTime ? formatBackupDate(lastSyncTime) : t('backup.never')}
+            {configVersion > 0 ? ` • ${t('backup.zk_version', { version: configVersion })}` : ''}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
+            borderRadius: '20px',
+            backgroundColor:
+              syncStatus === 'synced'
+                ? 'rgba(34, 197, 94, 0.12)'
+                : syncStatus === 'syncing'
+                ? 'rgba(59, 130, 246, 0.12)'
+                : syncStatus === 'error'
+                ? 'rgba(239, 68, 68, 0.12)'
+                : 'rgba(255, 255, 255, 0.06)',
+            color:
+              syncStatus === 'synced'
+                ? '#4ade80'
+                : syncStatus === 'syncing'
+                ? '#60a5fa'
+                : syncStatus === 'error'
+                ? '#f87171'
+                : 'rgba(255, 255, 255, 0.6)',
+            fontSize: '11.5px',
+            fontWeight: 600,
+          }}
+        >
+          {syncStatus === 'syncing' ? (
+            <Loader2 size={12} className="spin" />
+          ) : syncStatus === 'synced' ? (
+            <Check size={12} />
+          ) : null}
+          <span>
+            {syncStatus === 'syncing'
+              ? t('backup.zk_syncing')
+              : syncStatus === 'synced'
+              ? t('backup.zk_synced')
+              : syncStatus === 'error'
+              ? t('backup.zk_sync_error')
+              : t('backup.zk_sync_status')}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button
           type="button"
-          onClick={() => setSubView('pc')}
-          aria-label={backupEnabled ? t('backup.manage_btn') : t('backup.enable_btn')}
+          onClick={handleCloudSync}
+          disabled={isSyncingCloud || syncStatus === 'syncing'}
+          aria-label={t('backup.zk_sync_btn')}
           style={{
-            padding: '7px 20px',
+            flex: 1,
+            minWidth: '200px',
+            padding: '10px 18px',
             borderRadius: '18px',
             border: 'none',
-            backgroundColor: 'rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'var(--accent-color, #6366f1)',
             color: '#ffffff',
             fontSize: '13px',
             fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            transition: 'background-color 0.15s ease',
+            cursor: isSyncingCloud || syncStatus === 'syncing' ? 'default' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'opacity 0.15s ease',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.18)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
+          onMouseEnter={(e) => {
+            if (!isSyncingCloud) e.currentTarget.style.opacity = '0.9';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '1';
+          }}
         >
-          {backupEnabled ? t('backup.manage_btn') : t('backup.enable_btn')}
+          {isSyncingCloud || syncStatus === 'syncing' ? (
+            <Loader2 size={14} className="spin" />
+          ) : (
+            <RotateCcw size={14} />
+          )}
+          <span>
+            {isSyncingCloud || syncStatus === 'syncing'
+              ? t('backup.zk_syncing')
+              : t('backup.zk_sync_btn')}
+          </span>
         </button>
+
+        {configVersion > 0 && (
+          <button
+            type="button"
+            onClick={handleDeleteCloudBackup}
+            disabled={isDeletingCloud}
+            aria-label={t('backup.delete_cloud_backup_btn')}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '18px',
+              border: 'none',
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: isDeletingCloud ? 'default' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'background-color 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)')}
+          >
+            {isDeletingCloud ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
+            <span>{t('backup.delete_cloud_backup_btn')}</span>
+          </button>
+        )}
       </div>
     </motion.div>
   );
 };
+
 

@@ -510,6 +510,34 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      if (req.method === 'DELETE') {
+        const userId = String(query.user_id || query.userId || body.user_id || body.userId || req.headers['x-user-id'] || '').trim().toLowerCase();
+        if (!userId || !/^[0-9a-f]{64}$/i.test(userId)) {
+          return sendError(res, 'Invalid or missing user_id', 400);
+        }
+
+        const clients = [
+          { name: 'main', client: getSupabaseClient() },
+          { name: 'groups', client: getGroupsSupabaseClient() },
+          { name: 'channels', client: getChannelsSupabaseClient() },
+        ].filter((c) => Boolean(c.client));
+
+        if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
+
+        for (const item of clients) {
+          const { error } = await item.client
+            .from('user_configs')
+            .delete()
+            .eq('user_id', userId);
+
+          if (!error) {
+            break;
+          }
+        }
+
+        return sendJson(res, { status: 'ok', deleted: true });
+      }
+
       return sendError(res, 'Method not allowed', 405);
     }
 

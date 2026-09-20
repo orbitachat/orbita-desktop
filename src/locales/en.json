@@ -1159,7 +1159,10 @@
       "zk_sync_error": "Sync Error",
       "zk_version": "Config version: {{version}}",
       "zk_show": "Show",
-      "zk_hide": "Hide"
+      "zk_hide": "Hide",
+      "delete_cloud_backup_btn": "Delete backup from server",
+      "delete_cloud_backup_confirm": "Backup deleted from server",
+      "delete_cloud_backup_err": "Failed to delete backup from server"
     },
     "orbitos": {
       "name": "ORBITA",

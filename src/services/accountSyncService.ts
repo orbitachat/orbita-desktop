@@ -350,6 +350,33 @@ class AccountSyncService {
 
     return { restored: true, userId: keys.userId };
   }
+
+  public async deleteCloudConfig(): Promise<boolean> {
+    const authState = useAuthStore.getState();
+    if (!authState.masterSeed || !isValidMasterSeedHex(authState.masterSeed)) {
+      return false;
+    }
+
+    try {
+      const keys = deriveAccountKeys(authState.masterSeed);
+      const res = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': keys.userId,
+        },
+      });
+
+      if (!res.ok) {
+        return false;
+      }
+
+      useAuthStore.getState().setConfigVersion(0);
+      useAuthStore.getState().setSyncStatus('idle', null);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 export const accountSyncService = new AccountSyncService();
