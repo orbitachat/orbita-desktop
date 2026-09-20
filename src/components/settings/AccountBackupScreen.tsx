@@ -9,6 +9,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Trash2,
+  Monitor,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { generateMnemonic, createAccountBackup } from '../../services/accountBackupService';
@@ -16,10 +17,16 @@ import { accountSyncService } from '../../services/accountSyncService';
 
 interface AccountBackupScreenProps {
   onBack?: () => void;
-  mode?: 'cloud' | 'pc';
+  mode?: 'main' | 'cloud' | 'pc';
+  onOpenCloud?: () => void;
+  onOpenPc?: () => void;
 }
 
-export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({ mode = 'cloud' }) => {
+export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
+  mode = 'main',
+  onOpenCloud,
+  onOpenPc,
+}) => {
   const { t, i18n } = useTranslation();
 
   const {
@@ -417,6 +424,197 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({ mode =
     );
   }
 
+  if (mode === 'main') {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18 }}
+        style={{
+          padding: '8px 20px 32px',
+          color: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+        }}
+      >
+        <p
+          style={{
+            fontSize: '13px',
+            lineHeight: 1.5,
+            color: 'rgba(255, 255, 255, 0.65)',
+            margin: 0,
+          }}
+        >
+          {t('backup.main_subtitle')}
+        </p>
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}
+        >
+          <div
+            onClick={onOpenCloud}
+            style={{
+              backgroundColor: 'var(--md-surface, #2a253b)',
+              padding: '16px 18px',
+              borderRadius: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--md-surface-var, #342e47)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--md-surface, #2a253b)')}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(155, 125, 212, 0.15)',
+                  color: 'var(--accent-color, #9b7dd4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  marginTop: '2px',
+                }}
+              >
+                <RotateCcw size={20} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', marginBottom: '3px' }}>
+                  {t('backup.cloud_backup_title')}
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.45 }}>
+                  {t('backup.cloud_backup_desc')}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-start', paddingLeft: '52px' }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenCloud?.();
+                }}
+                aria-label={configVersion > 0 ? t('backup.manage_btn') : t('backup.setup_btn')}
+                style={{
+                  padding: '6px 18px',
+                  borderRadius: '16px',
+                  border: 'none',
+                  backgroundColor: 'var(--accent-color, #9b7dd4)',
+                  color: '#ffffff',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'opacity 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+              >
+                {configVersion > 0 ? t('backup.manage_btn') : t('backup.setup_btn')}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.08)', width: '100%' }} />
+
+        <div>
+          <div
+            style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--accent-color, #9b7dd4)',
+              letterSpacing: '0.04em',
+              marginBottom: '12px',
+              paddingLeft: '4px',
+            }}
+          >
+            {t('backup.other_methods_title')}
+          </div>
+
+          <div
+            onClick={onOpenPc}
+            style={{
+              backgroundColor: 'var(--md-surface, #2a253b)',
+              padding: '16px 18px',
+              borderRadius: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--md-surface-var, #342e47)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--md-surface, #2a253b)')}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  marginTop: '2px',
+                }}
+              >
+                <Monitor size={20} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', marginBottom: '3px' }}>
+                  {t('backup.desktop_backup_title')}
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.45 }}>
+                  {t('backup.desktop_backup_subtitle')}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-start', paddingLeft: '52px' }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenPc?.();
+                }}
+                aria-label={backupEnabled ? t('backup.manage_btn') : t('backup.enable_btn')}
+                style={{
+                  padding: '6px 18px',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(255, 255, 255, 0.16)',
+                  backgroundColor: backupEnabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.12)',
+                  color: '#ffffff',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = backupEnabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.12)')}
+              >
+                {backupEnabled ? t('backup.manage_btn') : t('backup.enable_btn')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   if (mode === 'pc') {
     return (
       <motion.div
@@ -653,38 +851,16 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({ mode =
     >
       {renderFeedback()}
 
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div
-          style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '50%',
-            backgroundColor: 'rgba(155, 125, 212, 0.15)',
-            color: 'var(--accent-color, #9b7dd4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 14px',
-          }}
-        >
-          <RotateCcw size={26} />
-        </div>
-
-        <h3 style={{ fontSize: '17px', fontWeight: 700, margin: '0 0 8px', color: '#ffffff' }}>
-          {t('backup.cloud_backup_title')}
-        </h3>
-        <p
-          style={{
-            fontSize: '12.5px',
-            lineHeight: 1.5,
-            color: 'rgba(255, 255, 255, 0.65)',
-            margin: '0 auto',
-            maxWidth: '420px',
-          }}
-        >
-          {t('backup.cloud_modal_desc')}
-        </p>
-      </div>
+      <p
+        style={{
+          fontSize: '13px',
+          lineHeight: 1.5,
+          color: 'rgba(255, 255, 255, 0.65)',
+          margin: '0 0 20px',
+        }}
+      >
+        {t('backup.cloud_modal_desc')}
+      </p>
 
       <div
         style={{
