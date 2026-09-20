@@ -386,7 +386,7 @@ class AccountSyncService {
     try {
       const keys = deriveAccountKeys(authState.masterSeed);
       try {
-        const res = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}`, {
+        const res = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}&action=delete`, {
           method: 'DELETE',
           headers: {
             'x-user-id': keys.userId,
@@ -394,8 +394,34 @@ class AccountSyncService {
         });
         if (res.ok || res.status === 404) {
           isSuccess = true;
+        } else {
+          const postRes = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}&action=delete`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': keys.userId,
+            },
+            body: JSON.stringify({ action: 'delete', user_id: keys.userId }),
+          });
+          if (postRes.ok || postRes.status === 404) {
+            isSuccess = true;
+          }
         }
-      } catch {}
+      } catch {
+        try {
+          const postRes = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}&action=delete`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': keys.userId,
+            },
+            body: JSON.stringify({ action: 'delete', user_id: keys.userId }),
+          });
+          if (postRes.ok || postRes.status === 404) {
+            isSuccess = true;
+          }
+        } catch {}
+      }
 
       useAuthStore.getState().setConfigVersion(0);
       useAuthStore.getState().setSyncStatus('idle', null);

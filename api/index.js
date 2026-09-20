@@ -422,6 +422,32 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      if (req.method === 'DELETE' || query.action === 'delete' || body.action === 'delete') {
+        const userId = String(query.user_id || query.userId || body.user_id || body.userId || req.headers['x-user-id'] || '').trim().toLowerCase();
+        if (!userId || !/^[0-9a-f]{64}$/i.test(userId)) {
+          return sendError(res, 'Invalid or missing user_id', 400);
+        }
+
+        const clients = [
+          { name: 'main', client: getSupabaseClient() },
+          { name: 'groups', client: getGroupsSupabaseClient() },
+          { name: 'channels', client: getChannelsSupabaseClient() },
+        ].filter((c) => Boolean(c.client));
+
+        if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
+
+        await Promise.allSettled(
+          clients.map((item) =>
+            item.client
+              .from('user_configs')
+              .delete()
+              .eq('user_id', userId)
+          )
+        );
+
+        return sendJson(res, { status: 'ok', deleted: true });
+      }
+
       if (req.method === 'PUT' || req.method === 'POST') {
         const userId = String(body.user_id || body.userId || query.user_id || query.userId || req.headers['x-user-id'] || '').trim().toLowerCase();
         const configBlob = body.config_blob || body.configBlob;
@@ -510,33 +536,7 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      if (req.method === 'DELETE') {
-        const userId = String(query.user_id || query.userId || body.user_id || body.userId || req.headers['x-user-id'] || '').trim().toLowerCase();
-        if (!userId || !/^[0-9a-f]{64}$/i.test(userId)) {
-          return sendError(res, 'Invalid or missing user_id', 400);
-        }
-
-        const clients = [
-          { name: 'main', client: getSupabaseClient() },
-          { name: 'groups', client: getGroupsSupabaseClient() },
-          { name: 'channels', client: getChannelsSupabaseClient() },
-        ].filter((c) => Boolean(c.client));
-
-        if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
-
-        await Promise.allSettled(
-          clients.map((item) =>
-            item.client
-              .from('user_configs')
-              .delete()
-              .eq('user_id', userId)
-          )
-        );
-
-        return sendJson(res, { status: 'ok', deleted: true });
-      }
-
-      return sendError(res, 'Method not allowed', 405);
+      return sendError(res, `Method not allowed: ${req.method}`, 405);
     }
 
     if (pathname === '/token' || pathname === '/livekit/token' || pathname === '/livekit-token') {
