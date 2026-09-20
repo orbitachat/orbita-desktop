@@ -54,6 +54,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
 
   useEffect(() => {
     accountSyncService.ensureMasterSeed();
+    accountSyncService.refreshCloudBackupStatus();
   }, []);
 
   useEffect(() => {

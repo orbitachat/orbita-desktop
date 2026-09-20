@@ -402,6 +402,32 @@ export default {
           });
         }
 
+        if (request.method === 'DELETE') {
+          const userId = (
+            url.searchParams.get('user_id') ||
+            url.searchParams.get('userId') ||
+            request.headers.get('x-user-id') ||
+            ''
+          ).trim().toLowerCase();
+          if (!userId || !/^[0-9a-f]{64}$/i.test(userId)) {
+            return errorResponse('Invalid or missing user_id', 400);
+          }
+
+          const supabase = getSupabaseClient(env);
+          if (!supabase) return errorResponse('Database not configured on server', 503);
+
+          const { error } = await supabase
+            .from('user_configs')
+            .delete()
+            .eq('user_id', userId);
+
+          if (error) {
+            return errorResponse(error.message, 500);
+          }
+
+          return jsonResponse({ status: 'ok', deleted: true });
+        }
+
         return errorResponse('Method not allowed', 405);
       }
 

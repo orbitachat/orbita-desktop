@@ -71,7 +71,6 @@ import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { EmptyChatGreeting } from './EmptyChatGreeting';
 import { ChannelEmptyCard } from './ChannelEmptyCard';
 import { sendEncryptedReadReceipt } from '../../services/receiptService';
-import { orbitosService } from '../../services/orbitosService';
 import { supportService } from '../../services/supportService';
 import { SupportTicketsModal } from './SupportTicketsModal';
 import { VerifiedBadge } from '../common/VerifiedBadge';
@@ -2876,7 +2875,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     }
 
     if (btn.action === 'send_command') {
-      orbitosService.handleUserMessage(btn.data || btn.text, t);
       return;
     }
 
@@ -3716,7 +3714,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return;
     }
 
-    if (activeChatId === 'system_orbitos' || activeChatId === 'system_support') {
+    if (activeChatId === 'system_support') {
       if (existingMessageId) {
         useChatStore.setState((state) => {
           const currentMsgs = state.messagesByChatId[activeChatId] || [];
@@ -3767,11 +3765,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       setInputText('');
       setReplyingTo(null);
       requestAnimationFrame(() => scrollToBottom(false));
-      if (activeChatId === 'system_support') {
-        supportService.handleUserMessage(text, t, mediaPayload?.url, mediaPayload?.type);
-      } else {
-        orbitosService.handleUserMessage(text, t, mediaPayload?.url, mediaPayload?.type, mediaPayload?.mime);
-      }
+      supportService.handleUserMessage(text, t, mediaPayload?.url, mediaPayload?.type);
       return;
     }
 
@@ -5268,7 +5262,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const canSend = (!!inputText.trim() || !!attachedFiles.length) && editingIndex === null && isRatchetReady;
 
   const handleStartRecording = useCallback(async () => {
-    const isBotChat = activeChatId === 'system_orbitos' || activeChatId === 'system_support';
+    const isBotChat = activeChatId === 'system_support';
     const isChannel = activeChat?.type === 'channel';
     if (!isBotChat && !isChannel && (!sharedSecret || !isRatchetReady)) return;
     if (isChannel && !isChannelOwner) return;
@@ -5287,7 +5281,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const { blob, duration, waveform } = recorded;
     if (!activeChatId) return;
 
-    const isBotChat = activeChatId === 'system_orbitos' || activeChatId === 'system_support';
+    const isBotChat = activeChatId === 'system_support';
     const isChannel = activeChat?.type === 'channel';
     if (!isBotChat && !isChannel && !sharedSecret) return;
     if (isChannel && !isChannelOwner) return;
@@ -5522,7 +5516,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (!chat) return;
 
     const isChannel = chat.type === 'channel';
-    const isBotChat = activeChatId === 'system_orbitos' || activeChatId === 'system_support';
+    const isBotChat = activeChatId === 'system_support';
     if (isChannel) {
       if (!isChannelOwner) return;
     } else if (isBotChat) {
@@ -5835,8 +5829,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             const fullText = chunkCaption ? `${chunkCaption}\n\n${mediaSummary}` : mediaSummary;
             if (activeChatId === 'system_support') {
               supportService.handleUserMessage(fullText, t, uploadedItems[0]?.url, uploadedItems[0]?.type);
-            } else {
-              orbitosService.handleUserMessage(fullText, t, uploadedItems[0]?.url, uploadedItems[0]?.type, uploadedItems[0]?.mime);
             }
             return;
           }
@@ -6072,8 +6064,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             const fileMsg = postCaption ? `${postCaption}\n[${uploaded.type}] ${uploaded.name} (${uploaded.url})` : `[${uploaded.type}] ${uploaded.name} (${uploaded.url})`;
             if (activeChatId === 'system_support') {
               supportService.handleUserMessage(fileMsg, t, uploaded.url, uploaded.type);
-            } else {
-              orbitosService.handleUserMessage(fileMsg, t, uploaded.url, uploaded.type, uploaded.mime);
             }
             return;
           }

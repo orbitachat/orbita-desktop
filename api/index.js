@@ -524,16 +524,14 @@ module.exports = async function handler(req, res) {
 
         if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
 
-        for (const item of clients) {
-          const { error } = await item.client
-            .from('user_configs')
-            .delete()
-            .eq('user_id', userId);
-
-          if (!error) {
-            break;
-          }
-        }
+        await Promise.allSettled(
+          clients.map((item) =>
+            item.client
+              .from('user_configs')
+              .delete()
+              .eq('user_id', userId)
+          )
+        );
 
         return sendJson(res, { status: 'ok', deleted: true });
       }
@@ -2194,79 +2192,7 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { developers: codes });
     }
 
-    if (pathname === '/orbitos/ai' && req.method === 'POST') {
-      const apiKey = ENV.GEMINI_API_KEY;
-      if (!apiKey) {
-        return sendError(res, 'GEMINI_API_KEY_NOT_CONFIGURED', 400);
-      }
-      const userMessage = (body && body.message) ? String(body.message).trim() : '';
-      if (!userMessage) {
-        return sendError(res, 'Empty message', 400);
-      }
-      const history = Array.isArray(body?.history) ? body.history : [];
-      const contents = [];
-      for (const item of history.slice(-6)) {
-        if (item && item.text) {
-          contents.push({
-            role: item.isOutgoing ? 'user' : 'model',
-            parts: [{ text: String(item.text) }],
-          });
-        }
-      }
-      contents.push({
-        role: 'user',
-        parts: [{ text: userMessage }],
-      });
 
-      const defaultSystemPrompt = 'Ты — официальный искусственный интеллект мессенджера Orbita (ORBITA AI). Твой стиль — как у передовых нейросетей Claude и ChatGPT ASTRA: высокий интеллектуальный уровень, безупречная точность, ясность, лаконичность, живая естественность и структурированность без шаблонных фраз и воды. 1. Архитектура и безопасность Orbita построены по стандарту Signal: сквозное шифрование (E2EE) на протоколе Double Ratchet (X25519, AES-256-GCM, HKDF-SHA256). Все сообщения и медиа шифруются исключительно на устройствах пользователей и не могут быть расшифрованы сервером или посторонними. 2. Доставка сообщений: как в Signal, зашифрованные пакеты проходят через защищённые сервера-релеи и временно хранятся в зашифрованной очереди доставки, пока получатель не выйдет в сеть и не прочитает сообщение. После доставки и прочтения сообщения удаляются с серверов. 3. Звонки: аудио- и видеозвонки, а также демонстрация экрана проходят через защищённые сервера-релеи (SFU / LiveKit), точно как в Signal, что полностью скрывает реальные IP-адреса собеседников и обеспечивает высочайшую защиту приватности и надёжность соединения. 4. Каналы и группы: защищены сквозным шифрованием (E2EE), сервер хранит только зашифрованные посты. 5. Резервные копии профиля (.orbita): зашифрованы мнемонической фразой из 12 слов стандарта BIP-39. 6. Официальный канал обновлений: Orbita Updates (ID: VZAXNAEWMWT3HGDZHI702JDB1PMSDCJ17DMUD2HIR9). Если пользователь спрашивает про канал, новости или обновления, в самый конец ответа обязательно добавляй маркер [BUTTON:ORBITA_UPDATES] — интерфейс автоматически отобразит кнопку перехода в канал. 7. Стиль общения: будь вежливым, уверенным, умным и дружелюбным помощником. Различай сленг/эмоции и реальную токсичность: если пользователь просто эмоционален или использует сленг — отвечай спокойно и по делу. Только при прямой целенаправленной травле или хамстве давай остроумный, сдержанный и твердый отпор. 8. СТРОГИЙ ЗАПРЕТ НА ЭМОДЗИ: Категорически запрещено использовать любые эмодзи, смайлики и графические символы в ответе. Пиши только чистым текстом. 9. Отвечай максимально быстро, конкретно, структурированно и по существу.';
-      const systemInstruction = (body && body.systemPrompt) || defaultSystemPrompt;
-      const primaryUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
-      const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-      const payload = {
-        system_instruction: {
-          parts: [{ text: systemInstruction }],
-        },
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 350,
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-        ],
-      };
-
-      let lastErr = '';
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const targetUrl = attempt === 0 ? primaryUrl : fallbackUrl;
-        const currentPayload = attempt === 0 ? payload : {
-          ...payload,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 250,
-          },
-        };
-        const aiRes = await fetch(targetUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(currentPayload),
-        });
-        if (aiRes.ok) {
-          const aiData = await aiRes.json();
-          const parts = aiData?.candidates?.[0]?.content?.parts || [];
-          const answerPart = parts.find((p) => !p.thought && p.text) || parts[parts.length - 1] || {};
-          let replyText = answerPart.text || '';
-          replyText = replyText.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{1FA00}-\u{1FAFF}\u{FE00}-\u{FE0F}]/gu, '').trim();
-          return sendJson(res, { reply: replyText });
-        }
-        const errText = await aiRes.text();
-        lastErr = errText;
-      }
-      return sendError(res, `Gemini API error: ${lastErr}`, 503);
-    }
 
     return sendError(res, 'Endpoint not found', 404);
   } catch (err) {

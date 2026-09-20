@@ -74,12 +74,6 @@ class AccountSyncService {
     this.initialized = true;
 
     this.ensureMasterSeed();
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('orbita:sync-now', () => {
-        this.syncNow().catch(() => {});
-      });
-    }
   }
 
   public ensureMasterSeed(): string {
@@ -299,8 +293,8 @@ class AccountSyncService {
         userId: keys.userId,
         masterSeed: trimmed,
         configVersion: 0,
-        syncStatus: 'synced',
-        lastSyncTime: Date.now(),
+        syncStatus: 'idle',
+        lastSyncTime: null,
         step: 'nickname',
       });
       return { restored: false, userId: keys.userId };
@@ -316,8 +310,8 @@ class AccountSyncService {
         userId: keys.userId,
         masterSeed: trimmed,
         configVersion: 0,
-        syncStatus: 'synced',
-        lastSyncTime: Date.now(),
+        syncStatus: 'idle',
+        lastSyncTime: null,
         step: 'nickname',
       });
       return { restored: false, userId: keys.userId };
@@ -351,29 +345,64 @@ class AccountSyncService {
     return { restored: true, userId: keys.userId };
   }
 
-  public async deleteCloudConfig(): Promise<boolean> {
+  public async refreshCloudBackupStatus(): Promise<void> {
     const authState = useAuthStore.getState();
     if (!authState.masterSeed || !isValidMasterSeedHex(authState.masterSeed)) {
-      return false;
+      return;
     }
 
     try {
       const keys = deriveAccountKeys(authState.masterSeed);
-      const res = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}`, {
-        method: 'DELETE',
-        headers: {
-          'x-user-id': keys.userId,
-        },
-      });
-
-      if (!res.ok) {
-        return false;
+      const res = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}`);
+      if (res.status === 404) {
+        useAuthStore.getState().setConfigVersion(0);
+        useAuthStore.getState().setSyncStatus('idle', null);
+        return;
       }
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.version && data.config_blob) {
+          const version = Number(data.version) || 0;
+          const updated = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
+          useAuthStore.getState().setConfigVersion(version);
+          useAuthStore.getState().setSyncStatus('synced', updated);
+        } else {
+          useAuthStore.getState().setConfigVersion(0);
+          useAuthStore.getState().setSyncStatus('idle', null);
+        }
+      }
+    } catch {}
+  }
+
+  public async deleteCloudConfig(): Promise<boolean> {
+    const authState = useAuthStore.getState();
+    if (!authState.masterSeed || !isValidMasterSeedHex(authState.masterSeed)) {
+      useAuthStore.getState().setConfigVersion(0);
+      useAuthStore.getState().setSyncStatus('idle', null);
+      return false;
+    }
+
+    let isSuccess = false;
+    try {
+      const keys = deriveAccountKeys(authState.masterSeed);
+      try {
+        const res = await gatewayManager.fetch(`/user/config?user_id=${encodeURIComponent(keys.userId)}`, {
+          method: 'DELETE',
+          headers: {
+            'x-user-id': keys.userId,
+          },
+        });
+        if (res.ok || res.status === 404) {
+          isSuccess = true;
+        }
+      } catch {}
 
       useAuthStore.getState().setConfigVersion(0);
       useAuthStore.getState().setSyncStatus('idle', null);
-      return true;
+      return isSuccess;
     } catch {
+      useAuthStore.getState().setConfigVersion(0);
+      useAuthStore.getState().setSyncStatus('idle', null);
       return false;
     }
   }
