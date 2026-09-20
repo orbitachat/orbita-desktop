@@ -1,5 +1,6 @@
 import { AccessToken } from 'livekit-server-sdk';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { ed25519 } from '@noble/curves/ed25519.js';
 
 export interface ExecutionContext {
   waitUntil(promise: Promise<any>): void;
@@ -25,9 +26,24 @@ export interface Env {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, x-user-id',
 };
+
+function verifyWorkerEd25519(userIdHex: string, version: number, configBlob: string, signatureHex: string): boolean {
+  if (!userIdHex || !signatureHex || version === undefined || !configBlob) return false;
+  try {
+    const cleanUserId = String(userIdHex).trim().toLowerCase();
+    const cleanSig = String(signatureHex).trim().toLowerCase();
+    const messageStr = `${cleanUserId}${version}${configBlob}`;
+    const messageBytes = new TextEncoder().encode(messageStr);
+    const pubBytes = new Uint8Array(cleanUserId.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
+    const sigBytes = new Uint8Array(cleanSig.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
+    return ed25519.verify(sigBytes, messageBytes, pubBytes);
+  } catch {
+    return false;
+  }
+}
 
 function jsonResponse(data: any, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -272,8 +288,121 @@ export default {
           status: 'ok',
           service: 'orbita-relay-worker',
           capabilities: ['livekit', 'ably', 'relay', 'pusher', 'cloudinary'],
+          supabase_host: env.SUPABASE_URL ? new URL(env.SUPABASE_URL).hostname : null,
           timestamp: Date.now(),
         });
+      }
+
+      if (pathname === '/user/config' || pathname === '/api/user/config') {
+        if (request.method === 'GET') {
+          const userId = (url.searchParams.get('user_id') || url.searchParams.get('userId') || '').trim().toLowerCase();
+          if (!userId) return errorResponse('Missing user_id', 400);
+          if (!/^[0-9a-f]{64}$/i.test(userId)) return errorResponse('Invalid user_id format', 400);
+
+          const supabase = getSupabaseClient(env);
+          if (!supabase) return errorResponse('Database not configured on server', 503);
+
+          const { data, error } = await supabase
+            .from('user_configs')
+            .select('config_blob, version, updated_at')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (error) {
+            return errorResponse(error.message, 500);
+          }
+
+          if (!data) {
+            return jsonResponse({ status: 'not_found', config_blob: null, version: 0, updated_at: null }, 404);
+          }
+
+          return jsonResponse({
+            status: 'ok',
+            config_blob: data.config_blob,
+            version: Number(data.version),
+            updated_at: data.updated_at,
+          });
+        }
+
+        if (request.method === 'PUT' || request.method === 'POST') {
+          let body: any;
+          try {
+            body = await request.json();
+          } catch {
+            return errorResponse('Invalid JSON body', 400);
+          }
+
+          const userId = String(body.user_id || body.userId || url.searchParams.get('user_id') || url.searchParams.get('userId') || request.headers.get('x-user-id') || '').trim().toLowerCase();
+          const configBlob = body.config_blob || body.configBlob;
+          const version = Number(body.version);
+          const signature = String(body.signature || '').trim().toLowerCase();
+
+          if (!userId || !/^[0-9a-f]{64}$/i.test(userId)) {
+            return errorResponse('Invalid or missing user_id', 400);
+          }
+          if (!configBlob || typeof configBlob !== 'string') {
+            return errorResponse('Invalid or missing config_blob', 400);
+          }
+          if (!Number.isSafeInteger(version) || version <= 0) {
+            return errorResponse('Invalid version: must be a positive integer', 400);
+          }
+          if (!signature || !/^[0-9a-f]{128}$/i.test(signature)) {
+            return errorResponse('Invalid or missing signature (expected 128 hex chars)', 400);
+          }
+
+          const blobBytesLength = new TextEncoder().encode(configBlob).length;
+          if (blobBytesLength > 128 * 1024) {
+            return errorResponse('Payload too large: config_blob exceeds 128 KB limit', 413);
+          }
+
+          const isValidSig = verifyWorkerEd25519(userId, version, configBlob, signature);
+          if (!isValidSig) {
+            return errorResponse('Invalid Ed25519 signature', 401);
+          }
+
+          const supabase = getSupabaseClient(env);
+          if (!supabase) return errorResponse('Database not configured on server', 503);
+
+          const { data: existing, error: selectErr } = await supabase
+            .from('user_configs')
+            .select('version')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (selectErr) {
+            return errorResponse(selectErr.message, 500);
+          }
+
+          if (existing && existing.version !== null && existing.version !== undefined) {
+            const currentVersion = Number(existing.version);
+            if (version <= currentVersion) {
+              return errorResponse(`Conflict: incoming version (${version}) must be strictly greater than current version (${currentVersion})`, 409);
+            }
+          }
+
+          const nowIso = new Date().toISOString();
+          const { error: upsertErr } = await supabase
+            .from('user_configs')
+            .upsert({
+              user_id: userId,
+              config_blob: configBlob,
+              version: version,
+              signature: signature,
+              updated_at: nowIso,
+            });
+
+          if (upsertErr) {
+            return errorResponse(upsertErr.message, 500);
+          }
+
+          return jsonResponse({
+            status: 'ok',
+            version,
+            updated_at: nowIso,
+          });
+        }
+
+        return errorResponse('Method not allowed', 405);
       }
 
       // 3. LiveKit Token (/token или /api/livekit/token)

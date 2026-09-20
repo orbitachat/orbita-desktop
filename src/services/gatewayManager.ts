@@ -27,6 +27,15 @@ export function getVercelBaseUrl(): string {
 
 const DEFAULT_GATEWAYS: GatewayEndpoint[] = [
   {
+    id: 'cloudflare-worker',
+    name: 'Cloudflare Relay Worker',
+    provider: 'cloudflare',
+    url: 'https://orbita.ypgreg78.workers.dev',
+    ping: null,
+    status: 'idle',
+    lastChecked: null,
+  },
+  {
     id: 'vercel-edge',
     name: 'Vercel Serverless Gateway',
     provider: 'custom',
@@ -153,7 +162,7 @@ class GatewayManager {
       const url = `${primary.url.replace(/\/+$/, '')}${primaryPath}`;
       const res = await fetch(url, options);
 
-      if (res.status >= 502 && res.status <= 504) {
+      if (res.status >= 500 && res.status <= 504) {
         throw new Error(`Gateway returned HTTP ${res.status}`);
       }
       return res;

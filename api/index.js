@@ -29,8 +29,8 @@ const ENV = {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Admin-Token',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Admin-Token, x-user-id',
 };
 
 const PUSHER_CONFIGS = [
@@ -367,6 +367,8 @@ module.exports = async function handler(req, res) {
         status: 'ok',
         service: 'orbita-vercel-gateway',
         capabilities: ['livekit', 'ably', 'relay', 'pusher', 'cloudinary'],
+        supabase_host: ENV.SUPABASE_URL ? new URL(ENV.SUPABASE_URL).hostname : null,
+        groups_host: ENV.GROUPS_SUPABASE_URL ? new URL(ENV.GROUPS_SUPABASE_URL).hostname : null,
         timestamp: Date.now(),
       });
     }
@@ -377,28 +379,41 @@ module.exports = async function handler(req, res) {
         if (!userId) return sendError(res, 'Missing user_id', 400);
         if (!/^[0-9a-f]{64}$/i.test(userId)) return sendError(res, 'Invalid user_id format', 400);
 
-        const supabase = getGroupsSupabaseClient();
-        if (!supabase) return sendError(res, 'Database unavailable', 503);
+        const clients = [getSupabaseClient(), getGroupsSupabaseClient()].filter(Boolean);
+        if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
 
-        const { data, error } = await supabase
-          .from('user_configs')
-          .select('config_blob, version, updated_at')
-          .eq('user_id', userId)
-          .maybeSingle();
+        let configData = null;
+        let queryErr = null;
+        let querySuccess = false;
 
-        if (error) {
-          return sendError(res, error.message, 500);
+        for (const supabase of clients) {
+          const { data, error } = await supabase
+            .from('user_configs')
+            .select('config_blob, version, updated_at')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!error) {
+            configData = data;
+            querySuccess = true;
+            break;
+          }
+          queryErr = error;
         }
 
-        if (!data) {
+        if (!querySuccess) {
+          return sendError(res, queryErr?.message || 'Database query failed', 500);
+        }
+
+        if (!configData) {
           return sendJson(res, { status: 'not_found', config_blob: null, version: 0, updated_at: null }, 404);
         }
 
         return sendJson(res, {
           status: 'ok',
-          config_blob: data.config_blob,
-          version: Number(data.version),
-          updated_at: data.updated_at,
+          config_blob: configData.config_blob,
+          version: Number(configData.version),
+          updated_at: configData.updated_at,
         });
       }
 
@@ -431,46 +446,58 @@ module.exports = async function handler(req, res) {
           return sendError(res, 'Invalid Ed25519 signature', 401);
         }
 
-        const supabase = getGroupsSupabaseClient();
-        if (!supabase) return sendError(res, 'Database unavailable', 503);
+        const clients = [getSupabaseClient(), getGroupsSupabaseClient()].filter(Boolean);
+        if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
 
-        const { data: existing, error: selectErr } = await supabase
-          .from('user_configs')
-          .select('version')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (selectErr) {
-          return sendError(res, selectErr.message, 500);
-        }
-
-        if (existing && existing.version !== null && existing.version !== undefined) {
-          const currentVersion = Number(existing.version);
-          if (version <= currentVersion) {
-            return sendError(res, `Conflict: incoming version (${version}) must be strictly greater than current version (${currentVersion})`, 409);
-          }
-        }
-
+        let putSuccess = false;
+        let lastPutErr = null;
         const nowIso = new Date().toISOString();
-        const { error: upsertErr } = await supabase
-          .from('user_configs')
-          .upsert({
-            user_id: userId,
-            config_blob: configBlob,
-            version: version,
-            signature: signature,
+
+        for (const supabase of clients) {
+          const { data: existing, error: selectErr } = await supabase
+            .from('user_configs')
+            .select('version')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (selectErr) {
+            lastPutErr = selectErr;
+            continue;
+          }
+
+          if (existing && existing.version !== null && existing.version !== undefined) {
+            const currentVersion = Number(existing.version);
+            if (version <= currentVersion) {
+              return sendError(res, `Conflict: incoming version (${version}) must be strictly greater than current version (${currentVersion})`, 409);
+            }
+          }
+
+          const { error: upsertErr } = await supabase
+            .from('user_configs')
+            .upsert({
+              user_id: userId,
+              config_blob: configBlob,
+              version: version,
+              signature: signature,
+              updated_at: nowIso,
+            });
+
+          if (upsertErr) {
+            lastPutErr = upsertErr;
+            continue;
+          }
+
+          putSuccess = true;
+          return sendJson(res, {
+            status: 'ok',
+            version,
             updated_at: nowIso,
           });
-
-        if (upsertErr) {
-          return sendError(res, upsertErr.message, 500);
         }
 
-        return sendJson(res, {
-          status: 'ok',
-          version,
-          updated_at: nowIso,
-        });
+        if (!putSuccess) {
+          return sendError(res, lastPutErr?.message || 'Database write failed', 500);
+        }
       }
 
       return sendError(res, 'Method not allowed', 405);

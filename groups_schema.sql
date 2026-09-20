@@ -133,5 +133,9 @@ CREATE POLICY "Allow all on group_messages" ON public.group_messages FOR ALL USI
 CREATE POLICY "Allow all on group_calls" ON public.group_calls FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on user_configs" ON public.user_configs FOR ALL USING (true) WITH CHECK (true);
 
+GRANT ALL ON TABLE public.user_configs TO postgres, anon, authenticated, service_role;
+
+NOTIFY pgrst, 'reload schema';
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.groups, public.group_members, public.group_messages, public.group_calls, public.user_configs;
 
