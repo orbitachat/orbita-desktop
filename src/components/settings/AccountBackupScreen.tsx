@@ -50,7 +50,6 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
   const [isDeletingCloud, setIsDeletingCloud] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isInitialSetup, setIsInitialSetup] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   useEffect(() => {
     accountSyncService.ensureMasterSeed();
@@ -89,28 +88,14 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
 
   const handleCloudSync = async () => {
     setIsSyncingCloud(true);
-    setFeedbackMessage(null);
-    const success = await accountSyncService.syncNow();
+    await accountSyncService.syncNow();
     setIsSyncingCloud(false);
-    if (success) {
-      setFeedbackMessage(t('backup.backup_created_success'));
-    } else {
-      setFeedbackMessage(t('backup.zk_sync_error'));
-    }
-    setTimeout(() => setFeedbackMessage(null), 4000);
   };
 
   const handleDeleteCloudBackup = async () => {
     setIsDeletingCloud(true);
-    setFeedbackMessage(null);
-    const success = await accountSyncService.deleteCloudConfig();
+    await accountSyncService.deleteCloudConfig();
     setIsDeletingCloud(false);
-    if (success) {
-      setFeedbackMessage(t('backup.disable_cloud_backup_confirm'));
-    } else {
-      setFeedbackMessage(t('backup.disable_cloud_backup_err'));
-    }
-    setTimeout(() => setFeedbackMessage(null), 4000);
   };
 
   const handleEnableBackup = async () => {
@@ -142,7 +127,6 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
   const triggerPcBackup = async () => {
     if (!recoveryKey) return;
     setIsBackingUp(true);
-    setFeedbackMessage(null);
 
     try {
       const backupBytes = await createAccountBackup(recoveryKey);
@@ -175,11 +159,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
       }
 
       setBackupConfig({ lastBackupTime: Date.now() });
-      setFeedbackMessage(t('backup.backup_created_success'));
-      setTimeout(() => setFeedbackMessage(null), 4000);
     } catch {
-      setFeedbackMessage(t('backup.err_generate'));
-      setTimeout(() => setFeedbackMessage(null), 4000);
     } finally {
       setIsBackingUp(false);
     }
@@ -220,26 +200,6 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
     } catch {
       return t('backup.never');
     }
-  };
-
-  const renderFeedback = () => {
-    if (!feedbackMessage) return null;
-    return (
-      <div
-        style={{
-          marginBottom: '16px',
-          padding: '10px 16px',
-          borderRadius: '10px',
-          backgroundColor: 'rgba(155, 125, 212, 0.15)',
-          border: '1px solid rgba(155, 125, 212, 0.3)',
-          color: '#ffffff',
-          fontSize: '13px',
-          textAlign: 'center',
-        }}
-      >
-        {feedbackMessage}
-      </div>
-    );
   };
 
   if (isViewingKey) {
@@ -622,8 +582,6 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
           color: '#ffffff',
         }}
       >
-        {renderFeedback()}
-
         <p
           style={{
             fontSize: '13px',
@@ -845,8 +803,6 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
         color: '#ffffff',
       }}
     >
-      {renderFeedback()}
-
       <p
         style={{
           fontSize: '13px',
