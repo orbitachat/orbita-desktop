@@ -79,15 +79,6 @@ class AccountSyncService {
       window.addEventListener('orbita:sync-now', () => {
         this.syncNow().catch(() => {});
       });
-
-      let lastStateString = '';
-      useChatStore.subscribe((state) => {
-        const compactKey = `${(state.chats || []).length}:${(state.pinnedChatIds || []).length}:${state.myCode}:${state.currentTheme}`;
-        if (compactKey !== lastStateString) {
-          lastStateString = compactKey;
-          this.queueSync();
-        }
-      });
     }
   }
 
@@ -101,7 +92,6 @@ class AccountSyncService {
     const derived = deriveAccountKeys(newSeed);
     useAuthStore.getState().setMasterSeed(newSeed);
     useAuthStore.getState().setUserId(derived.userId);
-    this.queueSync(3000);
     return newSeed;
   }
 

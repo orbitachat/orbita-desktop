@@ -2523,7 +2523,7 @@ export const SettingsScreen = () => {
     language:      t('settings.language'),
     preferences:   t('settings.preferences'),
     qrCode:        t('qrModal.title', 'Получить QR-код'),
-    backup:        t('backup.menu_item', 'Резервная копия'),
+    backup:        t('backup.menu_item', 'Резервные копии'),
   };
 
   const languageDisplayOptions = [

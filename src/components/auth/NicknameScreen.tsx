@@ -35,7 +35,6 @@ export const NicknameScreen = () => {
       if (!currentCode) {
         useChatStore.getState().setMyCode(generateRandomCode());
       }
-      accountSyncService.queueSync(2000);
       setStep('main');
     }
   };
