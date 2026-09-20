@@ -1285,6 +1285,7 @@ export default {
           postId: string;
           emoji: string;
           userId: string;
+          sessionId?: string;
           action?: 'add' | 'remove' | 'toggle';
         };
 
