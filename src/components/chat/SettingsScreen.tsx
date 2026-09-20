@@ -2524,8 +2524,8 @@ export const SettingsScreen = () => {
     preferences:   t('settings.preferences'),
     qrCode:        t('qrModal.title', 'Получить QR-код'),
     backup:        t('backup.title', 'Резервные копии'),
-    cloudBackup:   t('backup.cloud_backup_title', 'Безопасное резервное копирование Orbita'),
-    pcBackup:      t('backup.desktop_backup_title', 'Резервное копирование на ПК'),
+    cloudBackup:   t('backup.title', 'Резервные копии'),
+    pcBackup:      t('backup.title', 'Резервные копии'),
   };
 
   const languageDisplayOptions = [
