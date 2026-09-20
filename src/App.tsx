@@ -20,6 +20,7 @@ import { useConnectionStore } from './store/useConnectionStore';
 import { gatewayManager } from './services/gatewayManager';
 import { requestNotificationPermission } from './utils/notification';
 import { initAutoBackupListener } from './services/accountBackupService';
+import { accountSyncService } from './services/accountSyncService';
 
 class ErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }> {
   state = { hasError: false };
@@ -47,11 +48,18 @@ function App() {
     return unsub;
   }, [isHydrated]);
 
+  const step = useAuthStore((state) => state.step);
+
   useEffect(() => {
     initAutoBackupListener();
   }, []);
 
-  const step = useAuthStore((state) => state.step);
+  useEffect(() => {
+    if (isHydrated && step === 'main') {
+      accountSyncService.init();
+    }
+  }, [isHydrated, step]);
+
   const nickname = useAuthStore((state) => state.nickname);
   const currentTheme = useChatStore((state) => state.currentTheme);
   const setProxyActive = useChatStore((state) => state.setProxyActive);

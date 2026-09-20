@@ -173,13 +173,26 @@
       "err_select_file": "Please select a .orbita backup file",
       "err_invalid_phrase": "Please enter a valid 12-word recovery phrase",
       "err_restore_failed": "Invalid 12-word phrase or corrupted backup file",
-      "err_corrupted": "The file is corrupted or not an Orbita backup"
+      "err_corrupted": "The file is corrupted or not an Orbita backup",
+      "tab_cloud": "Cloud Restore",
+      "tab_file": "File .orbita",
+      "master_key_label": "Account Master Key (64 HEX characters)",
+      "master_key_placeholder": "Paste 64-character hexadecimal key...",
+      "key_chars_count": "Characters: {{count}} / 64",
+      "err_invalid_key": "Master key must contain exactly 64 hexadecimal characters (0-9, a-f)",
+      "err_key_decrypt": "Invalid decryption key or corrupted cloud backup data",
+      "err_server": "Server error while fetching cloud config",
+      "cloud_restore_success": "Account successfully restored from cloud!"
     },
     "nickname": {
       "title": "Choose a nickname",
       "placeholder": "What should we call you?",
       "back": "Back",
-      "next": "Next"
+      "next": "Next",
+      "master_key_title": "Account Master Key (256-bit)",
+      "master_key_desc": "This key deterministically restores your profile and encrypts your cloud snapshot. Save it!",
+      "copy_key": "Copy Key",
+      "key_copied": "Key copied!"
     },
     "password": {
       "title": "Create a password",
@@ -1117,7 +1130,20 @@
       "restore_instruction": "To restore a backup, choose the .orbita file upon entering Orbita and enter your 12-word key.",
       "backup_created_success": "Backup successfully created!",
       "err_generate": "Failed to create backup",
-      "err_folder": "Failed to save file to the chosen folder"
+      "err_folder": "Failed to save file to the chosen folder",
+      "zk_cloud_group_title": "ZERO-KNOWLEDGE CLOUD SYNC",
+      "zk_cloud_title": "Zero-Knowledge Cloud Backup",
+      "zk_cloud_subtitle": "Account configuration is encrypted on-device and stored in the cloud as an opaque blob.",
+      "zk_master_key": "Account Master Key (64 HEX)",
+      "zk_master_key_desc": "256-bit key for deterministic recovery and snapshot encryption",
+      "zk_sync_status": "Sync Status",
+      "zk_sync_btn": "Sync Now",
+      "zk_syncing": "Syncing...",
+      "zk_synced": "Synced",
+      "zk_sync_error": "Sync Error",
+      "zk_version": "Config version: {{version}}",
+      "zk_show": "Show",
+      "zk_hide": "Hide"
     },
     "orbitos": {
       "name": "ORBITA",

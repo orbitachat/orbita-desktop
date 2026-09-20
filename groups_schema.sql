@@ -111,14 +111,27 @@ CREATE TABLE IF NOT EXISTS public.group_calls (
 
 CREATE INDEX IF NOT EXISTS idx_group_calls_status ON public.group_calls (group_id, status);
 
+CREATE TABLE IF NOT EXISTS public.user_configs (
+    user_id TEXT PRIMARY KEY,
+    config_blob TEXT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1,
+    signature TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_configs_user_id ON public.user_configs (user_id);
+
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_calls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_configs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all on groups" ON public.groups FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on group_members" ON public.group_members FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on group_messages" ON public.group_messages FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on group_calls" ON public.group_calls FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on user_configs" ON public.user_configs FOR ALL USING (true) WITH CHECK (true);
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.groups, public.group_members, public.group_messages, public.group_calls;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.groups, public.group_members, public.group_messages, public.group_calls, public.user_configs;
+

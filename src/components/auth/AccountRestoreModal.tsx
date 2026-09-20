@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { X, UploadCloud, FileCheck, KeyRound, AlertCircle, Loader2 } from 'lucide-react';
+import { X, UploadCloud, FileCheck, KeyRound, AlertCircle, Loader2, Cloud, HardDrive } from 'lucide-react';
 import { restoreAccountBackup } from '../../services/accountBackupService';
+import { accountSyncService } from '../../services/accountSyncService';
+import { isValidMasterSeedHex } from '../../lib/zkAccountCrypto';
 
 interface AccountRestoreModalProps {
   isOpen: boolean;
@@ -13,6 +15,8 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [activeTab, setActiveTab] = useState<'cloud' | 'file'>('cloud');
+  const [masterKey, setMasterKey] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileBytes, setFileBytes] = useState<ArrayBuffer | null>(null);
   const [phrase, setPhrase] = useState('');
@@ -20,6 +24,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  const cleanMasterKey = masterKey.trim().replace(/[^0-9a-fA-F]/g, '');
   const parsedWords = phrase
     .trim()
     .toLowerCase()
@@ -49,7 +54,37 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
     }
   };
 
-  const handleRestore = async () => {
+  const handleCloudRestore = async () => {
+    if (!isValidMasterSeedHex(cleanMasterKey)) {
+      setErrorMessage(t('welcome.err_invalid_key'));
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await accountSyncService.restoreAccountFromCloud(cleanMasterKey);
+      if (result.restored) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('orbita:sync-now'));
+        }
+      }
+      onClose();
+    } catch (err: any) {
+      if (err?.message === 'INVALID_KEY_OR_CORRUPT') {
+        setErrorMessage(t('welcome.err_key_decrypt'));
+      } else if (err?.message?.startsWith('SERVER_ERROR')) {
+        setErrorMessage(t('welcome.err_server'));
+      } else {
+        setErrorMessage(t('welcome.err_key_decrypt'));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileRestore = async () => {
     if (!fileBytes) {
       setErrorMessage(t('welcome.err_select_file'));
       return;
@@ -98,45 +133,48 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(8px)',
           padding: '16px',
         }}
         onClick={(e) => {
-          if (e.target === e.currentTarget && !isLoading) onClose();
+          if (e.target === e.currentTarget && !isLoading) {
+            onClose();
+          }
         }}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 12 }}
-          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+          transition={{ duration: 0.2 }}
           style={{
             width: '100%',
-            maxWidth: '520px',
-            backgroundColor: 'var(--bg-secondary, #1e1a2b)',
-            borderRadius: '16px',
-            border: 'none',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+            maxWidth: '480px',
+            backgroundColor: 'var(--bg-secondary, #211d2f)',
+            border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+            borderRadius: '20px',
+            boxShadow: '0 20px 48px rgba(0, 0, 0, 0.4)',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden',
           }}
         >
           <div
             style={{
               padding: '20px 24px',
-              borderBottom: 'none',
+              borderBottom: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '38px',
+                  height: '38px',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(155, 125, 212, 0.16)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
                   color: 'var(--accent-color, #9b7dd4)',
                   display: 'flex',
                   alignItems: 'center',
@@ -189,209 +227,348 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
             </button>
           </div>
 
-          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".orbita"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleFileChange(e.target.files[0]);
-                }
+          <div
+            style={{
+              display: 'flex',
+              padding: '12px 24px 0',
+              gap: '8px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('cloud');
+                setErrorMessage(null);
               }}
-            />
+              aria-label={t('welcome.tab_cloud')}
+              style={{
+                flex: 1,
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: 'none',
+                backgroundColor: activeTab === 'cloud' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                color: activeTab === 'cloud' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Cloud size={16} />
+              <span>{t('welcome.tab_cloud')}</span>
+            </button>
 
-            <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: 'rgba(255, 255, 255, 0.85)',
-                  marginBottom: '8px',
-                }}
-              >
-                {t('welcome.select_file')}
-              </label>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('file');
+                setErrorMessage(null);
+              }}
+              aria-label={t('welcome.tab_file')}
+              style={{
+                flex: 1,
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: 'none',
+                backgroundColor: activeTab === 'file' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                color: activeTab === 'file' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <HardDrive size={16} />
+              <span>{t('welcome.tab_file')}</span>
+            </button>
+          </div>
 
-              {!selectedFile ? (
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    backgroundColor: isDragOver ? 'rgba(155, 125, 212, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-                    borderRadius: '14px',
-                    padding: '24px 16px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '10px',
-                  }}
-                >
-                  <div
+          <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {activeTab === 'cloud' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label
                     style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '12px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                      color: 'var(--accent-color, #9b7dd4)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.85)',
                     }}
                   >
-                    <UploadCloud size={24} />
-                  </div>
-                  <div style={{ fontSize: '13.5px', color: '#ffffff', fontWeight: 550 }}>
-                    {t('welcome.drop_file_here')}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px',
-                    backgroundColor: 'rgba(155, 125, 212, 0.14)',
-                    borderRadius: '12px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                    <div style={{ color: 'var(--accent-color, #9b7dd4)' }}>
-                      <FileCheck size={24} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          color: '#ffffff',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {selectedFile.name}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>
-                        {formatFileSize(selectedFile.size)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    aria-label={t('welcome.change_file')}
+                    {t('welcome.master_key_label')}
+                  </label>
+                  <span
                     style={{
-                      border: 'none',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      color: '#ffffff',
-                      padding: '6px 12px',
-                      borderRadius: '8px',
                       fontSize: '12px',
                       fontWeight: 600,
-                      cursor: 'pointer',
+                      color: cleanMasterKey.length === 64 ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.45)',
                     }}
                   >
-                    {t('welcome.change_file')}
-                  </button>
+                    {t('welcome.key_chars_count', { count: cleanMasterKey.length })}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '8px',
-                }}
-              >
-                <label
+                <textarea
+                  value={masterKey}
+                  onChange={(e) => setMasterKey(e.target.value)}
+                  placeholder={t('welcome.master_key_placeholder')}
+                  rows={3}
+                  aria-label={t('welcome.master_key_label')}
                   style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                    color: '#ffffff',
                     fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'rgba(255, 255, 255, 0.85)',
+                    fontFamily: 'monospace',
+                    resize: 'none',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    wordBreak: 'break-all',
                   }}
-                >
-                  {t('welcome.phrase_label')}
-                </label>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: parsedWords.length === 12 ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.45)',
-                  }}
-                >
-                  {t('welcome.words_count', { count: parsedWords.length })}
-                </span>
+                />
               </div>
-
-              <textarea
-                value={phrase}
-                onChange={(e) => setPhrase(e.target.value)}
-                placeholder={t('welcome.phrase_placeholder')}
-                rows={3}
-                aria-label={t('welcome.phrase_label')}
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  fontFamily: 'inherit',
-                  resize: 'none',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-
-              {parsedWords.length > 0 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '6px',
-                    marginTop: '10px',
-                    maxHeight: '110px',
-                    overflowY: 'auto',
+            ) : (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".orbita"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFileChange(e.target.files[0]);
+                    }
                   }}
-                >
-                  {parsedWords.map((word, idx) => (
+                />
+
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    {t('welcome.select_file')}
+                  </label>
+
+                  {!selectedFile ? (
                     <div
-                      key={idx}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(true);
+                      }}
+                      onDragLeave={() => setIsDragOver(false)}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
                       style={{
+                        border: `1.5px dashed ${isDragOver ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.15)'}`,
+                        borderRadius: '14px',
+                        padding: '24px 16px',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '6px',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                        fontSize: '12px',
-                        color: 'rgba(255, 255, 255, 0.9)',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        backgroundColor: isDragOver ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.15)',
+                        transition: 'all 0.2s',
                       }}
                     >
-                      <span style={{ opacity: 0.5, fontSize: '10px' }}>{idx + 1}</span>
-                      <span style={{ fontWeight: 550 }}>{word}</span>
+                      <div
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '12px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'rgba(255, 255, 255, 0.7)',
+                        }}
+                      >
+                        <UploadCloud size={24} />
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div
+                          style={{
+                            fontSize: '13.5px',
+                            fontWeight: 600,
+                            color: '#ffffff',
+                            marginBottom: '2px',
+                          }}
+                        >
+                          {t('welcome.drop_file_here')}
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.4)' }}>
+                          .orbita
+                        </div>
+                      </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div
+                      style={{
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#4ade80',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <FileCheck size={18} />
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: '#ffffff',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {selectedFile.name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)' }}>
+                            {formatFileSize(selectedFile.size)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        aria-label={t('welcome.change_file')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--accent-color, #9b7dd4)',
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                        }}
+                      >
+                        {t('welcome.change_file')}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+
+                <div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'rgba(255, 255, 255, 0.85)',
+                      }}
+                    >
+                      {t('welcome.phrase_label')}
+                    </label>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: parsedWords.length === 12 ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.45)',
+                      }}
+                    >
+                      {t('welcome.words_count', { count: parsedWords.length })}
+                    </span>
+                  </div>
+
+                  <textarea
+                    value={phrase}
+                    onChange={(e) => setPhrase(e.target.value)}
+                    placeholder={t('welcome.phrase_placeholder')}
+                    rows={3}
+                    aria-label={t('welcome.phrase_label')}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                      color: '#ffffff',
+                      fontSize: '14px',
+                      fontFamily: 'inherit',
+                      resize: 'none',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+
+                  {parsedWords.length > 0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '6px',
+                        marginTop: '10px',
+                        maxHeight: '110px',
+                        overflowY: 'auto',
+                      }}
+                    >
+                      {parsedWords.map((word, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                            fontSize: '12px',
+                            color: 'rgba(255, 255, 255, 0.9)',
+                          }}
+                        >
+                          <span style={{ opacity: 0.5, fontSize: '10px' }}>{idx + 1}</span>
+                          <span style={{ fontWeight: 550 }}>{word}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
             {errorMessage && (
               <div
@@ -413,8 +590,12 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
 
             <button
               type="button"
-              onClick={handleRestore}
-              disabled={isLoading || !fileBytes || parsedWords.length !== 12}
+              onClick={activeTab === 'cloud' ? handleCloudRestore : handleFileRestore}
+              disabled={
+                isLoading ||
+                (activeTab === 'cloud' && cleanMasterKey.length !== 64) ||
+                (activeTab === 'file' && (!fileBytes || parsedWords.length !== 12))
+              }
               aria-label={t('welcome.restore_button')}
               style={{
                 width: '100%',
@@ -422,14 +603,18 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                 borderRadius: '12px',
                 border: 'none',
                 backgroundColor:
-                  !isLoading && fileBytes && parsedWords.length === 12
+                  !isLoading &&
+                  ((activeTab === 'cloud' && cleanMasterKey.length === 64) ||
+                    (activeTab === 'file' && fileBytes && parsedWords.length === 12))
                     ? 'var(--accent-color, #9b7dd4)'
                     : 'rgba(255, 255, 255, 0.1)',
                 color: '#ffffff',
                 fontSize: '15px',
                 fontWeight: 650,
                 cursor:
-                  !isLoading && fileBytes && parsedWords.length === 12
+                  !isLoading &&
+                  ((activeTab === 'cloud' && cleanMasterKey.length === 64) ||
+                    (activeTab === 'file' && fileBytes && parsedWords.length === 12))
                     ? 'pointer'
                     : 'not-allowed',
                 display: 'flex',

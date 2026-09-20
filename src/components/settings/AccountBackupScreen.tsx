@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Lock, Copy, Check, Loader2 } from 'lucide-react';
+import { Lock, Copy, Check, Loader2, Eye, EyeOff, Cloud, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { generateMnemonic, createAccountBackup } from '../../services/accountBackupService';
+import { accountSyncService } from '../../services/accountSyncService';
 
 interface AccountBackupScreenProps {
   onBack?: () => void;
@@ -21,11 +22,38 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
     setBackupConfig,
   } = useAuthStore();
 
+  const masterSeed = useAuthStore((state) => state.masterSeed) || '';
+  const configVersion = useAuthStore((state) => state.configVersion) || 0;
+  const syncStatus = useAuthStore((state) => state.syncStatus) || 'idle';
+  const [showMasterKey, setShowMasterKey] = useState(false);
+  const [hasCopiedMaster, setHasCopiedMaster] = useState(false);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isInitialSetup, setIsInitialSetup] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    accountSyncService.ensureMasterSeed();
+  }, []);
+
+  const handleCopyMasterKey = async () => {
+    const seed = useAuthStore.getState().masterSeed;
+    if (!seed) return;
+    try {
+      await navigator.clipboard.writeText(seed);
+      setHasCopiedMaster(true);
+      setTimeout(() => setHasCopiedMaster(false), 2500);
+    } catch {}
+  };
+
+  const handleCloudSync = async () => {
+    setIsSyncingCloud(true);
+    await accountSyncService.syncNow();
+    setIsSyncingCloud(false);
+  };
 
   useEffect(() => {
     if (!recoveryKey) {
@@ -351,6 +379,210 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = () => {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+        <div
+          style={{
+            padding: '18px 20px',
+            borderRadius: '16px',
+            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(155, 125, 212, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--accent-color, #9b7dd4)',
+                }}
+              >
+                <Cloud size={18} />
+              </div>
+              <div>
+                <div style={{ fontSize: '14.5px', fontWeight: 650, color: '#ffffff' }}>
+                  {t('backup.zk_cloud_title')}
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>
+                  {t('backup.zk_version', { version: configVersion })}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                backgroundColor:
+                  syncStatus === 'synced'
+                    ? 'rgba(34, 197, 94, 0.12)'
+                    : syncStatus === 'syncing'
+                    ? 'rgba(59, 130, 246, 0.12)'
+                    : syncStatus === 'error'
+                    ? 'rgba(239, 68, 68, 0.12)'
+                    : 'rgba(255, 255, 255, 0.06)',
+                color:
+                  syncStatus === 'synced'
+                    ? '#4ade80'
+                    : syncStatus === 'syncing'
+                    ? '#60a5fa'
+                    : syncStatus === 'error'
+                    ? '#f87171'
+                    : 'rgba(255, 255, 255, 0.6)',
+                fontSize: '11.5px',
+                fontWeight: 600,
+              }}
+            >
+              {syncStatus === 'syncing' ? (
+                <Loader2 size={12} className="spin" />
+              ) : syncStatus === 'synced' ? (
+                <Check size={12} />
+              ) : null}
+              <span>
+                {syncStatus === 'syncing'
+                  ? t('backup.zk_syncing')
+                  : syncStatus === 'synced'
+                  ? t('backup.zk_synced')
+                  : syncStatus === 'error'
+                  ? t('backup.zk_sync_error')
+                  : t('backup.zk_sync_status')}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.45 }}>
+            {t('backup.zk_cloud_subtitle')}
+          </div>
+
+          {masterSeed && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                padding: '12px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.75)' }}>
+                  {t('backup.zk_master_key')}
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowMasterKey(!showMasterKey)}
+                    aria-label={showMasterKey ? t('backup.zk_hide') : t('backup.zk_show')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'rgba(255, 255, 255, 0.6)',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 6px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {showMasterKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                    <span>{showMasterKey ? t('backup.zk_hide') : t('backup.zk_show')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyMasterKey}
+                    aria-label={t('backup.copy_to_clipboard')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: hasCopiedMaster ? '#4ade80' : 'var(--accent-color, #9b7dd4)',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 6px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {hasCopiedMaster ? <Check size={13} /> : <Copy size={13} />}
+                    <span>{hasCopiedMaster ? t('backup.copied') : t('backup.copy_to_clipboard')}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '11px',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  wordBreak: 'break-all',
+                  lineHeight: 1.4,
+                  userSelect: 'text',
+                  letterSpacing: showMasterKey ? '0.04em' : '0.15em',
+                }}
+              >
+                {showMasterKey ? masterSeed : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <button
+              type="button"
+              onClick={handleCloudSync}
+              disabled={isSyncingCloud || syncStatus === 'syncing'}
+              aria-label={t('backup.zk_sync_btn')}
+              style={{
+                padding: '7px 18px',
+                borderRadius: '20px',
+                border: 'none',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                color: '#ffffff',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                cursor: isSyncingCloud || syncStatus === 'syncing' ? 'default' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'background-color 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!isSyncingCloud) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              }}
+            >
+              {isSyncingCloud || syncStatus === 'syncing' ? (
+                <Loader2 size={13} className="spin" />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+              <span>
+                {isSyncingCloud || syncStatus === 'syncing'
+                  ? t('backup.zk_syncing')
+                  : t('backup.zk_sync_btn')}
+              </span>
+            </button>
+          </div>
+        </div>
+
         {!backupEnabled ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div>

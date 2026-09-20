@@ -74,6 +74,7 @@
     "@emotion/styled": "^11.14.1",
     "@gravity-ui/icons": "^2.21.0",
     "@mui/material": "^9.0.0",
+    "@noble/curves": "^2.4.0",
     "@privacyresearch/libsignal-protocol-typescript": "^0.0.16",
     "@stablelib/hex": "^1.0.1",
     "@stablelib/hkdf": "^1.0.1",

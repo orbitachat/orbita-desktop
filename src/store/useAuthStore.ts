@@ -4,12 +4,18 @@ import { useChatStore } from './useChatStore';
 
 type AuthStep = 'welcome' | 'nickname' | 'main';
 
+export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
 interface AuthState {
   userId: string;
   nickname: string;
   avatarUrl: string | null;
   step: AuthStep;
   recoveryKey: string | null;
+  masterSeed: string | null;
+  configVersion: number;
+  lastSyncTime: number | null;
+  syncStatus: CloudSyncStatus;
   backupEnabled: boolean;
   backupFolder: string | null;
   lastBackupTime: number | null;
@@ -18,6 +24,9 @@ interface AuthState {
   setNickname: (name: string) => void;
   setAvatarUrl: (url: string | null) => void;
   setRecoveryKey: (key: string) => void;
+  setMasterSeed: (seed: string | null) => void;
+  setConfigVersion: (version: number) => void;
+  setSyncStatus: (status: CloudSyncStatus, lastSyncTime?: number | null) => void;
   setBackupConfig: (config: { enabled?: boolean; folder?: string | null; lastBackupTime?: number | null }) => void;
   deleteAccount: () => void;
 }
@@ -67,6 +76,10 @@ export const useAuthStore = create<AuthState>()(
       avatarUrl: null,
       step: 'welcome',
       recoveryKey: null,
+      masterSeed: null,
+      configVersion: 0,
+      lastSyncTime: null,
+      syncStatus: 'idle',
       backupEnabled: false,
       backupFolder: null,
       lastBackupTime: null,
@@ -87,6 +100,13 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       setRecoveryKey: (recoveryKey) => set({ recoveryKey }),
+      setMasterSeed: (masterSeed) => set({ masterSeed }),
+      setConfigVersion: (configVersion) => set({ configVersion }),
+      setSyncStatus: (syncStatus, lastSyncTime) =>
+        set((prev) => ({
+          syncStatus,
+          lastSyncTime: lastSyncTime !== undefined ? lastSyncTime : prev.lastSyncTime,
+        })),
       setBackupConfig: (config) =>
         set((prev) => ({
           backupEnabled: config.enabled !== undefined ? config.enabled : prev.backupEnabled,
@@ -108,6 +128,10 @@ export const useAuthStore = create<AuthState>()(
           avatarUrl: null,
           step: 'welcome',
           recoveryKey: null,
+          masterSeed: null,
+          configVersion: 0,
+          lastSyncTime: null,
+          syncStatus: 'idle',
           backupEnabled: false,
           backupFolder: null,
           lastBackupTime: null,
@@ -130,6 +154,10 @@ export const useAuthStore = create<AuthState>()(
         avatarUrl: state.avatarUrl,
         step: state.step,
         recoveryKey: state.recoveryKey,
+        masterSeed: state.masterSeed,
+        configVersion: state.configVersion,
+        lastSyncTime: state.lastSyncTime,
+        syncStatus: state.syncStatus,
         backupEnabled: state.backupEnabled,
         backupFolder: state.backupFolder,
         lastBackupTime: state.lastBackupTime,

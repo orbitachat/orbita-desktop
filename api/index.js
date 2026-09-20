@@ -104,6 +104,39 @@ function getGroupsSupabaseClient() {
   });
 }
 
+let ed25519Module = null;
+try {
+  ed25519Module = require('@noble/curves/ed25519.js').ed25519;
+} catch {}
+
+function verifyServerEd25519(userIdHex, version, configBlob, signatureHex) {
+  if (!userIdHex || !signatureHex || version === undefined || !configBlob) return false;
+  try {
+    const cleanUserId = String(userIdHex).trim().toLowerCase();
+    const cleanSig = String(signatureHex).trim().toLowerCase();
+    const messageStr = `${cleanUserId}${version}${configBlob}`;
+    const messageBytes = Buffer.from(messageStr, 'utf8');
+
+    if (ed25519Module && typeof ed25519Module.verify === 'function') {
+      const pubBytes = Buffer.from(cleanUserId, 'hex');
+      const sigBytes = Buffer.from(cleanSig, 'hex');
+      return ed25519Module.verify(sigBytes, messageBytes, pubBytes);
+    }
+
+    const pubBytes = Buffer.from(cleanUserId, 'hex');
+    const sigBytes = Buffer.from(cleanSig, 'hex');
+    const spkiPrefix = Buffer.from('302a300506032b6570032100', 'hex');
+    const keyObj = crypto.createPublicKey({
+      key: Buffer.concat([spkiPrefix, pubBytes]),
+      format: 'der',
+      type: 'spki',
+    });
+    return crypto.verify(null, messageBytes, keyObj, sigBytes);
+  } catch {
+    return false;
+  }
+}
+
 async function checkAdminAuthorization(supabase, userCode) {
   if (!supabase || !userCode) return null;
   try {
@@ -336,6 +369,111 @@ module.exports = async function handler(req, res) {
         capabilities: ['livekit', 'ably', 'relay', 'pusher', 'cloudinary'],
         timestamp: Date.now(),
       });
+    }
+
+    if (pathname === '/user/config') {
+      if (req.method === 'GET') {
+        const userId = String(query.user_id || query.userId || '').trim().toLowerCase();
+        if (!userId) return sendError(res, 'Missing user_id', 400);
+        if (!/^[0-9a-f]{64}$/i.test(userId)) return sendError(res, 'Invalid user_id format', 400);
+
+        const supabase = getGroupsSupabaseClient();
+        if (!supabase) return sendError(res, 'Database unavailable', 503);
+
+        const { data, error } = await supabase
+          .from('user_configs')
+          .select('config_blob, version, updated_at')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (error) {
+          return sendError(res, error.message, 500);
+        }
+
+        if (!data) {
+          return sendJson(res, { status: 'not_found', config_blob: null, version: 0, updated_at: null }, 404);
+        }
+
+        return sendJson(res, {
+          status: 'ok',
+          config_blob: data.config_blob,
+          version: Number(data.version),
+          updated_at: data.updated_at,
+        });
+      }
+
+      if (req.method === 'PUT' || req.method === 'POST') {
+        const userId = String(body.user_id || body.userId || query.user_id || query.userId || req.headers['x-user-id'] || '').trim().toLowerCase();
+        const configBlob = body.config_blob || body.configBlob;
+        const version = Number(body.version);
+        const signature = String(body.signature || '').trim().toLowerCase();
+
+        if (!userId || !/^[0-9a-f]{64}$/i.test(userId)) {
+          return sendError(res, 'Invalid or missing user_id', 400);
+        }
+        if (!configBlob || typeof configBlob !== 'string') {
+          return sendError(res, 'Invalid or missing config_blob', 400);
+        }
+        if (!Number.isSafeInteger(version) || version <= 0) {
+          return sendError(res, 'Invalid version: must be a positive integer', 400);
+        }
+        if (!signature || !/^[0-9a-f]{128}$/i.test(signature)) {
+          return sendError(res, 'Invalid or missing signature (expected 128 hex chars)', 400);
+        }
+
+        const blobBytesLength = Buffer.byteLength(configBlob, 'utf8');
+        if (blobBytesLength > 128 * 1024) {
+          return sendError(res, 'Payload too large: config_blob exceeds 128 KB limit', 413);
+        }
+
+        const isValidSig = verifyServerEd25519(userId, version, configBlob, signature);
+        if (!isValidSig) {
+          return sendError(res, 'Invalid Ed25519 signature', 401);
+        }
+
+        const supabase = getGroupsSupabaseClient();
+        if (!supabase) return sendError(res, 'Database unavailable', 503);
+
+        const { data: existing, error: selectErr } = await supabase
+          .from('user_configs')
+          .select('version')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (selectErr) {
+          return sendError(res, selectErr.message, 500);
+        }
+
+        if (existing && existing.version !== null && existing.version !== undefined) {
+          const currentVersion = Number(existing.version);
+          if (version <= currentVersion) {
+            return sendError(res, `Conflict: incoming version (${version}) must be strictly greater than current version (${currentVersion})`, 409);
+          }
+        }
+
+        const nowIso = new Date().toISOString();
+        const { error: upsertErr } = await supabase
+          .from('user_configs')
+          .upsert({
+            user_id: userId,
+            config_blob: configBlob,
+            version: version,
+            signature: signature,
+            updated_at: nowIso,
+          });
+
+        if (upsertErr) {
+          return sendError(res, upsertErr.message, 500);
+        }
+
+        return sendJson(res, {
+          status: 'ok',
+          version,
+          updated_at: nowIso,
+        });
+      }
+
+      return sendError(res, 'Method not allowed', 405);
     }
 
     if (pathname === '/token' || pathname === '/livekit/token' || pathname === '/livekit-token') {
