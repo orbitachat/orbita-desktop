@@ -379,15 +379,20 @@ module.exports = async function handler(req, res) {
         if (!userId) return sendError(res, 'Missing user_id', 400);
         if (!/^[0-9a-f]{64}$/i.test(userId)) return sendError(res, 'Invalid user_id format', 400);
 
-        const clients = [getSupabaseClient(), getGroupsSupabaseClient()].filter(Boolean);
+        const clients = [
+          { name: 'main', client: getSupabaseClient() },
+          { name: 'groups', client: getGroupsSupabaseClient() },
+          { name: 'channels', client: getChannelsSupabaseClient() },
+        ].filter((c) => Boolean(c.client));
+
         if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
 
         let configData = null;
-        let queryErr = null;
         let querySuccess = false;
+        const errDetails = [];
 
-        for (const supabase of clients) {
-          const { data, error } = await supabase
+        for (const item of clients) {
+          const { data, error } = await item.client
             .from('user_configs')
             .select('config_blob, version, updated_at')
             .eq('user_id', userId)
@@ -398,11 +403,11 @@ module.exports = async function handler(req, res) {
             querySuccess = true;
             break;
           }
-          queryErr = error;
+          errDetails.push(`${item.name}:${error.message || error.code}`);
         }
 
         if (!querySuccess) {
-          return sendError(res, queryErr?.message || 'Database query failed', 500);
+          return sendError(res, `DB_ERR: ${errDetails.join(' ; ')}`, 500);
         }
 
         if (!configData) {
@@ -446,22 +451,27 @@ module.exports = async function handler(req, res) {
           return sendError(res, 'Invalid Ed25519 signature', 401);
         }
 
-        const clients = [getSupabaseClient(), getGroupsSupabaseClient()].filter(Boolean);
+        const clients = [
+          { name: 'main', client: getSupabaseClient() },
+          { name: 'groups', client: getGroupsSupabaseClient() },
+          { name: 'channels', client: getChannelsSupabaseClient() },
+        ].filter((c) => Boolean(c.client));
+
         if (clients.length === 0) return sendError(res, 'Database unavailable', 503);
 
         let putSuccess = false;
-        let lastPutErr = null;
+        const putErrDetails = [];
         const nowIso = new Date().toISOString();
 
-        for (const supabase of clients) {
-          const { data: existing, error: selectErr } = await supabase
+        for (const item of clients) {
+          const { data: existing, error: selectErr } = await item.client
             .from('user_configs')
             .select('version')
             .eq('user_id', userId)
             .maybeSingle();
 
           if (selectErr) {
-            lastPutErr = selectErr;
+            putErrDetails.push(`${item.name}:${selectErr.message || selectErr.code}`);
             continue;
           }
 
@@ -472,7 +482,7 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          const { error: upsertErr } = await supabase
+          const { error: upsertErr } = await item.client
             .from('user_configs')
             .upsert({
               user_id: userId,
@@ -483,7 +493,7 @@ module.exports = async function handler(req, res) {
             });
 
           if (upsertErr) {
-            lastPutErr = upsertErr;
+            putErrDetails.push(`${item.name}:${upsertErr.message || upsertErr.code}`);
             continue;
           }
 
@@ -496,7 +506,7 @@ module.exports = async function handler(req, res) {
         }
 
         if (!putSuccess) {
-          return sendError(res, lastPutErr?.message || 'Database write failed', 500);
+          return sendError(res, `DB_WRITE_ERR: ${putErrDetails.join(' ; ')}`, 500);
         }
       }
 

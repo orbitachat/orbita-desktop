@@ -27,15 +27,6 @@ export function getVercelBaseUrl(): string {
 
 const DEFAULT_GATEWAYS: GatewayEndpoint[] = [
   {
-    id: 'cloudflare-worker',
-    name: 'Cloudflare Relay Worker',
-    provider: 'cloudflare',
-    url: 'https://orbita.ypgreg78.workers.dev',
-    ping: null,
-    status: 'idle',
-    lastChecked: null,
-  },
-  {
     id: 'vercel-edge',
     name: 'Vercel Serverless Gateway',
     provider: 'custom',
