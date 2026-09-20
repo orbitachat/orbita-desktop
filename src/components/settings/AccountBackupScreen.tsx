@@ -50,6 +50,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
   const [isDeletingCloud, setIsDeletingCloud] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isInitialSetup, setIsInitialSetup] = useState(false);
+  const [isKeyRevealed, setIsKeyRevealed] = useState(false);
 
   useEffect(() => {
     accountSyncService.ensureMasterSeed();
@@ -67,7 +68,8 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
 
   const words = (recoveryKey || '').split(' ').filter(Boolean);
 
-  const handleCopyMasterKey = async () => {
+  const handleCopyMasterKey = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     const seed = useAuthStore.getState().masterSeed;
     if (!seed) return;
     try {
@@ -884,18 +886,21 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
           }}
         >
           <div
+            onClick={() => setIsKeyRevealed(!isKeyRevealed)}
             style={{
               fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
               fontSize: '11.5px',
               color: 'rgba(255, 255, 255, 0.85)',
               wordBreak: 'break-all',
               lineHeight: 1.45,
-              userSelect: 'all',
-              letterSpacing: '0.04em',
+              userSelect: isKeyRevealed ? 'all' : 'none',
+              letterSpacing: isKeyRevealed ? '0.04em' : '0.08em',
               flex: 1,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
           >
-            {masterSeed}
+            {isKeyRevealed ? masterSeed : '*'.repeat(masterSeed.length || 64)}
           </div>
 
           <button
