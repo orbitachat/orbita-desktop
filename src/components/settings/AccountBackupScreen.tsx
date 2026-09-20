@@ -190,13 +190,16 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
     try {
       const date = new Date(timestamp);
       const isRu = i18n.language?.startsWith('ru');
-      return date.toLocaleString(isRu ? 'ru-RU' : 'en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      const day = date.getDate();
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      if (isRu) {
+        const ruMonths = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+        return `${day} ${ruMonths[date.getMonth()]} ${year} в ${hours}:${minutes}`;
+      }
+      const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${day} ${enMonths[date.getMonth()]} ${year} at ${hours}:${minutes}`;
     } catch {
       return t('backup.never');
     }
