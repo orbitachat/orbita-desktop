@@ -106,9 +106,9 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
     const success = await accountSyncService.deleteCloudConfig();
     setIsDeletingCloud(false);
     if (success) {
-      setFeedbackMessage(t('backup.delete_cloud_backup_confirm'));
+      setFeedbackMessage(t('backup.disable_cloud_backup_confirm'));
     } else {
-      setFeedbackMessage(t('backup.delete_cloud_backup_err'));
+      setFeedbackMessage(t('backup.disable_cloud_backup_err'));
     }
     setTimeout(() => setFeedbackMessage(null), 4000);
   };
@@ -477,8 +477,8 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
                   width: '38px',
                   height: '38px',
                   borderRadius: '50%',
-                  backgroundColor: 'rgba(155, 125, 212, 0.15)',
-                  color: 'var(--accent-color, #9b7dd4)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.85)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -526,17 +526,13 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
           </div>
         </div>
 
-        <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.08)', width: '100%' }} />
-
         <div>
           <div
             style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--accent-color, #9b7dd4)',
-              letterSpacing: '0.04em',
+              fontSize: '13px',
+              color: 'rgba(255, 255, 255, 0.65)',
               marginBottom: '12px',
-              paddingLeft: '4px',
+              lineHeight: 1.5,
             }}
           >
             {t('backup.other_methods_title')}
@@ -990,70 +986,22 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-            {t('backup.last_backup')}
-          </div>
-          <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '2px' }}>
-            {lastSyncTime ? formatBackupDate(lastSyncTime) : t('backup.never')}
-            {configVersion > 0 ? ` • ${t('backup.zk_version', { version: configVersion })}` : ''}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 10px',
-            borderRadius: '20px',
-            backgroundColor:
-              syncStatus === 'synced'
-                ? 'rgba(34, 197, 94, 0.12)'
-                : syncStatus === 'syncing'
-                ? 'rgba(59, 130, 246, 0.12)'
-                : syncStatus === 'error'
-                ? 'rgba(239, 68, 68, 0.12)'
-                : 'rgba(255, 255, 255, 0.06)',
-            color:
-              syncStatus === 'synced'
-                ? '#4ade80'
-                : syncStatus === 'syncing'
-                ? '#60a5fa'
-                : syncStatus === 'error'
-                ? '#f87171'
-                : 'rgba(255, 255, 255, 0.6)',
-            fontSize: '11.5px',
-            fontWeight: 600,
-          }}
-        >
-          {syncStatus === 'syncing' ? (
-            <Loader2 size={12} className="spin" />
-          ) : syncStatus === 'synced' ? (
-            <Check size={12} />
-          ) : null}
-          <span>
-            {syncStatus === 'syncing'
-              ? t('backup.zk_syncing')
-              : syncStatus === 'synced'
-              ? t('backup.zk_synced')
-              : syncStatus === 'error'
-              ? t('backup.zk_sync_error')
-              : t('backup.zk_sync_status')}
-          </span>
+      <div style={{ marginBottom: '22px' }}>
+        <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.65)' }}>
+          {configVersion > 0 && lastSyncTime
+            ? t('backup.last_backup_created', { date: formatBackupDate(lastSyncTime) })
+            : t('backup.never_created')}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <button
           type="button"
           onClick={handleCloudSync}
           disabled={isSyncingCloud || syncStatus === 'syncing'}
-          aria-label={t('backup.zk_sync_btn')}
+          aria-label={configVersion > 0 ? t('backup.update_backup_btn') : t('backup.create_backup_btn')}
           style={{
-            flex: 1,
-            minWidth: '200px',
+            width: '100%',
             padding: '10px 18px',
             borderRadius: '18px',
             border: 'none',
@@ -1082,8 +1030,8 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
           )}
           <span>
             {isSyncingCloud || syncStatus === 'syncing'
-              ? t('backup.zk_syncing')
-              : t('backup.zk_sync_btn')}
+              ? (configVersion > 0 ? t('backup.updating_backup') : t('backup.zk_syncing'))
+              : (configVersion > 0 ? t('backup.update_backup_btn') : t('backup.create_backup_btn'))}
           </span>
         </button>
 
@@ -1092,9 +1040,10 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
             type="button"
             onClick={handleDeleteCloudBackup}
             disabled={isDeletingCloud}
-            aria-label={t('backup.delete_cloud_backup_btn')}
+            aria-label={t('backup.disable_cloud_backup_btn')}
             style={{
-              padding: '10px 16px',
+              width: '100%',
+              padding: '10px 18px',
               borderRadius: '18px',
               border: 'none',
               backgroundColor: 'rgba(239, 68, 68, 0.12)',
@@ -1112,7 +1061,7 @@ export const AccountBackupScreen: React.FC<AccountBackupScreenProps> = ({
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)')}
           >
             {isDeletingCloud ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
-            <span>{t('backup.delete_cloud_backup_btn')}</span>
+            <span>{t('backup.disable_cloud_backup_btn')}</span>
           </button>
         )}
       </div>

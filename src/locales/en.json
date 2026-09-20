@@ -1160,9 +1160,16 @@
       "zk_version": "Config version: {{version}}",
       "zk_show": "Show",
       "zk_hide": "Hide",
+      "last_backup_created": "Latest backup created {{date}}",
+      "never_created": "Backup has not been created",
+      "update_backup_btn": "Update backup",
+      "updating_backup": "Updating backup...",
       "delete_cloud_backup_btn": "Delete backup from server",
       "delete_cloud_backup_confirm": "Backup deleted from server",
-      "delete_cloud_backup_err": "Failed to delete backup from server"
+      "delete_cloud_backup_err": "Failed to delete backup from server",
+      "disable_cloud_backup_btn": "Disable backup",
+      "disable_cloud_backup_confirm": "Backup disabled",
+      "disable_cloud_backup_err": "Failed to disable backup"
     },
     "orbitos": {
       "name": "ORBITA",

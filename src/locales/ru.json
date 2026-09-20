@@ -1170,9 +1170,16 @@
       "zk_version": "Версия конфига: {{version}}",
       "zk_show": "Показать",
       "zk_hide": "Скрыть",
+      "last_backup_created": "Последняя копия создана {{date}}",
+      "never_created": "Резервная копия не создана",
+      "update_backup_btn": "Обновить резервную копию",
+      "updating_backup": "Обновление копии...",
       "delete_cloud_backup_btn": "Удалить копию с сервера",
       "delete_cloud_backup_confirm": "Резервная копия удалена с сервера",
-      "delete_cloud_backup_err": "Не удалось удалить копию с сервера"
+      "delete_cloud_backup_err": "Не удалось удалить копию с сервера",
+      "disable_cloud_backup_btn": "Отключить резервное копирование",
+      "disable_cloud_backup_confirm": "Резервное копирование отключено",
+      "disable_cloud_backup_err": "Не удалось отключить резервное копирование"
     },
     "orbitos": {
       "name": "ORBITA",
