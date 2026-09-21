@@ -2,6 +2,8 @@ RewriteEngine On
 RewriteBase /
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^u/([^/]+)/?$ /index.html?id=$1 [QSA,L]
-RewriteRule ^invite/([^/]+)/?$ /index.html?id=$1 [QSA,L]
+RewriteRule ^(u|g|group|join|invite)(/.*)?$ /index.html [QSA,L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
 

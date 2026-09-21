@@ -1114,19 +1114,24 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           (currentUserId && chat.creatorId && chat.creatorId === currentUserId) ||
           (myNickname && info.creatorNickname === myNickname)
         );
+        const validName = (info.name && info.name !== 'Group Chat') ? info.name : (current?.name || info.name);
+        const validMembers = (info.members && info.members.length > 0)
+          ? info.members.map((m) => ({
+              userId: m.userCode,
+              nickname: m.nickname,
+              role: m.role,
+              lastSeen: m.lastSeen || Date.now(),
+              avatarUrl: m.avatarUrl || null,
+            }))
+          : current?.members;
+
         const updates: Partial<Chat> = {
-          name: info.name,
-          description: info.description,
+          name: validName,
+          description: info.description || current?.description,
           avatarUrl: info.avatarUrl || current?.avatarUrl || undefined,
-          membersCount: info.membersCount,
-          inviteCode: info.code,
-          members: (info.members || []).map((m) => ({
-            userId: m.userCode,
-            nickname: m.nickname,
-            role: m.role,
-            lastSeen: m.lastSeen || Date.now(),
-            avatarUrl: m.avatarUrl || null,
-          })),
+          membersCount: Math.max(info.membersCount || 0, validMembers?.length || 0, current?.membersCount || 1),
+          inviteCode: info.code || current?.inviteCode,
+          members: validMembers,
         };
         if (isCreator) {
           updates.isOwner = true;

@@ -101,27 +101,7 @@ class GroupService {
           return { ...data.group, sharedSecret: secret };
         }
       }
-    } catch (err) {
-      console.warn('[GroupService] Failed to fetch group from server:', err);
-    }
-
-    if (isValidGroupCode(code)) {
-      const id = deriveGroupId(code);
-      const secret = deriveGroupKey(code);
-      return {
-        id,
-        code,
-        name: 'Group Chat',
-        description: '',
-        avatarUrl: null,
-        creatorNickname: 'Owner',
-        membersCount: 1,
-        maxMembers: 10,
-        members: [],
-        createdAt: Date.now(),
-        sharedSecret: secret,
-      };
-    }
+    } catch {}
 
     return null;
   }
@@ -165,38 +145,8 @@ class GroupService {
         sharedSecret,
       };
     } catch (err: any) {
-      if (err.message === 'GROUP_FULL' || err.message === 'INVALID_CODE') {
-        throw err;
-      }
-      console.warn('[GroupService] Server join fallback:', err);
+      throw err;
     }
-
-    const fallbackGroup: GroupInfo = {
-      id,
-      code,
-      name: 'Group Chat',
-      description: '',
-      avatarUrl: null,
-      creatorNickname: 'Owner',
-      membersCount: 2,
-      maxMembers: 10,
-      members: [
-        {
-          nickname,
-          userCode,
-          role: 'member',
-          joinedAt: Date.now(),
-          lastSeen: Date.now(),
-        },
-      ],
-      createdAt: Date.now(),
-      sharedSecret,
-    };
-
-    return {
-      group: fallbackGroup,
-      sharedSecret,
-    };
   }
 
   async leaveGroup(groupId: string, nickname: string, userCode?: string): Promise<void> {
