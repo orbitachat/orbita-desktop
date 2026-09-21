@@ -127,11 +127,15 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
           membersCount: (currentChat.membersCount || currentMembers.length) + 1,
         });
 
-        if (updatedGroup && userCode) {
-          await groupService.notifyMember(userCode, {
-            ...updatedGroup,
-            sharedSecret: currentChat.sharedSecret,
-          } as any);
+        if (updatedGroup) {
+          await groupService.notifyMember(
+            userCode || contact.name,
+            {
+              ...updatedGroup,
+              sharedSecret: currentChat.sharedSecret,
+            } as any,
+            contact.name
+          );
         }
 
         setAddedContactIds((prev) => ({ ...prev, [contact.id]: true }));

@@ -1346,9 +1346,9 @@ export const MainLayout = () => {
   }, [nickname, myCode, addIncomingFriendRequest, updateChat]);
 
   const loadPendingGroups = useCallback(async () => {
-    if (!myCode) return;
+    if (!myCode && !nickname) return;
     try {
-      const serverGroups = await groupService.fetchMyGroups(myCode);
+      const serverGroups = await groupService.fetchMyGroups(myCode, nickname);
       if (!serverGroups || serverGroups.length === 0) return;
       const currentChats = useChatStore.getState().chats;
       const currentIds = new Set(currentChats.map((c) => c.id));
@@ -1377,7 +1377,7 @@ export const MainLayout = () => {
         });
       }
     } catch {}
-  }, [myCode]);
+  }, [myCode, nickname]);
 
   const loadPendingMessages = useCallback(async () => {
     if (!nickname && !myCode) return;
@@ -2286,52 +2286,65 @@ export const MainLayout = () => {
   );
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).orbita?.onDeepLink) {
-      const unsub = (window as any).orbita.onDeepLink(async (url: string) => {
-        if (!url) return;
-        const groupCode = extractGroupCode(url);
-        if (groupCode && isValidGroupCode(groupCode)) {
-          const authData = (() => { try { return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state || {}; } catch { return {}; } })();
-          const nick = authData.nickname || nickname;
-          const uCode = authData.userId || myCode;
-          try {
-            const result = await groupService.joinGroup(url, nick, uCode);
-            if (result?.group) {
-              const existing = useChatStore.getState().chats.find((c) => c.id === result.group.id);
-              if (!existing) {
-                useChatStore.getState().addChat({
-                  id: result.group.id,
-                  type: 'group',
-                  name: result.group.name,
-                  description: result.group.description || '',
-                  lastMsg: 'E2EE_SECURE_CHANNEL_READY',
-                  online: false,
-                  sharedSecret: result.sharedSecret,
-                  role: 'member',
-                  inviteCode: result.group.code,
-                  creatorNickname: result.group.creatorNickname,
-                  avatarUrl: result.group.avatarUrl || undefined,
-                  members: (result.group.members || []) as any[],
-                  membersCount: result.group.membersCount || 1,
-                  createdAt: result.group.createdAt || Date.now(),
-                  unreadCount: 0,
-                  lastReadTimestamp: Date.now(),
-                  muted: false,
-                  notificationsEnabled: true,
-                });
-              }
-              useChatStore.getState().setActiveChat(result.group.id);
+    const handleDeepLinkUrl = async (url: string) => {
+      if (!url) return;
+      const groupCode = extractGroupCode(url);
+      if (groupCode && isValidGroupCode(groupCode)) {
+        const authData = (() => { try { return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state || {}; } catch { return {}; } })();
+        const nick = authData.nickname || nickname;
+        const uCode = authData.userId || myCode;
+        try {
+          const result = await groupService.joinGroup(url, nick, uCode);
+          if (result?.group) {
+            const existing = useChatStore.getState().chats.find((c) => c.id === result.group.id);
+            if (!existing) {
+              useChatStore.getState().addChat({
+                id: result.group.id,
+                type: 'group',
+                name: result.group.name,
+                description: result.group.description || '',
+                lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+                online: false,
+                sharedSecret: result.sharedSecret,
+                role: 'member',
+                inviteCode: result.group.code,
+                creatorNickname: result.group.creatorNickname,
+                creatorCode: result.group.creatorCode || undefined,
+                avatarUrl: result.group.avatarUrl || undefined,
+                members: (result.group.members || []) as any[],
+                membersCount: result.group.membersCount || 1,
+                createdAt: result.group.createdAt || Date.now(),
+                unreadCount: 0,
+                lastReadTimestamp: Date.now(),
+                muted: false,
+                notificationsEnabled: true,
+              });
             }
-          } catch {}
-          return;
-        }
-        const code = extractCodeFromInput(url);
-        if (code && code.length === 36) {
-          handleConnectRequest(code.toUpperCase(), () => {});
-        }
-      });
-      return unsub;
+            useChatStore.getState().setActiveChat(result.group.id);
+          }
+        } catch {}
+        return;
+      }
+      const code = extractCodeFromInput(url);
+      if (code && code.length === 36) {
+        handleConnectRequest(code.toUpperCase(), () => {});
+      }
+    };
+
+    const handleCustomDeepLink = (e: any) => {
+      const u = e?.detail?.url;
+      if (u) handleDeepLinkUrl(u);
+    };
+    window.addEventListener('orbita:deep-link', handleCustomDeepLink);
+
+    let unsub: any;
+    if (typeof window !== 'undefined' && (window as any).orbita?.onDeepLink) {
+      unsub = (window as any).orbita.onDeepLink(handleDeepLinkUrl);
     }
+    return () => {
+      window.removeEventListener('orbita:deep-link', handleCustomDeepLink);
+      if (unsub) unsub();
+    };
   }, [handleConnectRequest, nickname, myCode]);
 
   const subscribeToGroupChat = useCallback((chatId: string) => {

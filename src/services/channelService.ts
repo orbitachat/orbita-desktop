@@ -83,13 +83,7 @@ class ChannelService {
 
   async getChannel(channelId: string): Promise<ChannelInfo | null> {
     const cleanId = channelId.trim();
-    try {
-      const res = await fetch(`${W}/channels/get?channelId=${encodeURIComponent(cleanId)}`);
-      if (res.ok) {
-        const data = (await res.json()) as { channel: ChannelInfo };
-        if (data.channel) return data.channel;
-      }
-    } catch {}
+    if (!cleanId) return null;
 
     try {
       const res = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/public_channels?id=eq.${encodeURIComponent(cleanId)}&select=*`, {
@@ -117,6 +111,15 @@ class ChannelService {
         }
       }
     } catch {}
+
+    try {
+      const res = await fetch(`${W}/channels/get?channelId=${encodeURIComponent(cleanId)}`);
+      if (res.ok) {
+        const data = (await res.json()) as { channel: ChannelInfo };
+        if (data.channel) return data.channel;
+      }
+    } catch {}
+
     return null;
   }
 
@@ -130,6 +133,48 @@ class ChannelService {
   ): Promise<ChannelInfo | null> {
     const idToUse = customId?.trim() || generateChannelId();
     const now = Date.now();
+    const createdInfo: ChannelInfo = {
+      id: idToUse,
+      name: name.trim(),
+      description: description.trim(),
+      avatarUrl: avatarUrl || null,
+      creatorId,
+      creatorNickname,
+      subscribersCount: 1,
+      isOfficial: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    let directSaved = false;
+    try {
+      const dbRow = {
+        id: idToUse,
+        name: name.trim(),
+        description: description.trim(),
+        avatar_url: avatarUrl || null,
+        creator_id: creatorId || null,
+        creator_nickname: creatorNickname,
+        subscribers_count: 1,
+        is_official: false,
+        created_at: new Date(now).toISOString(),
+        updated_at: new Date(now).toISOString(),
+      };
+      const directRes = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/public_channels`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': CHANNELS_SUPABASE_KEY,
+          'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+          'Prefer': 'resolution=merge-duplicates,return=representation',
+        },
+        body: JSON.stringify(dbRow),
+      });
+      if (directRes.ok) {
+        directSaved = true;
+      }
+    } catch {}
+
     try {
       const res = await fetch(`${W}/channels/create`, {
         method: 'POST',
@@ -150,44 +195,9 @@ class ChannelService {
       }
     } catch {}
 
-    try {
-      const dbRow = {
-        id: idToUse,
-        name: name.trim(),
-        description: description.trim(),
-        avatar_url: avatarUrl || null,
-        creator_id: creatorId || null,
-        creator_nickname: creatorNickname,
-        subscribers_count: 1,
-        is_official: false,
-        created_at: new Date(now).toISOString(),
-        updated_at: new Date(now).toISOString(),
-      };
-      const directRes = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/public_channels`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': CHANNELS_SUPABASE_KEY,
-          'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
-          'Prefer': 'return=minimal',
-        },
-        body: JSON.stringify(dbRow),
-      });
-      if (directRes.ok) {
-        return {
-          id: idToUse,
-          name: name.trim(),
-          description: description.trim(),
-          avatarUrl: avatarUrl || null,
-          creatorId,
-          creatorNickname,
-          subscribersCount: 1,
-          isOfficial: false,
-          createdAt: now,
-          updatedAt: now,
-        };
-      }
-    } catch {}
+    if (directSaved) {
+      return createdInfo;
+    }
 
     throw new Error('Failed to create channel on server');
   }

@@ -11,7 +11,7 @@ const ENV = {
   SUPABASE_URL: process.env.SUPABASE_URL || 'https://majmrtymawymomliowbz.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   CHANNELS_SUPABASE_URL: process.env.CHANNELS_SUPABASE_URL || 'https://rugqiezexuknqcppicma.supabase.co',
-  CHANNELS_SUPABASE_KEY: process.env.CHANNELS_SUPABASE_KEY || process.env.CHANNELS_SUPABASE_SECRET_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  CHANNELS_SUPABASE_KEY: process.env.CHANNELS_SUPABASE_KEY || process.env.CHANNELS_SUPABASE_SECRET_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_publishable_XYjE7C93LWA-P1OHZqNONg_QHlyZ9sZ',
   PUSHER_KEY: process.env.PUSHER_KEY || 'e8f5cf13f6759775e44e',
   PUSHER_SECRET: process.env.PUSHER_SECRET || '',
   PUSHER_APP_ID: process.env.PUSHER_APP_ID || '2142120',
@@ -1685,16 +1685,26 @@ module.exports = async function handler(req, res) {
 
     if (pathname === '/groups/my' && req.method === 'GET') {
       const userCode = query.userCode || query.user_code;
-      if (!userCode) return sendError(res, 'Missing userCode', 400);
+      const nickname = query.nickname || '';
+      if (!userCode && !nickname) return sendError(res, 'Missing userCode or nickname', 400);
 
       const supabase = getGroupsSupabaseClient();
       if (!supabase) return sendError(res, 'Groups database not configured', 500);
 
       try {
+        const filters = [];
+        if (userCode) {
+          filters.push(`user_code.eq.${userCode}`);
+          filters.push(`user_id.eq.${userCode}`);
+        }
+        if (nickname) {
+          filters.push(`nickname.eq.${nickname}`);
+          filters.push(`user_code.eq.${nickname}`);
+        }
         const { data: memberRows } = await supabase
           .from('group_members')
           .select('group_id, role')
-          .eq('user_code', userCode);
+          .or(filters.join(','));
 
         if (!memberRows || memberRows.length === 0) {
           return sendJson(res, { groups: [] });
@@ -2015,17 +2025,19 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/groups/notify-member' && req.method === 'POST') {
-      const { targetUserCode, group } = body;
-      if (!targetUserCode || !group) return sendError(res, 'Missing targetUserCode or group', 400);
+      const { targetUserCode, targetNickname, group } = body;
+      if ((!targetUserCode && !targetNickname) || !group) return sendError(res, 'Missing targetUserCode or group', 400);
 
+      const targets = Array.from(new Set([targetUserCode, targetNickname].filter(Boolean)));
       const allPusherServers = [...PUSHER_CONFIGS, ...GROUP_PUSHER_CONFIGS];
       let triggered = false;
-      for (const server of allPusherServers) {
-        try {
-          await triggerPusherEventOnServer(server, `private-handshake-${targetUserCode}`, 'client-group-added', { group });
-          triggered = true;
-          break;
-        } catch {}
+      for (const tCode of targets) {
+        for (const server of allPusherServers) {
+          try {
+            await triggerPusherEventOnServer(server, `private-handshake-${tCode}`, 'client-group-added', { group });
+            triggered = true;
+          } catch {}
+        }
       }
 
       return sendJson(res, { status: triggered ? 'ok' : 'no_server' });

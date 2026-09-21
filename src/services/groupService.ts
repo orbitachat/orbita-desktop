@@ -1,4 +1,5 @@
 import { getVercelBaseUrl } from './gatewayManager';
+import { getPusher } from '../utils/pusher';
 import {
   generateGroupCode,
   deriveGroupId,
@@ -322,9 +323,12 @@ class GroupService {
       });
     } catch {}
   }
-  async fetchMyGroups(userCode: string): Promise<(GroupInfo & { role: string })[]> {
+  async fetchMyGroups(userCode: string, nickname?: string): Promise<(GroupInfo & { role: string })[]> {
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/groups/my?userCode=${encodeURIComponent(userCode)}`);
+      const q = new URLSearchParams();
+      if (userCode) q.set('userCode', userCode);
+      if (nickname) q.set('nickname', nickname);
+      const res = await fetch(`${this.getWorkerUrl()}/groups/my?${q.toString()}`);
       if (res.ok) {
         const data = await res.json();
         return (data.groups || []).map((g: any) => ({
@@ -336,12 +340,34 @@ class GroupService {
     return [];
   }
 
-  async notifyMember(targetUserCode: string, group: GroupInfo): Promise<void> {
+  async notifyMember(targetUserCode: string, group: GroupInfo, targetNickname?: string): Promise<void> {
+    const targets = Array.from(new Set([targetUserCode, targetNickname].filter(Boolean) as string[]));
+    try {
+      const pusher = getPusher();
+      if (pusher) {
+        targets.forEach((tCode) => {
+          const chan = pusher.subscribe(`private-handshake-${tCode}`);
+          const doTrigger = () => {
+            try {
+              chan.trigger('client-group-added', { group });
+            } catch {}
+          };
+          if (chan.subscribed) {
+            doTrigger();
+          } else {
+            chan.bind('pusher:subscription_succeeded', () => {
+              doTrigger();
+            });
+          }
+        });
+      }
+    } catch {}
+
     try {
       await fetch(`${this.getWorkerUrl()}/groups/notify-member`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserCode, group }),
+        body: JSON.stringify({ targetUserCode, targetNickname, group }),
       });
     } catch {}
   }

@@ -17,7 +17,7 @@ import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
 import { deriveChannelKey, decryptMessage, encryptMessage } from '../../lib/crypto';
-import { isValidGroupCode, deriveGroupKey } from '../../lib/groupCrypto';
+import { isValidGroupCode, deriveGroupKey, extractGroupCode } from '../../lib/groupCrypto';
 import { useTranslation } from 'react-i18next';
 import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
 import { useCallStore } from '../../store/useCallStore';
@@ -1948,6 +1948,44 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const handleLinkClick = useCallback((url: string) => {
     const cleanUrl = url.trim();
+    const groupCode = extractGroupCode(cleanUrl);
+    if (groupCode && isValidGroupCode(groupCode)) {
+      window.dispatchEvent(new CustomEvent('orbita:deep-link', { detail: { url: cleanUrl } }));
+      return;
+    }
+    const channelMatch = cleanUrl.match(/\/(?:c|channel)\/([A-Z0-9_-]{10,})/i);
+    if (channelMatch && channelMatch[1]) {
+      const chId = channelMatch[1];
+      const existing = useChatStore.getState().chats.find((c) => c.id === chId);
+      if (existing) {
+        useChatStore.getState().setActiveChat(chId);
+      } else {
+        channelService.getChannel(chId).then((info) => {
+          if (info) {
+            useChatStore.getState().addChat({
+              id: info.id,
+              type: 'channel',
+              name: info.name,
+              description: info.description || '',
+              lastMsg: '',
+              online: false,
+              creatorNickname: info.creatorNickname,
+              creatorId: info.creatorId || undefined,
+              avatarUrl: info.avatarUrl || undefined,
+              subscribersCount: info.subscribersCount || 1,
+              isOfficial: info.isOfficial,
+              createdAt: info.createdAt || Date.now(),
+              unreadCount: 0,
+              lastReadTimestamp: Date.now(),
+              muted: false,
+              notificationsEnabled: true,
+            });
+            useChatStore.getState().setActiveChat(info.id);
+          }
+        });
+      }
+      return;
+    }
     setUnsafeLinkData({ isOpen: true, url: cleanUrl });
   }, []);
 
