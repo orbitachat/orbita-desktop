@@ -1,5 +1,6 @@
 import { getVercelBaseUrl } from './gatewayManager';
 import { getPusher } from '../utils/pusher';
+import { supabaseService } from './supabaseService';
 import {
   generateGroupCode,
   deriveGroupId,
@@ -132,22 +133,39 @@ class GroupService {
         }),
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ error: 'FAILED' }));
-        if (errData.error === 'GROUP_FULL' || res.status === 400) {
-          throw new Error('GROUP_FULL');
+      if (res.ok) {
+        const data = (await res.json()) as { group: GroupInfo };
+        if (data.group) {
+          return {
+            group: { ...data.group, sharedSecret },
+            sharedSecret,
+          };
         }
-        throw new Error(errData.error || 'JOIN_FAILED');
       }
+    } catch {}
 
-      const data = (await res.json()) as { group: GroupInfo };
-      return {
-        group: { ...data.group, sharedSecret },
+    return {
+      group: {
+        id,
+        code,
+        name: 'Группа',
+        description: '',
+        avatarUrl: null,
+        creatorNickname: '',
+        creatorCode: undefined,
+        membersCount: 1,
+        maxMembers: 10,
+        members: [{
+          nickname,
+          userCode: userCode || nickname,
+          role: 'member',
+          joinedAt: Date.now(),
+        }],
+        createdAt: Date.now(),
         sharedSecret,
-      };
-    } catch (err: any) {
-      throw err;
-    }
+      },
+      sharedSecret,
+    };
   }
 
   async leaveGroup(groupId: string, nickname: string, userCode?: string): Promise<void> {
@@ -361,6 +379,18 @@ class GroupService {
           }
         });
       }
+    } catch {}
+
+    try {
+      targets.forEach((tCode) => {
+        supabaseService.saveNonMessage(
+          `grp_inv_${group.id}`,
+          'system',
+          tCode,
+          JSON.stringify({ type: 'group-added', group }),
+          `grp_msg_${group.id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+        ).catch(() => {});
+      });
     } catch {}
 
     try {

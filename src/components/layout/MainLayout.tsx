@@ -1345,8 +1345,13 @@ export const MainLayout = () => {
     }
   }, [nickname, myCode, addIncomingFriendRequest, updateChat]);
 
+  const lastGroupSyncTimeRef = useRef<number>(0);
+
   const loadPendingGroups = useCallback(async () => {
     if (!myCode && !nickname) return;
+    const now = Date.now();
+    if (now - lastGroupSyncTimeRef.current < 600000) return;
+    lastGroupSyncTimeRef.current = now;
     try {
       const serverGroups = await groupService.fetchMyGroups(myCode, nickname);
       if (!serverGroups || serverGroups.length === 0) return;
@@ -1645,6 +1650,42 @@ export const MainLayout = () => {
               continue;
             }
 
+            if (messageData?.type === 'group-added' && messageData?.group) {
+              const g = messageData.group;
+              if (g.id && g.code) {
+                const existing = useChatStore.getState().chats.find((c) => c.id === g.id || c.inviteCode === g.code);
+                if (!existing) {
+                  const sharedSecret = g.sharedSecret || (isValidGroupCode(g.code) ? deriveGroupKey(g.code) : undefined);
+                  useChatStore.setState((s) => ({
+                    chats: [{
+                      id: g.id,
+                      type: 'group' as const,
+                      name: g.name,
+                      description: g.description || '',
+                      lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+                      online: false,
+                      sharedSecret,
+                      role: 'member' as const,
+                      inviteCode: g.code,
+                      creatorNickname: g.creatorNickname,
+                      creatorCode: g.creatorCode || undefined,
+                      avatarUrl: g.avatarUrl || undefined,
+                      members: g.members || [],
+                      membersCount: g.membersCount || 1,
+                      maxMembers: g.maxMembers || 10,
+                      createdAt: g.createdAt || Date.now(),
+                      unreadCount: 0,
+                      lastReadTimestamp: Date.now(),
+                      muted: false,
+                      notificationsEnabled: true,
+                    }, ...s.chats],
+                  }));
+                }
+              }
+              nonDeliveredIds.push(record.id);
+              continue;
+            }
+
             const currentChats = useChatStore.getState().chats;
             const chat = currentChats.find(c => c.id === record.chat_id);
             if (!chat) {
@@ -1897,11 +1938,22 @@ export const MainLayout = () => {
     }
   }, [nickname, avatarUrl, myCode, updateChat]);
 
+  const lastProfileCheckTimeRef = useRef<Map<string, number>>(new Map());
+  const lastChannelCheckTimeRef = useRef<Map<string, number>>(new Map());
+
   const syncOfflineFriendProfiles = useCallback(async () => {
     const myCode = useChatStore.getState().myCode;
     const currentChats = useChatStore.getState().chats;
     const privateChats = currentChats.filter((c) => c.type === 'private' && c.id !== 'notes');
+    const now = Date.now();
+    const PROFILE_TTL = 900000;
+
     for (const chat of privateChats) {
+      const lastCheck = lastProfileCheckTimeRef.current.get(chat.id) || 0;
+      if (now - lastCheck < PROFILE_TTL) {
+        continue;
+      }
+      lastProfileCheckTimeRef.current.set(chat.id, now);
       try {
         const update = await supabaseService.getLatestProfileUpdate(chat.id, myCode || undefined);
         const updates: Partial<Chat> = {};
@@ -1941,6 +1993,11 @@ export const MainLayout = () => {
 
     const currentChannels = useChatStore.getState().chats.filter((c) => c.type === 'channel');
     for (const ch of currentChannels) {
+      const lastCheck = lastChannelCheckTimeRef.current.get(ch.id) || 0;
+      if (now - lastCheck < PROFILE_TTL) {
+        continue;
+      }
+      lastChannelCheckTimeRef.current.set(ch.id, now);
       channelService.getChannel(ch.id).then((info) => {
         if (info) {
           const current = useChatStore.getState().chats.find((c) => c.id === ch.id);
@@ -2004,14 +2061,15 @@ export const MainLayout = () => {
     const syncAll = async (force = false) => {
       if (isDestroyed || isSyncingRef.current) return;
       const now = Date.now();
-      if (!force && now - lastSyncTimeRef.current < 15000) return;
+      const minInterval = force ? 15000 : 60000;
+      if (now - lastSyncTimeRef.current < minInterval) return;
       lastSyncTimeRef.current = now;
       isSyncingRef.current = true;
 
       try {
         const navOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-        const fastestGateway = await gatewayManager.selectFastestGateway(force);
+        const fastestGateway = await gatewayManager.selectFastestGateway(false);
         const isGatewayHealthy = fastestGateway && fastestGateway.status === 'healthy';
 
         if (isGatewayHealthy) {
@@ -2064,20 +2122,21 @@ export const MainLayout = () => {
     });
 
     const handleOnline = () => {
-      console.log('[SyncManager] Network online event received! Instantly restoring connections...');
       setIsNetworkOnline(true);
       useConnectionStore.getState().setServerConnected(true);
       syncAll(true);
     };
 
     const handleOffline = () => {
-      console.log('[SyncManager] Network offline event received!');
       setIsNetworkOnline(false);
       useConnectionStore.getState().setServerConnected(false);
     };
 
     const handleFocus = () => {
-      syncAll(true);
+      const now = Date.now();
+      if (now - lastSyncTimeRef.current >= 30000) {
+        syncAll(true);
+      }
     };
 
     const handleSyncNow = () => {
@@ -2085,24 +2144,19 @@ export const MainLayout = () => {
       syncAll(true);
     };
 
-
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('orbita:sync-now', handleSyncNow);
 
-    const interval = setInterval(() => syncAll(false), 15000);
+    const interval = setInterval(() => syncAll(false), 60000);
     const checkTimer = setInterval(() => {
       const navOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-      const isConnected = useConnectionStore.getState().isServerConnected;
       if (!navOnline) {
         setIsNetworkOnline(false);
         useConnectionStore.getState().setServerConnected(false);
-      } else if (!isConnected) {
-        syncAll(true);
       }
-    }, 3000);
+    }, 15000);
 
     return () => {
       isDestroyed = true;

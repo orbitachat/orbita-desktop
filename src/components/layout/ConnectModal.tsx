@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { channelService } from '../../services/channelService';
 import { groupService } from '../../services/groupService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
+import { extractGroupCode, isValidGroupCode } from '../../lib/groupCrypto';
 import { generateChannelId } from '../../lib/codes';
 import { useToastStore } from '../../store/useToastStore';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
@@ -106,6 +107,84 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
     }
 
     if (type === 'friend') {
+      const groupCode = extractGroupCode(trimmed);
+      if (groupCode && isValidGroupCode(groupCode)) {
+        setIsLoading(true);
+        groupService.joinGroup(trimmed, myNickname, myCode).then((result) => {
+          setIsLoading(false);
+          if (result?.group) {
+            const existing = useChatStore.getState().chats.find((c) => c.id === result.group.id);
+            if (!existing) {
+              useChatStore.getState().addChat({
+                id: result.group.id,
+                type: 'group',
+                name: result.group.name,
+                description: result.group.description || '',
+                lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+                online: false,
+                sharedSecret: result.sharedSecret,
+                role: 'member',
+                inviteCode: result.group.code,
+                creatorNickname: result.group.creatorNickname,
+                creatorCode: result.group.creatorCode || undefined,
+                avatarUrl: result.group.avatarUrl || undefined,
+                members: (result.group.members || []) as any[],
+                membersCount: result.group.membersCount || 1,
+                createdAt: result.group.createdAt || Date.now(),
+                unreadCount: 0,
+                lastReadTimestamp: Date.now(),
+                muted: false,
+                notificationsEnabled: true,
+              });
+            }
+            setActiveChat(result.group.id);
+            onClose();
+          } else {
+            showTempWarning(t('createModal.invalid_content', 'Неверное содержимое'));
+          }
+        }).catch(() => {
+          setIsLoading(false);
+          showTempWarning(t('createModal.invalid_content', 'Неверное содержимое'));
+        });
+        return;
+      }
+
+      const channelMatch = trimmed.match(/\/(?:c|channel)\/([A-Z0-9_-]{10,})/i);
+      if (channelMatch && channelMatch[1]) {
+        setIsLoading(true);
+        channelService.getChannel(channelMatch[1]).then((info) => {
+          setIsLoading(false);
+          if (info) {
+            useChatStore.getState().addChat({
+              id: info.id,
+              type: 'channel',
+              name: info.name,
+              description: info.description || '',
+              lastMsg: '',
+              online: false,
+              creatorNickname: info.creatorNickname,
+              creatorId: info.creatorId || undefined,
+              avatarUrl: info.avatarUrl || undefined,
+              subscribersCount: info.subscribersCount || 1,
+              isOfficial: info.isOfficial,
+              createdAt: info.createdAt || Date.now(),
+              unreadCount: 0,
+              lastReadTimestamp: Date.now(),
+              muted: false,
+              notificationsEnabled: true,
+            });
+            setActiveChat(info.id);
+            onClose();
+          } else {
+            showTempWarning(t('createModal.invalid_content', 'Неверное содержимое'));
+          }
+        }).catch(() => {
+          setIsLoading(false);
+          showTempWarning(t('createModal.invalid_content', 'Неверное содержимое'));
+        });
+        return;
+      }
+
       const cleanInput = extractCodeFromInput(trimmed).trim();
       if (!cleanInput || !/^[a-zA-Z0-9_-]{6,64}$/.test(cleanInput)) {
         showTempWarning(t('createModal.invalid_content', 'Неверное содержимое'));

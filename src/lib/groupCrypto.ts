@@ -69,6 +69,11 @@ export function extractGroupCode(input: string): string {
     return trimmed;
   }
 
+  const fallback54 = trimmed.match(/([0-9A-Za-z]{54})/);
+  if (fallback54 && fallback54[1]) {
+    return fallback54[1];
+  }
+
   return '';
 }
 

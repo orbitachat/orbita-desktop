@@ -89,10 +89,9 @@ class GatewayManager {
 
   public async selectFastestGateway(force = false): Promise<GatewayEndpoint> {
     if (this.isTesting) return this.getActiveGateway();
-    
     const now = Date.now();
     const hasHealthy = this.gateways.some((g) => g.id === this.activeGatewayId && g.status === 'healthy');
-    if (hasHealthy && now - this.lastTestTime < (force ? 10000 : this.TEST_COOLDOWN_MS)) {
+    if ((hasHealthy && now - this.lastTestTime < (force ? 60000 : this.TEST_COOLDOWN_MS)) || (this.lastTestTime > 0 && now - this.lastTestTime < 30000)) {
       return this.getActiveGateway();
     }
 

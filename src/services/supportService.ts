@@ -169,7 +169,7 @@ class SupportService {
 
           this.setupAdminRealtime();
           this.fetchAdminTickets();
-          this.startSync(8000);
+          this.startSync(60000);
           return;
         }
       }
@@ -177,7 +177,7 @@ class SupportService {
 
     this.isAdmin = false;
     this.setupUserRealtime();
-    this.startSync(25000);
+    this.startSync(120000);
   }
 
   private setupAdminRealtime(): void {
@@ -783,19 +783,19 @@ class SupportService {
     store.updateChat(this.BOT_ID, { lastMsg: text });
   }
 
-  public startSync(intervalMs: number = 30000): void {
+  public startSync(intervalMs: number = 120000): void {
     if (this.syncInterval) clearInterval(this.syncInterval);
     this.syncInterval = setInterval(() => {
       if (this.isAdmin) {
         this.fetchAdminTickets();
-      } else {
+      } else if (this.activeTicketNumber) {
         this.checkAdminReplies();
       }
     }, intervalMs);
 
     if (this.isAdmin) {
       this.fetchAdminTickets();
-    } else {
+    } else if (this.activeTicketNumber) {
       this.checkAdminReplies();
     }
   }
@@ -847,7 +847,7 @@ class SupportService {
   }
 
   public async checkAdminReplies(): Promise<void> {
-    if (!this.myCode) return;
+    if (!this.myCode || !this.activeTicketNumber) return;
 
     try {
       const res = await gatewayManager.fetch(`/support/tickets?userCode=${encodeURIComponent(this.myCode)}`);

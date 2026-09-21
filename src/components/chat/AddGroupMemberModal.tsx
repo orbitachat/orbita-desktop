@@ -127,23 +127,51 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
           membersCount: (currentChat.membersCount || currentMembers.length) + 1,
         });
 
-        if (updatedGroup) {
-          await groupService.notifyMember(
-            userCode || contact.name,
-            {
-              ...updatedGroup,
-              sharedSecret: currentChat.sharedSecret,
-            } as any,
-            contact.name
-          );
-        }
+        const payloadGroup: any = updatedGroup || {
+          id: currentChat.id,
+          code: inviteCode,
+          name: currentChat.name,
+          description: currentChat.description || '',
+          avatarUrl: currentChat.avatarUrl || null,
+          creatorNickname: currentChat.creatorNickname || '',
+          creatorCode: currentChat.creatorCode,
+          membersCount: (currentChat.membersCount || currentMembers.length) + 1,
+          maxMembers: 10,
+          members: nextMembers,
+          createdAt: currentChat.createdAt || Date.now(),
+          sharedSecret: currentChat.sharedSecret,
+        };
+
+        await groupService.notifyMember(
+          userCode || contact.name,
+          {
+            ...payloadGroup,
+            sharedSecret: currentChat.sharedSecret,
+          },
+          contact.name
+        );
 
         setAddedContactIds((prev) => ({ ...prev, [contact.id]: true }));
       } catch {} finally {
         setAddingContactIds((prev) => ({ ...prev, [contact.id]: false }));
       }
     },
-    [isGroupFull, addingContactIds, currentChat.id, currentChat.membersCount, currentChat.sharedSecret, inviteCode, currentMembers, updateChat]
+    [
+      isGroupFull,
+      addingContactIds,
+      currentChat.id,
+      currentChat.name,
+      currentChat.description,
+      currentChat.avatarUrl,
+      currentChat.creatorNickname,
+      currentChat.creatorCode,
+      currentChat.createdAt,
+      currentChat.membersCount,
+      currentChat.sharedSecret,
+      inviteCode,
+      currentMembers,
+      updateChat,
+    ]
   );
 
 
