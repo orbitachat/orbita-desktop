@@ -469,7 +469,7 @@ class ChannelService {
       const directRow = {
         id: postIdToUse,
         channel_id: cleanId,
-        sender_id: senderId || null,
+        sender_id: null,
         sender_nickname: senderNickname,
         text: cipherText,
         media_type: mediaPayload?.type || null,

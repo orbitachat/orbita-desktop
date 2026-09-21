@@ -21,7 +21,7 @@ const ENV = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   GROUPS_SUPABASE_URL: process.env.GROUPS_SUPABASE_URL || 'https://vxjaybyveerulkdqhggr.supabase.co',
-  GROUPS_SUPABASE_KEY: process.env.GROUPS_SUPABASE_SECRET_KEY || process.env.GROUPS_SUPABASE_KEY || process.env.GROUPS_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  GROUPS_SUPABASE_KEY: process.env.GROUPS_SUPABASE_SECRET_KEY || process.env.GROUPS_SUPABASE_KEY || process.env.GROUPS_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_x6OPhg68nS-xBcPn4K47NQ_2nSS4Kfu',
   GROUPS_LIVEKIT_API_KEY: process.env.GROUPS_LIVEKIT_API_KEY || '',
   GROUPS_LIVEKIT_API_SECRET: process.env.GROUPS_LIVEKIT_API_SECRET || '',
   GROUPS_LIVEKIT_URL: process.env.GROUPS_LIVEKIT_URL || 'wss://fewfregfrtgtr-lq3p5f01.livekit.cloud',
@@ -96,8 +96,8 @@ function getChannelsSupabaseClient() {
 }
 
 function getGroupsSupabaseClient() {
-  const url = ENV.GROUPS_SUPABASE_URL || ENV.CHANNELS_SUPABASE_URL || ENV.SUPABASE_URL;
-  const key = ENV.GROUPS_SUPABASE_KEY || ENV.CHANNELS_SUPABASE_KEY || ENV.SUPABASE_SERVICE_ROLE_KEY;
+  const url = ENV.GROUPS_SUPABASE_URL || 'https://vxjaybyveerulkdqhggr.supabase.co';
+  const key = ENV.GROUPS_SUPABASE_KEY || 'sb_publishable_x6OPhg68nS-xBcPn4K47NQ_2nSS4Kfu';
   if (!url || !key) return null;
   return createClient(url, key, {
     auth: { persistSession: false },
@@ -1220,7 +1220,7 @@ module.exports = async function handler(req, res) {
     function generateChannelId() {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let code = '';
-      for (let i = 0; i < 42; i++) {
+      for (let i = 0; i < 36; i++) {
         code += chars[Math.floor(Math.random() * chars.length)];
       }
       return code;
@@ -1425,24 +1425,17 @@ module.exports = async function handler(req, res) {
               id: body.channelId,
               name: body.channelName || body.channelId,
               description: '',
-              creator_id: senderId || null,
+              creator_id: null,
               creator_nickname: body.senderNickname,
               subscribers_count: 1,
               is_official: false,
               created_at: createdAt,
             });
           }
-          if (senderId) {
-            await supabase.from('profiles').upsert({
-              id: senderId,
-              username: body.senderNickname,
-              updated_at: createdAt,
-            });
-          }
           await supabase.from('channel_posts').insert({
             id: postId,
             channel_id: body.channelId,
-            sender_id: senderId || null,
+            sender_id: null,
             sender_nickname: body.senderNickname,
             text: body.text || '',
             media_type: body.mediaType || null,
@@ -1818,13 +1811,29 @@ module.exports = async function handler(req, res) {
       if (supabase) {
         try {
           let queryBuilder = supabase.from('groups').select('*');
-          if (id) {
-            queryBuilder = queryBuilder.eq('id', id);
-          } else {
+          if (code) {
             queryBuilder = queryBuilder.eq('code', code);
+          } else if (id) {
+            queryBuilder = queryBuilder.eq('id', id);
           }
           const { data: groupData } = await queryBuilder.maybeSingle();
           if (!groupData) return sendError(res, 'Group not found', 404);
+
+          let inviteActive = true;
+          let expiresAt = null;
+          if (groupData.creator_id && typeof groupData.creator_id === 'string' && groupData.creator_id.startsWith('{')) {
+            try {
+              const meta = JSON.parse(groupData.creator_id);
+              if (meta.active === false) inviteActive = false;
+              if (typeof meta.expiresAt === 'number') expiresAt = meta.expiresAt;
+            } catch {}
+          }
+          if (!inviteActive) {
+            return sendError(res, 'INVITE_REVOKED', 403);
+          }
+          if (expiresAt && Date.now() > expiresAt) {
+            return sendError(res, 'INVITE_EXPIRED', 410);
+          }
 
           const { count } = await supabase
             .from('group_members')
@@ -1959,6 +1968,9 @@ module.exports = async function handler(req, res) {
           if (typeof name === 'string' && name.trim()) updateData.name = name.trim();
           if (typeof description === 'string') updateData.description = description.trim();
           if (avatarUrl !== undefined) updateData.avatar_url = avatarUrl;
+          if (typeof body.code === 'string' && body.code.trim()) updateData.code = body.code.trim();
+          if (body.creator_id !== undefined) updateData.creator_id = body.creator_id;
+          if (body.creatorId !== undefined) updateData.creator_id = body.creatorId;
 
           await supabase.from('groups').update(updateData).eq('id', groupId);
 

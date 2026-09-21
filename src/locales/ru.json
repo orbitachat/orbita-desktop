@@ -1298,6 +1298,27 @@
       "channel": "Канал",
       "group": "Группа",
       "dialog": "Диалог"
+    },
+    "groupSettings": {
+      "group_id": "ID группы (36 символов)",
+      "invite_link": "Ссылка-приглашение",
+      "copy_link": "Скопировать ссылку",
+      "reset_link": "Обновить ссылку",
+      "close_link": "Закрыть доступ",
+      "open_link": "Открыть доступ",
+      "link_revoked": "Доступ закрыт",
+      "link_expired": "Срок истек",
+      "expire_action": "Срок действия",
+      "expire_never": "Бессрочно",
+      "expire_1h": "1 час",
+      "expire_24h": "24 часа",
+      "expire_7d": "7 дней",
+      "add_member": "Добавить участника",
+      "participants": "Участники",
+      "owner": "Владелец",
+      "admin": "Админ",
+      "group_code": "Код группы",
+      "add_description": "Добавить описание"
     }
   }
 }

@@ -5,7 +5,7 @@ import { channelService } from '../../services/channelService';
 import { groupService } from '../../services/groupService';
 import { supabaseService } from '../../services/supabaseService';
 import { buildGroupInviteLink } from '../../lib/groupCrypto';
-import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft, UserPlus, ShieldCheck, Trash2, LogOut } from 'lucide-react';
+import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft, UserPlus, ShieldCheck, Trash2, LogOut, RefreshCw, Lock, Unlock, Clock } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { BotIcon } from '../common/BotIcon';
 import { VerifiedBadge } from '../common/VerifiedBadge';
@@ -2325,8 +2325,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
               <div
                 onClick={() => {
-                  const link = buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl);
-                  navigator.clipboard.writeText(link);
+                  navigator.clipboard.writeText(chat.id);
                   setCopiedKey(true);
                   setTimeout(() => setCopiedKey(false), 2000);
                 }}
@@ -2344,17 +2343,17 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   <span
                     style={{
                       fontSize: '13.5px',
-                      fontWeight: 500,
-                      color: 'var(--accent-color, #9b7dd4)',
+                      fontWeight: 600,
+                      color: 'var(--text-main, #ffffff)',
                       wordBreak: 'break-all',
                       lineHeight: 1.3,
                       fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                     }}
                   >
-                    {buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl)}
+                    {chat.id}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    {t('groupSettings.invite_link', 'Ссылка-приглашение')}
+                    {t('groupSettings.group_id', 'ID группы (36 символов)')}
                   </span>
                 </div>
                 <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
@@ -2363,39 +2362,160 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               </div>
 
               <div
-                onClick={() => {
-                  navigator.clipboard.writeText(chat.inviteCode || chat.id);
-                  setCopiedKey(true);
-                  setTimeout(() => setCopiedKey(false), 2000);
-                }}
                 style={{
                   padding: '12px 20px',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  cursor: 'pointer',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
                 }}
               >
-                <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <span
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      color: 'var(--text-main, #ffffff)',
-                      fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    {chat.inviteCode || chat.id}
-                  </span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    {t('groupSettings.group_code', 'Код группы')}
-                  </span>
+                <div
+                  onClick={() => {
+                    const link = buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl);
+                    navigator.clipboard.writeText(link);
+                    setCopiedKey(true);
+                    setTimeout(() => setCopiedKey(false), 2000);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <span
+                      style={{
+                        fontSize: '13.5px',
+                        fontWeight: 500,
+                        color: chat.inviteActive === false ? 'var(--text-dim, #8e8e93)' : 'var(--accent-color, #9b7dd4)',
+                        textDecoration: chat.inviteActive === false ? 'line-through' : 'none',
+                        wordBreak: 'break-all',
+                        lineHeight: 1.3,
+                        fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                      }}
+                    >
+                      {buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl)}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)' }}>
+                        {t('groupSettings.invite_link', 'Ссылка-приглашение')}
+                      </span>
+                      {chat.inviteActive === false && (
+                        <span style={{ fontSize: '10px', color: '#ff4d4f', fontWeight: 600 }}>
+                          {t('groupSettings.link_revoked', 'Доступ закрыт')}
+                        </span>
+                      )}
+                      {chat.inviteExpiresAt && chat.inviteExpiresAt < Date.now() && (
+                        <span style={{ fontSize: '10px', color: '#ff4d4f', fontWeight: 600 }}>
+                          {t('groupSettings.link_expired', 'Срок истек')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
+                    {copiedKey ? <Check size={18} /> : <Copy size={18} />}
+                  </div>
                 </div>
-                <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
-                  {copiedKey ? <Check size={18} /> : <Copy size={18} />}
-                </div>
+
+                {isGroupAdmin && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      aria-label={t('groupSettings.reset_link', 'Обновить ссылку')}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const newCode = await groupService.resetInviteLink(chat.id);
+                        if (newCode) {
+                          useChatStore.getState().updateChat(chat.id, { inviteCode: newCode, inviteActive: true });
+                        }
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: 'var(--text-main, #ffffff)',
+                        fontSize: '11.5px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <RefreshCw size={13} />
+                      <span>{t('groupSettings.reset_link', 'Обновить ссылку')}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-label={chat.inviteActive === false ? t('groupSettings.open_link', 'Открыть доступ') : t('groupSettings.close_link', 'Закрыть доступ')}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (chat.inviteActive === false) {
+                          await groupService.enableInviteLink(chat.id);
+                          useChatStore.getState().updateChat(chat.id, { inviteActive: true });
+                        } else {
+                          await groupService.revokeInviteLink(chat.id);
+                          useChatStore.getState().updateChat(chat.id, { inviteActive: false });
+                        }
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        background: chat.inviteActive === false ? 'rgba(155, 125, 212, 0.15)' : 'rgba(255, 77, 79, 0.1)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: chat.inviteActive === false ? 'var(--accent-color, #9b7dd4)' : '#ff4d4f',
+                        fontSize: '11.5px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      {chat.inviteActive === false ? <Unlock size={13} /> : <Lock size={13} />}
+                      <span>{chat.inviteActive === false ? t('groupSettings.open_link', 'Открыть доступ') : t('groupSettings.close_link', 'Закрыть доступ')}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-label={t('groupSettings.expire_action', 'Срок действия')}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const nextDur = !chat.inviteExpiresAt ? 86400000 : (chat.inviteExpiresAt - Date.now() > 3600000 * 20 ? 3600000 : null);
+                        const exp = nextDur ? Date.now() + nextDur : null;
+                        await groupService.setInviteExpiration(chat.id, exp);
+                        useChatStore.getState().updateChat(chat.id, { inviteExpiresAt: exp });
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: 'var(--text-main, #ffffff)',
+                        fontSize: '11.5px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <Clock size={13} />
+                      <span>
+                        {!chat.inviteExpiresAt
+                          ? t('groupSettings.expire_never', 'Бессрочно')
+                          : chat.inviteExpiresAt - Date.now() > 3600000 * 2
+                            ? t('groupSettings.expire_24h', '24 часа')
+                            : t('groupSettings.expire_1h', '1 час')}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           ) : isChannel ? (

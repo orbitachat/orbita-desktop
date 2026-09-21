@@ -224,6 +224,8 @@ export interface Chat {
   inviteCode?: string;
   code?: string;
   inviteCodeTTL?: number;
+  inviteActive?: boolean;
+  inviteExpiresAt?: number | null;
   createdAt?: number;
   unreadCount?: number;
   lastReadTimestamp?: number;

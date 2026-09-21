@@ -3882,14 +3882,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         optimisticId,
         myUserId
       ).then((post) => {
-        if (post && post.id !== optimisticId) {
+        if (post) {
           useChatStore.setState((state) => {
             const currentMsgs = state.messagesByChatId[activeChatId] || [];
             return {
               messagesByChatId: {
                 ...state.messagesByChatId,
                 [activeChatId]: currentMsgs.map((m) =>
-                  m.id === optimisticId ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const } : m
+                  m.id === optimisticId || m.id === post.id
+                    ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const }
+                    : m
                 ),
               },
             };
@@ -5846,7 +5848,23 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 undefined,
                 messageId,
                 myUserId
-              );
+              ).then((post) => {
+                if (post) {
+                  useChatStore.setState((state) => {
+                    const currentMsgs = state.messagesByChatId[activeChatId] || [];
+                    return {
+                      messagesByChatId: {
+                        ...state.messagesByChatId,
+                        [activeChatId]: currentMsgs.map((m) =>
+                          m.id === messageId || m.id === post.id
+                            ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const }
+                            : m
+                        ),
+                      },
+                    };
+                  });
+                }
+              });
             }
             return;
           }
@@ -6055,14 +6073,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               messageId,
               myUserId
             ).then((post) => {
-              if (post && post.id !== messageId) {
+              if (post) {
                 useChatStore.setState((state) => {
                   const currentMsgs = state.messagesByChatId[activeChatId] || [];
                   return {
                     messagesByChatId: {
                       ...state.messagesByChatId,
                       [activeChatId]: currentMsgs.map((m) =>
-                        m.id === messageId ? { ...m, id: post.id, time: post.time || m.time } : m
+                        m.id === messageId || m.id === post.id
+                          ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const }
+                          : m
                       ),
                     },
                   };

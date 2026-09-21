@@ -1288,6 +1288,27 @@
       "channel": "Channel",
       "group": "Group",
       "dialog": "Chat"
+    },
+    "groupSettings": {
+      "group_id": "Group ID (36 chars)",
+      "invite_link": "Invite link",
+      "copy_link": "Copy link",
+      "reset_link": "Reset link",
+      "close_link": "Revoke link",
+      "open_link": "Enable link",
+      "link_revoked": "Access closed",
+      "link_expired": "Expired",
+      "expire_action": "Expiration",
+      "expire_never": "No limit",
+      "expire_1h": "1 hour",
+      "expire_24h": "24 hours",
+      "expire_7d": "7 days",
+      "add_member": "Add member",
+      "participants": "Members",
+      "owner": "Owner",
+      "admin": "Admin",
+      "group_code": "Group code",
+      "add_description": "Add description"
     }
   }
 }
