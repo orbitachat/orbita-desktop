@@ -3417,15 +3417,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
   const notifyPeerReadBatch = useCallback((lastMsgId: string, lastTime: number, readIds?: string[]) => {
     if (!readReceiptsEnabled || !activeChatId || activeChatId === 'notes') return;
+    const allIds = readIds && readIds.length > 0 ? readIds : (lastMsgId ? [lastMsgId] : []);
+    const isGroup = activeChat?.type === 'group';
+
     try {
-      const isGroup = activeChat?.type === 'group';
       const pusher = isGroup ? getGroupPusher() : getPusher();
       const channelName = isGroup ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
       const channel = pusher.subscribe(channelName);
       const sendRead = () => channel.trigger('client-message', {
         type: 'read',
         messageId: lastMsgId,
-        readIds: readIds || [lastMsgId],
+        readIds: allIds,
         time: lastTime,
         sender: myNickname,
         senderUserId: myUserId,
@@ -3436,8 +3438,33 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       else channel.bind('pusher:subscription_succeeded', sendRead);
     } catch {}
 
-    if (activeChat?.type !== 'group') {
-      sendEncryptedReadReceipt(activeChatId, readIds || [lastMsgId], lastTime);
+    allIds.forEach((id) => {
+      ablyService.markMessageRead(activeChatId, id);
+    });
+
+    ablyService.sendMessage(activeChatId, {
+      type: 'read',
+      messageId: lastMsgId,
+      readIds: allIds,
+      time: lastTime,
+      sender: myNickname,
+      senderUserId: myUserId,
+      senderCode: myCode,
+      senderId: myUserId || myCode,
+    }).catch(() => {});
+
+    if (isGroup) {
+      groupService.markGroupMessagesRead({
+        groupId: activeChatId,
+        messageId: lastMsgId,
+        readIds: allIds,
+        time: lastTime,
+        sender: myNickname,
+        senderUserId: myUserId,
+        senderCode: myCode,
+      });
+    } else {
+      sendEncryptedReadReceipt(activeChatId, allIds, lastTime);
     }
   }, [readReceiptsEnabled, activeChatId, activeChat?.type, myNickname, myUserId, myCode]);
 
@@ -4777,6 +4804,28 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             },
           }));
         }
+      } else if (data?.type === 'read') {
+        const isSelf = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === myNickname)
+        );
+        if (isSelf) return;
+        const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+        const updated = currentMsgs.map((msg) => {
+          const isOut = msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
+          if (!isOut) return msg;
+          if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
+            return { ...msg, read: true, status: 'read' as const };
+          }
+          return msg;
+        });
+        useChatStore.setState((state) => ({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [activeChatId]: updated,
+          },
+        }));
       }
     });
 
@@ -4802,7 +4851,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     };
 
     const handleClientMessage = (data: any) => {
-      if (activeChat?.type === 'group' && data.type === 'message') {
+      if (activeChat?.type === 'group' && (data.type === 'message' || data.type === 'group-message')) {
         const isSelf = Boolean(
           (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
           (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
@@ -4864,7 +4913,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       if (data.type === 'read') {
         const isSelf = Boolean(
           (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
-          (myCode && (data.senderCode === myCode || data.senderId === myCode))
+          (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+          (!data.senderUserId && !data.senderCode && !data.senderId && data.sender === myNickname)
         );
         if (isSelf) return;
         const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
@@ -5045,17 +5095,47 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     };
 
     const handlePresenceSub = (members: any) => {
-      if (typeof members?.count === 'number') {
-        useChatStore.getState().updateChat(activeChatId, { onlineCount: members.count });
+      const ids: string[] = [];
+      if (members) {
+        if (typeof members.each === 'function') {
+          members.each((m: any) => {
+            if (m.id) ids.push(String(m.id));
+            if (m.info?.userId) ids.push(String(m.info.userId));
+            if (m.info?.nickname) ids.push(String(m.info.nickname));
+          });
+        } else if (members.members && typeof members.members === 'object') {
+          Object.entries(members.members).forEach(([k, v]: [string, any]) => {
+            ids.push(k);
+            if (v?.userId) ids.push(String(v.userId));
+            if (v?.nickname) ids.push(String(v.nickname));
+          });
+        }
       }
+      const count = typeof members?.count === 'number' ? members.count : (ids.length > 0 ? ids.length : undefined);
+      useChatStore.getState().updateChat(activeChatId, {
+        ...(count !== undefined ? { onlineCount: count } : {}),
+        ...(ids.length > 0 ? { onlineMemberIds: Array.from(new Set(ids)) } : {}),
+      });
     };
-    const handleMemberAdded = () => {
+    const handleMemberAdded = (member: any) => {
       const current = useChatStore.getState().chats.find((c) => c.id === activeChatId);
-      useChatStore.getState().updateChat(activeChatId, { onlineCount: (current?.onlineCount || 1) + 1 });
+      const newCount = (current?.onlineCount || 1) + 1;
+      const curIds = current?.onlineMemberIds || [];
+      const addIds = [member?.id, member?.info?.userId, member?.info?.nickname].filter(Boolean).map(String);
+      useChatStore.getState().updateChat(activeChatId, {
+        onlineCount: newCount,
+        onlineMemberIds: Array.from(new Set([...curIds, ...addIds])),
+      });
     };
-    const handleMemberRemoved = () => {
+    const handleMemberRemoved = (member: any) => {
       const current = useChatStore.getState().chats.find((c) => c.id === activeChatId);
-      useChatStore.getState().updateChat(activeChatId, { onlineCount: Math.max(1, (current?.onlineCount || 2) - 1) });
+      const newCount = Math.max(1, (current?.onlineCount || 2) - 1);
+      const curIds = current?.onlineMemberIds || [];
+      const remIds = new Set([member?.id, member?.info?.userId, member?.info?.nickname].filter(Boolean).map(String));
+      useChatStore.getState().updateChat(activeChatId, {
+        onlineCount: newCount,
+        onlineMemberIds: curIds.filter((id) => !remIds.has(id)),
+      });
     };
 
     channel.bind('reaction', handleReaction);

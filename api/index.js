@@ -2170,6 +2170,26 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { status: 'ok', id: msgId });
     }
 
+    if (pathname === '/groups/read' && req.method === 'POST') {
+      const { groupId, messageId, readIds, time, sender, senderUserId, senderCode } = body;
+      if (!groupId) {
+        return sendError(res, 'Missing groupId', 400);
+      }
+      const readPayload = {
+        type: 'read',
+        groupId,
+        messageId,
+        readIds: readIds || (messageId ? [messageId] : []),
+        time: time || Date.now(),
+        sender,
+        senderUserId,
+        senderCode,
+        senderId: senderUserId || senderCode,
+      };
+      await triggerGroupPusherEvent(`presence-group-${groupId}`, 'client-message', readPayload);
+      return sendJson(res, { status: 'ok' });
+    }
+
     if (pathname === '/groups/calls/active' && req.method === 'GET') {
       const groupId = query.groupId || query.id;
       if (!groupId) return sendError(res, 'Missing groupId', 400);

@@ -2701,6 +2701,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               const effectiveAvatar = (isSelf && myAvatarUrl)
                 ? myAvatarUrl
                 : (member.avatarUrl || (memberCode ? memberAvatars[memberCode] : null));
+              const isMemberOnline = isSelf ||
+                Boolean(chat.onlineCount && chat.members && chat.onlineCount >= chat.members.length) ||
+                Boolean(chat.onlineMemberIds && (
+                  (memberCode && chat.onlineMemberIds.includes(memberCode)) ||
+                  (member.userId && chat.onlineMemberIds.includes(member.userId)) ||
+                  ((member as any).userCode && chat.onlineMemberIds.includes((member as any).userCode)) ||
+                  (member.nickname && chat.onlineMemberIds.includes(member.nickname))
+                ));
 
               return (
                 <div
@@ -2757,8 +2765,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                           </span>
                         ) : null}
                       </div>
-                      <span style={{ fontSize: '11px', color: isSelf ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim)' }}>
-                        {isSelf ? t('userStatus.online', 'в сети') : (member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно'))}
+                      <span style={{ fontSize: '11px', color: isMemberOnline ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim)' }}>
+                        {isMemberOnline ? t('userStatus.online', 'в сети') : (member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно'))}
                       </span>
                     </div>
                   </div>

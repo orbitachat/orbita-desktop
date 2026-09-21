@@ -649,6 +649,24 @@ class GroupService {
     return msgId;
   }
 
+  async markGroupMessagesRead(payload: {
+    groupId: string;
+    messageId?: string;
+    readIds?: string[];
+    time?: number;
+    sender?: string;
+    senderUserId?: string;
+    senderCode?: string;
+  }): Promise<void> {
+    try {
+      fetch(`${this.getWorkerUrl()}/groups/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    } catch {}
+  }
+
   async getActiveCall(groupId: string): Promise<any | null> {
     try {
       const { data } = await this.supabase

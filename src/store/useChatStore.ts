@@ -197,10 +197,10 @@ export function isMessageOutgoing(
   if (myCode && (msg.senderId === myCode || (msg as any).senderCode === myCode)) {
     return true;
   }
-  if (msg.status !== undefined) {
+  if (_myNickname && msg.sender && msg.sender === _myNickname && msg.sender !== 'Orbita') {
     return true;
   }
-  if (chat && chat.peerCode && msg.senderId) {
+  if (chat && chat.peerCode && msg.senderId && chat.type === 'private') {
     return msg.senderId !== chat.peerCode;
   }
   if (chat && chat.id === 'notes') {
@@ -249,6 +249,7 @@ export interface Chat {
   activeCallRoom?: string | null;
   membersCount?: number;
   onlineCount?: number;
+  onlineMemberIds?: string[];
 }
 
 export interface IncomingFriendRequest {
