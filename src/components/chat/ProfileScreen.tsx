@@ -1143,6 +1143,25 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     });
   }, [chat?.id, chat?.type, updateChat, myNickname]);
 
+  const [memberAvatars, setMemberAvatars] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!chat || chat.type !== 'group' || !chat.members) return;
+    let isMounted = true;
+    chat.members.forEach((m) => {
+      const code = m.userId || (m as any).userCode;
+      if (!code || m.avatarUrl || memberAvatars[code]) return;
+      supabaseService.lookupPublicProfile(code).then((profile) => {
+        if (isMounted && profile?.avatar_url) {
+          setMemberAvatars((prev) => ({ ...prev, [code]: profile.avatar_url! }));
+        }
+      }).catch(() => {});
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [chat?.id, chat?.members]);
+
   const handleCopyChannelKey = useCallback((customId?: string | React.MouseEvent) => {
     const idToCopy = (typeof customId === 'string' && customId) ? customId : chat?.id;
     if (!idToCopy) return;
@@ -1718,7 +1737,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     : chat.type === 'channel'
       ? formatSubscribers(chat.subscribersCount || 0)
       : chat.type === 'group'
-        ? t('groupSettings.members_count', { count: chat.membersCount || chat.members?.length || 1 })
+        ? (chat.onlineCount && chat.onlineCount > 0
+            ? t('groupSettings.members_and_online', { count: chat.membersCount || chat.members?.length || 1, online: chat.onlineCount })
+            : t('groupSettings.members_count', { count: chat.membersCount || chat.members?.length || 1 }))
         : chat.online
           ? t('userStatus.online')
           : formatLastSeen(chat.lastSeen, t);
@@ -2344,7 +2365,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     style={{
                       fontSize: '13.5px',
                       fontWeight: 600,
-                      color: 'var(--text-main, #ffffff)',
+                      color: 'var(--accent-color, #9b7dd4)',
                       wordBreak: 'break-all',
                       lineHeight: 1.3,
                       fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
@@ -2353,7 +2374,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     {chat.id}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    {t('groupSettings.group_id', 'ID группы (36 символов)')}
+                    {t('groupSettings.group_id', 'ID')}
                   </span>
                 </div>
                 <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
@@ -2669,10 +2690,17 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               const isMemberAdmin = member.role === 'admin';
               const memberCode = member.userId || (member as any).userCode;
               const currentCode = useChatStore.getState().myCode;
+              const myAuthUserId = useAuthStore.getState().userId;
+              const myAvatarUrl = useAuthStore.getState().avatarUrl;
               const isSelf = Boolean(
                 (memberCode && currentCode && memberCode === currentCode) ||
-                (memberCode && myUserId && memberCode === myUserId)
+                (memberCode && myUserId && memberCode === myUserId) ||
+                (memberCode && myAuthUserId && memberCode === myAuthUserId) ||
+                (member.nickname === myNickname)
               );
+              const effectiveAvatar = (isSelf && myAvatarUrl)
+                ? myAvatarUrl
+                : (member.avatarUrl || (memberCode ? memberAvatars[memberCode] : null));
 
               return (
                 <div
@@ -2688,7 +2716,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                     <Avatar
-                      src={member.avatarUrl}
+                      src={effectiveAvatar}
                       alt={member.nickname}
                       className="w-9 h-9 rounded-full flex-shrink-0"
                     />
@@ -2729,8 +2757,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                           </span>
                         ) : null}
                       </div>
-                      <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-                        {member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно')}
+                      <span style={{ fontSize: '11px', color: isSelf ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim)' }}>
+                        {isSelf ? t('userStatus.online', 'в сети') : (member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно'))}
                       </span>
                     </div>
                   </div>

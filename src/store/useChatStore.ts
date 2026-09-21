@@ -248,6 +248,7 @@ export interface Chat {
   updatedAt?: number;
   activeCallRoom?: string | null;
   membersCount?: number;
+  onlineCount?: number;
 }
 
 export interface IncomingFriendRequest {

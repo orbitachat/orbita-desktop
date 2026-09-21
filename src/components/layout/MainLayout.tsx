@@ -1366,7 +1366,8 @@ export const MainLayout = () => {
     if (now - lastGroupSyncTimeRef.current < 600000) return;
     lastGroupSyncTimeRef.current = now;
     try {
-      const serverGroups = await groupService.fetchMyGroups(myCode, nickname);
+      const currentUid = useAuthStore.getState().userId;
+      const serverGroups = await groupService.fetchMyGroups(myCode, currentUid);
       if (!serverGroups || serverGroups.length === 0) return;
       const currentChats = useChatStore.getState().chats;
       const currentIds = new Set(currentChats.map((c) => c.id));
@@ -2360,8 +2361,10 @@ export const MainLayout = () => {
         const authData = (() => { try { return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state || {}; } catch { return {}; } })();
         const nick = authData.nickname || nickname;
         const uCode = authData.userId || myCode;
+        const uAvatar = authData.avatarUrl || useAuthStore.getState().avatarUrl;
+        const uId = authData.userId || useAuthStore.getState().userId;
         try {
-          const result = await groupService.joinGroup(url, nick, uCode);
+          const result = await groupService.joinGroup(url, nick, uCode, { avatarUrl: uAvatar || undefined, userId: uId || undefined });
           if (result?.group) {
             const existing = useChatStore.getState().chats.find((c) => c.id === result.group.id);
             if (!existing) {
@@ -2569,11 +2572,15 @@ export const MainLayout = () => {
           (myC && (data.senderCode === myC || data.senderId === myC))
         );
         if (isSelf) return;
-        const updatedMessages = messages.map((msg) =>
-          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myC, nickname, chat, myUid)))
-            ? { ...msg, read: true, status: 'read' as const }
-            : msg
-        );
+        const currentMsgs = useChatStore.getState().messagesByChatId[chatId] || messages;
+        const updatedMessages = currentMsgs.map((msg) => {
+          const isOut = msg.isOutgoing || isMessageOutgoing(msg, myC, nickname, chat, myUid);
+          if (!isOut) return msg;
+          if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
+            return { ...msg, read: true, status: 'read' as const };
+          }
+          return msg;
+        });
         useChatStore.setState((state) => ({
           messagesByChatId: {
             ...state.messagesByChatId,
@@ -2763,6 +2770,19 @@ export const MainLayout = () => {
     channel.bind('system', handleMessage);
     channel.bind('client-message', handleMessage);
     channel.bind('reaction', handleReaction);
+    channel.bind('pusher:subscription_succeeded', (members: any) => {
+      if (typeof members?.count === 'number') {
+        useChatStore.getState().updateChat(chatId, { onlineCount: members.count });
+      }
+    });
+    channel.bind('pusher:member_added', () => {
+      const current = useChatStore.getState().chats.find((c) => c.id === chatId);
+      useChatStore.getState().updateChat(chatId, { onlineCount: (current?.onlineCount || 1) + 1 });
+    });
+    channel.bind('pusher:member_removed', () => {
+      const current = useChatStore.getState().chats.find((c) => c.id === chatId);
+      useChatStore.getState().updateChat(chatId, { onlineCount: Math.max(1, (current?.onlineCount || 2) - 1) });
+    });
     channel.bind('group-call-started', (data: any) => {
       useChatStore.getState().updateChat(chatId, { activeCallRoom: data?.roomName || null });
     });

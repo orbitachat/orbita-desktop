@@ -54,7 +54,8 @@ class GroupService {
     creatorNickname: string,
     creatorCode?: string,
     avatarUrl?: string | null,
-    creatorUserId?: string
+    creatorUserId?: string,
+    creatorAvatarUrl?: string | null
   ): Promise<{ group: GroupInfo; sharedSecret: string } | null> {
     const id = generateGroupId();
     const code = generateGroupInviteCode();
@@ -67,7 +68,7 @@ class GroupService {
       role: 'owner',
       joinedAt: Date.now(),
       lastSeen: Date.now(),
-      avatarUrl: avatarUrl || null,
+      avatarUrl: creatorAvatarUrl || null,
     };
 
     const inviteMeta = JSON.stringify({ active: true, expiresAt: null });
@@ -97,7 +98,7 @@ class GroupService {
         role: 'owner',
         joined_at: nowIso,
         last_seen: nowIso,
-        avatar_url: avatarUrl || null,
+        avatar_url: creatorAvatarUrl || null,
       });
     } catch {}
 
@@ -726,14 +727,16 @@ class GroupService {
     } catch {}
   }
 
-  async fetchMyGroups(userCode: string, nickname?: string): Promise<(GroupInfo & { role: string })[]> {
+  async fetchMyGroups(userCode: string, userId?: string): Promise<(GroupInfo & { role: string })[]> {
     try {
-      const filters = [];
+      const filters: string[] = [];
       if (userCode) {
         filters.push(`user_code.eq.${userCode}`);
+        filters.push(`user_id.eq.${userCode}`);
       }
-      if (nickname) {
-        filters.push(`nickname.eq.${nickname}`);
+      if (userId && userId !== userCode) {
+        filters.push(`user_code.eq.${userId}`);
+        filters.push(`user_id.eq.${userId}`);
       }
       if (filters.length > 0) {
         const { data: memberRows } = await this.supabase
@@ -752,6 +755,7 @@ class GroupService {
             const formatted = (members || []).map((m: any) => ({
               nickname: m.nickname,
               userCode: m.user_code,
+              userId: m.user_id || m.user_code,
               role: m.role || 'member',
               joinedAt: new Date(m.joined_at || g.created_at).getTime(),
               lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
@@ -795,7 +799,7 @@ class GroupService {
     try {
       const q = new URLSearchParams();
       if (userCode) q.set('userCode', userCode);
-      if (nickname) q.set('nickname', nickname);
+      if (userId) q.set('userId', userId);
       const res = await fetch(`${this.getWorkerUrl()}/groups/my?${q.toString()}`);
       if (res.ok) {
         const data = await res.json();
@@ -808,8 +812,8 @@ class GroupService {
     return [];
   }
 
-  async notifyMember(targetUserCode: string, group: GroupInfo, targetNickname?: string): Promise<void> {
-    const targets = Array.from(new Set([targetUserCode, targetNickname].filter(Boolean) as string[]));
+  async notifyMember(targetUserCode: string, group: GroupInfo, targetUserId?: string): Promise<void> {
+    const targets = Array.from(new Set([targetUserCode, targetUserId].filter(Boolean) as string[]));
     try {
       const pusher = getPusher();
       if (pusher) {
@@ -847,7 +851,7 @@ class GroupService {
       fetch(`${this.getWorkerUrl()}/groups/notify-member`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserCode, targetNickname, group }),
+        body: JSON.stringify({ targetUserCode, targetUserId, group }),
       }).catch(() => {});
     } catch {}
   }

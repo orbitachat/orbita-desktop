@@ -3415,33 +3415,34 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     });
   }, [handleIsScrolling, hasMoreAbove, loadMoreAbove, startIndex, visibleMessages, getDateLabel]);
 
-  // Read receipts observer & focus/visibility sync (batched and stabilized)
+  const notifyPeerReadBatch = useCallback((lastMsgId: string, lastTime: number, readIds?: string[]) => {
+    if (!readReceiptsEnabled || !activeChatId || activeChatId === 'notes') return;
+    try {
+      const isGroup = activeChat?.type === 'group';
+      const pusher = isGroup ? getGroupPusher() : getPusher();
+      const channelName = isGroup ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+      const channel = pusher.subscribe(channelName);
+      const sendRead = () => channel.trigger('client-message', {
+        type: 'read',
+        messageId: lastMsgId,
+        readIds: readIds || [lastMsgId],
+        time: lastTime,
+        sender: myNickname,
+        senderUserId: myUserId,
+        senderCode: myCode,
+        senderId: myUserId || myCode,
+      });
+      if (channel.subscribed) sendRead();
+      else channel.bind('pusher:subscription_succeeded', sendRead);
+    } catch {}
+
+    if (activeChat?.type !== 'group') {
+      sendEncryptedReadReceipt(activeChatId, readIds || [lastMsgId], lastTime);
+    }
+  }, [readReceiptsEnabled, activeChatId, activeChat?.type, myNickname, myUserId, myCode]);
+
   useEffect(() => {
     if (!readReceiptsEnabled || !activeChatId || activeChatId === 'notes') return;
-
-    const notifyPeerReadBatch = (lastMsgId: string, lastTime: number, readIds?: string[]) => {
-      try {
-        const isGroup = activeChat?.type === 'group';
-        const pusher = isGroup ? getGroupPusher() : getPusher();
-        const channelName = isGroup ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
-        const channel = pusher.subscribe(channelName);
-        const sendRead = () => channel.trigger('client-message', {
-          type: 'read',
-          messageId: lastMsgId,
-          time: lastTime,
-          sender: myNickname,
-          senderUserId: myUserId,
-          senderCode: myCode,
-          senderId: myUserId || myCode,
-        });
-        if (channel.subscribed) sendRead();
-        else channel.bind('pusher:subscription_succeeded', sendRead);
-      } catch {}
-
-      if (activeChat?.type !== 'group') {
-        sendEncryptedReadReceipt(activeChatId, readIds || [lastMsgId], lastTime);
-      }
-    };
 
     const markUnreadInViewAsRead = () => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
@@ -4825,14 +4826,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             const mid = parsed?.id || data.messageId || data.id || `msg_${Date.now()}`;
             const existing = (useChatStore.getState().messagesByChatId[activeChatId] || []).some(m => m.id === mid);
             if (existing) return;
+            const isVisible = typeof document !== 'undefined' && document.visibilityState === 'visible';
             const item: Message = {
               id: mid,
               sender: data.sender,
               senderId: data.senderCode || data.senderId,
               text: parsed?.text !== undefined ? parsed.text : dec,
               time: data.time || Date.now(),
-              read: true,
-              status: 'read',
+              read: isVisible,
+              status: isVisible ? 'read' : 'delivered',
               isOutgoing: false,
               mediaType: parsed?.mediaType || data.mediaType || undefined,
               mediaUrl: parsed?.mediaUrl || data.mediaUrl || undefined,
@@ -4851,6 +4853,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             try {
               (window as any).orbita?.storageAddMessage?.(activeChatId, mid, item);
             } catch {}
+            if (isVisible) {
+              notifyPeerReadBatch(mid, data.time || Date.now(), [mid]);
+            }
           });
         }
         return;
@@ -4863,11 +4868,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         );
         if (isSelf) return;
         const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-        const updated = currentMsgs.map((msg) =>
-          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId)))
-            ? { ...msg, read: true, status: 'read' as const }
-            : msg
-        );
+        const updated = currentMsgs.map((msg) => {
+          const isOut = msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
+          if (!isOut) return msg;
+          if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
+            return { ...msg, read: true, status: 'read' as const };
+          }
+          return msg;
+        });
         useChatStore.setState((state) => ({
           messagesByChatId: {
             ...state.messagesByChatId,
@@ -5036,11 +5044,28 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
     };
 
+    const handlePresenceSub = (members: any) => {
+      if (typeof members?.count === 'number') {
+        useChatStore.getState().updateChat(activeChatId, { onlineCount: members.count });
+      }
+    };
+    const handleMemberAdded = () => {
+      const current = useChatStore.getState().chats.find((c) => c.id === activeChatId);
+      useChatStore.getState().updateChat(activeChatId, { onlineCount: (current?.onlineCount || 1) + 1 });
+    };
+    const handleMemberRemoved = () => {
+      const current = useChatStore.getState().chats.find((c) => c.id === activeChatId);
+      useChatStore.getState().updateChat(activeChatId, { onlineCount: Math.max(1, (current?.onlineCount || 2) - 1) });
+    };
+
     channel.bind('reaction', handleReaction);
     channel.bind('client-message', handleClientMessage);
     channel.bind('new-post', handleChannelPost);
     channel.bind('reaction-updated', handleChannelReaction);
     channel.bind('subscribers-updated', handleSubscribersUpdated);
+    channel.bind('pusher:subscription_succeeded', handlePresenceSub);
+    channel.bind('pusher:member_added', handleMemberAdded);
+    channel.bind('pusher:member_removed', handleMemberRemoved);
 
     return () => {
       unsubAbly();
@@ -5049,6 +5074,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       channel.unbind('new-post', handleChannelPost);
       channel.unbind('reaction-updated', handleChannelReaction);
       channel.unbind('subscribers-updated', handleSubscribersUpdated);
+      channel.unbind('pusher:subscription_succeeded', handlePresenceSub);
+      channel.unbind('pusher:member_added', handleMemberAdded);
+      channel.unbind('pusher:member_removed', handleMemberRemoved);
     };
   }, [activeChatId, activeChat?.type, myNickname]);
 
@@ -6300,7 +6328,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         )}
       </span>
     );
-  }, [myCode, myNickname, activeChat]);
+  }, [myCode, myNickname, activeChat, myUserId]);
 
   const bubbleStyle = useCallback((isOwn: boolean, extra?: React.CSSProperties): React.CSSProperties => ({
     padding: '6.5px 12px 6.5px 11px',
@@ -7282,7 +7310,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                     </span>
                   ) : activeChat?.type === 'group' ? (
                     <span className="text-[11px] font-medium text-[var(--text-dim)]">
-                      {t('groupSettings.members_count', { count: activeChat.membersCount || activeChat.members?.length || 1 })}
+                      {activeChat.onlineCount && activeChat.onlineCount > 0
+                        ? t('groupSettings.members_and_online', {
+                            count: activeChat.membersCount || activeChat.members?.length || 1,
+                            online: activeChat.onlineCount,
+                          })
+                        : t('groupSettings.members_count', {
+                            count: activeChat.membersCount || activeChat.members?.length || 1,
+                          })}
                     </span>
                   ) : activeChat?.type === 'bot' ? null : !isServerConnected ? (
                     <span className="text-[11px] font-semibold text-[var(--accent-color)] animate-pulse">

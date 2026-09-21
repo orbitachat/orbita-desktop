@@ -110,7 +110,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
       const groupCode = extractGroupCode(trimmed);
       if (groupCode && isValidGroupCode(groupCode)) {
         setIsLoading(true);
-        groupService.joinGroup(trimmed, myNickname, myCode, { userId: useAuthStore.getState().userId }).then((result) => {
+        groupService.joinGroup(trimmed, myNickname, myCode, { userId: useAuthStore.getState().userId, avatarUrl: useAuthStore.getState().avatarUrl || undefined }).then((result) => {
           setIsLoading(false);
           if (result?.group) {
             const existing = useChatStore.getState().chats.find((c) => c.id === result.group.id);
@@ -208,7 +208,8 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
       setIsLoading(true);
       setError(null);
       const myUserId = useAuthStore.getState().userId;
-      groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl, myUserId).then((res) => {
+      const myUserAvatar = useAuthStore.getState().avatarUrl;
+      groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl, myUserId, myUserAvatar).then((res) => {
         setIsLoading(false);
         if (res && res.group) {
           const initialMember = {
@@ -216,7 +217,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
             nickname: myNickname,
             role: 'owner' as const,
             lastSeen: Date.now(),
-            avatarUrl: avatarUrl || null,
+            avatarUrl: myUserAvatar || null,
           };
           const newChat: Chat = {
             id: res.group.id,

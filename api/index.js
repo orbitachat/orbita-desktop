@@ -1679,8 +1679,8 @@ module.exports = async function handler(req, res) {
 
     if (pathname === '/groups/my' && req.method === 'GET') {
       const userCode = query.userCode || query.user_code;
-      const nickname = query.nickname || '';
-      if (!userCode && !nickname) return sendError(res, 'Missing userCode or nickname', 400);
+      const userId = query.userId || query.user_id;
+      if (!userCode && !userId) return sendError(res, 'Missing userCode or userId', 400);
 
       const supabase = getGroupsSupabaseClient();
       if (!supabase) return sendError(res, 'Groups database not configured', 500);
@@ -1691,9 +1691,9 @@ module.exports = async function handler(req, res) {
           filters.push(`user_code.eq.${userCode}`);
           filters.push(`user_id.eq.${userCode}`);
         }
-        if (nickname) {
-          filters.push(`nickname.eq.${nickname}`);
-          filters.push(`user_code.eq.${nickname}`);
+        if (userId && userId !== userCode) {
+          filters.push(`user_code.eq.${userId}`);
+          filters.push(`user_id.eq.${userId}`);
         }
         const { data: memberRows } = await supabase
           .from('group_members')

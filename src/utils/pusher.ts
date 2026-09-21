@@ -1,5 +1,7 @@
 import Pusher from 'pusher-js';
 import { gatewayManager } from '../services/gatewayManager';
+import { useAuthStore } from '../store/useAuthStore';
+import { useChatStore } from '../store/useChatStore';
 
 export const CLIENT_SESSION_ID = Math.random().toString(36).substring(2, 10);
 
@@ -38,6 +40,10 @@ export const getPusher = (): Pusher => {
       authorizer: (channel) => ({
         authorize: async (socketId, callback) => {
           try {
+            const currentUserId = useAuthStore.getState().userId || useChatStore.getState().myCode || undefined;
+            const currentNickname = useAuthStore.getState().nickname || 'user';
+            const currentAvatar = useAuthStore.getState().avatarUrl || undefined;
+
             const response = await gatewayManager.fetch('/pusher/auth', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -45,6 +51,12 @@ export const getPusher = (): Pusher => {
                 socket_id: socketId,
                 channel_name: channel.name,
                 pusher_key: currentServer.key,
+                user_id: currentUserId,
+                user_info: {
+                  userId: currentUserId,
+                  nickname: currentNickname,
+                  avatarUrl: currentAvatar,
+                },
               }),
             });
 
@@ -108,6 +120,10 @@ export const getGroupPusher = (): Pusher => {
       authorizer: (channel) => ({
         authorize: async (socketId, callback) => {
           try {
+            const currentUserId = useAuthStore.getState().userId || useChatStore.getState().myCode || undefined;
+            const currentNickname = useAuthStore.getState().nickname || 'user';
+            const currentAvatar = useAuthStore.getState().avatarUrl || undefined;
+
             const response = await gatewayManager.fetch('/pusher/auth', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -115,6 +131,12 @@ export const getGroupPusher = (): Pusher => {
                 socket_id: socketId,
                 channel_name: channel.name,
                 pusher_key: currentServer.key,
+                user_id: currentUserId,
+                user_info: {
+                  userId: currentUserId,
+                  nickname: currentNickname,
+                  avatarUrl: currentAvatar,
+                },
               }),
             });
 
