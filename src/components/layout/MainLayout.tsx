@@ -865,7 +865,7 @@ export const MainLayout = () => {
   }, []);
 
   useEffect(() => {
-    const pusher = getPusher();
+    const pusher = getGroupPusher();
     const groupOwnerChannels: any[] = [];
 
     chats.forEach((chat) => {
@@ -884,7 +884,12 @@ export const MainLayout = () => {
           return;
         }
 
-        const alreadyMember = currentChat.members?.some(m => m.nickname === data.nickname);
+        const candidateId = data.userId || data.userCode;
+        const alreadyMember = currentChat.members?.some(m => {
+          const mId = m.userId || (m as any).userCode;
+          if (mId && candidateId) return mId === candidateId;
+          return false;
+        });
         if (alreadyMember) {
           ch.trigger('client-invite-response', {
             chatId: currentChat.id,
@@ -896,7 +901,13 @@ export const MainLayout = () => {
           return;
         }
 
-        const newMember = { nickname: data.nickname, role: 'member' as const, lastSeen: Date.now() };
+        const newMember = {
+          userId: candidateId,
+          userCode: candidateId,
+          nickname: data.nickname,
+          role: 'member' as const,
+          lastSeen: Date.now(),
+        };
         const updatedMembers = [...(currentChat.members || []), newMember];
         updateChat(currentChat.id, { members: updatedMembers });
 
@@ -915,6 +926,8 @@ export const MainLayout = () => {
         const notifyMembers = () => groupChannel.trigger('client-message', {
           type: 'member-joined',
           nickname: data.nickname,
+          userId: candidateId,
+          userCode: candidateId,
           members: updatedMembers,
         });
         if (groupChannel.subscribed) notifyMembers();
@@ -2491,9 +2504,24 @@ export const MainLayout = () => {
         return;
       }
       if (data.type === 'kick') {
-        const updatedMembers = (chat.members || []).filter((member: any) => member.nickname !== data.target) as any;
+        const isTarget = (member: any) => {
+          const mId = member.userId || member.userCode;
+          if (data.targetUserId && mId) return mId === data.targetUserId;
+          if (data.targetUserCode && mId) return mId === data.targetUserCode;
+          if (data.targetId && mId) return mId === data.targetId;
+          return member.nickname === data.target;
+        };
+        const updatedMembers = (chat.members || []).filter((member: any) => !isTarget(member)) as any;
         updateChat(chatId, { members: updatedMembers });
-        if (data.target === nickname) {
+        const myUid = useAuthStore.getState().userId;
+        const myC = useChatStore.getState().myCode;
+        const isMeKicked = Boolean(
+          (data.targetUserId && (data.targetUserId === myUid || data.targetUserId === myC)) ||
+          (data.targetUserCode && (data.targetUserCode === myUid || data.targetUserCode === myC)) ||
+          (data.targetId && (data.targetId === myUid || data.targetId === myC)) ||
+          data.target === nickname
+        );
+        if (isMeKicked) {
           useChatStore.setState((state) => ({
             chats: state.chats.filter((c) => c.id !== chatId),
             activeChatId: state.activeChatId === chatId ? null : state.activeChatId,
@@ -2502,20 +2530,47 @@ export const MainLayout = () => {
         return;
       }
       if (data.type === 'promote') {
-        const updatedMembers = (chat.members || []).map((member) => member.nickname === data.target ? { ...member, role: 'admin' } : member) as any;
+        const isTarget = (member: any) => {
+          const mId = member.userId || member.userCode;
+          if (data.targetUserId && mId) return mId === data.targetUserId;
+          if (data.targetUserCode && mId) return mId === data.targetUserCode;
+          return member.nickname === data.target;
+        };
+        const updatedMembers = (chat.members || []).map((member: any) => isTarget(member) ? { ...member, role: 'admin' } : member) as any;
         updateChat(chatId, { members: updatedMembers });
-        if (data.target === nickname) updateChat(chatId, { role: 'admin' });
+        const myUid = useAuthStore.getState().userId;
+        const myC = useChatStore.getState().myCode;
+        if ((data.targetUserId && (data.targetUserId === myUid || data.targetUserId === myC)) || data.target === nickname) {
+          updateChat(chatId, { role: 'admin' });
+        }
         return;
       }
       if (data.type === 'demote') {
-        const updatedMembers = (chat.members || []).map((member) => member.nickname === data.target ? { ...member, role: 'member' } : member) as any;
+        const isTarget = (member: any) => {
+          const mId = member.userId || member.userCode;
+          if (data.targetUserId && mId) return mId === data.targetUserId;
+          if (data.targetUserCode && mId) return mId === data.targetUserCode;
+          return member.nickname === data.target;
+        };
+        const updatedMembers = (chat.members || []).map((member: any) => isTarget(member) ? { ...member, role: 'member' } : member) as any;
         updateChat(chatId, { members: updatedMembers });
-        if (data.target === nickname) updateChat(chatId, { role: 'member' });
+        const myUid = useAuthStore.getState().userId;
+        const myC = useChatStore.getState().myCode;
+        if ((data.targetUserId && (data.targetUserId === myUid || data.targetUserId === myC)) || data.target === nickname) {
+          updateChat(chatId, { role: 'member' });
+        }
         return;
       }
       if (data.type === 'read') {
+        const myUid = useAuthStore.getState().userId;
+        const myC = useChatStore.getState().myCode;
+        const isSelf = Boolean(
+          (myUid && (data.senderUserId === myUid || data.userId === myUid || data.senderId === myUid)) ||
+          (myC && (data.senderCode === myC || data.senderId === myC))
+        );
+        if (isSelf) return;
         const updatedMessages = messages.map((msg) =>
-          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing)
+          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myC, nickname, chat, myUid)))
             ? { ...msg, read: true, status: 'read' as const }
             : msg
         );
@@ -2529,8 +2584,15 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'delivered') {
+        const myUid = useAuthStore.getState().userId;
+        const myC = useChatStore.getState().myCode;
+        const isSelf = Boolean(
+          (myUid && (data.senderUserId === myUid || data.userId === myUid || data.senderId === myUid)) ||
+          (myC && (data.senderCode === myC || data.senderId === myC))
+        );
+        if (isSelf) return;
         const updatedMessages = messages.map((msg) =>
-          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing)
+          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myC, nickname, chat, myUid)))
             ? (msg.status === 'read' ? msg : { ...msg, status: 'delivered' as const })
             : msg
         );
@@ -2645,11 +2707,31 @@ export const MainLayout = () => {
         } catch {}
 
         if (isCurrentActive) {
-          const sendRead = () => channel.trigger('client-message', { type: 'read', time: data.time, messageId: msgId, sender: nickname });
+          const myUid = useAuthStore.getState().userId;
+          const myC = useChatStore.getState().myCode;
+          const sendRead = () => channel.trigger('client-message', {
+            type: 'read',
+            time: data.time,
+            messageId: msgId,
+            sender: nickname,
+            senderUserId: myUid,
+            senderCode: myC,
+            senderId: myUid || myC,
+          });
           if (channel.subscribed) sendRead();
           else channel.bind('pusher:subscription_succeeded', sendRead);
         } else {
-          const sendDelivered = () => channel.trigger('client-message', { type: 'delivered', time: data.time, messageId: msgId, sender: nickname });
+          const myUid = useAuthStore.getState().userId;
+          const myC = useChatStore.getState().myCode;
+          const sendDelivered = () => channel.trigger('client-message', {
+            type: 'delivered',
+            time: data.time,
+            messageId: msgId,
+            sender: nickname,
+            senderUserId: myUid,
+            senderCode: myC,
+            senderId: myUid || myC,
+          });
           if (channel.subscribed) sendDelivered();
           else channel.bind('pusher:subscription_succeeded', sendDelivered);
         }
@@ -2694,7 +2776,13 @@ export const MainLayout = () => {
     });
     channel.bind('member-left', (data: any) => {
       const current = useChatStore.getState().chats.find((c) => c.id === chatId);
-      const updated = (current?.members || []).filter((m: any) => m.nickname !== data?.nickname);
+      const isTarget = (m: any) => {
+        const mId = m.userId || m.userCode;
+        if (data?.userId && mId) return mId === data.userId;
+        if (data?.userCode && mId) return mId === data.userCode;
+        return m.nickname === data?.nickname;
+      };
+      const updated = (current?.members || []).filter((m: any) => !isTarget(m));
       useChatStore.getState().updateChat(chatId, { members: updated, membersCount: updated.length });
     });
     channel.bind('group-updated', (data: any) => {
@@ -2712,8 +2800,14 @@ export const MainLayout = () => {
     });
     channel.bind('member-role-updated', (data: any) => {
       const current = useChatStore.getState().chats.find((c) => c.id === chatId);
+      const isTarget = (m: any) => {
+        const mId = m.userId || m.userCode;
+        if (data?.targetUserId && mId) return mId === data.targetUserId;
+        if (data?.targetUserCode && mId) return mId === data.targetUserCode;
+        return m.nickname === data?.targetNickname;
+      };
       const updated = (current?.members || []).map((m: any) =>
-        m.nickname === data?.targetNickname ? { ...m, role: data.role } : m
+        isTarget(m) ? { ...m, role: data.role } : m
       );
       useChatStore.getState().updateChat(chatId, { members: updated });
     });

@@ -46,13 +46,13 @@ const GROUP_PUSHER_CONFIGS = [
   {
     appId: process.env.PUSHER_APP_ID_2 || '2179076',
     key: process.env.PUSHER_KEY_2 || 'a7856d37aeac4f908167',
-    secret: process.env.PUSHER_SECRET_2 || '',
+    secret: process.env.PUSHER_SECRET_2 || process.env.PUSHER_SECRET || '',
     cluster: process.env.PUSHER_CLUSTER_2 || 'eu',
   },
   {
     appId: process.env.PUSHER_APP_ID_3 || '2179077',
     key: process.env.PUSHER_KEY_3 || '6425abc10a40f7853231',
-    secret: process.env.PUSHER_SECRET_3 || '',
+    secret: process.env.PUSHER_SECRET_3 || process.env.PUSHER_SECRET || '',
     cluster: process.env.PUSHER_CLUSTER_3 || 'eu',
   },
 ].filter((s) => Boolean(s.secret));
@@ -255,9 +255,10 @@ async function triggerPusherEvent(channel, event, data) {
 }
 
 async function triggerGroupPusherEvent(channel, event, data) {
-  if (GROUP_PUSHER_CONFIGS.length === 0) return false;
+  const configs = GROUP_PUSHER_CONFIGS.length > 0 ? GROUP_PUSHER_CONFIGS : PUSHER_CONFIGS;
+  if (configs.length === 0) return false;
   const results = await Promise.allSettled(
-    GROUP_PUSHER_CONFIGS.map((server) => triggerPusherEventOnServer(server, channel, event, data))
+    configs.map((server) => triggerPusherEventOnServer(server, channel, event, data))
   );
   return results.some((r) => r.status === 'fulfilled' && r.value === true);
 }
@@ -1841,14 +1842,16 @@ module.exports = async function handler(req, res) {
             .eq('group_id', groupData.id);
 
           const currentCount = typeof count === 'number' ? count : (groupData.members_count || 1);
-          const memberUserCode = userCode || nickname;
+          const candidateId = body.userId || userCode;
+          const memberUserCode = userCode || candidateId || nickname;
 
-          const { data: existingMember } = await supabase
-            .from('group_members')
-            .select('*')
-            .eq('group_id', groupData.id)
-            .eq('user_code', memberUserCode)
-            .maybeSingle();
+          let memberQuery = supabase.from('group_members').select('*').eq('group_id', groupData.id);
+          if (candidateId) {
+            memberQuery = memberQuery.or(`user_code.eq.${candidateId},user_id.eq.${candidateId}`);
+          } else {
+            memberQuery = memberQuery.eq('user_code', memberUserCode);
+          }
+          const { data: existingMember } = await memberQuery.maybeSingle();
 
           if (!existingMember && currentCount >= 10) {
             return sendError(res, 'GROUP_FULL', 400);
@@ -1858,7 +1861,7 @@ module.exports = async function handler(req, res) {
           await supabase.from('group_members').upsert({
             group_id: groupData.id,
             user_code: memberUserCode,
-            user_id: body.userId || null,
+            user_id: body.userId || candidateId || memberUserCode,
             nickname: nickname,
             role: existingMember?.role || 'member',
             avatar_url: avatarUrl || null,
@@ -1912,18 +1915,25 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/groups/leave' && req.method === 'POST') {
-      const { groupId, nickname, userCode } = body;
-      if (!groupId || (!nickname && !userCode)) return sendError(res, 'Missing groupId or member identification', 400);
+      const { groupId, nickname, userCode, userId } = body;
+      const targetId = userCode || userId;
+      if (!groupId || (!nickname && !targetId)) return sendError(res, 'Missing groupId or member identification', 400);
 
       const supabase = getGroupsSupabaseClient();
       if (supabase) {
         try {
-          const memberKey = userCode || nickname;
-          await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_code', memberKey);
+          let deleteQuery = supabase.from('group_members').delete().eq('group_id', groupId);
+          if (targetId) {
+            deleteQuery = deleteQuery.or(`user_code.eq.${targetId},user_id.eq.${targetId}`);
+          } else {
+            deleteQuery = deleteQuery.eq('nickname', nickname);
+          }
+          await deleteQuery;
           await triggerGroupPusherEvent(`presence-group-${groupId}`, 'member-left', {
             groupId,
             nickname,
-            userCode: memberKey,
+            userCode: targetId || nickname,
+            userId: targetId || null,
           });
           return sendJson(res, { status: 'ok' });
         } catch {}
@@ -1932,15 +1942,16 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/groups/kick' && req.method === 'POST') {
-      const { groupId, targetNickname, targetUserCode, adminNickname } = body;
-      if (!groupId || (!targetNickname && !targetUserCode)) return sendError(res, 'Missing kick parameters', 400);
+      const { groupId, targetNickname, targetUserCode, targetUserId, adminNickname } = body;
+      const targetId = targetUserCode || targetUserId;
+      if (!groupId || (!targetNickname && !targetId)) return sendError(res, 'Missing kick parameters', 400);
 
       const supabase = getGroupsSupabaseClient();
       if (supabase) {
         try {
           let deleteQuery = supabase.from('group_members').delete().eq('group_id', groupId);
-          if (targetUserCode) {
-            deleteQuery = deleteQuery.eq('user_code', targetUserCode);
+          if (targetId) {
+            deleteQuery = deleteQuery.or(`user_code.eq.${targetId},user_id.eq.${targetId}`);
           } else {
             deleteQuery = deleteQuery.eq('nickname', targetNickname);
           }
@@ -1948,7 +1959,8 @@ module.exports = async function handler(req, res) {
           await triggerGroupPusherEvent(`presence-group-${groupId}`, 'kick', {
             groupId,
             target: targetNickname,
-            targetUserCode,
+            targetUserCode: targetId,
+            targetUserId: targetId,
             admin: adminNickname,
           });
           return sendJson(res, { status: 'ok' });
@@ -2009,15 +2021,16 @@ module.exports = async function handler(req, res) {
     }
 
     if (pathname === '/groups/role' && req.method === 'POST') {
-      const { groupId, targetNickname, targetUserCode, role } = body;
-      if (!groupId || (!targetNickname && !targetUserCode) || !role) return sendError(res, 'Missing parameters', 400);
+      const { groupId, targetNickname, targetUserCode, targetUserId, role } = body;
+      const targetId = targetUserCode || targetUserId;
+      if (!groupId || (!targetNickname && !targetId) || !role) return sendError(res, 'Missing parameters', 400);
 
       const supabase = getGroupsSupabaseClient();
       if (supabase) {
         try {
           let roleQuery = supabase.from('group_members').update({ role }).eq('group_id', groupId);
-          if (targetUserCode) {
-            roleQuery = roleQuery.eq('user_code', targetUserCode);
+          if (targetId) {
+            roleQuery = roleQuery.or(`user_code.eq.${targetId},user_id.eq.${targetId}`);
           } else {
             roleQuery = roleQuery.eq('nickname', targetNickname);
           }
@@ -2025,7 +2038,8 @@ module.exports = async function handler(req, res) {
           await triggerGroupPusherEvent(`presence-group-${groupId}`, 'member-role-updated', {
             groupId,
             targetNickname,
-            targetUserCode,
+            targetUserCode: targetId,
+            targetUserId: targetId,
             role,
           });
           return sendJson(res, { status: 'ok' });

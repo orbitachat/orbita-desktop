@@ -12,6 +12,7 @@ import {
 export interface GroupMemberInfo {
   nickname: string;
   userCode?: string;
+  userId?: string;
   role: 'owner' | 'admin' | 'member';
   joinedAt: number;
   lastSeen?: number;
@@ -52,7 +53,8 @@ class GroupService {
     description: string,
     creatorNickname: string,
     creatorCode?: string,
-    avatarUrl?: string | null
+    avatarUrl?: string | null,
+    creatorUserId?: string
   ): Promise<{ group: GroupInfo; sharedSecret: string } | null> {
     const id = generateGroupId();
     const code = generateGroupInviteCode();
@@ -61,6 +63,7 @@ class GroupService {
     const initialMember: GroupMemberInfo = {
       nickname: creatorNickname,
       userCode: creatorCode || creatorNickname,
+      userId: creatorUserId || creatorCode || creatorNickname,
       role: 'owner',
       joinedAt: Date.now(),
       lastSeen: Date.now(),
@@ -89,6 +92,7 @@ class GroupService {
       await this.supabase.from('group_members').upsert({
         group_id: id,
         user_code: creatorCode || creatorNickname,
+        user_id: creatorUserId || creatorCode || null,
         nickname: creatorNickname,
         role: 'owner',
         joined_at: nowIso,
@@ -109,6 +113,7 @@ class GroupService {
           avatarUrl: avatarUrl || null,
           creatorNickname,
           creatorCode: creatorCode || null,
+          creatorUserId: creatorUserId || null,
           maxMembers: 10,
           members: [initialMember],
           membersCount: 1,
@@ -153,6 +158,7 @@ class GroupService {
         const members: GroupMemberInfo[] = (membersRows || []).map((m: any) => ({
           nickname: m.nickname,
           userCode: m.user_code,
+          userId: m.user_id || m.user_code,
           role: m.role || 'member',
           joinedAt: new Date(m.joined_at || g.created_at).getTime(),
           lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
@@ -205,7 +211,7 @@ class GroupService {
     codeOrLink: string,
     nickname: string,
     userCode?: string,
-    meta?: { name?: string; creator?: string; avatarUrl?: string; description?: string }
+    meta?: { name?: string; creator?: string; avatarUrl?: string; description?: string; userId?: string }
   ): Promise<{ group: GroupInfo; sharedSecret: string }> {
     const raw = codeOrLink.trim();
     const code = extractGroupCode(raw) || raw;
@@ -263,7 +269,8 @@ class GroupService {
 
     const groupId = groupRow.id;
     const sharedSecret = deriveGroupKey(groupId);
-    const memberCode = userCode || nickname;
+    const candidateId = meta?.userId || userCode;
+    const memberCode = userCode || candidateId || nickname;
     const nowIso = new Date().toISOString();
 
     let currentMembers: any[] = [];
@@ -272,7 +279,12 @@ class GroupService {
       currentMembers = membersRows || [];
     } catch {}
 
-    const isAlreadyMember = currentMembers.some((m: any) => m.user_code === memberCode || m.nickname === nickname);
+    const isAlreadyMember = currentMembers.some((m: any) => {
+      const mId = m.user_id || m.user_code;
+      if (candidateId && mId) return mId === candidateId;
+      if (memberCode && mId) return mId === memberCode;
+      return false;
+    });
 
     if (!isAlreadyMember && currentMembers.length >= 10) {
       throw new Error('GROUP_FULL');
@@ -282,6 +294,7 @@ class GroupService {
       await this.supabase.from('group_members').upsert({
         group_id: groupId,
         user_code: memberCode,
+        user_id: meta?.userId || candidateId || memberCode,
         nickname,
         role: 'member',
         joined_at: nowIso,
@@ -299,6 +312,7 @@ class GroupService {
           code,
           nickname,
           userCode: memberCode,
+          userId: meta?.userId || candidateId || memberCode,
           name: groupRow.name,
           creatorNickname: groupRow.creator_nickname,
           avatarUrl: meta?.avatarUrl || groupRow.avatar_url || null,
@@ -312,6 +326,7 @@ class GroupService {
       formattedMembers = (updatedMembers || currentMembers).map((m: any) => ({
         nickname: m.nickname,
         userCode: m.user_code,
+        userId: m.user_id || m.user_code,
         role: m.role || 'member',
         joinedAt: new Date(m.joined_at || Date.now()).getTime(),
         lastSeen: m.last_seen ? new Date(m.last_seen).getTime() : undefined,
@@ -321,6 +336,7 @@ class GroupService {
       formattedMembers = [{
         nickname,
         userCode: memberCode,
+        userId: meta?.userId || candidateId || memberCode,
         role: 'member',
         joinedAt: Date.now(),
         lastSeen: Date.now(),
@@ -430,9 +446,14 @@ class GroupService {
   }
 
   async leaveGroup(groupId: string, nickname: string, userCode?: string): Promise<void> {
-    const memberKey = userCode || nickname;
     try {
-      await this.supabase.from('group_members').delete().eq('group_id', groupId).eq('user_code', memberKey);
+      let q = this.supabase.from('group_members').delete().eq('group_id', groupId);
+      if (userCode) {
+        q = q.or(`user_code.eq.${userCode},user_id.eq.${userCode}`);
+      } else {
+        q = q.eq('nickname', nickname);
+      }
+      await q;
     } catch {}
 
     try {
@@ -452,7 +473,7 @@ class GroupService {
     try {
       let q = this.supabase.from('group_members').delete().eq('group_id', groupId);
       if (targetUserCode) {
-        q = q.eq('user_code', targetUserCode);
+        q = q.or(`user_code.eq.${targetUserCode},user_id.eq.${targetUserCode}`);
       } else {
         q = q.eq('nickname', targetNickname);
       }
@@ -529,7 +550,7 @@ class GroupService {
     try {
       let q = this.supabase.from('group_members').update({ role }).eq('group_id', groupId);
       if (targetUserCode) {
-        q = q.eq('user_code', targetUserCode);
+        q = q.or(`user_code.eq.${targetUserCode},user_id.eq.${targetUserCode}`);
       } else {
         q = q.eq('nickname', targetNickname);
       }

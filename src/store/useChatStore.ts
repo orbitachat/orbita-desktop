@@ -191,11 +191,11 @@ export function isMessageOutgoing(
   if (typeof msg.isOutgoing === 'boolean') {
     return msg.isOutgoing;
   }
-  if (myUserId && msg.senderId) {
-    return msg.senderId === myUserId;
+  if (myUserId && (msg.senderId === myUserId || (msg as any).senderUserId === myUserId)) {
+    return true;
   }
-  if (myCode && msg.senderId) {
-    return msg.senderId === myCode;
+  if (myCode && (msg.senderId === myCode || (msg as any).senderCode === myCode)) {
+    return true;
   }
   if (msg.status !== undefined) {
     return true;

@@ -2749,11 +2749,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         targetMessageId: msgId,
       };
       ablyService.sendMessage(activeChatId, payload).catch(() => {});
-      const pusher = getPusher();
+      const isGroup = activeChat?.type === 'group';
+      const pusher = isGroup ? getGroupPusher() : getPusher();
       const channel = pusher.subscribe(
         activeChat?.type === 'channel'
           ? `public-channel-${activeChatId}`
-          : activeChat?.type === 'group'
+          : isGroup
           ? `presence-group-${activeChatId}`
           : `private-chat-${activeChatId}`
       );
@@ -3420,19 +3421,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     const notifyPeerReadBatch = (lastMsgId: string, lastTime: number, readIds?: string[]) => {
       try {
-        const pusher = getPusher();
-        const channel = pusher.subscribe(`private-chat-${activeChatId}`);
+        const isGroup = activeChat?.type === 'group';
+        const pusher = isGroup ? getGroupPusher() : getPusher();
+        const channelName = isGroup ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+        const channel = pusher.subscribe(channelName);
         const sendRead = () => channel.trigger('client-message', {
           type: 'read',
           messageId: lastMsgId,
           time: lastTime,
           sender: myNickname,
+          senderUserId: myUserId,
+          senderCode: myCode,
+          senderId: myUserId || myCode,
         });
         if (channel.subscribed) sendRead();
         else channel.bind('pusher:subscription_succeeded', sendRead);
       } catch {}
 
-      sendEncryptedReadReceipt(activeChatId, readIds || [lastMsgId], lastTime);
+      if (activeChat?.type !== 'group') {
+        sendEncryptedReadReceipt(activeChatId, readIds || [lastMsgId], lastTime);
+      }
     };
 
     const markUnreadInViewAsRead = () => {
@@ -3996,6 +4004,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           } catch {}
 
           let groupSecret = freshChat.sharedSecret;
+          if (!groupSecret && freshChat.id && freshChat.id.length === 36) {
+            groupSecret = deriveGroupKey(freshChat.id);
+          }
           if (!groupSecret && freshChat.inviteCode && isValidGroupCode(freshChat.inviteCode)) {
             groupSecret = deriveGroupKey(freshChat.inviteCode);
           }
@@ -4004,7 +4015,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           }
           if (!groupSecret) {
             const fetched = await groupService.getGroup(activeChatId);
-            groupSecret = fetched?.sharedSecret;
+            groupSecret = fetched?.sharedSecret || deriveGroupKey(activeChatId);
           }
 
           if (groupSecret) {
@@ -4308,11 +4319,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     ablyService.sendMessage(activeChatId, payload).catch(() => {});
 
-    const pusher = getPusher();
+    const isGroup = activeChat?.type === 'group';
+    const pusher = isGroup ? getGroupPusher() : getPusher();
     const channel = pusher.subscribe(
       activeChat?.type === 'channel'
         ? `public-channel-${activeChatId}`
-        : activeChat?.type === 'group'
+        : isGroup
         ? `presence-group-${activeChatId}`
         : `private-chat-${activeChatId}`
     );
@@ -4514,8 +4526,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }).catch(() => {});
 
       try {
-        const pusher = getPusher();
-        const channelName = activeChat?.type === 'group' ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+        const isGroup = activeChat?.type === 'group';
+        const pusher = isGroup ? getGroupPusher() : getPusher();
+        const channelName = isGroup ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
         const channel = pusher.subscribe(channelName);
         const send = () => {
           try {
@@ -4799,7 +4812,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         if (!rawCipher) return;
         const sec = activeChat.sharedSecret ||
           (activeChat.inviteCode && isValidGroupCode(activeChat.inviteCode) ? deriveGroupKey(activeChat.inviteCode) : undefined) ||
-          (activeChat.code && isValidGroupCode(activeChat.code) ? deriveGroupKey(activeChat.code) : undefined);
+          (activeChat.code && isValidGroupCode(activeChat.code) ? deriveGroupKey(activeChat.code) : undefined) ||
+          deriveGroupKey(activeChatId);
         if (sec) {
           decryptMessage(rawCipher, sec).then((dec) => {
             let parsed: any;
@@ -4839,6 +4853,48 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             } catch {}
           });
         }
+        return;
+      }
+
+      if (data.type === 'read') {
+        const isSelf = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode))
+        );
+        if (isSelf) return;
+        const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+        const updated = currentMsgs.map((msg) =>
+          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId)))
+            ? { ...msg, read: true, status: 'read' as const }
+            : msg
+        );
+        useChatStore.setState((state) => ({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [activeChatId]: updated,
+          },
+        }));
+        return;
+      }
+
+      if (data.type === 'delivered') {
+        const isSelf = Boolean(
+          (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+          (myCode && (data.senderCode === myCode || data.senderId === myCode))
+        );
+        if (isSelf) return;
+        const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+        const updated = currentMsgs.map((msg) =>
+          (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId)))
+            ? (msg.status === 'read' ? msg : { ...msg, status: 'delivered' as const })
+            : msg
+        );
+        useChatStore.setState((state) => ({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [activeChatId]: updated,
+          },
+        }));
         return;
       }
 

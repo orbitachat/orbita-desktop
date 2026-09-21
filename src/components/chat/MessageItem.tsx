@@ -256,7 +256,17 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 >
                   {msg.sender}
                 </span>
-                {(activeChat?.creatorNickname === msg.sender || activeChat?.members?.some((m) => m.nickname === msg.sender && m.role === 'owner')) && (
+                {(
+                  (activeChat?.creatorCode && (activeChat.creatorCode === msg.senderId || activeChat.creatorCode === (msg as any).senderUserId || activeChat.creatorCode === (msg as any).senderCode)) ||
+                  (activeChat?.creatorId && (activeChat.creatorId === msg.senderId || activeChat.creatorId === (msg as any).senderUserId)) ||
+                  activeChat?.members?.some((m) => {
+                    const mId = m.userId || (m as any).userCode;
+                    const sId = msg.senderId || (msg as any).senderUserId || (msg as any).senderCode;
+                    if (mId && sId) return mId === sId && m.role === 'owner';
+                    return m.nickname === msg.sender && m.role === 'owner';
+                  }) ||
+                  activeChat?.creatorNickname === msg.sender
+                ) && (
                   <span
                     className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold flex-shrink-0 tracking-wide uppercase select-none"
                     style={{

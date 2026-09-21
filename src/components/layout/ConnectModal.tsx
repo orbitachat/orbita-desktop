@@ -110,7 +110,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
       const groupCode = extractGroupCode(trimmed);
       if (groupCode && isValidGroupCode(groupCode)) {
         setIsLoading(true);
-        groupService.joinGroup(trimmed, myNickname, myCode).then((result) => {
+        groupService.joinGroup(trimmed, myNickname, myCode, { userId: useAuthStore.getState().userId }).then((result) => {
           setIsLoading(false);
           if (result?.group) {
             const existing = useChatStore.getState().chats.find((c) => c.id === result.group.id);
@@ -207,11 +207,12 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
     if (type === 'group') {
       setIsLoading(true);
       setError(null);
-      groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl).then((res) => {
+      const myUserId = useAuthStore.getState().userId;
+      groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl, myUserId).then((res) => {
         setIsLoading(false);
         if (res && res.group) {
           const initialMember = {
-            userId: myCode,
+            userId: myUserId || myCode,
             nickname: myNickname,
             role: 'owner' as const,
             lastSeen: Date.now(),
