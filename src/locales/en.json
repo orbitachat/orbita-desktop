@@ -1302,6 +1302,14 @@
       "channel": "Channel",
       "group": "Group",
       "dialog": "Chat"
+    },
+    "system": {
+      "member_joined": "{{name}} joined the group",
+      "title_changed": "Group name was changed",
+      "avatar_changed": "Group avatar was changed",
+      "promoted_admin": "{{actor}} promoted {{target}} to admin",
+      "call_started": "{{name}} started a group call",
+      "member_removed": "{{actor}} removed {{target}} from the group"
     }
   }
 }

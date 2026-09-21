@@ -144,7 +144,8 @@ export interface Message {
   status?: 'sent' | 'delivered' | 'read' | 'pending' | 'sending';
   uploading?: boolean;
   uploadedMb?: number;
-  mediaType?: 'photo' | 'video' | 'audio' | 'voice' | 'file' | 'call' | 'emoji' | 'gif' | 'sticker' | null;
+  mediaType?: 'photo' | 'video' | 'audio' | 'voice' | 'file' | 'call' | 'emoji' | 'gif' | 'sticker' | 'system' | null;
+  systemType?: 'join' | 'title' | 'avatar' | 'admin' | 'call' | 'kick';
   mediaUrl?: string;
   mediaName?: string;
   mediaKey?: string;

@@ -1312,6 +1312,14 @@
       "channel": "Канал",
       "group": "Группа",
       "dialog": "Диалог"
+    },
+    "system": {
+      "member_joined": "{{name}} вступил(а) в группу",
+      "title_changed": "Имя группы было изменено",
+      "avatar_changed": "Аватарка группы была изменена",
+      "promoted_admin": "{{actor}} назначил(а) {{target}} администратором",
+      "call_started": "{{name}} начал(а) групповой звонок",
+      "member_removed": "{{actor}} удалил(а) {{target}} из группы"
     }
   }
 }

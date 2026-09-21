@@ -8,6 +8,7 @@ import {
   extractGroupCode,
   isValidGroupCode,
 } from '../lib/groupCrypto';
+import { encryptMessage } from '../lib/crypto';
 
 export interface GroupMemberInfo {
   nickname: string;
@@ -321,6 +322,10 @@ class GroupService {
       }).catch(() => {});
     } catch {}
 
+    if (!isAlreadyMember) {
+      this.sendSystemMessage(groupId, sharedSecret, 'join', nickname, nickname);
+    }
+
     let formattedMembers: GroupMemberInfo[] = [];
     try {
       const { data: updatedMembers } = await this.supabase.from('group_members').select('*').eq('group_id', groupId);
@@ -508,6 +513,9 @@ class GroupService {
         }),
       }).catch(() => {});
     } catch {}
+
+    const secret = deriveGroupKey(groupId);
+    this.sendSystemMessage(groupId, secret, 'kick', adminNickname, targetNickname);
   }
 
   async updateGroup(
@@ -534,6 +542,14 @@ class GroupService {
           avatarUrl: data.avatarUrl,
         }),
       });
+      if (data.name !== undefined) {
+        const secret = deriveGroupKey(groupId);
+        this.sendSystemMessage(groupId, secret, 'title', groupId, undefined);
+      }
+      if (data.avatarUrl !== undefined) {
+        const secret = deriveGroupKey(groupId);
+        this.sendSystemMessage(groupId, secret, 'avatar', groupId, undefined);
+      }
       return res.ok;
     } catch {
       return true;
@@ -579,6 +595,10 @@ class GroupService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, targetNickname, targetUserCode: targetUserCode || null, role }),
       });
+      if (role === 'admin') {
+        const secret = deriveGroupKey(groupId);
+        this.sendSystemMessage(groupId, secret, 'admin', '', targetNickname);
+      }
       return res.ok;
     } catch {
       return true;
@@ -664,6 +684,38 @@ class GroupService {
     return msgId;
   }
 
+  async sendSystemMessage(
+    groupId: string,
+    sharedSecret: string,
+    eventType: 'join' | 'title' | 'avatar' | 'admin' | 'call' | 'kick',
+    actorNickname: string,
+    targetNickname?: string
+  ): Promise<void> {
+    const textMap: Record<string, string> = {
+      join: `${actorNickname} вступил(а) в группу`,
+      title: 'Название группы было изменено',
+      avatar: 'Аватарка группы была изменена',
+      admin: `${actorNickname ? actorNickname + ' назначил(а)' : 'Участник назначен'} ${targetNickname || ''} администратором`,
+      call: `${actorNickname} начал(а) групповой звонок`,
+      kick: `${actorNickname} удалил(а) ${targetNickname || ''} из группы`,
+    };
+    const text = textMap[eventType] || eventType;
+    const msgId = `sys_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const payload = JSON.stringify({ text, mediaType: 'system', systemType: eventType });
+    let ciphertext = payload;
+    try {
+      ciphertext = await encryptMessage(payload, sharedSecret);
+    } catch {}
+    await this.sendGroupMessage({
+      id: msgId,
+      groupId,
+      senderNickname: 'system',
+      senderCode: 'system',
+      ciphertext,
+      mediaType: 'system',
+    });
+  }
+
   async markGroupMessagesRead(payload: {
     groupId: string;
     messageId?: string;
@@ -744,6 +796,9 @@ class GroupService {
         body: JSON.stringify({ groupId, roomName, hostCode, hostNickname }),
       }).catch(() => {});
     } catch {}
+
+    const secret = deriveGroupKey(groupId);
+    this.sendSystemMessage(groupId, secret, 'call', hostNickname);
   }
 
   async endCall(groupId: string): Promise<void> {

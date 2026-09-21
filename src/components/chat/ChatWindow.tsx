@@ -4686,6 +4686,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             audioMetadata: parsedData?.audioMetadata || row.audio_metadata || undefined,
             linkPreview: parsedData?.linkPreview || row.link_preview || undefined,
             reactions: row.reactions || undefined,
+            systemType: parsedData?.systemType || undefined,
           };
           newMessages.push(msgItem);
           try {
@@ -4919,6 +4920,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               waveform: parsed?.waveform || data.waveform || undefined,
               audioMetadata: parsed?.audioMetadata || data.audioMetadata || undefined,
               linkPreview: parsed?.linkPreview || data.linkPreview || undefined,
+              systemType: parsed?.systemType || data.systemType || undefined,
             };
             useChatStore.getState().addMessage(activeChatId, item);
             try {
@@ -6874,6 +6876,42 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     ) : null;
 
     const renderContent = () => {
+      if (msg.mediaType === 'system') {
+        const timeStr = new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return (
+          <div
+            data-message="true"
+            data-message-id={msg.id}
+            className="flex justify-center items-center w-full my-1 select-none pointer-events-none"
+            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+          >
+            <div
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--surface-container, rgba(255,255,255,0.06)) 92%, #000)',
+                color: 'var(--text-main, #ffffff)',
+                fontSize: '12px',
+                fontWeight: 500,
+                padding: '4px 14px',
+                borderRadius: '12px',
+                display: 'inline-flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                maxWidth: '80%',
+                textAlign: 'center',
+                gap: '1px',
+              }}
+            >
+              <span>{msg.text}</span>
+              <span style={{ fontSize: '10px', opacity: 0.6, marginTop: '1px' }}>{timeStr}</span>
+            </div>
+          </div>
+        );
+      }
+
       const mediaItems = msg.mediaItems;
       const isSingleImageOrVideo = (media.type === 'image' || media.type === 'video') && Boolean(media.url || msg.mediaUrl);
       const effectiveMediaItems = (mediaItems && mediaItems.length > 0)
