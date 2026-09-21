@@ -318,19 +318,45 @@
       setTimeout(() => toast.classList.remove('show'), 2000);
     }
 
-    function getCode() {
+    function getTarget() {
       const url = new URL(window.location.href);
       const pathname = url.pathname;
-      const match = pathname.match(/\/u\/([^\/?#]+)/i);
-      if (match && match[1]) {
-        return decodeURIComponent(match[1]).trim();
+      const groupMatch = pathname.match(/\/(?:g|group|join|invite)(?:\/group)?\/([^\/?#]+)/i);
+      if (groupMatch && groupMatch[1]) {
+        return { type: 'group', code: decodeURIComponent(groupMatch[1]).trim() };
       }
-      const q = url.searchParams.get('code') || url.searchParams.get('id') || '';
-      return q.trim();
+      const userMatch = pathname.match(/\/u\/([^\/?#]+)/i);
+      if (userMatch && userMatch[1]) {
+        return { type: 'user', code: decodeURIComponent(userMatch[1]).trim() };
+      }
+      const gParam = url.searchParams.get('group');
+      if (gParam) {
+        return { type: 'group', code: gParam.trim() };
+      }
+      const q = url.searchParams.get('code') || url.searchParams.get('id') || url.searchParams.get('token') || '';
+      if (q.trim()) {
+        if (q.trim().length === 54) {
+          return { type: 'group', code: q.trim() };
+        }
+        return { type: 'user', code: q.trim() };
+      }
+      return null;
     }
 
-    const code = getCode();
-    const cleanCode = code || 'W8C17R1XDS3D3GCJGCT7P8A5G5WMIK6TGFG4';
+    const target = getTarget();
+    let deepLink = '';
+    let cleanCode = '';
+
+    if (target && target.type === 'group') {
+      cleanCode = target.code;
+      deepLink = 'orbita://join/group/' + encodeURIComponent(cleanCode);
+    } else if (target && target.type === 'user') {
+      cleanCode = target.code;
+      deepLink = 'orbita://connect?code=' + encodeURIComponent(cleanCode);
+    } else {
+      cleanCode = 'W8C17R1XDS3D3GCJGCT7P8A5G5WMIK6TGFG4';
+      deepLink = 'orbita://connect?code=' + encodeURIComponent(cleanCode);
+    }
 
     const idTextEl = document.getElementById('idText');
     if (cleanCode.length >= 36) {
@@ -341,7 +367,6 @@
       idTextEl.textContent = cleanCode;
     }
 
-    const deepLink = 'orbita://connect?code=' + encodeURIComponent(cleanCode);
     const openBtn = document.getElementById('openAppBtn');
     openBtn.href = deepLink;
     openBtn.addEventListener('click', function() {
@@ -357,7 +382,7 @@
     });
 
     setTimeout(function() {
-      if (code) {
+      if (target) {
         try {
           window.location.href = deepLink;
         } catch(e) {}

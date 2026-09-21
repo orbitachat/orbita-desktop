@@ -18,6 +18,7 @@ class AblyService {
   private lastSeenTimers: Map<string, NodeJS.Timeout> = new Map();
   private typingTimeouts: Map<string, NodeJS.Timeout> = new Map();
   private isConnected = false;
+  private heartbeatTimer: any = null;
 
   private typingCallbacks: Map<string, TypingCallback> = new Map();
   private deliveryCallbacks: Map<string, DeliveryCallback> = new Map();
@@ -220,6 +221,7 @@ class AblyService {
       this.presenceHandlers.clear();
       this.chatMessageHandlers.clear();
 
+      this.stopHeartbeat();
       this.client.close();
       this.client = null;
       this.userId = null;
@@ -251,6 +253,25 @@ class AblyService {
     });
   }
 
+  private startHeartbeat(userId: string): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.client || !this.isConnected || !this.userId) return;
+      const channel = this.client.channels.get(`presence:user:${userId}`);
+      channel.presence.update({
+        status: 'online',
+        timestamp: Date.now(),
+      }).catch(() => {});
+    }, 30000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
   setOnline(userId: string): void {
     if (!this.client || !this.isConnected) {
       return;
@@ -263,9 +284,11 @@ class AblyService {
     }).catch((err) => {
       console.error('[Ably] Failed to enter presence:', err);
     });
+    this.startHeartbeat(userId);
   }
 
   setOffline(userId: string): void {
+    this.stopHeartbeat();
     if (!this.client || !this.isConnected) {
       return;
     }
@@ -316,10 +339,12 @@ class AblyService {
         return;
       }
 
+      const now = Date.now();
       const activeMember = (members || []).find(
         (m) =>
           (m.clientId === userId || !m.clientId || m.clientId === '') &&
-          (m.data ? (typeof m.data === 'object' && 'status' in m.data ? m.data.status === 'online' : true) : true)
+          (m.data ? (typeof m.data === 'object' && 'status' in m.data ? m.data.status === 'online' : true) : true) &&
+          (m.data && typeof m.data === 'object' && 'timestamp' in m.data ? (now - Number((m.data as any).timestamp)) < 90000 : true)
       );
 
       const isOnline = !!activeMember;
@@ -352,7 +377,8 @@ class AblyService {
       if (action === 'enter' || action === 'present' || action === 'update') {
         const isStatusOnline = member.data ? (typeof member.data === 'object' && 'status' in member.data ? member.data.status === 'online' : true) : true;
         const timestamp = member.data && typeof member.data === 'object' && 'timestamp' in member.data ? (member.data as any).timestamp : Date.now();
-        callback(isStatusOnline, timestamp);
+        const isFresh = (Date.now() - timestamp) < 90000;
+        callback(isFresh && isStatusOnline, timestamp);
       } else if (action === 'leave' || action === 'absent') {
         const timestamp = member.data && typeof member.data === 'object' && 'timestamp' in member.data ? (member.data as any).timestamp : Date.now();
         callback(false, timestamp);

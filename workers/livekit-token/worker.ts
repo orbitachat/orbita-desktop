@@ -351,8 +351,8 @@ export default {
           }
 
           const blobBytesLength = new TextEncoder().encode(configBlob).length;
-          if (blobBytesLength > 128 * 1024) {
-            return errorResponse('Payload too large: config_blob exceeds 128 KB limit', 413);
+          if (blobBytesLength > 5 * 1024 * 1024) {
+            return errorResponse('Payload too large: config_blob exceeds 5 MB limit', 413);
           }
 
           const isValidSig = verifyWorkerEd25519(userId, version, configBlob, signature);

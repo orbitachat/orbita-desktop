@@ -645,7 +645,6 @@ export const MainLayout = () => {
     inChatSearch,
     closeInChatSearch,
     addChannelChat,
-    hideProfileId,
     deletedChatSessions,
     _hasHydrated,
   } = useChatStore(useShallow(state => ({
@@ -673,7 +672,6 @@ export const MainLayout = () => {
     inChatSearch: state.inChatSearch,
     closeInChatSearch: state.closeInChatSearch,
     addChannelChat: state.addChannelChat,
-    hideProfileId: state.hideProfileId,
     deletedChatSessions: state.deletedChatSessions,
     _hasHydrated: state._hasHydrated,
   })));
@@ -835,9 +833,9 @@ export const MainLayout = () => {
   useEffect(() => {
     if (step === 'main' && nickname && myCode) {
       const myKeys = generateKeyPair();
-      supabaseService.publishPublicProfile(myCode, nickname, avatarUrl || null, myKeys.publicKey, hideProfileId).catch(() => {});
+      supabaseService.publishPublicProfile(myCode, nickname, avatarUrl || null, myKeys.publicKey).catch(() => {});
     }
-  }, [step, nickname, myCode, avatarUrl, hideProfileId]);
+  }, [step, nickname, myCode, avatarUrl]);
 
   useEffect(() => {
     const pusher = getPusher();
@@ -1117,7 +1115,7 @@ export const MainLayout = () => {
   const chatPresenceKey = useMemo(() => {
     return chats
       .filter((c) => c.type === 'private' && c.id !== 'notes')
-      .map((c) => `${c.id}:${c.peerCode || ''}:${c.name || ''}`)
+      .map((c) => `${c.id}:${c.peerCode || ''}`)
       .join('|');
   }, [chats]);
 
@@ -1126,27 +1124,25 @@ export const MainLayout = () => {
 
     chats.forEach((chat) => {
       if (chat.type === 'private' && chat.id !== 'notes') {
-        const targetIds = Array.from(
-          new Set([chat.peerCode, chat.name].filter((id): id is string => Boolean(id && id.trim() && id !== 'Unknown' && id !== 'notes')))
-        );
-        const presenceStates = new Map<string, boolean>();
+        const peerId = (chat.peerCode && chat.peerCode !== 'Unknown' && chat.peerCode.trim())
+          ? chat.peerCode.trim()
+          : (chat.id && chat.id.length === 36 && !chat.id.includes('-'))
+            ? chat.id.trim()
+            : null;
+        if (!peerId) return;
 
-        targetIds.forEach((targetId) => {
-          const unsubscribe = ablyService.subscribeToUserPresence(
-            targetId,
-            (isOnline, lastSeen) => {
-              presenceStates.set(targetId, isOnline);
-              const anyOnline = Array.from(presenceStates.values()).some(Boolean);
-              const current = useChatStore.getState().chats.find(c => c.id === chat.id);
-              if (current && current.online === anyOnline && (lastSeen ? current.lastSeen === lastSeen : true)) return;
-              updateChat(chat.id, {
-                online: anyOnline,
-                ...(lastSeen ? { lastSeen } : {}),
-              });
-            }
-          );
-          unsubscribes.push(unsubscribe);
-        });
+        const unsubscribe = ablyService.subscribeToUserPresence(
+          peerId,
+          (isOnline, lastSeen) => {
+            const current = useChatStore.getState().chats.find(c => c.id === chat.id);
+            if (current && current.online === isOnline && (lastSeen ? current.lastSeen === lastSeen : true)) return;
+            updateChat(chat.id, {
+              online: isOnline,
+              ...(lastSeen ? { lastSeen } : {}),
+            });
+          }
+        );
+        unsubscribes.push(unsubscribe);
       }
     });
 
@@ -1678,17 +1674,9 @@ export const MainLayout = () => {
               const updates: Partial<Chat> = {};
               if (messageData.avatarUrl !== undefined) updates.avatarUrl = messageData.avatarUrl;
               if (messageData.nickname !== undefined) updates.name = messageData.nickname;
-              if (messageData.hideProfileId !== undefined) {
-                updates.hideProfileId = Boolean(messageData.hideProfileId);
-              }
               if (messageData.senderCode && (!currentMyCode || messageData.senderCode !== currentMyCode)) {
                 updates.peerCode = messageData.senderCode;
                 updates.originalPeerCode = messageData.senderCode;
-              } else if (updates.hideProfileId === false) {
-                const currentChat = useChatStore.getState().chats.find((c) => c.id === record.chat_id);
-                if (currentChat?.originalPeerCode) {
-                  updates.peerCode = currentChat.originalPeerCode;
-                }
               }
               if (Object.keys(updates).length > 0) {
                 updateChat(record.chat_id, updates);
@@ -1859,9 +1847,6 @@ export const MainLayout = () => {
         try {
           const profile = await supabaseService.lookupPublicProfile(targetCode);
           if (profile) {
-            if (profile.hide_profile_id !== undefined && profile.hide_profile_id !== null) {
-              updates.hideProfileId = Boolean(profile.hide_profile_id);
-            }
             if (!recoveredName && profile.nickname && profile.nickname.length !== 36 && profile.nickname !== 'undefined' && profile.nickname !== 'null') {
               recoveredName = profile.nickname.trim();
             }
@@ -1876,12 +1861,7 @@ export const MainLayout = () => {
         recoveredAvatar = undefined;
       }
 
-      const isHidden = updates.hideProfileId !== undefined ? updates.hideProfileId : Boolean(chat.hideProfileId);
-
       const updatesFinal: Partial<Chat> = { ...updates };
-      if (isHidden) {
-        updatesFinal.hideProfileId = true;
-      }
       if (recoveredName && recoveredName !== chat.name && recoveredName !== 'undefined' && recoveredName !== 'null') {
         updatesFinal.name = recoveredName;
       }
@@ -1941,22 +1921,16 @@ export const MainLayout = () => {
         if (update && !isMyOwnUpdate) {
           if (update.nickname && update.nickname !== chat.name) updates.name = update.nickname;
           if (update.avatar_url !== undefined && update.avatar_url !== chat.avatarUrl) updates.avatarUrl = update.avatar_url || undefined;
-          if (update.hide_profile_id !== undefined && update.hide_profile_id !== null) {
-            updates.hideProfileId = Boolean(update.hide_profile_id);
-          }
           if (update.sender_code && update.sender_code !== myCode && !chat.peerCode) {
             updates.peerCode = update.sender_code;
           }
         }
 
-        if (updates.hideProfileId === undefined && targetPeerCode) {
+        if (targetPeerCode) {
           const pub = await supabaseService.lookupPublicProfile(targetPeerCode);
           if (pub) {
             if (pub.nickname && pub.nickname !== chat.name && !updates.name) updates.name = pub.nickname;
             if (pub.avatar_url !== undefined && pub.avatar_url !== chat.avatarUrl && !updates.avatarUrl) updates.avatarUrl = pub.avatar_url || undefined;
-            if (pub.hide_profile_id !== undefined && pub.hide_profile_id !== null) {
-              updates.hideProfileId = Boolean(pub.hide_profile_id);
-            }
           }
         }
         if (Object.keys(updates).length > 0) {
@@ -2254,24 +2228,20 @@ export const MainLayout = () => {
             const sharedSecret = deriveSharedSecret(myKeys.privateKey, friendProfile.public_key);
             const rootKey = deriveRootKey(sharedSecret);
             const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, friendProfile.public_key);
-            const isFriendHidden = Boolean(friendProfile.hide_profile_id);
             updateChat(chatId, {
               name: friendProfile.nickname,
               avatarUrl: friendProfile.avatar_url ?? undefined,
               sharedSecret: sharedSecret,
               ratchetState: ratchet.getState(),
               lastMsg: 'E2EE_SECURE_CHANNEL_READY',
-              hideProfileId: isFriendHidden || undefined,
-              peerCode: isFriendHidden ? undefined : friendCode,
+              peerCode: friendCode,
               originalPeerCode: friendCode,
             });
           } else {
-            const isFriendHidden = Boolean(friendProfile.hide_profile_id);
             updateChat(chatId, {
               name: friendProfile.nickname,
               avatarUrl: friendProfile.avatar_url ?? undefined,
-              hideProfileId: isFriendHidden || undefined,
-              peerCode: isFriendHidden ? undefined : friendCode,
+              peerCode: friendCode,
               originalPeerCode: friendCode,
             });
           }
@@ -2349,8 +2319,8 @@ export const MainLayout = () => {
                   muted: false,
                   notificationsEnabled: true,
                 });
-                useChatStore.getState().setActiveChat(result.group.id);
               }
+              useChatStore.getState().setActiveChat(result.group.id);
             }
           } catch {}
           return;
@@ -3130,14 +3100,9 @@ export const MainLayout = () => {
         const updates: Partial<Chat> = {};
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
         if (data.nickname !== undefined) updates.name = data.nickname;
-        if (data.hideProfileId !== undefined) {
-          updates.hideProfileId = Boolean(data.hideProfileId);
-        }
         if (data.senderCode && (!myCode || data.senderCode !== myCode)) {
           updates.peerCode = data.senderCode;
           updates.originalPeerCode = data.senderCode;
-        } else if (updates.hideProfileId === false && chat.originalPeerCode) {
-          updates.peerCode = chat.originalPeerCode;
         }
         updateChat(chatId, updates);
         return;

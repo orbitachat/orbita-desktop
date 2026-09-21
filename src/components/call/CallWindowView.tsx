@@ -510,6 +510,15 @@ export const CallWindowView = () => {
   const duration = callData?.duration ?? 0;
   const statusMessage = callData?.statusMessage ?? '';
 
+  useEffect(() => {
+    if (expandedShare === 'remote' && !isRemoteVideoActive && !isRemoteScreenShareActive) {
+      setExpandedShare(null);
+    }
+    if (expandedShare === 'local' && !isScreenSharing) {
+      setExpandedShare(null);
+    }
+  }, [expandedShare, isRemoteVideoActive, isRemoteScreenShareActive, isScreenSharing]);
+
   const isIncoming = !!incomingCall || (activeCall?.direction === 'incoming' && callState === 'ringing');
   const otherName = activeCall?.otherName || incomingCall?.otherName || incomingCall?.from || activeCall?.chatId || '';
   const otherAvatar = activeCall?.otherAvatar || incomingCall?.otherAvatar || null;
@@ -1383,7 +1392,7 @@ export const CallWindowView = () => {
         )}
       </div>
 
-      <div className={`${expandedShare ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex flex-col items-center gap-3`}>
+      <div className={`${(expandedShare && hasAnyActiveStream) ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-20'} flex flex-col items-center gap-3 transition-all duration-300`}>
         {hasLocalScreenShare && (
           <div
             className="relative inline-flex items-center justify-center select-none px-4 py-1.5 rounded-full shadow-md"

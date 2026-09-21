@@ -83,29 +83,11 @@ class GroupService {
           sharedSecret,
         };
       }
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData?.error || `Server responded with ${res.status}`);
     } catch (err) {
-      console.warn('[GroupService] Server create failed, running in local fallback:', err);
+      throw err;
     }
-
-    const fallbackGroup: GroupInfo = {
-      id,
-      code,
-      name: name.trim(),
-      description: description.trim(),
-      avatarUrl: null,
-      creatorNickname,
-      creatorCode: creatorCode || null,
-      membersCount: 1,
-      maxMembers: 10,
-      members: [initialMember],
-      createdAt: Date.now(),
-      sharedSecret,
-    };
-
-    return {
-      group: fallbackGroup,
-      sharedSecret,
-    };
   }
 
   async getGroup(groupIdOrCode: string): Promise<GroupInfo | null> {

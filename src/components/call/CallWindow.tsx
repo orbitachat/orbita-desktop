@@ -147,8 +147,17 @@ export const CallWindow = () => {
   const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
   const [isRemoteScreenShareActive, setIsRemoteScreenShareActive] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [expandedShare, setExpandedShare] = useState<'remote' | 'local' | null>(null);
   const [hasCamera, setHasCamera] = useState<boolean>(false);
+  const [expandedShare, setExpandedShare] = useState<'remote' | 'local' | null>(null);
+
+  useEffect(() => {
+    if (expandedShare === 'remote' && !isRemoteVideoActive && !isRemoteScreenShareActive) {
+      setExpandedShare(null);
+    }
+    if (expandedShare === 'local' && !isScreenSharing) {
+      setExpandedShare(null);
+    }
+  }, [expandedShare, isRemoteVideoActive, isRemoteScreenShareActive, isScreenSharing]);
   useEffect(() => {
     const checkDevices = async () => {
       try {
@@ -1140,7 +1149,7 @@ export const CallWindow = () => {
         )}
       </div>
 
-      <div className={`${expandedShare ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-30'} flex flex-col items-center gap-3 select-none`}>
+      <div className={`${(expandedShare && hasAnyActiveStream) ? 'fixed bottom-0 inset-x-0 z-50 pb-6 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent' : 'pb-5 pt-1 relative z-30'} flex flex-col items-center gap-3 select-none transition-all duration-300`}>
         {hasLocalScreenShare && (
           <div
             className="relative inline-flex items-center justify-center select-none px-4 py-1.5 rounded-full shadow-md"

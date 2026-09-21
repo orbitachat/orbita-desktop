@@ -51,7 +51,6 @@ export interface UserConfigPayload {
     readReceiptsEnabled?: boolean;
     typingIndicatorsEnabled?: boolean;
     linkPreviewsEnabled?: boolean;
-    hideProfileId?: boolean;
     recentEmojis?: string[];
     autoUpdate?: boolean;
     showInSystemTray?: boolean;
@@ -157,7 +156,6 @@ class AccountSyncService {
         readReceiptsEnabled: chatState.readReceiptsEnabled,
         typingIndicatorsEnabled: chatState.typingIndicatorsEnabled,
         linkPreviewsEnabled: chatState.linkPreviewsEnabled,
-        hideProfileId: chatState.hideProfileId,
         recentEmojis: chatState.recentEmojis,
         autoUpdate: chatState.autoUpdate,
         showInSystemTray: chatState.showInSystemTray,
@@ -224,6 +222,10 @@ class AccountSyncService {
       const keys = deriveAccountKeys(authState.masterSeed);
       const payloadObj = this.packAccountState();
       const jsonStr = JSON.stringify(payloadObj);
+      const jsonByteLength = new TextEncoder().encode(jsonStr).length;
+      if (jsonByteLength > 4.5 * 1024 * 1024) {
+        throw new Error(`Payload size ${jsonByteLength} bytes exceeds 4.5 MB safety quota`);
+      }
       const configBlob = await encryptConfigBlob(keys.backupEncKey, jsonStr);
 
       const nextVersion = (authState.configVersion || 0) + 1;
@@ -250,7 +252,14 @@ class AccountSyncService {
       }
 
       if (!res.ok) {
-        throw new Error(`Sync failed with status ${res.status}`);
+        let errorDetail = '';
+        try {
+          const errJson = await res.json();
+          errorDetail = errJson.error || JSON.stringify(errJson);
+        } catch {
+          errorDetail = await res.text().catch(() => '');
+        }
+        throw new Error(`HTTP ${res.status}: ${errorDetail || 'Sync endpoint failed'}`);
       }
 
       const data = await res.json();
@@ -259,7 +268,8 @@ class AccountSyncService {
       useAuthStore.getState().setSyncStatus('synced', Date.now());
       this.isSyncing = false;
       return true;
-    } catch {
+    } catch (err: any) {
+      console.error('[AccountSyncService] syncNow failure:', err?.message || err);
       useAuthStore.getState().setSyncStatus('error');
       this.isSyncing = false;
       return false;

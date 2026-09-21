@@ -243,7 +243,6 @@ export interface Chat {
   peerCode?: string;
   originalPeerCode?: string;
   isBlocked?: boolean;
-  hideProfileId?: boolean;
   updatedAt?: number;
   activeCallRoom?: string | null;
   membersCount?: number;
@@ -420,8 +419,6 @@ interface ChatState {
   readReceiptsEnabled: boolean;
   typingIndicatorsEnabled: boolean;
   linkPreviewsEnabled: boolean;
-  hideProfileId: boolean;
-  setHideProfileId: (hide: boolean) => void;
   _hasHydrated: boolean;
   setHasHydrated: (val: boolean) => void;
 
@@ -685,7 +682,6 @@ export const useChatStore = create<ChatState>()(
       readReceiptsEnabled: true,
       typingIndicatorsEnabled: true,
       linkPreviewsEnabled: true,
-      hideProfileId: false,
       _hasHydrated: false,
 
       recentEmojis: [],
@@ -1594,7 +1590,6 @@ export const useChatStore = create<ChatState>()(
       setReadReceiptsEnabled: (enabled) => set({ readReceiptsEnabled: enabled }),
       setTypingIndicatorsEnabled: (enabled) => set({ typingIndicatorsEnabled: enabled }),
       setLinkPreviewsEnabled: (enabled) => set({ linkPreviewsEnabled: enabled }),
-      setHideProfileId: (hide) => set({ hideProfileId: hide }),
       setHasHydrated: (val) => set({ _hasHydrated: val }),
 
       addRecentEmoji: (emoji: string) => {
@@ -1759,7 +1754,6 @@ export const useChatStore = create<ChatState>()(
         readReceiptsEnabled: state.readReceiptsEnabled,
         typingIndicatorsEnabled: state.typingIndicatorsEnabled,
         linkPreviewsEnabled: state.linkPreviewsEnabled,
-        hideProfileId: state.hideProfileId,
         recentEmojis: state.recentEmojis,
         autoUpdate: state.autoUpdate,
         showInSystemTray: state.showInSystemTray,

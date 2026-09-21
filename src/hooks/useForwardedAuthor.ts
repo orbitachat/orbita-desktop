@@ -6,7 +6,6 @@ import { supabaseService } from '../services/supabaseService';
 interface CachedProfile {
   nickname?: string;
   avatarUrl?: string | null;
-  hideProfileId?: boolean;
   timestamp: number;
 }
 
@@ -31,7 +30,6 @@ export function fetchAuthorProfile(senderId: string) {
       profileCache.set(senderId, {
         nickname: record.nickname || undefined,
         avatarUrl: record.avatar_url ?? null,
-        hideProfileId: record.hide_profile_id !== undefined && record.hide_profile_id !== null ? Boolean(record.hide_profile_id) : undefined,
         timestamp: Date.now(),
       });
       notifyListeners(senderId);
@@ -44,7 +42,6 @@ export function useForwardedAuthor(forwarded: ForwardedFrom) {
   const isAnonymous = Boolean(forwarded.isAnonymous || (!forwarded.sender && !senderId));
 
   const myCode = useChatStore((s) => s.myCode);
-  const myHideProfileId = useChatStore((s) => s.hideProfileId);
   const chats = useChatStore((s) => s.chats);
 
   const myNickname = useAuthStore((s) => s.nickname);
@@ -73,18 +70,17 @@ export function useForwardedAuthor(forwarded: ForwardedFrom) {
     return {
       nickname: '',
       avatarUrl: null,
-      isIdHidden: true,
+      isIdHidden: false,
       senderId: undefined,
       isAnonymous: true,
     };
   }
 
   if (myCode && senderId === myCode) {
-    const isHidden = Boolean(myHideProfileId || forwarded.isIdHidden);
     return {
       nickname: myNickname || forwarded.sender || '',
-      avatarUrl: isHidden ? null : (myAvatarUrl || forwarded.senderAvatarUrl || null),
-      isIdHidden: isHidden,
+      avatarUrl: myAvatarUrl || forwarded.senderAvatarUrl || null,
+      isIdHidden: false,
       senderId,
       isAnonymous: false,
     };
@@ -95,30 +91,20 @@ export function useForwardedAuthor(forwarded: ForwardedFrom) {
     ? chats.find((c) => c.id !== 'notes' && (c.peerCode === senderId || (c.type === 'private' && (c.name === senderId || c.peerCode === senderId))))
     : undefined;
 
-  let isIdHidden = Boolean(
-    forwarded.isIdHidden ||
-    !senderId ||
-    senderId === '000' ||
-    localChat?.hideProfileId ||
-    cached?.hideProfileId
-  );
-
   const resolvedNickname =
     cached?.nickname ||
     localChat?.name ||
     forwarded.sender ||
     '';
 
-  const resolvedAvatar = isIdHidden
-    ? null
-    : (cached?.avatarUrl !== undefined
-        ? cached.avatarUrl
-        : (localChat?.avatarUrl ?? forwarded.senderAvatarUrl ?? null));
+  const resolvedAvatar = cached?.avatarUrl !== undefined
+    ? cached.avatarUrl
+    : (localChat?.avatarUrl ?? forwarded.senderAvatarUrl ?? null);
 
   return {
     nickname: resolvedNickname,
     avatarUrl: resolvedAvatar,
-    isIdHidden,
+    isIdHidden: false,
     senderId,
     isAnonymous: false,
   };

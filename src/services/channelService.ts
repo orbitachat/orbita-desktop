@@ -148,9 +148,7 @@ class ChannelService {
         const data = (await res.json()) as { channel: ChannelInfo };
         if (data.channel) return data.channel;
       }
-    } catch (err) {
-      console.error('[ChannelService] Failed to create channel via backend:', err);
-    }
+    } catch {}
 
     try {
       const dbRow = {
@@ -165,7 +163,7 @@ class ChannelService {
         created_at: new Date(now).toISOString(),
         updated_at: new Date(now).toISOString(),
       };
-      await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/public_channels`, {
+      const directRes = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/public_channels`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,20 +173,23 @@ class ChannelService {
         },
         body: JSON.stringify(dbRow),
       });
+      if (directRes.ok) {
+        return {
+          id: idToUse,
+          name: name.trim(),
+          description: description.trim(),
+          avatarUrl: avatarUrl || null,
+          creatorId,
+          creatorNickname,
+          subscribersCount: 1,
+          isOfficial: false,
+          createdAt: now,
+          updatedAt: now,
+        };
+      }
     } catch {}
 
-    return {
-      id: idToUse,
-      name: name.trim(),
-      description: description.trim(),
-      avatarUrl: avatarUrl || null,
-      creatorId,
-      creatorNickname,
-      subscribersCount: 1,
-      isOfficial: false,
-      createdAt: now,
-      updatedAt: now,
-    };
+    throw new Error('Failed to create channel on server');
   }
 
   async updateChannel(

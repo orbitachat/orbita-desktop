@@ -1,7 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { relayRouter } from './relayRouter';
 import { getVercelBaseUrl } from './gatewayManager';
-import { useChatStore } from '../store/useChatStore';
 
 export interface OfflineMessageRecord {
   id: string;
@@ -36,7 +35,6 @@ export interface ProfileUpdateRecord {
   sender_id?: string | null;
   nickname: string | null;
   avatar_url: string | null;
-  hide_profile_id?: boolean | null;
   sender_code?: string | null;
   updated_at: string;
 }
@@ -45,7 +43,6 @@ export interface UserDirectoryRecord {
   user_code: string;
   nickname: string;
   avatar_url: string | null;
-  hide_profile_id?: boolean | null;
   public_key?: string | null;
   updated_at?: string;
 }
@@ -563,16 +560,13 @@ class SupabaseService {
     }
   }
 
-  // --- Профили ---
   async saveProfileUpdate(
     chatId: string,
     nickname: string | null,
     avatarUrl: string | null,
-    senderCode?: string | null,
-    hideProfileId?: boolean | null
+    senderCode?: string | null
   ): Promise<void> {
     if (!chatId || chatId === 'notes') return;
-    console.log('[Relay/Supabase] saveProfileUpdate:', { chatId, nickname, avatarUrl, senderCode, hideProfileId });
 
     const primaryRelay = relayRouter.getRelayForRecipient(chatId);
     const allRelays = [
@@ -585,7 +579,7 @@ class SupabaseService {
         const res = await fetch(`${relay.url}/relay/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, hideProfileId }),
+          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode }),
         });
 
         if (res.ok) return;
@@ -606,7 +600,6 @@ class SupabaseService {
           chat_id: chatId,
           nickname,
           avatar_url: avatarUrl,
-          hide_profile_id: hideProfileId !== undefined ? hideProfileId : null,
           sender_code: senderCode || null,
         });
 
@@ -670,13 +663,11 @@ class SupabaseService {
     userCode: string,
     nickname: string,
     avatarUrl: string | null,
-    _publicKey?: string | null,
-    hideProfileId?: boolean | null
+    _publicKey?: string | null
   ): Promise<void> {
     if (!userCode || !nickname) return;
-    const finalHide = hideProfileId !== undefined ? hideProfileId : useChatStore.getState().hideProfileId;
     try {
-      await this.saveProfileUpdate(userCode, nickname, avatarUrl, finalHide ? null : userCode, finalHide);
+      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode);
     } catch (e) {
       console.warn('[Directory] Failed to publish profile update:', e);
     }
@@ -692,7 +683,6 @@ class SupabaseService {
           user_code: userCode,
           nickname: update.nickname,
           avatar_url: update.avatar_url,
-          hide_profile_id: update.hide_profile_id,
           updated_at: update.updated_at,
         };
       }

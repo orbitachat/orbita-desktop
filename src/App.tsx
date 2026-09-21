@@ -233,26 +233,27 @@ function App() {
   }, [textScale]);
 
   const myCode = useChatStore((state) => state.myCode);
+  const userId = useAuthStore((state) => state.userId);
 
   useEffect(() => {
-    if (step === 'main' && (myCode || nickname)) {
-      const clientId = myCode || nickname;
+    const clientId = myCode || userId;
+    if (step === 'main' && clientId) {
       ablyService.connect(clientId).catch((error) => {
         console.error('[App] Failed to connect to Ably:', error);
       });
     }
     return () => {
-      const clientId = myCode || nickname;
-      if (clientId) {
-        ablyService.setOffline(clientId);
+      const activeId = myCode || userId;
+      if (activeId) {
+        ablyService.setOffline(activeId);
       }
       ablyService.disconnect();
     };
-  }, [step, nickname, myCode]);
+  }, [step, userId, myCode]);
 
   useEffect(() => {
     const handleUnload = () => {
-      const clientId = myCode || nickname;
+      const clientId = myCode || userId;
       if (clientId) {
         ablyService.setOffline(clientId);
       }

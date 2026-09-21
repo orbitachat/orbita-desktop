@@ -468,8 +468,8 @@ module.exports = async function handler(req, res) {
         }
 
         const blobBytesLength = Buffer.byteLength(configBlob, 'utf8');
-        if (blobBytesLength > 128 * 1024) {
-          return sendError(res, 'Payload too large: config_blob exceeds 128 KB limit', 413);
+        if (blobBytesLength > 5 * 1024 * 1024) {
+          return sendError(res, 'Payload too large: config_blob exceeds 5 MB limit', 413);
         }
 
         const isValidSig = verifyServerEd25519(userId, version, configBlob, signature);
@@ -1242,7 +1242,7 @@ module.exports = async function handler(req, res) {
               updated_at: nowIso,
             });
           }
-          await supabase.from('public_channels').upsert({
+          const { error: chErr } = await supabase.from('public_channels').upsert({
             id: channelId,
             name: body.name,
             description: body.description || '',
@@ -1254,15 +1254,23 @@ module.exports = async function handler(req, res) {
             created_at: nowIso,
             updated_at: nowIso,
           });
+          if (chErr) {
+            return sendError(res, chErr.message, 500);
+          }
           if (creatorId) {
-            await supabase.from('channel_members').upsert({
+            const { error: memErr } = await supabase.from('channel_members').upsert({
               channel_id: channelId,
               user_id: creatorId,
               role: 'owner',
               joined_at: nowIso,
             });
+            if (memErr) {
+              return sendError(res, memErr.message, 500);
+            }
           }
-        } catch {}
+        } catch (err) {
+          return sendError(res, err?.message || 'Failed to create channel', 500);
+        }
       }
       return sendJson(res, {
         status: 'ok',
@@ -1622,7 +1630,7 @@ module.exports = async function handler(req, res) {
 
       if (supabase) {
         try {
-          await supabase.from('groups').upsert({
+          const { error: grpErr } = await supabase.from('groups').upsert({
             id: groupId,
             code: code,
             name: body.name.trim(),
@@ -1636,9 +1644,17 @@ module.exports = async function handler(req, res) {
             created_at: nowIso,
             updated_at: nowIso,
           });
+          if (grpErr) {
+            return sendError(res, grpErr.message, 500);
+          }
 
-          await supabase.from('group_members').upsert(initialMember);
-        } catch {}
+          const { error: memErr } = await supabase.from('group_members').upsert(initialMember);
+          if (memErr) {
+            return sendError(res, memErr.message, 500);
+          }
+        } catch (err) {
+          return sendError(res, err?.message || 'Failed to create group', 500);
+        }
       }
 
       return sendJson(res, {

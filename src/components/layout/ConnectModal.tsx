@@ -8,7 +8,6 @@ import { channelService } from '../../services/channelService';
 import { groupService } from '../../services/groupService';
 import { extractCodeFromInput } from '../../utils/inviteLink';
 import { generateChannelId } from '../../lib/codes';
-import { generateGroupCode, deriveGroupId, deriveGroupKey } from '../../lib/groupCrypto';
 import { useToastStore } from '../../store/useToastStore';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
 
@@ -127,82 +126,55 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
     }
 
     if (type === 'group') {
-      const code = generateGroupCode();
-      const id = deriveGroupId(code);
-      const sharedSecret = deriveGroupKey(code);
-
-      const initialMember = {
-        userId: myCode,
-        nickname: myNickname,
-        role: 'owner' as const,
-        lastSeen: Date.now(),
-        avatarUrl: avatarUrl || null,
-      };
-
-      const newChat: Chat = {
-        id,
-        type: 'group',
-        name: trimmed,
-        description: descriptionValue || '',
-        lastMsg: 'E2EE_SECURE_CHANNEL_READY',
-        online: false,
-        sharedSecret,
-        role: 'owner',
-        isOwner: true,
-        creatorNickname: myNickname,
-        creatorId: myCode,
-        inviteCode: code,
-        avatarUrl: avatarUrl || undefined,
-        members: [initialMember],
-        membersCount: 1,
-        createdAt: Date.now(),
-        unreadCount: 0,
-        lastReadTimestamp: Date.now(),
-        muted: false,
-        notificationsEnabled: true,
-      };
-
-      useChatStore.setState((s) => ({ chats: [newChat, ...s.chats] }));
-      setActiveChat(id);
-      onClose();
-
+      setIsLoading(true);
+      setError(null);
       groupService.createGroup(trimmed, descriptionValue, myNickname, myCode, avatarUrl).then((res) => {
+        setIsLoading(false);
         if (res && res.group) {
-          useChatStore.setState((s) => ({
-            chats: s.chats.map((c) => (c.id === id ? {
-              ...c,
-              name: res.group.name || c.name,
-              description: res.group.description || c.description,
-              avatarUrl: res.group.avatarUrl || c.avatarUrl,
-              inviteCode: res.group.code || c.inviteCode,
-            } : c)),
-          }));
+          const initialMember = {
+            userId: myCode,
+            nickname: myNickname,
+            role: 'owner' as const,
+            lastSeen: Date.now(),
+            avatarUrl: avatarUrl || null,
+          };
+          const newChat: Chat = {
+            id: res.group.id,
+            type: 'group',
+            name: res.group.name || trimmed,
+            description: res.group.description || descriptionValue || '',
+            lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+            online: false,
+            sharedSecret: res.sharedSecret,
+            role: 'owner',
+            isOwner: true,
+            creatorNickname: myNickname,
+            creatorId: myCode,
+            inviteCode: res.group.code,
+            avatarUrl: res.group.avatarUrl || avatarUrl || undefined,
+            members: [initialMember],
+            membersCount: 1,
+            createdAt: Date.now(),
+            unreadCount: 0,
+            lastReadTimestamp: Date.now(),
+            muted: false,
+            notificationsEnabled: true,
+          };
+          useChatStore.setState((s) => ({ chats: [newChat, ...s.chats] }));
+          setActiveChat(res.group.id);
+          onClose();
         }
       }).catch((err) => {
-        useChatStore.setState((s) => ({
-          chats: s.chats.filter((c) => c.id !== id),
-          activeChatId: s.activeChatId === id ? null : s.activeChatId,
-        }));
+        setIsLoading(false);
         useToastStore.getState().showToast(t('common.error', 'Ошибка создания группы') + (err?.message ? `: ${err.message}` : ''));
       });
       return;
     }
 
     if (type === 'channel') {
+      setIsLoading(true);
+      setError(null);
       const channelId = generateChannelId();
-      addChannelChat({
-        id: channelId,
-        name: trimmed,
-        description: descriptionValue.trim(),
-        avatarUrl: avatarUrl || null,
-        creatorNickname: myNickname,
-        subscribersCount: 1,
-        isOfficial: false,
-        isOwner: true,
-      });
-      setActiveChat(channelId);
-      onClose();
-
       channelService.createChannel(
         trimmed,
         descriptionValue.trim(),
@@ -210,21 +182,23 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
         myNickname,
         channelId
       ).then((channel) => {
+        setIsLoading(false);
         if (channel) {
-          useChatStore.setState((s) => ({
-            chats: s.chats.map((c) => (c.id === channelId ? {
-              ...c,
-              name: channel.name || c.name,
-              description: channel.description || c.description,
-              avatarUrl: channel.avatarUrl || c.avatarUrl,
-            } : c)),
-          }));
+          addChannelChat({
+            id: channel.id || channelId,
+            name: channel.name || trimmed,
+            description: channel.description || descriptionValue.trim(),
+            avatarUrl: channel.avatarUrl || avatarUrl || null,
+            creatorNickname: myNickname,
+            subscribersCount: 1,
+            isOfficial: false,
+            isOwner: true,
+          });
+          setActiveChat(channel.id || channelId);
+          onClose();
         }
       }).catch((err) => {
-        useChatStore.setState((s) => ({
-          chats: s.chats.filter((c) => c.id !== channelId),
-          activeChatId: s.activeChatId === channelId ? null : s.activeChatId,
-        }));
+        setIsLoading(false);
         useToastStore.getState().showToast(t('common.error', 'Ошибка создания сообщества') + (err?.message ? `: ${err.message}` : ''));
       });
       return;

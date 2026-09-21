@@ -45,19 +45,24 @@ export function extractGroupCode(input: string): string {
   if (!input) return '';
   const trimmed = input.trim();
 
-  const urlMatch = trimmed.match(/\/(?:g|group|join)\/([a-zA-Z0-9]{54})/i);
+  const urlMatch = trimmed.match(/\/(?:g|group|join|invite)(?:\/group)?\/([a-zA-Z0-9]{54})/i);
   if (urlMatch && urlMatch[1]) {
     return urlMatch[1];
   }
 
-  const queryMatch = trimmed.match(/[?&](?:group|code)=([a-zA-Z0-9]{54})/i);
+  const queryMatch = trimmed.match(/[?&](?:group|code|token)=([a-zA-Z0-9]{54})/i);
   if (queryMatch && queryMatch[1]) {
     return queryMatch[1];
   }
 
-  const deepLinkMatch = trimmed.match(/orbita:\/\/(?:group|join)\/([a-zA-Z0-9]{54})/i);
+  const deepLinkMatch = trimmed.match(/orbita:\/\/(?:group|join|invite)(?:\/group)?\/([a-zA-Z0-9]{54})/i);
   if (deepLinkMatch && deepLinkMatch[1]) {
     return deepLinkMatch[1];
+  }
+
+  const deepLinkParamMatch = trimmed.match(/orbita:\/\/(?:group|join|invite)(?:\/group)?\?(?:code|token|group)=([a-zA-Z0-9]{54})/i);
+  if (deepLinkParamMatch && deepLinkParamMatch[1]) {
+    return deepLinkParamMatch[1];
   }
 
   if (trimmed.length === 54 && /^[0-9A-Za-z]{54}$/.test(trimmed)) {

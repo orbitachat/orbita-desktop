@@ -19,36 +19,33 @@ import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '..
 import { mediaManager } from '../../services/mediaManager';
 import { supabaseService } from '../../services/supabaseService';
 
-const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string; hideProfileId?: boolean }) => {
+const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string }) => {
   const currentNickname = useAuthStore.getState().nickname;
   const currentAvatar = useAuthStore.getState().avatarUrl;
   const currentUserId = useAuthStore.getState().userId;
   const myCode = useChatStore.getState().myCode;
-  const currentHideProfileId = useChatStore.getState().hideProfileId;
   const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
   const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
-  const finalHideProfileId = updates.hideProfileId !== undefined ? updates.hideProfileId : currentHideProfileId;
 
   const payload = {
     type: 'profile-update',
     sender: finalNickname,
     senderUserId: currentUserId,
     userId: currentUserId,
-    senderCode: finalHideProfileId ? null : myCode,
-    senderId: currentUserId || (finalHideProfileId ? null : myCode),
+    senderCode: myCode,
+    senderId: currentUserId || myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
-    hideProfileId: finalHideProfileId,
   };
 
   if (myCode) {
-    supabaseService.publishPublicProfile(myCode, finalNickname, finalAvatar, null, finalHideProfileId).catch(() => {});
+    supabaseService.publishPublicProfile(myCode, finalNickname, finalAvatar, null).catch(() => {});
   }
 
   const chats = useChatStore.getState().chats;
   chats.forEach((chat) => {
     if (chat.type === 'private' && chat.id !== 'notes') {
-      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, finalHideProfileId ? null : myCode, finalHideProfileId).catch(() => {});
+      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode).catch(() => {});
       ablyService.sendMessage(chat.id, payload).catch(() => {});
       const pusher = getPusher();
       const channel = pusher.subscribe(`private-chat-${chat.id}`);
@@ -92,7 +89,6 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
   const { t } = useTranslation();
   const { nickname, avatarUrl, setNickname, setAvatarUrl } = useAuthStore();
   const myCode = useChatStore((s) => s.myCode);
-  const hideProfileId = useChatStore((s) => s.hideProfileId);
   const [copyToastOpen, setCopyToastOpen] = useState(false);
   const [devToastOpen, setDevToastOpen] = useState(false);
   const [nicknameEditOpen, setNicknameEditOpen] = useState(false);
@@ -892,7 +888,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                     {myCode || '------'}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    {hideProfileId ? t('profile.id_hidden', 'ID скрыт') : 'ID'}
+                    ID
                   </span>
                 </div>
 
