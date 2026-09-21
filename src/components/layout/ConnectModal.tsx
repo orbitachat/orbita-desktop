@@ -180,6 +180,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
         descriptionValue.trim(),
         avatarUrl,
         myNickname,
+        undefined,
         channelId
       ).then((channel) => {
         setIsLoading(false);
@@ -217,6 +218,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   return (
     <AnimatePresence>
       <motion.div
+        key="connect-modal-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

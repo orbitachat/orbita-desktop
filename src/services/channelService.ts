@@ -109,6 +109,7 @@ class ChannelService {
             updatedAt: c.updated_at ? new Date(c.updated_at).getTime() : new Date(c.created_at).getTime(),
           };
         }
+        return null;
       }
     } catch {}
 
@@ -131,14 +132,26 @@ class ChannelService {
     creatorId?: string,
     customId?: string
   ): Promise<ChannelInfo | null> {
-    const idToUse = customId?.trim() || generateChannelId();
+    const isChannelCode = (s?: string) => Boolean(s && /^[A-Z0-9]{30,50}$/i.test(s.trim()));
+    const isUuid = (s?: string) => Boolean(s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim()));
+
+    let actualCustomId = customId?.trim();
+    let actualCreatorId = creatorId?.trim();
+
+    if (!actualCustomId && actualCreatorId && isChannelCode(actualCreatorId)) {
+      actualCustomId = actualCreatorId;
+      actualCreatorId = undefined;
+    }
+
+    const idToUse = actualCustomId || generateChannelId();
+    const validCreatorId = isUuid(actualCreatorId) ? actualCreatorId : null;
     const now = Date.now();
     const createdInfo: ChannelInfo = {
       id: idToUse,
       name: name.trim(),
       description: description.trim(),
       avatarUrl: avatarUrl || null,
-      creatorId,
+      creatorId: validCreatorId || undefined,
       creatorNickname,
       subscribersCount: 1,
       isOfficial: false,
@@ -153,7 +166,7 @@ class ChannelService {
         name: name.trim(),
         description: description.trim(),
         avatar_url: avatarUrl || null,
-        creator_id: creatorId || null,
+        creator_id: validCreatorId,
         creator_nickname: creatorNickname,
         subscribers_count: 1,
         is_official: false,
@@ -185,7 +198,7 @@ class ChannelService {
           description: description.trim(),
           avatarUrl: avatarUrl || null,
           creatorNickname,
-          creatorId: creatorId || undefined,
+          creatorId: validCreatorId || undefined,
         }),
       });
 
