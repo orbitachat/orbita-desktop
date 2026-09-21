@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { channelService } from '../../services/channelService';
 import { groupService } from '../../services/groupService';
 import { supabaseService } from '../../services/supabaseService';
+import { buildGroupInviteLink } from '../../lib/groupCrypto';
 import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft, UserPlus, ShieldCheck, Trash2, LogOut } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { BotIcon } from '../common/BotIcon';
@@ -2173,7 +2174,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
             <button
               onClick={() => {
-                const link = `https://orbita-chess-network.alwaysdata.net/g/${chat.inviteCode || chat.id}`;
+                const link = buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl);
                 navigator.clipboard.writeText(link);
                 setCopiedKey(true);
                 setTimeout(() => setCopiedKey(false), 2000);
@@ -2324,7 +2325,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
               <div
                 onClick={() => {
-                  const link = `https://orbita-chess-network.alwaysdata.net/g/${chat.inviteCode || chat.id}`;
+                  const link = buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl);
                   navigator.clipboard.writeText(link);
                   setCopiedKey(true);
                   setTimeout(() => setCopiedKey(false), 2000);
@@ -2350,7 +2351,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                     }}
                   >
-                    https://orbita-chess-network.alwaysdata.net/g/{chat.inviteCode || chat.id}
+                    {buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl)}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
                     {t('groupSettings.invite_link', 'Ссылка-приглашение')}

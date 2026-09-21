@@ -77,7 +77,55 @@ export function extractGroupCode(input: string): string {
   return '';
 }
 
-export function getGroupInviteLink(groupCode: string): string {
+export function buildGroupInviteLink(
+  groupCode: string,
+  name?: string,
+  creator?: string,
+  avatarUrl?: string
+): string {
   if (!groupCode) return '';
-  return `https://orbita-chess-network.alwaysdata.net/g/${encodeURIComponent(groupCode.trim())}`;
+  const cleanCode = groupCode.trim();
+  const base = `https://orbita-chess-network.alwaysdata.net/g/${encodeURIComponent(cleanCode)}`;
+  const params = new URLSearchParams();
+  if (name && name.trim() && name.trim() !== 'Группа' && name.trim() !== 'Group') {
+    params.set('name', name.trim());
+  }
+  if (creator && creator.trim()) {
+    params.set('creator', creator.trim());
+  }
+  if (avatarUrl && avatarUrl.trim()) {
+    params.set('avatar', avatarUrl.trim());
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+export function extractGroupMetadata(input: string): {
+  code: string;
+  name?: string;
+  creator?: string;
+  avatarUrl?: string;
+} {
+  const code = extractGroupCode(input);
+  if (!input) return { code };
+  try {
+    const raw = input.includes('?') ? input.split('?')[1] : '';
+    if (!raw) return { code };
+    const params = new URLSearchParams(raw);
+    const name = params.get('name') || undefined;
+    const creator = params.get('creator') || undefined;
+    const avatarUrl = params.get('avatar') || undefined;
+    return { code, name, creator, avatarUrl };
+  } catch {
+    return { code };
+  }
+}
+
+export function getGroupInviteLink(
+  groupCode: string,
+  name?: string,
+  creator?: string,
+  avatarUrl?: string
+): string {
+  return buildGroupInviteLink(groupCode, name, creator, avatarUrl);
 }

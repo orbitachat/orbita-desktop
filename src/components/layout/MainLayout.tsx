@@ -1,4 +1,3 @@
-// src/components/layout/MainLayout.tsx
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
@@ -844,7 +843,8 @@ export const MainLayout = () => {
     const updateConn = () => {
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
       const pusherConnected = pusher.connection.state === 'connected';
-      useConnectionStore.getState().setServerConnected(isOnline && pusherConnected);
+      const gatewayHealthy = gatewayManager.getActiveGateway().status !== 'unhealthy';
+      useConnectionStore.getState().setServerConnected(isOnline && (pusherConnected || gatewayHealthy));
     };
 
     pusher.connection.bind('connected', updateConn);
@@ -2070,7 +2070,7 @@ export const MainLayout = () => {
         const navOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
         const fastestGateway = await gatewayManager.selectFastestGateway(false);
-        const isGatewayHealthy = fastestGateway && fastestGateway.status === 'healthy';
+        const isGatewayHealthy = Boolean(fastestGateway && fastestGateway.status !== 'unhealthy');
 
         if (isGatewayHealthy) {
           setIsNetworkOnline(true);
@@ -2366,15 +2366,37 @@ export const MainLayout = () => {
                 creatorCode: result.group.creatorCode || undefined,
                 avatarUrl: result.group.avatarUrl || undefined,
                 members: (result.group.members || []) as any[],
-                membersCount: result.group.membersCount || 1,
+                membersCount: result.group.membersCount || 2,
                 createdAt: result.group.createdAt || Date.now(),
                 unreadCount: 0,
                 lastReadTimestamp: Date.now(),
                 muted: false,
                 notificationsEnabled: true,
               });
+            } else {
+              const shouldUpdateName = existing.name === 'Группа' || existing.name === 'Group' || (result.group.name && result.group.name !== 'Группа' && result.group.name !== 'Group');
+              useChatStore.getState().updateChat(existing.id, {
+                ...(shouldUpdateName ? { name: result.group.name } : {}),
+                ...(result.group.avatarUrl ? { avatarUrl: result.group.avatarUrl } : {}),
+                ...(result.group.creatorNickname ? { creatorNickname: result.group.creatorNickname } : {}),
+                sharedSecret: result.sharedSecret || existing.sharedSecret,
+                members: (result.group.members && result.group.members.length > (existing.members?.length || 0)) ? (result.group.members as any[]) : existing.members,
+                membersCount: Math.max(result.group.membersCount || 1, existing.membersCount || 1, (result.group.members?.length || 1)),
+              });
             }
             useChatStore.getState().setActiveChat(result.group.id);
+
+            try {
+              const grpChannel = getGroupPusher().subscribe(`presence-group-${result.group.id}`);
+              const joinPayload = {
+                type: 'member-joined',
+                nickname: nick,
+                userCode: uCode,
+                chatId: result.group.id,
+              };
+              if (grpChannel.subscribed) grpChannel.trigger('client-message', joinPayload);
+              else grpChannel.bind('pusher:subscription_succeeded', () => grpChannel.trigger('client-message', joinPayload));
+            } catch {}
           }
         } catch {}
         return;

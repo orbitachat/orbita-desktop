@@ -6,6 +6,7 @@ import { Avatar } from '../common/Avatar';
 import { type Chat } from '../../store/useChatStore';
 import { GroupUsersIcon } from '../common/GroupUsersIcon';
 import { AddGroupMemberModal } from './AddGroupMemberModal';
+import { buildGroupInviteLink } from '../../lib/groupCrypto';
 
 interface GroupEmptyCardProps {
   chat: Chat;
@@ -17,7 +18,7 @@ export const GroupEmptyCard: React.FC<GroupEmptyCardProps> = ({ chat }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const inviteCode = chat.inviteCode || chat.id;
-  const inviteLink = `https://orbita-chess-network.alwaysdata.net/g/${inviteCode}`;
+  const inviteLink = buildGroupInviteLink(inviteCode, chat.name, chat.creatorNickname, chat.avatarUrl);
 
   const handleCopyLink = useCallback(() => {
     navigator.clipboard.writeText(inviteLink);

@@ -349,7 +349,25 @@
 
     if (target && target.type === 'group') {
       cleanCode = target.code;
-      deepLink = 'orbita://join/group/' + encodeURIComponent(cleanCode);
+      const params = new URLSearchParams(window.location.search);
+      const groupName = params.get('name');
+      const groupCreator = params.get('creator');
+      const groupAvatar = params.get('avatar');
+      const extraParams = new URLSearchParams();
+      if (groupName) extraParams.set('name', groupName);
+      if (groupCreator) extraParams.set('creator', groupCreator);
+      if (groupAvatar) extraParams.set('avatar', groupAvatar);
+      const extraQs = extraParams.toString();
+      deepLink = 'orbita://join/group/' + encodeURIComponent(cleanCode) + (extraQs ? '?' + extraQs : '');
+
+      const titleEl = document.querySelector('.main-title');
+      const subEl = document.querySelector('.main-subtitle');
+      if (titleEl) {
+        titleEl.textContent = groupName ? ('Приглашение в группу «' + groupName + '»') : 'Приглашение в группу';
+      }
+      if (subEl) {
+        subEl.textContent = groupCreator ? ('Создатель: ' + groupCreator) : 'Присоединяйтесь к зашифрованной группе в Orbita';
+      }
     } else if (target && target.type === 'user') {
       cleanCode = target.code;
       deepLink = 'orbita://connect?code=' + encodeURIComponent(cleanCode);

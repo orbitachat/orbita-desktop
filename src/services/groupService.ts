@@ -7,6 +7,7 @@ import {
   deriveGroupKey,
   extractGroupCode,
   isValidGroupCode,
+  extractGroupMetadata,
 } from '../lib/groupCrypto';
 
 
@@ -111,7 +112,8 @@ class GroupService {
   async joinGroup(
     codeOrLink: string,
     nickname: string,
-    userCode?: string
+    userCode?: string,
+    meta?: { name?: string; creator?: string; avatarUrl?: string; description?: string }
   ): Promise<{ group: GroupInfo; sharedSecret: string }> {
     const code = extractGroupCode(codeOrLink);
     if (!code || !isValidGroupCode(code)) {
@@ -120,6 +122,10 @@ class GroupService {
 
     const id = deriveGroupId(code);
     const sharedSecret = deriveGroupKey(code);
+    const urlMeta = extractGroupMetadata(codeOrLink);
+    const groupName = meta?.name || urlMeta.name;
+    const groupCreator = meta?.creator || urlMeta.creator;
+    const groupAvatar = meta?.avatarUrl || urlMeta.avatarUrl;
 
     try {
       const res = await fetch(`${this.getWorkerUrl()}/groups/join`, {
@@ -130,37 +136,68 @@ class GroupService {
           code,
           nickname,
           userCode: userCode || null,
+          name: groupName || null,
+          creatorNickname: groupCreator || null,
+          avatarUrl: groupAvatar || null,
         }),
       });
 
       if (res.ok) {
         const data = (await res.json()) as { group: GroupInfo };
         if (data.group) {
+          const finalName = (data.group.name && data.group.name !== 'Группа' && data.group.name !== 'Group')
+            ? data.group.name
+            : (groupName || data.group.name || 'Группа');
+          const finalCreator = data.group.creatorNickname || groupCreator || '';
+          const finalAvatar = data.group.avatarUrl || groupAvatar || null;
+
           return {
-            group: { ...data.group, sharedSecret },
+            group: {
+              ...data.group,
+              name: finalName,
+              creatorNickname: finalCreator,
+              avatarUrl: finalAvatar,
+              sharedSecret,
+            },
             sharedSecret,
           };
         }
       }
     } catch {}
 
+    const finalName = groupName || 'Группа';
+    const finalCreator = groupCreator || '';
+    const finalAvatar = groupAvatar || null;
+
+    const members: GroupMemberInfo[] = [];
+    if (finalCreator && finalCreator !== nickname) {
+      members.push({
+        nickname: finalCreator,
+        role: 'owner',
+        joinedAt: Date.now() - 1000,
+        avatarUrl: finalAvatar,
+      });
+    }
+    members.push({
+      nickname,
+      userCode: userCode || nickname,
+      role: finalCreator === nickname ? 'owner' : 'member',
+      joinedAt: Date.now(),
+      avatarUrl: null,
+    });
+
     return {
       group: {
         id,
         code,
-        name: 'Группа',
-        description: '',
-        avatarUrl: null,
-        creatorNickname: '',
+        name: finalName,
+        description: meta?.description || '',
+        avatarUrl: finalAvatar,
+        creatorNickname: finalCreator,
         creatorCode: undefined,
-        membersCount: 1,
+        membersCount: members.length,
         maxMembers: 10,
-        members: [{
-          nickname,
-          userCode: userCode || nickname,
-          role: 'member',
-          joinedAt: Date.now(),
-        }],
+        members,
         createdAt: Date.now(),
         sharedSecret,
       },

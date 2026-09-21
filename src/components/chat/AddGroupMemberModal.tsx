@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Avatar } from '../common/Avatar';
 import { type Chat, useChatStore } from '../../store/useChatStore';
 import { groupService } from '../../services/groupService';
+import { buildGroupInviteLink } from '../../lib/groupCrypto';
 
 interface AddGroupMemberModalProps {
   isOpen: boolean;
@@ -26,7 +27,10 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
 
   const chats = useChatStore((s) => s.chats);
   const updateChat = useChatStore((s) => s.updateChat);
-  const currentChat = chats.find((c) => c.id === group.id) || group;
+
+  const currentChat = useMemo(() => {
+    return chats.find((c) => c.id === group.id) || group;
+  }, [chats, group]);
 
   const currentMembers = useMemo(() => {
     return currentChat.members || [];
@@ -36,7 +40,7 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
   const isGroupFull = currentMemberCount >= 10;
 
   const inviteCode = currentChat.inviteCode || currentChat.id;
-  const inviteLink = `https://orbita-chess-network.alwaysdata.net/g/${inviteCode}`;
+  const inviteLink = buildGroupInviteLink(inviteCode, currentChat.name, currentChat.creatorNickname, currentChat.avatarUrl);
 
   const existingMemberIds = useMemo(() => {
     const set = new Set<string>();

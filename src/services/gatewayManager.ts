@@ -32,7 +32,7 @@ const DEFAULT_GATEWAYS: GatewayEndpoint[] = [
     provider: 'custom',
     url: getVercelBaseUrl(),
     ping: null,
-    status: 'idle',
+    status: 'healthy',
     lastChecked: null,
   },
   ...(import.meta.env.VITE_GOOGLE_GATEWAY_URL
