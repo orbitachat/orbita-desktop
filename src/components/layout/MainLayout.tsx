@@ -4815,10 +4815,14 @@ export const MainLayout = () => {
           isMobileView={isMobileView}
         />
 
-        <CallsModal
-          isOpen={showCallsModal}
-          onClose={() => setShowCallsModal(false)}
-        />
+        <AnimatePresence>
+          {showCallsModal && (
+            <CallsModal
+              isOpen={showCallsModal}
+              onClose={() => setShowCallsModal(false)}
+            />
+          )}
+        </AnimatePresence>
 
         <FriendRequestsModal
           isOpen={showFriendRequestsModal}

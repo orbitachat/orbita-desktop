@@ -508,8 +508,14 @@ const QuickReactionHeader = ({
                 e.stopPropagation();
                 setIsExpanded(true);
               }}
-              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 text-white/80"
-              style={{ cursor: 'pointer' }}
+              aria-label={t('common.expand', 'Развернуть')}
+              className="w-7 h-7 rounded-full active:scale-95 transition-all flex items-center justify-center flex-shrink-0"
+              style={{
+                cursor: 'pointer',
+                backgroundColor: 'var(--surface-container, rgba(128,128,128,0.15))',
+                color: 'var(--text-main, #ffffff)',
+                border: 'none',
+              }}
             >
               <ChevronDown size={14} />
             </button>
@@ -524,16 +530,26 @@ const QuickReactionHeader = ({
             className="flex flex-col h-full w-full p-2 overflow-hidden"
           >
             <div className="flex items-center gap-1 mb-2 flex-shrink-0">
-              <div className="relative flex-1 flex items-center bg-white/10 rounded-full px-2.5 py-1 border border-white/5">
-                <Search size={14} className="text-white/40 mr-1.5 flex-shrink-0" />
+              <div
+                className="relative flex-1 flex items-center rounded-full px-2.5 py-1"
+                style={{
+                  backgroundColor: 'var(--surface-container, rgba(128,128,128,0.15))',
+                  border: '1px solid var(--border-color, rgba(128,128,128,0.2))',
+                }}
+              >
+                <Search size={14} style={{ color: 'var(--text-dim, #8e8e93)' }} className="mr-1.5 flex-shrink-0" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t('common.search')}
-                  className="w-full bg-transparent border-none outline-none text-xs text-white placeholder:text-white/30"
-                  style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+                  className="w-full bg-transparent border-none outline-none text-xs"
+                  style={{
+                    color: 'var(--text-main)',
+                    userSelect: 'text',
+                    WebkitUserSelect: 'text',
+                  }}
                 />
               </div>
 
@@ -543,8 +559,14 @@ const QuickReactionHeader = ({
                   e.stopPropagation();
                   setIsExpanded(false);
                 }}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 text-white/80"
-                style={{ cursor: 'pointer' }}
+                aria-label={t('common.collapse', 'Свернуть')}
+                className="w-7 h-7 rounded-full active:scale-95 transition-all flex items-center justify-center flex-shrink-0"
+                style={{
+                  cursor: 'pointer',
+                  backgroundColor: 'var(--surface-container, rgba(128,128,128,0.15))',
+                  color: 'var(--text-main, #ffffff)',
+                  border: 'none',
+                }}
               >
                 <ChevronDown size={14} className="rotate-180" />
               </button>
@@ -7393,7 +7415,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                       {activeChat.onlineCount && activeChat.onlineCount > 0
                         ? t('groupSettings.members_and_online', {
                             count: activeChat.membersCount || activeChat.members?.length || 1,
-                            online: activeChat.onlineCount,
+                            online: Math.min(activeChat.membersCount || activeChat.members?.length || 1, activeChat.onlineCount),
                           })
                         : t('groupSettings.members_count', {
                             count: activeChat.membersCount || activeChat.members?.length || 1,

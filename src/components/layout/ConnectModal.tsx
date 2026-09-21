@@ -320,10 +320,11 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
           transition={{ duration: 0.15, ease: 'easeOut' }}
           className="w-full max-w-[360px] rounded-[8px] p-5 shadow-2xl overflow-hidden relative"
           style={{
-            backgroundColor: 'color-mix(in srgb, var(--bg-secondary, #1e1b2e) 96%, #000)',
+            backgroundColor: 'var(--settings-bg, var(--bg-secondary, #1e1b2e))',
+            color: 'var(--text-main)',
             borderRadius: '8px',
             border: 'none',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)',
             minHeight: '175px',
           }}
           onClick={(e) => e.stopPropagation()}
@@ -389,8 +390,9 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                     onClose();
                   }
                 }}
-                className="w-full bg-transparent outline-none text-[15px] text-[var(--text-main, #ffffff)] pt-4 pb-1 transition-colors"
+                className="w-full bg-transparent outline-none text-[15px] pt-4 pb-1 transition-colors"
                 style={{
+                  color: 'var(--text-main)',
                   border: 'none',
                   borderRadius: 0,
                   boxSizing: 'border-box',
@@ -399,7 +401,7 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                     ? '#ef4444'
                     : isFocused
                     ? 'var(--accent-color, #7C3AED)'
-                    : 'var(--border-color, rgba(255, 255, 255, 0.15))',
+                    : 'var(--border-color, rgba(128, 128, 128, 0.2))',
                 }}
                 autoFocus
               />
@@ -414,11 +416,12 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                 onChange={(e) => setDescriptionValue(e.target.value)}
                 placeholder={type === 'group' ? t('groupSettings.group_desc', 'Описание группы') : t('channel.description_optional', 'Описание (необязательно)')}
                 aria-label={type === 'group' ? t('groupSettings.group_desc', 'Описание группы') : t('channel.description_optional', 'Описание (необязательно)')}
-                className="w-full bg-transparent outline-none text-[13.5px] text-[var(--text-main, #ffffff)] placeholder:text-[var(--text-dim, #9ca3af)] py-1.5 transition-colors"
+                className="w-full bg-transparent outline-none text-[13.5px] py-1.5 transition-colors"
                 style={{
+                  color: 'var(--text-main)',
                   border: 'none',
                   borderRadius: 0,
-                  borderBottom: '1px solid var(--border-color, rgba(255, 255, 255, 0.15))',
+                  borderBottom: '1px solid var(--border-color, rgba(128, 128, 128, 0.2))',
                 }}
               />
             </div>

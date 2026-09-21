@@ -495,9 +495,11 @@ blockquote {
   transform-origin: center;
 }
 
-/* ===== Placeholder для поля ввода (textarea) ===== */
+input::placeholder,
+textarea::placeholder,
 .input-textarea::placeholder {
-  color: var(--text-dim);
+  color: var(--text-dim) !important;
+  opacity: 0.7;
 }
 
 .transparent-scrollbar,

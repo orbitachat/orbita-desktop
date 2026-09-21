@@ -1,11 +1,12 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useChatStore, isMessageOutgoing } from '../../store/useChatStore';
 import { useCallStore } from '../../store/useCallStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Avatar } from '../common/Avatar';
+import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 
 interface CallsModalProps {
   isOpen: boolean;
@@ -20,10 +21,22 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
   const myCode = useChatStore((s) => s.myCode);
   const startCall = useCallStore((s) => s.startCall);
   const myNickname = useAuthStore((s) => s.nickname) || 'YOU';
-  const myUserId = useAuthStore((s) => s.userId);
 
   const innerContentRef = useRef<HTMLDivElement>(null);
-  const [targetHeight, setTargetHeight] = useState<number | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+  const callsScrollRef = useRef<HTMLDivElement>(null);
+
+  const [targetHeight, setTargetHeight] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      return Math.min(window.innerHeight * 0.85, 720);
+    }
+    return 720;
+  });
+
+  const [callsThumb, setCallsThumb] = useState<{ top: number; height: number } | null>(null);
+  const [isCallsActive, setIsCallsActive] = useState(false);
+  const callsActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isMobileWidth, setIsMobileWidth] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 680 : false
@@ -98,24 +111,30 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
       status: string;
     }> = [];
 
-    Object.entries(messagesByChatId).forEach(([chatId, messages]) => {
-      const chat = chats.find((c) => c.id === chatId);
+    const activeChatsMap = new Map(chats.map((c) => [c.id, c]));
+
+    Object.entries(messagesByChatId).forEach(([chatId, msgs]) => {
+      const chat = activeChatsMap.get(chatId);
       if (!chat) return;
-      messages.forEach((m) => {
-        if (m.mediaType === 'call') {
-          const isOutgoing = isMessageOutgoing(m, myCode, myNickname, chat, myUserId);
-          const status = m.mediaName || 'completed';
-          list.push({
-            id: m.id || `call_${m.time}`,
-            chatId,
-            chatName: chat.name,
-            avatarUrl: chat.avatarUrl,
-            time: m.time,
-            timeFormatted: formatCallDate(m.time),
-            isOutgoing,
-            status,
-          });
+
+      msgs.forEach((msg) => {
+        if (msg.mediaType !== 'call' && !msg.text?.startsWith('[Call]')) {
+          return;
         }
+
+        const isOutgoing = isMessageOutgoing(msg, myCode, myNickname, chat);
+        const status = msg.mediaName || 'completed';
+
+        list.push({
+          id: msg.id || `${chat.id}_${msg.time}`,
+          chatId: chat.id,
+          chatName: chat.name,
+          avatarUrl: chat.avatarUrl,
+          time: msg.time,
+          timeFormatted: formatCallDate(msg.time),
+          isOutgoing,
+          status,
+        });
       });
     });
 
@@ -127,13 +146,62 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
     return chats.filter((c) => c.id !== 'notes' && c.type !== 'channel');
   }, [chats]);
 
+  const updateCallsThumb = useCallback(() => {
+    const el = callsScrollRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollHeight <= clientHeight + 4) {
+      setCallsThumb(null);
+      return;
+    }
+    const trackHeight = clientHeight - 12;
+    const thumbHeight = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
+    const maxTop = trackHeight - thumbHeight;
+    const scrollableDistance = scrollHeight - clientHeight;
+    const ratio = scrollableDistance > 0 ? scrollTop / scrollableDistance : 0;
+    setCallsThumb({ top: maxTop * ratio, height: thumbHeight });
+  }, []);
+
+  const triggerCallsActive = useCallback(() => {
+    updateCallsThumb();
+    const el = callsScrollRef.current;
+    if (el && el.scrollHeight > el.clientHeight + 4) {
+      setIsCallsActive(true);
+      if (callsActiveTimerRef.current) clearTimeout(callsActiveTimerRef.current);
+      callsActiveTimerRef.current = setTimeout(() => {
+        setIsCallsActive(false);
+      }, 1000);
+    } else {
+      setIsCallsActive(false);
+    }
+  }, [updateCallsThumb]);
+
+  const handleCallsMouseLeave = useCallback(() => {
+    if (callsActiveTimerRef.current) clearTimeout(callsActiveTimerRef.current);
+    setIsCallsActive(false);
+  }, []);
+
+  useEffect(() => {
+    updateCallsThumb();
+  }, [callHistory.length, contacts.length, updateCallsThumb]);
+
+  useEffect(() => {
+    const el = callsScrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => updateCallsThumb());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [updateCallsThumb]);
+
   useEffect(() => {
     if (isMobileWidth || !isOpen) return;
 
     const measure = () => {
       if (innerContentRef.current) {
         const contentH = innerContentRef.current.offsetHeight || innerContentRef.current.scrollHeight;
-        const measured = Math.ceil(contentH) + 53 + 49;
+        const headerH = headerRef.current?.offsetHeight || 56;
+        const footerH = footerRef.current?.offsetHeight || 52;
+        const measured = Math.ceil(contentH) + headerH + footerH;
         if (measured > 0) {
           setTargetHeight(measured);
         }
@@ -170,131 +238,143 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <div
-        className="fixed inset-0 z-[200]"
+    <motion.div
+      key="calls-backdrop"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 200,
+        display: isMobileWidth ? 'block' : 'flex',
+        alignItems: isMobileWidth ? 'stretch' : 'flex-start',
+        justifyContent: isMobileWidth ? 'stretch' : 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        border: 'none',
+        padding: isMobileWidth ? '0' : 'min(7.5vh, 64px) 16px 16px',
+        userSelect: 'none',
+      }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{
+          opacity: 1,
+          scale: 1,
+          height: isMobileWidth ? 'calc(100vh - 30px)' : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
+        }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          height: isMobileWidth
+            ? 'calc(100vh - 30px)'
+            : targetHeight !== null
+            ? Math.min(targetHeight, typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900)
+            : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
+        }}
+        transition={{
+          height: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
+          opacity: { duration: 0 },
+          scale: { duration: 0 },
+        }}
+        onClick={(e) => e.stopPropagation()}
         style={{
-          display: isMobileWidth ? 'block' : 'flex',
-          alignItems: isMobileWidth ? 'stretch' : 'flex-start',
-          justifyContent: isMobileWidth ? 'stretch' : 'center',
-          padding: isMobileWidth ? '0' : 'min(7.5vh, 64px) 16px 16px',
-          userSelect: 'none',
+          position: 'relative',
+          width: '100%',
+          maxWidth: isMobileWidth ? '100vw' : '400px',
+          maxHeight: isMobileWidth ? 'calc(100vh - 30px)' : 'min(90vh, 900px)',
+          display: 'flex',
+          flexDirection: 'column',
+          margin: isMobileWidth ? '0' : '0 16px',
+          marginTop: isMobileWidth ? '30px' : '0',
+          backgroundColor: 'var(--settings-bg, var(--bg-secondary, #211d2f))',
+          borderRadius: isMobileWidth ? 0 : 10,
+          color: 'var(--text-main, #ffffff)',
+          boxShadow: isMobileWidth ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
+          overflow: 'hidden',
         }}
       >
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          onClick={onClose}
-          className="fixed inset-0"
+        <div
+          ref={headerRef}
           style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.55)',
-            backdropFilter: 'none',
-            WebkitBackdropFilter: 'none',
-          }}
-        />
-
-        <motion.div
-          initial={{
-            opacity: 0,
-            scale: 0.95,
-            y: 10,
-            height: isMobileWidth ? 'calc(100vh - 30px)' : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
-          }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            height: isMobileWidth
-              ? 'calc(100vh - 30px)'
-              : targetHeight !== null
-              ? Math.min(targetHeight, typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900)
-              : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
-          }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          transition={{
-            height: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
-            opacity: { duration: 0.18 },
-            scale: { duration: 0.18 },
-          }}
-          onClick={(e) => e.stopPropagation()}
-          className="relative z-10 flex flex-col overflow-hidden no-scrollbar"
-          style={{
-            width: '100%',
-            maxWidth: isMobileWidth ? '100vw' : '380px',
-            maxHeight: isMobileWidth ? 'calc(100vh - 30px)' : 'min(90vh, 900px)',
-            margin: isMobileWidth ? '0' : '0 16px',
-            marginTop: isMobileWidth ? '30px' : '0',
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            padding: '16px 20px',
             backgroundColor: 'var(--settings-bg, var(--bg-secondary, #211d2f))',
-            borderRadius: isMobileWidth ? 0 : 10,
-            color: 'var(--text-main, #ffffff)',
-            boxShadow: isMobileWidth ? 'none' : '0 20px 60px rgba(0,0,0,0.5)',
-            border: 'none',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+            boxSizing: 'border-box',
+            borderBottom: 'none',
           }}
         >
-          <div
+          <h2
             style={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
-              padding: '16px 20px',
-              backgroundColor: 'var(--settings-bg, var(--bg-secondary, #211d2f))',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              boxSizing: 'border-box',
-              borderBottom: 'none',
+              fontSize: 18,
+              fontWeight: 700,
+              color: 'var(--text-main, #ffffff)',
+              margin: 0,
+              userSelect: 'none',
             }}
           >
-            <h2
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: 'var(--text-main, #ffffff)',
-                margin: 0,
-                userSelect: 'none',
-              }}
-            >
-              {t('callsModal.title', 'Звонки')}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('common.close', 'Закрыть')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-dim, #9f96b3)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                outline: 'none',
-                transition: 'color 150ms',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, #9f96b3)')}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
-                <path
-                  fill="currentColor"
-                  d="M6.225 4.811a1 1 0 0 0-1.414 1.414L10.586 12L4.81 17.775a1 1 0 1 0 1.414 1.414L12 13.414l5.775 5.775a1 1 0 0 0 1.414-1.414L13.414 12l5.775-5.775a1 1 0 0 0-1.414-1.414L12 10.586z"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <div
-            className="custom-chat-scrollbar flex-1 flex flex-col"
+            {t('callsModal.title', 'Звонки')}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('common.close', 'Закрыть')}
             style={{
-              padding: '0',
-              overflowY: 'overlay' as any,
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-dim, #9f96b3)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              outline: 'none',
+              transition: 'color 150ms',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, #9f96b3)')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+              <path
+                fill="currentColor"
+                d="M6.225 4.811a1 1 0 0 0-1.414 1.414L10.586 12L4.81 17.775a1 1 0 1 0 1.414 1.414L12 13.414l5.775 5.775a1 1 0 0 0 1.414-1.414L13.414 12l5.775-5.775a1 1 0 0 0-1.414-1.414L12 10.586z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+          onMouseMove={triggerCallsActive}
+          onMouseEnter={triggerCallsActive}
+          onMouseLeave={handleCallsMouseLeave}
+        >
+          <div
+            ref={callsScrollRef}
+            onScroll={triggerCallsActive}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
               overflowX: 'hidden',
             }}
+            className="chat-list-scrollbar select-none"
           >
             <div ref={innerContentRef} style={{ width: '100%', minWidth: '100%', display: 'flex', flexDirection: 'column' }}>
               {callHistory.length > 0 ? (
@@ -304,12 +384,25 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
                     <div
                       key={item.id}
                       onClick={() => handleSelectContact(item.chatId)}
-                      className="w-full flex items-center justify-between px-5 py-[7px] text-left transition-colors hover:bg-[var(--surface-container-strong)] cursor-pointer text-[var(--text-main)] rounded-none"
+                      className="group relative cursor-pointer"
                       style={{
                         borderRadius: 0,
+                        width: '100%',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        padding: '8px 16px',
+                        minHeight: 48,
                         boxSizing: 'border-box',
-                        width: 'calc(100% + var(--scrollbar-w, 10px))',
-                        marginRight: 'calc(var(--scrollbar-w, 10px) * -1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        transition: 'background-color 0.12s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--surface-container-soft, rgba(255, 255, 255, 0.04))';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -377,12 +470,25 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
                   <div
                     key={chat.id}
                     onClick={() => handleSelectContact(chat.id)}
-                    className="w-full flex items-center justify-between px-5 py-[7px] text-left transition-colors hover:bg-[var(--surface-container-strong)] cursor-pointer text-[var(--text-main)] rounded-none"
+                    className="group relative cursor-pointer"
                     style={{
                       borderRadius: 0,
+                      width: '100%',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      padding: '8px 16px',
+                      minHeight: 48,
                       boxSizing: 'border-box',
-                      width: 'calc(100% + var(--scrollbar-w, 10px))',
-                      marginRight: 'calc(var(--scrollbar-w, 10px) * -1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'background-color 0.12s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--surface-container-soft, rgba(255, 255, 255, 0.04))';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
                     <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -453,36 +559,60 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          <div
+          {callsThumb && (
+            <>
+              <div
+                className="overlay-scroll-track"
+                onMouseDown={(e) => handleScrollbarTrackMouseDown(e, callsScrollRef.current)}
+                style={{
+                  top: '6px',
+                  bottom: '6px',
+                  opacity: isCallsActive ? 1 : 0,
+                }}
+              />
+              <div
+                className="overlay-scroll-thumb"
+                onMouseDown={(e) => handleScrollbarThumbMouseDown(e, callsScrollRef.current)}
+                style={{
+                  top: callsThumb.top + 6,
+                  height: callsThumb.height,
+                  opacity: isCallsActive ? 1 : 0,
+                }}
+              />
+            </>
+          )}
+        </div>
+
+        <div
+          ref={footerRef}
+          style={{
+            padding: '10px 20px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            backgroundColor: 'var(--settings-bg, var(--bg-secondary, #211d2f))',
+            borderTop: 'none',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('common.close', 'Закрыть')}
             style={{
-              padding: '10px 20px',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              backgroundColor: 'var(--settings-bg, var(--bg-secondary, #211d2f))',
-              borderTop: 'none',
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-color, #9b7dd4)',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 600,
+              padding: '6px 12px',
+              borderRadius: '8px',
+              outline: 'none',
             }}
           >
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('common.close', 'Закрыть')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--accent-color, #9b7dd4)',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 600,
-                padding: '6px 12px',
-                borderRadius: '8px',
-                outline: 'none',
-              }}
-            >
-              {t('common.close', 'Закрыть')}
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+            {t('common.close', 'Закрыть')}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };

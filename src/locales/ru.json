@@ -869,6 +869,7 @@
       "expire_1h": "1 час",
       "expire_24h": "24 часа",
       "expire_7d": "7 дней",
+      "leave": "Покинуть",
       "leave_group": "Покинуть группу",
       "leave_group_confirm": "Вы уверены, что хотите покинуть группу?",
       "leave_group_confirm_title": "Покинуть группу?",

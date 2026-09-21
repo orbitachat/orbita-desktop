@@ -859,6 +859,7 @@
       "expire_1h": "1 hour",
       "expire_24h": "24 hours",
       "expire_7d": "7 days",
+      "leave": "Leave",
       "leave_group": "Leave group",
       "leave_group_confirm": "Are you sure you want to leave the group?",
       "leave_group_confirm_title": "Leave group?",

@@ -1104,7 +1104,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
   useEffect(() => {
     if (!chat || chat.type !== 'group') return;
-    groupService.getGroup(chat.inviteCode || chat.id).then((info) => {
+    groupService.getGroup(chat.id).then((info) => {
       if (info) {
         const current = useChatStore.getState().chats.find((c) => c.id === chat.id);
         const currentUserId = useAuthStore.getState().userId;
@@ -1737,9 +1737,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     : chat.type === 'channel'
       ? formatSubscribers(chat.subscribersCount || 0)
       : chat.type === 'group'
-        ? (chat.onlineCount && chat.onlineCount > 0
-            ? t('groupSettings.members_and_online', { count: chat.membersCount || chat.members?.length || 1, online: chat.onlineCount })
-            : t('groupSettings.members_count', { count: chat.membersCount || chat.members?.length || 1 }))
+        ? (() => {
+            const total = chat.members?.length || chat.membersCount || 1;
+            const online = Math.min(total, Math.max(1, chat.onlineCount || 1));
+            return t('groupSettings.members_and_online', { count: total, online });
+          })()
         : chat.online
           ? t('userStatus.online')
           : formatLastSeen(chat.lastSeen, t);
@@ -2136,71 +2138,74 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         </button>
 
         {isGroup ? (
-          <>
-            <button
-              onClick={handleCallClick}
-              disabled={!voiceCallsEnabled}
-              aria-label={t('profile.call')}
-              style={{
-                flex: '1 1 0',
-                minWidth: '60px',
-                maxWidth: '80px',
-                height: '56px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                background: 'var(--surface-container, #282828)',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '0',
-                color: 'var(--text-main)',
-                cursor: !voiceCallsEnabled ? 'not-allowed' : 'pointer',
-                opacity: !voiceCallsEnabled ? 0.4 : 1,
-                outline: 'none',
-              }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 42 42" fill="var(--text-dim, #8e8e93)">
-                <path d="M15.562 20.766c-1.328-1.922-2.118-4.241-2.281-4.438c1.945-1.356 5.749-3.06 5.962-5.505c.271-3.159-5.081-9.763-6.107-9.823c-2.808.03-7.947 4.782-8.556 6.218c-1.132 2.969-.571 5.732 1.375 9.732c2.478 5.95 11.682 17.237 16.947 20.78c3.484 2.674 6.029 3.724 9.068 3.09c1.413-.268 6.516-4.455 7.027-7.286c.125-1.05-5.807-8.011-8.875-8.287c-2.382-.22-4.666 3.346-6.303 5.089c-.163-.208-1.559-1.297-3.057-3.021c-1.95-2.049-3.762-4.456-5.2-6.549" />
-              </svg>
-              <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.call')}</span>
-            </button>
+          isGroupAdmin ? (
+            <>
+              <button
+                onClick={() => {
+                  setGroupModalMode(isGroupOwner ? 'delete' : 'leave');
+                  setIsDeleteGroupModalOpen(true);
+                }}
+                aria-label={t('common.delete', 'Удалить')}
+                style={{
+                  flex: '1 1 0',
+                  minWidth: '60px',
+                  maxWidth: '80px',
+                  height: '56px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  background: 'var(--surface-container, #282828)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '0',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <Trash2 size={20} style={{ color: 'var(--text-dim, #8e8e93)' }} />
+                <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('common.delete', 'Удалить')}</span>
+              </button>
 
-            <button
-              onClick={() => setIsAddMemberModalOpen(true)}
-              aria-label={t('groupSettings.add_member', 'Добавить участника')}
-              style={{
-                flex: '1 1 0',
-                minWidth: '60px',
-                maxWidth: '80px',
-                height: '56px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                background: 'var(--surface-container, #282828)',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '0',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                outline: 'none',
-              }}
-            >
-              <UserPlus size={20} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
-              <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('common.add', 'Добавить')}</span>
-            </button>
-
+              <button
+                onClick={handleCallClick}
+                disabled={!voiceCallsEnabled}
+                aria-label={t('profile.call')}
+                style={{
+                  flex: '1 1 0',
+                  minWidth: '60px',
+                  maxWidth: '80px',
+                  height: '56px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  background: 'var(--surface-container, #282828)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '0',
+                  color: 'var(--text-main)',
+                  cursor: !voiceCallsEnabled ? 'not-allowed' : 'pointer',
+                  opacity: !voiceCallsEnabled ? 0.4 : 1,
+                  outline: 'none',
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 42 42" fill="var(--text-dim, #8e8e93)">
+                  <path d="M15.562 20.766c-1.328-1.922-2.118-4.241-2.281-4.438c1.945-1.356 5.749-3.06 5.962-5.505c.271-3.159-5.081-9.763-6.107-9.823c-2.808.03-7.947 4.782-8.556 6.218c-1.132 2.969-.571 5.732 1.375 9.732c2.478 5.95 11.682 17.237 16.947 20.78c3.484 2.674 6.029 3.724 9.068 3.09c1.413-.268 6.516-4.455 7.027-7.286c.125-1.05-5.807-8.011-8.875-8.287c-2.382-.22-4.666 3.346-6.303 5.089c-.163-.208-1.559-1.297-3.057-3.021c-1.95-2.049-3.762-4.456-5.2-6.549" />
+                </svg>
+                <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('profile.call')}</span>
+              </button>
+            </>
+          ) : (
             <button
               onClick={() => {
-                const link = buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl);
-                navigator.clipboard.writeText(link);
-                setCopiedKey(true);
-                setTimeout(() => setCopiedKey(false), 2000);
+                setGroupModalMode('leave');
+                setIsDeleteGroupModalOpen(true);
               }}
-              aria-label={t('groupSettings.copy_link', 'Скопировать ссылку')}
+              aria-label={t('groupSettings.leave', 'Покинуть')}
               style={{
                 flex: '1 1 0',
                 minWidth: '60px',
@@ -2220,16 +2225,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 outline: 'none',
               }}
             >
-              {copiedKey ? (
-                <Check size={20} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
-              ) : (
-                <Copy size={20} style={{ color: 'var(--text-dim, #8e8e93)' }} />
-              )}
-              <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>
-                {copiedKey ? t('profile.copied', 'Скопирован') : t('groupSettings.invite_link', 'Ссылка')}
-              </span>
+              <LogOut size={20} style={{ color: 'var(--text-dim, #8e8e93)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 500, lineHeight: 1.2 }}>{t('groupSettings.leave', 'Покинуть')}</span>
             </button>
-          </>
+          )
         ) : isChannel ? (
           <button
             onClick={handleCopyChannelKey}
@@ -2476,13 +2475,13 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       aria-label={chat.inviteActive === false ? t('groupSettings.open_link', 'Открыть доступ') : t('groupSettings.close_link', 'Закрыть доступ')}
                       onClick={async (e) => {
                         e.stopPropagation();
-                        if (chat.inviteActive === false) {
+                        const newActive = chat.inviteActive === false;
+                        if (newActive) {
                           await groupService.enableInviteLink(chat.id);
-                          useChatStore.getState().updateChat(chat.id, { inviteActive: true });
                         } else {
                           await groupService.revokeInviteLink(chat.id);
-                          useChatStore.getState().updateChat(chat.id, { inviteActive: false });
                         }
+                        useChatStore.getState().updateChat(chat.id, { inviteActive: newActive });
                       }}
                       style={{
                         padding: '6px 10px',
@@ -2655,9 +2654,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
                 {t('groupSettings.participants', 'Участники')}
               </span>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-dim)' }}>
-                {chat.members?.length || 1} / 10
-              </span>
             </div>
             {isGroupAdmin && (chat.members?.length || 1) < 10 && (
               <button
@@ -2729,50 +2725,48 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       className="w-9 h-9 rounded-full flex-shrink-0"
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="truncate" style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
-                          {member.nickname}
-                        </span>
-                        {isMemberOwner ? (
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              padding: '1px 6px',
-                              borderRadius: '4px',
-                              backgroundColor: 'rgba(155, 125, 212, 0.2)',
-                              color: 'var(--accent-color, #9b7dd4)',
-                              letterSpacing: '0.04em',
-                            }}
-                          >
-                            {t('groupSettings.owner', 'Владелец')}
-                          </span>
-                        ) : isMemberAdmin ? (
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              padding: '1px 6px',
-                              borderRadius: '4px',
-                              backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                              color: '#60a5fa',
-                              letterSpacing: '0.04em',
-                            }}
-                          >
-                            {t('groupSettings.admin', 'Админ')}
-                          </span>
-                        ) : null}
-                      </div>
+                      <span className="truncate" style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
+                        {member.nickname}
+                      </span>
                       <span style={{ fontSize: '11px', color: isMemberOnline ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim)' }}>
                         {isMemberOnline ? t('userStatus.online', 'в сети') : (member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно'))}
                       </span>
                     </div>
                   </div>
 
-                  {isGroupAdmin && !isMemberOwner && !isSelf && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: 'auto' }}>
+                    {isMemberOwner ? (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          padding: '2px 8px',
+                          borderRadius: '9999px',
+                          backgroundColor: 'rgba(155, 125, 212, 0.18)',
+                          color: 'var(--accent-color, #9b7dd4)',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {t('groupSettings.owner', 'владелец').toLowerCase()}
+                      </span>
+                    ) : isMemberAdmin ? (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          padding: '2px 8px',
+                          borderRadius: '9999px',
+                          backgroundColor: 'rgba(59, 130, 246, 0.18)',
+                          color: '#60a5fa',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {t('groupSettings.admin', 'админ').toLowerCase()}
+                      </span>
+                    ) : null}
+
+                    {isGroupAdmin && !isMemberOwner && !isSelf && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {isGroupOwner && (
                         <button
                           type="button"
@@ -2838,6 +2832,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}
@@ -2845,7 +2840,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         </div>
       )}
 
-      {isGroup && (
+      {isGroup && isGroupOwner && (
         <div
           style={{
             width: '100%',
@@ -2854,65 +2849,34 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             boxSizing: 'border-box',
           }}
         >
-          {isGroupOwner ? (
-            <button
-              type="button"
-              onClick={() => {
-                setGroupModalMode('delete');
-                setIsDeleteGroupModalOpen(true);
-              }}
-              aria-label={t('groupSettings.delete_group', 'Удалить группу')}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-                color: '#f87171',
-                fontSize: '13.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'background 0.15s',
-              }}
-              className="hover:bg-red-500/20"
-            >
-              <Trash2 size={16} />
-              <span>{t('groupSettings.delete_group', 'Удалить группу')}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setGroupModalMode('leave');
-                setIsDeleteGroupModalOpen(true);
-              }}
-              aria-label={t('groupSettings.leave_group', 'Покинуть группу')}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-                color: '#f87171',
-                fontSize: '13.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'background 0.15s',
-              }}
-              className="hover:bg-red-500/20"
-            >
-              <LogOut size={16} />
-              <span>{t('groupSettings.leave_group', 'Покинуть группу')}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setGroupModalMode('delete');
+              setIsDeleteGroupModalOpen(true);
+            }}
+            aria-label={t('groupSettings.delete_group', 'Удалить группу')}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: '#f87171',
+              fontSize: '13.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'background 0.15s',
+            }}
+            className="hover:bg-red-500/20"
+          >
+            <Trash2 size={16} />
+            <span>{t('groupSettings.delete_group', 'Удалить группу')}</span>
+          </button>
         </div>
       )}
 

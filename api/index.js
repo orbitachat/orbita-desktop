@@ -1986,6 +1986,11 @@ module.exports = async function handler(req, res) {
 
           await supabase.from('groups').update(updateData).eq('id', groupId);
 
+          let meta = {};
+          if (typeof updateData.creator_id === 'string' && updateData.creator_id.startsWith('{')) {
+            try { meta = JSON.parse(updateData.creator_id); } catch {}
+          }
+
           await triggerGroupPusherEvent(`presence-group-${groupId}`, 'group-updated', {
             groupId,
             name: updateData.name,
@@ -2175,19 +2180,77 @@ module.exports = async function handler(req, res) {
       if (!groupId) {
         return sendError(res, 'Missing groupId', 400);
       }
-      const readPayload = {
-        type: 'read',
-        groupId,
-        messageId,
-        readIds: readIds || (messageId ? [messageId] : []),
-        time: time || Date.now(),
-        sender,
-        senderUserId,
-        senderCode,
-        senderId: senderUserId || senderCode,
-      };
-      await triggerGroupPusherEvent(`presence-group-${groupId}`, 'client-message', readPayload);
-      return sendJson(res, { status: 'ok' });
+      const idsToCheck = Array.from(new Set((readIds || (messageId ? [messageId] : [])).filter(Boolean)));
+      const supabase = getGroupsSupabaseClient();
+      let fullyReadIds = [];
+
+      if (supabase && idsToCheck.length > 0) {
+        try {
+          const { data: members } = await supabase
+            .from('group_members')
+            .select('user_code, user_id, nickname')
+            .eq('group_id', groupId);
+
+          const totalMembers = members || [];
+          const readerIds = [senderUserId, senderCode, sender].filter(Boolean);
+
+          for (const mId of idsToCheck) {
+            const { data: msg } = await supabase
+              .from('group_messages')
+              .select('id, sender_code, sender_id, sender_nickname, reactions')
+              .eq('id', mId)
+              .maybeSingle();
+
+            if (!msg) {
+              fullyReadIds.push(mId);
+              continue;
+            }
+
+            const isSender = (m) => {
+              if (msg.sender_id && (m.user_id === msg.sender_id || m.user_code === msg.sender_id)) return true;
+              if (msg.sender_code && (m.user_code === msg.sender_code || m.user_id === msg.sender_code)) return true;
+              return m.nickname === msg.sender_nickname;
+            };
+
+            const otherMembers = totalMembers.filter((m) => !isSender(m));
+            const existingReads = Array.isArray(msg.reactions?._read_by) ? msg.reactions._read_by : [];
+            const updatedReads = Array.from(new Set([...existingReads, ...readerIds]));
+
+            const allRead = otherMembers.length === 0 || otherMembers.every((m) =>
+              updatedReads.some((r) => r === m.user_id || r === m.user_code || r === m.nickname)
+            );
+
+            if (allRead) {
+              await supabase.from('group_messages').delete().eq('id', mId);
+              fullyReadIds.push(mId);
+            } else {
+              await supabase
+                .from('group_messages')
+                .update({ reactions: { ...(msg.reactions || {}), _read_by: updatedReads } })
+                .eq('id', mId);
+            }
+          }
+        } catch (err) {
+          console.error('[groups/read] error processing reads:', err);
+        }
+      }
+
+      if (fullyReadIds.length > 0) {
+        const readPayload = {
+          type: 'read',
+          groupId,
+          messageId: fullyReadIds[fullyReadIds.length - 1],
+          readIds: fullyReadIds,
+          time: time || Date.now(),
+          sender,
+          senderUserId,
+          senderCode,
+          senderId: senderUserId || senderCode,
+        };
+        await triggerGroupPusherEvent(`presence-group-${groupId}`, 'client-message', readPayload);
+      }
+
+      return sendJson(res, { status: 'ok', fullyReadIds });
     }
 
     if (pathname === '/groups/calls/active' && req.method === 'GET') {

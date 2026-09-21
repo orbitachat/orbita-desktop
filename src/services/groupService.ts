@@ -404,6 +404,11 @@ class GroupService {
         creator_id: JSON.stringify(meta),
         updated_at: nowIso,
       }).eq('id', groupId);
+      fetch(`${this.getWorkerUrl()}/groups/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, inviteActive: false }),
+      }).catch(() => {});
       return true;
     } catch {
       return false;
@@ -422,6 +427,11 @@ class GroupService {
         creator_id: JSON.stringify(meta),
         updated_at: nowIso,
       }).eq('id', groupId);
+      fetch(`${this.getWorkerUrl()}/groups/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, inviteActive: true }),
+      }).catch(() => {});
       return true;
     } catch {
       return false;
@@ -440,6 +450,11 @@ class GroupService {
         creator_id: JSON.stringify(meta),
         updated_at: nowIso,
       }).eq('id', groupId);
+      fetch(`${this.getWorkerUrl()}/groups/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, inviteExpiresAt: expiresAt }),
+      }).catch(() => {});
       return true;
     } catch {
       return false;
