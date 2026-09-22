@@ -21,7 +21,7 @@ YMMMUP^
 
   Десктопный клиент мессенджера Orbita со сквозным шифрованием и низкой задержкой.
 
-  [![License](https://img.shields.io/github/license/orbitachat/orbita-desktop?style=flat-square)](LICENSE)
+  [![License](https://img.shields.io/badge/License-GPL_3.0-blue.svg?style=flat-square)](LICENSE)
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
   [![Rust](https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
   [![Electron](https://img.shields.io/badge/Electron-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
@@ -106,4 +106,4 @@ orbita-desktop/
 
 ## Лицензия
 
-Исходный код доступен для ознакомления и аудита безопасности. Копирование, распространение и коммерческое использование без письменного разрешения автора запрещены. Условия приведены в файле [LICENSE](LICENSE).
+Исходный код распространяется под лицензией GNU General Public License v3.0 (GPLv3). Полный текст условий доступен в файле [LICENSE](LICENSE).
