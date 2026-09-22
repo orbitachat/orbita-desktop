@@ -98,23 +98,46 @@ const GroupParticipantTile = React.memo(({
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (hasScreenShare) {
-      const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
-      if (sTrack) {
-        sTrack.attach(el);
-        return () => {
-          try { sTrack.detach(el); } catch {}
-        };
+    const attach = () => {
+      if (hasScreenShare) {
+        const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
+        if (sTrack) {
+          sTrack.attach(el);
+          try { el.play().catch(() => {}); } catch {}
+          return;
+        }
       }
-    } else if (hasCamera) {
-      const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
-      if (vTrack) {
-        vTrack.attach(el);
-        return () => {
-          try { vTrack.detach(el); } catch {}
-        };
+      if (hasCamera) {
+        const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
+        if (vTrack) {
+          vTrack.attach(el);
+          try { el.play().catch(() => {}); } catch {}
+          return;
+        }
       }
-    }
+    };
+    attach();
+    liveKitService.on('trackSubscribed', attach);
+    liveKitService.on('trackUnsubscribed', attach);
+    liveKitService.on('cameraChanged', attach);
+    liveKitService.on('screenShareChanged', attach);
+    liveKitService.on('remoteScreenShareChanged', attach);
+    return () => {
+      liveKitService.off('trackSubscribed', attach);
+      liveKitService.off('trackUnsubscribed', attach);
+      liveKitService.off('cameraChanged', attach);
+      liveKitService.off('screenShareChanged', attach);
+      liveKitService.off('remoteScreenShareChanged', attach);
+      try {
+        if (hasScreenShare) {
+          const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
+          sTrack?.detach(el);
+        } else if (hasCamera) {
+          const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
+          vTrack?.detach(el);
+        }
+      } catch {}
+    };
   }, [hasScreenShare, hasCamera, isLocal, participant.identity]);
 
   return (
@@ -540,12 +563,18 @@ export const CallWindowView = () => {
     liveKitService.on('trackUnsubscribed', updateList);
     liveKitService.on('trackMuted', updateList);
     liveKitService.on('trackUnmuted', updateList);
+    liveKitService.on('cameraChanged', updateList);
+    liveKitService.on('screenShareChanged', updateList);
+    liveKitService.on('remoteScreenShareChanged', updateList);
     return () => {
       liveKitService.off('participantsChanged', updateList);
       liveKitService.off('trackSubscribed', updateList);
       liveKitService.off('trackUnsubscribed', updateList);
       liveKitService.off('trackMuted', updateList);
       liveKitService.off('trackUnmuted', updateList);
+      liveKitService.off('cameraChanged', updateList);
+      liveKitService.off('screenShareChanged', updateList);
+      liveKitService.off('remoteScreenShareChanged', updateList);
     };
   }, [isConnected, isGroupCall]);
 
@@ -599,6 +628,7 @@ export const CallWindowView = () => {
     try {
       await liveKitService.stopScreenShare();
     } catch {}
+    const remainingRemotes = liveKitService.remoteParticipants.length;
     try {
       await liveKitService.disconnect();
     } catch {}
@@ -610,7 +640,7 @@ export const CallWindowView = () => {
     setIsScreenPickerOpen(false);
     setLocalDuration(0);
     setCallData(null);
-    sendAction(action);
+    sendAction(action, { remainingRemotes });
     if (action === 'cancelCall' || action === 'rejectCall') {
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
     }
@@ -1042,7 +1072,7 @@ export const CallWindowView = () => {
         )}
       </div>
 
-      {isLocalVideoActive && (
+      {!isGroupCall && isLocalVideoActive && (
         <div className="absolute top-12 right-5 z-40 w-32 h-44 sm:w-36 sm:h-48 rounded-2xl overflow-hidden shadow-2xl bg-black/70 border-0 select-none">
           <video
             ref={attachLocalVideo}

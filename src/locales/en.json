@@ -1312,6 +1312,7 @@
       "promoted_admin": "{{actor}} promoted {{target}} to admin",
       "demoted_admin": "{{actor}} removed {{target}} from admin",
       "call_started": "{{actor}} started a voice chat",
+      "call_ended": "Voice call ended",
       "member_removed": "{{actor}} removed {{target}} from the group"
     }
   }

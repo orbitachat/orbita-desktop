@@ -1322,6 +1322,7 @@
       "promoted_admin": "{{actor}} назначил(а) {{target}} администратором",
       "demoted_admin": "{{actor}} снял(а) {{target}} с администратора",
       "call_started": "{{actor}} начал(а) голосовой чат",
+      "call_ended": "Голосовой звонок завершен",
       "member_removed": "{{actor}} удалил(а) {{target}} из группы"
     }
   }

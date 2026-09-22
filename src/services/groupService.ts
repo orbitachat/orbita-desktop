@@ -702,7 +702,7 @@ class GroupService {
   async sendSystemMessage(
     groupId: string,
     sharedSecret: string,
-    eventType: 'join' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'kick' | 'create' | 'invite',
+    eventType: 'join' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'call_ended' | 'kick' | 'create' | 'invite',
     actorNickname: string,
     targetNickname?: string
   ): Promise<void> {
@@ -716,6 +716,7 @@ class GroupService {
       admin: `${actor} назначил(а) ${targetNickname || ''} администратором`,
       unadmin: `${actor} снял(а) ${targetNickname || ''} с администратора`,
       call: `${actor} начал(а) голосовой чат`,
+      call_ended: 'Голосовой звонок завершен',
       kick: `${actor} удалил(а) ${targetNickname || ''} из группы`,
     };
     const text = textMap[eventType] || eventType;
@@ -868,7 +869,7 @@ class GroupService {
     this.sendSystemMessage(groupId, secret, 'call', hostNickname);
   }
 
-  async endCall(groupId: string): Promise<void> {
+  async endCall(groupId: string, actorNickname?: string): Promise<void> {
     try {
       await this.supabase.from('group_calls').update({ status: 'ended', updated_at: new Date().toISOString() }).eq('group_id', groupId);
     } catch {}
@@ -880,6 +881,9 @@ class GroupService {
         body: JSON.stringify({ groupId }),
       }).catch(() => {});
     } catch {}
+
+    const secret = deriveGroupKey(groupId);
+    this.sendSystemMessage(groupId, secret, 'call_ended', actorNickname || '');
   }
 
   async fetchMyGroups(userCode: string, userId?: string): Promise<(GroupInfo & { role: string })[]> {

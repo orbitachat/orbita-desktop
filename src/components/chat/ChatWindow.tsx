@@ -6971,6 +6971,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             displayedText = t('system.demoted_admin', { actor: act, target: trg, defaultValue: msg.text });
           } else if (msg.systemType === 'call' && act) {
             displayedText = t('system.call_started', { actor: act, defaultValue: msg.text });
+          } else if (msg.systemType === 'call_ended') {
+            displayedText = t('system.call_ended', { defaultValue: msg.text || 'Голосовой звонок завершен' });
           } else if (msg.systemType === 'kick' && act) {
             displayedText = t('system.member_removed', { actor: act, target: trg, defaultValue: msg.text });
           }

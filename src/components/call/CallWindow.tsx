@@ -38,23 +38,46 @@ const GroupParticipantTile = memo(({
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (hasScreenShare) {
-      const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
-      if (sTrack) {
-        sTrack.attach(el);
-        return () => {
-          try { sTrack.detach(el); } catch {}
-        };
+    const attach = () => {
+      if (hasScreenShare) {
+        const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
+        if (sTrack) {
+          sTrack.attach(el);
+          try { el.play().catch(() => {}); } catch {}
+          return;
+        }
       }
-    } else if (hasCamera) {
-      const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
-      if (vTrack) {
-        vTrack.attach(el);
-        return () => {
-          try { vTrack.detach(el); } catch {}
-        };
+      if (hasCamera) {
+        const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
+        if (vTrack) {
+          vTrack.attach(el);
+          try { el.play().catch(() => {}); } catch {}
+          return;
+        }
       }
-    }
+    };
+    attach();
+    liveKitService.on('trackSubscribed', attach);
+    liveKitService.on('trackUnsubscribed', attach);
+    liveKitService.on('cameraChanged', attach);
+    liveKitService.on('screenShareChanged', attach);
+    liveKitService.on('remoteScreenShareChanged', attach);
+    return () => {
+      liveKitService.off('trackSubscribed', attach);
+      liveKitService.off('trackUnsubscribed', attach);
+      liveKitService.off('cameraChanged', attach);
+      liveKitService.off('screenShareChanged', attach);
+      liveKitService.off('remoteScreenShareChanged', attach);
+      try {
+        if (hasScreenShare) {
+          const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
+          sTrack?.detach(el);
+        } else if (hasCamera) {
+          const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
+          vTrack?.detach(el);
+        }
+      } catch {}
+    };
   }, [hasScreenShare, hasCamera, isLocal, participant.identity]);
 
   return (
@@ -200,12 +223,18 @@ export const CallWindow = () => {
     liveKitService.on('trackUnsubscribed', updateList);
     liveKitService.on('trackMuted', updateList);
     liveKitService.on('trackUnmuted', updateList);
+    liveKitService.on('cameraChanged', updateList);
+    liveKitService.on('screenShareChanged', updateList);
+    liveKitService.on('remoteScreenShareChanged', updateList);
     return () => {
       liveKitService.off('participantsChanged', updateList);
       liveKitService.off('trackSubscribed', updateList);
       liveKitService.off('trackUnsubscribed', updateList);
       liveKitService.off('trackMuted', updateList);
       liveKitService.off('trackUnmuted', updateList);
+      liveKitService.off('cameraChanged', updateList);
+      liveKitService.off('screenShareChanged', updateList);
+      liveKitService.off('remoteScreenShareChanged', updateList);
     };
   }, [isConnected, isGroupCall]);
 
@@ -216,10 +245,11 @@ export const CallWindow = () => {
       name: myNickname || 'Вы',
       audioEnabled: isMicEnabled,
       videoEnabled: isVideoEnabled,
+      screenShareEnabled: isScreenSharing,
       isSpeaking: false,
       isLocal: true,
     }];
-  }, [groupParticipants, myNickname, isMicEnabled, isVideoEnabled]);
+  }, [groupParticipants, myNickname, isMicEnabled, isVideoEnabled, isScreenSharing]);
 
   const remoteAudioContainerRef = useRef<HTMLDivElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);

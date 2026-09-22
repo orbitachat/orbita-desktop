@@ -718,12 +718,17 @@ class LiveKitService extends EventEmitter {
   public getRemoteVideoTrack(identity?: string): RemoteTrack | null {
     if (!this.room) return null;
     if (identity) {
-      const p = this.room.getParticipantByIdentity(identity);
-      const pub = p?.getTrackPublication(Track.Source.Camera);
-      return (pub?.track as RemoteTrack) || null;
+      const p = this.room.getParticipantByIdentity(identity)
+        || Array.from(this.room.remoteParticipants.values()).find((part) => part.identity === identity || part.name === identity);
+      if (p) {
+        const pub = p.getTrackPublication(Track.Source.Camera)
+          || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.Camera);
+        return (pub?.track as RemoteTrack) || null;
+      }
     }
     for (const p of this.room.remoteParticipants.values()) {
-      const pub = p.getTrackPublication(Track.Source.Camera);
+      const pub = p.getTrackPublication(Track.Source.Camera)
+        || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.Camera);
       if (pub?.track) return pub.track as RemoteTrack;
     }
     return null;
@@ -893,12 +898,17 @@ class LiveKitService extends EventEmitter {
   public getRemoteScreenShareTrack(identity?: string): RemoteTrack | null {
     if (!this.room) return null;
     if (identity) {
-      const p = this.room.getParticipantByIdentity(identity);
-      const pub = p?.getTrackPublication(Track.Source.ScreenShare);
-      return (pub?.track as RemoteTrack) || null;
+      const p = this.room.getParticipantByIdentity(identity)
+        || Array.from(this.room.remoteParticipants.values()).find((part) => part.identity === identity || part.name === identity);
+      if (p) {
+        const pub = p.getTrackPublication(Track.Source.ScreenShare)
+          || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.ScreenShare);
+        return (pub?.track as RemoteTrack) || null;
+      }
     }
     for (const p of this.room.remoteParticipants.values()) {
-      const pub = p.getTrackPublication(Track.Source.ScreenShare);
+      const pub = p.getTrackPublication(Track.Source.ScreenShare)
+        || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.ScreenShare);
       if (pub?.track) return pub.track as RemoteTrack;
     }
     return null;
@@ -1068,9 +1078,11 @@ class LiveKitService extends EventEmitter {
     }
 
     for (const [identity, participant] of this.room.remoteParticipants) {
-      const audioPub = participant.getTrackPublication(Track.Source.Microphone);
+      const audioPub = participant.getTrackPublication(Track.Source.Microphone)
+        || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
       const audioEnabled = audioPub?.track?.mediaStreamTrack.enabled ?? false;
-      const videoPub = participant.getTrackPublication(Track.Source.Camera);
+      const videoPub = participant.getTrackPublication(Track.Source.Camera)
+        || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Camera);
       const videoEnabled = !!(
         videoPub &&
         videoPub.track &&
@@ -1078,7 +1090,8 @@ class LiveKitService extends EventEmitter {
         videoPub.track.mediaStreamTrack.enabled &&
         !videoPub.isMuted
       );
-      const screenPub = participant.getTrackPublication(Track.Source.ScreenShare);
+      const screenPub = participant.getTrackPublication(Track.Source.ScreenShare)
+        || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.ScreenShare);
       const screenShareEnabled = !!(
         screenPub &&
         screenPub.track &&

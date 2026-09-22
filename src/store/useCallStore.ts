@@ -69,7 +69,7 @@ interface CallStore {
   initiateCall: () => Promise<void>;
   answerCall: (myNickname: string) => Promise<void>;
   rejectCall: (silent?: boolean) => void;
-  endCall: (forceClose?: boolean) => void;
+  endCall: (forceClose?: boolean, remotesOverride?: number) => void;
   handleBusy: (roomName?: string) => void;
   handleReject: (roomName?: string) => void;
   handleAccept: (roomName?: string) => Promise<void>;
@@ -640,17 +640,22 @@ export const useCallStore = create<CallStore>((set, get) => {
           const { token, url } = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName, true);
           const act = get().activeCall;
           if (act) set({ activeCall: { ...act, token, url } });
-          await liveKitService.connect(roomName, token, url, sessionKey);
-          await activateConnected();
-          await liveKitService.enableMicrophone();
-          if (isVideo) {
-            await liveKitService.enableCamera();
+          const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+          if (!isElectronSeparateCallWindow) {
+            await liveKitService.connect(roomName, token, url, sessionKey);
+            await activateConnected();
+            await liveKitService.enableMicrophone();
+            if (isVideo) {
+              await liveKitService.enableCamera();
+            }
+            const currentAct = get().activeCall;
+            if (currentAct) {
+              set({ activeCall: { ...currentAct, participants: liveKitService.remoteParticipants } });
+            }
+            get().updateParticipants(liveKitService.allParticipants);
+          } else {
+            activateConnected();
           }
-          const currentAct = get().activeCall;
-          if (currentAct) {
-            set({ activeCall: { ...currentAct, participants: liveKitService.remoteParticipants } });
-          }
-          get().updateParticipants(liveKitService.allParticipants);
         } catch (err) {
           console.warn(`${LOG_PREFIX} Initial LiveKit group connect warning:`, err);
           if (get().activeCall && get().callState === 'connecting') {
@@ -804,7 +809,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
     },
 
-    endCall: (_forceClose = false) => {
+    endCall: (_forceClose = false, remotesOverride?: number) => {
       const state = get();
       clearSignalRetryTimers();
       callSoundService.stop();
@@ -836,9 +841,11 @@ export const useCallStore = create<CallStore>((set, get) => {
         sendCallSignalReliable(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName });
       }
       if (isGroup) {
-        const remainingRemotes = liveKitService.remoteParticipants.length;
+        const remainingRemotes = typeof remotesOverride === 'number'
+          ? remotesOverride
+          : (activeCall.participants?.filter((p: any) => !p.isLocal).length || liveKitService.remoteParticipants.length);
         if (remainingRemotes === 0) {
-          groupService.endCall(chatId).catch(() => {});
+          groupService.endCall(chatId, state.myNickname || undefined).catch(() => {});
           useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
           try {
             const groupPusher = getGroupPusher();
@@ -972,14 +979,17 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (state.isMicEnabled === enabled) return;
       set({ isMicEnabled: enabled });
       if (state.activeCall) set({ activeCall: { ...state.activeCall, isMuted: !enabled } });
-      try {
-        if (enabled) {
-          await liveKitService.enableMicrophone();
-        } else {
-          await liveKitService.disableMicrophone();
+      const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+      if (!isElectronSeparateCallWindow) {
+        try {
+          if (enabled) {
+            await liveKitService.enableMicrophone();
+          } else {
+            await liveKitService.disableMicrophone();
+          }
+        } catch (err) {
+          console.error(`${LOG_PREFIX} setMicEnabled failed:`, err);
         }
-      } catch (err) {
-        console.error(`${LOG_PREFIX} setMicEnabled failed:`, err);
       }
     },
 
@@ -992,14 +1002,17 @@ export const useCallStore = create<CallStore>((set, get) => {
       const next = typeof explicitVal === 'boolean' ? explicitVal : !state.isVideoEnabled;
       set({ isVideoEnabled: next });
       if (state.activeCall) set({ activeCall: { ...state.activeCall, isVideoEnabled: next } });
-      try {
-        if (next) {
-          await liveKitService.enableCamera();
-        } else {
-          await liveKitService.disableCamera();
+      const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+      if (!isElectronSeparateCallWindow) {
+        try {
+          if (next) {
+            await liveKitService.enableCamera();
+          } else {
+            await liveKitService.disableCamera();
+          }
+        } catch (err) {
+          console.error(`${LOG_PREFIX} toggleVideo failed:`, err);
         }
-      } catch (err) {
-        console.error(`${LOG_PREFIX} toggleVideo failed:`, err);
       }
     },
     openScreenPicker: () => set({ isScreenPickerOpen: true }),
@@ -1007,18 +1020,24 @@ export const useCallStore = create<CallStore>((set, get) => {
 
     startScreenShareWithOptions: async (options) => {
       set({ isScreenPickerOpen: false });
-      try {
-        await liveKitService.startScreenShare(options);
-      } catch (err) {
-        console.error(`${LOG_PREFIX} startScreenShareWithOptions failed:`, err);
+      const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+      if (!isElectronSeparateCallWindow) {
+        try {
+          await liveKitService.startScreenShare(options);
+        } catch (err) {
+          console.error(`${LOG_PREFIX} startScreenShareWithOptions failed:`, err);
+        }
       }
     },
 
     stopScreenShare: async () => {
-      try {
-        await liveKitService.stopScreenShare();
-      } catch (err) {
-        console.error(`${LOG_PREFIX} stopScreenShare failed:`, err);
+      const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+      if (!isElectronSeparateCallWindow) {
+        try {
+          await liveKitService.stopScreenShare();
+        } catch (err) {
+          console.error(`${LOG_PREFIX} stopScreenShare failed:`, err);
+        }
       }
     },
 
@@ -1107,7 +1126,7 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
       break;
     case 'endCall':
       try { void liveKitService.stopScreenShare(); } catch {}
-      store.endCall(false);
+      store.endCall(false, action.payload?.remainingRemotes);
       break;
     case 'toggleMic':
       if (typeof action.payload === 'boolean') {
