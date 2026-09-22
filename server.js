@@ -120,6 +120,32 @@ app.post('/api/livekit/token', async (req, res) => {
   }
 });
 
+app.post(['/groups/token', '/groups/livekit/token', '/groups/livekit-token'], async (req, res) => {
+  const { room, identity, name } = req.body;
+  if (!room || !identity) return res.status(400).json({ error: 'Missing room or identity' });
+  const apiKey = process.env.GROUPS_LIVEKIT_API_KEY || 'APIjjJTy5q83rMt';
+  const apiSecret = process.env.GROUPS_LIVEKIT_API_SECRET || 'etM1iXQVrNnFBetKDZwkHns7Ldq4NIWZhhdAZfDTrPaA';
+  const livekitUrl = process.env.GROUPS_LIVEKIT_URL || 'wss://fewfregfrtgtr-lq3p5f01.livekit.cloud';
+
+  try {
+    const at = new AccessToken(apiKey, apiSecret, {
+      identity,
+      name: name || identity,
+    });
+    at.addGrant({
+      room,
+      roomJoin: true,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+    const token = await at.toJwt();
+    res.json({ token, url: livekitUrl });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate group livekit token' });
+  }
+});
+
 app.post('/send-group-message', (req, res) => {
   const { chatId, text, sender } = req.body;
   console.log('[Group] Sending message to', chatId, 'from', sender);

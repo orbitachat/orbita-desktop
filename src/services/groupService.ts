@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getVercelBaseUrl } from './gatewayManager';
-import { getPusher } from '../utils/pusher';
+import { getPusher, getGroupPusher } from '../utils/pusher';
 import { supabaseService } from './supabaseService';
 import { generateGroupId, generateGroupInviteCode } from '../lib/codes';
 import {
@@ -9,7 +9,7 @@ import {
   isValidGroupCode,
 } from '../lib/groupCrypto';
 import { encryptMessage } from '../lib/crypto';
-import { useChatStore } from '../store/useChatStore';
+import { useChatStore, type Message } from '../store/useChatStore';
 import { useAuthStore } from '../store/useAuthStore';
 
 export interface GroupMemberInfo {
@@ -142,6 +142,7 @@ class GroupService {
       inviteExpiresAt: null,
     };
 
+    this.sendSystemMessage(id, sharedSecret, 'create', creatorNickname);
     return { group, sharedSecret };
   }
 
@@ -215,7 +216,8 @@ class GroupService {
     codeOrLink: string,
     nickname: string,
     userCode?: string,
-    meta?: { name?: string; creator?: string; avatarUrl?: string; description?: string; userId?: string }
+    meta?: { name?: string; creator?: string; avatarUrl?: string; description?: string; userId?: string },
+    inviterNickname?: string
   ): Promise<{ group: GroupInfo; sharedSecret: string }> {
     const raw = codeOrLink.trim();
     const code = extractGroupCode(raw) || raw;
@@ -325,7 +327,11 @@ class GroupService {
     } catch {}
 
     if (!isAlreadyMember) {
-      this.sendSystemMessage(groupId, sharedSecret, 'join', nickname, nickname);
+      if (inviterNickname) {
+        this.sendSystemMessage(groupId, sharedSecret, 'invite', inviterNickname, nickname);
+      } else {
+        this.sendSystemMessage(groupId, sharedSecret, 'join', nickname, nickname);
+      }
     }
 
     let formattedMembers: GroupMemberInfo[] = [];
@@ -522,8 +528,18 @@ class GroupService {
 
   async updateGroup(
     groupId: string,
-    data: { name?: string; description?: string; avatarUrl?: string | null }
+    data: { name?: string; description?: string; avatarUrl?: string | null },
+    actorNickname?: string
   ): Promise<boolean> {
+    const actor = actorNickname || useAuthStore.getState().nickname || '';
+    const secret = deriveGroupKey(groupId);
+    if (data.name !== undefined) {
+      this.sendSystemMessage(groupId, secret, 'title', actor, undefined);
+    }
+    if (data.avatarUrl !== undefined) {
+      this.sendSystemMessage(groupId, secret, 'avatar', actor, undefined);
+    }
+
     const updatePayload: any = { updated_at: new Date().toISOString() };
     if (data.name !== undefined) updatePayload.name = data.name.trim();
     if (data.description !== undefined) updatePayload.description = data.description.trim();
@@ -544,20 +560,6 @@ class GroupService {
           avatarUrl: data.avatarUrl,
         }),
       });
-      if (data.name !== undefined) {
-        const currentChat = useChatStore.getState().chats.find((c) => c.id === groupId);
-        if (!currentChat || (currentChat.name || '').trim() !== data.name.trim()) {
-          const secret = deriveGroupKey(groupId);
-          this.sendSystemMessage(groupId, secret, 'title', groupId, undefined);
-        }
-      }
-      if (data.avatarUrl !== undefined) {
-        const currentChat = useChatStore.getState().chats.find((c) => c.id === groupId);
-        if (!currentChat || (currentChat.avatarUrl || null) !== (data.avatarUrl || null)) {
-          const secret = deriveGroupKey(groupId);
-          this.sendSystemMessage(groupId, secret, 'avatar', groupId, undefined);
-        }
-      }
       return res.ok;
     } catch {
       return true;
@@ -604,10 +606,12 @@ class GroupService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, targetNickname, targetUserCode: targetUserCode || null, role }),
       });
+      const actor = actorNickname || useAuthStore.getState().nickname || '';
+      const secret = deriveGroupKey(groupId);
       if (role === 'admin') {
-        const actor = actorNickname || useAuthStore.getState().nickname || '';
-        const secret = deriveGroupKey(groupId);
         this.sendSystemMessage(groupId, secret, 'admin', actor, targetNickname);
+      } else if (role === 'member') {
+        this.sendSystemMessage(groupId, secret, 'unadmin', actor, targetNickname);
       }
       return res.ok;
     } catch {
@@ -620,10 +624,11 @@ class GroupService {
     groupCode: string,
     nickname: string,
     userCode?: string,
-    avatarUrl?: string | null
+    avatarUrl?: string | null,
+    inviterNickname?: string
   ): Promise<GroupInfo | null> {
     try {
-      const res = await this.joinGroup(groupCode, nickname, userCode, { avatarUrl: avatarUrl || undefined });
+      const res = await this.joinGroup(groupCode, nickname, userCode, { avatarUrl: avatarUrl || undefined }, inviterNickname);
       return res.group;
     } catch {
       return null;
@@ -697,25 +702,77 @@ class GroupService {
   async sendSystemMessage(
     groupId: string,
     sharedSecret: string,
-    eventType: 'join' | 'title' | 'avatar' | 'admin' | 'call' | 'kick',
+    eventType: 'join' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'kick' | 'create' | 'invite',
     actorNickname: string,
     targetNickname?: string
   ): Promise<void> {
+    const actor = actorNickname || useAuthStore.getState().nickname || 'Участник';
     const textMap: Record<string, string> = {
-      join: `${actorNickname} вступил(а) в группу`,
-      title: 'Название группы было изменено',
-      avatar: 'Аватарка группы была изменена',
-      admin: `${(actorNickname || useAuthStore.getState().nickname) ? (actorNickname || useAuthStore.getState().nickname) + ' назначил(а)' : 'Участник назначен'} ${targetNickname || ''} администратором`,
-      call: `${actorNickname} начал(а) групповой звонок`,
-      kick: `${actorNickname} удалил(а) ${targetNickname || ''} из группы`,
+      create: `${actor} создал(а) группу`,
+      invite: `${actor} пригласил(а) ${targetNickname || ''} в группу`,
+      join: `${actor} вступил(а) в группу`,
+      title: `${actor} изменил(а) имя группы`,
+      avatar: `${actor} изменил(а) аватарку группы`,
+      admin: `${actor} назначил(а) ${targetNickname || ''} администратором`,
+      unadmin: `${actor} снял(а) ${targetNickname || ''} с администратора`,
+      call: `${actor} начал(а) голосовой чат`,
+      kick: `${actor} удалил(а) ${targetNickname || ''} из группы`,
     };
     const text = textMap[eventType] || eventType;
     const msgId = `sys_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-    const payload = JSON.stringify({ text, mediaType: 'system', systemType: eventType });
+    const payload = JSON.stringify({
+      text,
+      mediaType: 'system',
+      systemType: eventType,
+      actorNickname: actor,
+      targetNickname,
+    });
     let ciphertext = payload;
     try {
       ciphertext = await encryptMessage(payload, sharedSecret);
     } catch {}
+
+    const systemMsg: Message = {
+      id: msgId,
+      sender: 'system',
+      text,
+      time: Date.now(),
+      status: 'sent',
+      mediaType: 'system',
+      systemType: eventType,
+      actorNickname: actor,
+      targetNickname,
+    };
+    useChatStore.getState().addMessage(groupId, systemMsg);
+    try {
+      (window as any).orbita?.storageAddMessage?.(groupId, msgId, systemMsg);
+    } catch {}
+
+    try {
+      const groupPusher = getGroupPusher();
+      const channel = groupPusher.subscribe(`presence-group-${groupId}`);
+      const pusherPayload = {
+        id: msgId,
+        messageId: msgId,
+        chatId: groupId,
+        sender: 'system',
+        senderNickname: 'system',
+        senderCode: 'system',
+        ciphertext,
+        type: 'message',
+        mediaType: 'system',
+        systemType: eventType,
+        actorNickname: actor,
+        targetNickname,
+        time: Date.now(),
+        text,
+      };
+      const doSend = () => {
+        try { channel.trigger('client-message', pusherPayload); } catch {}
+      };
+      if (channel.subscribed) doSend(); else channel.bind('pusher:subscription_succeeded', doSend);
+    } catch {}
+
     await this.sendGroupMessage({
       id: msgId,
       groupId,

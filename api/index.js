@@ -22,8 +22,8 @@ const ENV = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   GROUPS_SUPABASE_URL: process.env.GROUPS_SUPABASE_URL || 'https://vxjaybyveerulkdqhggr.supabase.co',
   GROUPS_SUPABASE_KEY: process.env.GROUPS_SUPABASE_SECRET_KEY || process.env.GROUPS_SUPABASE_KEY || process.env.GROUPS_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_x6OPhg68nS-xBcPn4K47NQ_2nSS4Kfu',
-  GROUPS_LIVEKIT_API_KEY: process.env.GROUPS_LIVEKIT_API_KEY || '',
-  GROUPS_LIVEKIT_API_SECRET: process.env.GROUPS_LIVEKIT_API_SECRET || '',
+  GROUPS_LIVEKIT_API_KEY: process.env.GROUPS_LIVEKIT_API_KEY || 'APIjjJTy5q83rMt',
+  GROUPS_LIVEKIT_API_SECRET: process.env.GROUPS_LIVEKIT_API_SECRET || 'etM1iXQVrNnFBetKDZwkHns7Ldq4NIWZhhdAZfDTrPaA',
   GROUPS_LIVEKIT_URL: process.env.GROUPS_LIVEKIT_URL || 'wss://fewfregfrtgtr-lq3p5f01.livekit.cloud',
 };
 

@@ -1307,6 +1307,12 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     const newDesc = editDescription.trim();
     const initialAvatar = editAvatarUrl;
 
+    const originalName = (chat.name || '').trim();
+    const originalDesc = (chat.description || '').trim();
+    const originalAvatar = chat.avatarUrl || null;
+    const nameChanged = originalName !== newName;
+    const descChanged = originalDesc !== newDesc;
+
     setIsSavingChannel(true);
     updateChat(chat.id, {
       name: newName,
@@ -1335,9 +1341,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         }
       }
 
-      const nameChanged = (chat.name || '').trim() !== newName;
-      const descChanged = (chat.description || '').trim() !== newDesc;
-      const avatarChanged = (chat.avatarUrl || null) !== (finalAvatarUrl || null);
+      const avatarChanged = (originalAvatar || null) !== (finalAvatarUrl || null);
 
       if (chat.type === 'group') {
         const groupUpdate: { name?: string; description?: string; avatarUrl?: string | null } = {};
@@ -1345,7 +1349,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         if (descChanged) groupUpdate.description = newDesc;
         if (avatarChanged) groupUpdate.avatarUrl = finalAvatarUrl;
         if (Object.keys(groupUpdate).length > 0) {
-          await groupService.updateGroup(chat.id, groupUpdate);
+          await groupService.updateGroup(chat.id, groupUpdate, myNickname);
         }
       } else {
         await channelService.updateChannel(chat.id, {
@@ -1359,7 +1363,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     }).finally(() => {
       setIsSavingChannel(false);
     });
-  }, [chat, isSavingChannel, editName, editDescription, editAvatarUrl, updateChat]);
+  }, [chat, isSavingChannel, editName, editDescription, editAvatarUrl, updateChat, myNickname]);
 
   const handleConfirmGroupAction = useCallback(async () => {
     if (!chat) return;

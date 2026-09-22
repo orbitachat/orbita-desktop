@@ -263,7 +263,7 @@ class LiveKitService extends EventEmitter {
         autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: true,
-        channelCount: 2,
+        channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
       },
@@ -277,11 +277,11 @@ class LiveKitService extends EventEmitter {
         },
       },
       publishDefaults: {
-        dtx: true,
+        dtx: false,
         red: true,
-        forceStereo: true,
+        forceStereo: false,
         audioPreset: {
-          maxBitrate: 96000,
+          maxBitrate: 48000,
           priority: 'high',
         },
         videoCodec: 'h264',
@@ -954,6 +954,10 @@ class LiveKitService extends EventEmitter {
         el.style.display = 'none';
         document.body.appendChild(el);
         this.attachedAudioElements.set(key, el);
+        try {
+          const p = el.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch {}
         try {
           (track as any).setVolume?.(this.peerVolume);
         } catch {}

@@ -1314,11 +1314,14 @@
       "dialog": "Диалог"
     },
     "system": {
-      "member_joined": "{{name}} вступил(а) в группу",
-      "title_changed": "Имя группы было изменено",
-      "avatar_changed": "Аватарка группы была изменена",
+      "group_created": "{{actor}} создал(а) группу",
+      "member_invited": "{{actor}} пригласил(а) {{target}} в группу",
+      "member_joined": "{{actor}} вступил(а) в группу",
+      "title_changed": "{{actor}} изменил(а) имя группы",
+      "avatar_changed": "{{actor}} изменил(а) аватарку группы",
       "promoted_admin": "{{actor}} назначил(а) {{target}} администратором",
-      "call_started": "{{name}} начал(а) групповой звонок",
+      "demoted_admin": "{{actor}} снял(а) {{target}} с администратора",
+      "call_started": "{{actor}} начал(а) голосовой чат",
       "member_removed": "{{actor}} удалил(а) {{target}} из группы"
     }
   }

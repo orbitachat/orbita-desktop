@@ -1304,11 +1304,14 @@
       "dialog": "Chat"
     },
     "system": {
-      "member_joined": "{{name}} joined the group",
-      "title_changed": "Group name was changed",
-      "avatar_changed": "Group avatar was changed",
+      "group_created": "{{actor}} created the group",
+      "member_invited": "{{actor}} invited {{target}} to the group",
+      "member_joined": "{{actor}} joined the group",
+      "title_changed": "{{actor}} changed the group name",
+      "avatar_changed": "{{actor}} changed the group avatar",
       "promoted_admin": "{{actor}} promoted {{target}} to admin",
-      "call_started": "{{name}} started a group call",
+      "demoted_admin": "{{actor}} removed {{target}} from admin",
+      "call_started": "{{actor}} started a voice chat",
       "member_removed": "{{actor}} removed {{target}} from the group"
     }
   }

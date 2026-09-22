@@ -4,6 +4,7 @@ import { X, Copy, Check, Search, UserPlus, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '../common/Avatar';
 import { type Chat, useChatStore } from '../../store/useChatStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { groupService } from '../../services/groupService';
 import { buildGroupInviteLink } from '../../lib/groupCrypto';
 
@@ -19,6 +20,7 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
   group,
 }) => {
   const { t } = useTranslation();
+  const myNickname = useAuthStore((s) => s.nickname) || '';
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -49,15 +51,12 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
       if (code) {
         set.add(String(code).trim().toLowerCase());
       }
+      if (m.nickname) {
+        set.add(String(m.nickname).trim().toLowerCase());
+      }
     });
-    if (currentChat.creatorCode) {
-      set.add(String(currentChat.creatorCode).trim().toLowerCase());
-    }
-    if (currentChat.creatorId) {
-      set.add(String(currentChat.creatorId).trim().toLowerCase());
-    }
     return set;
-  }, [currentMembers, currentChat.creatorCode, currentChat.creatorId]);
+  }, [currentMembers]);
 
   const isContactInGroup = useCallback(
     (contact: Chat) => {
@@ -74,18 +73,18 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
   );
 
   const contacts = useMemo(() => {
-    return chats.filter(
-      (c) =>
-        c.type === 'private' &&
-        c.id !== 'notes' &&
-        c.id !== 'system_support' &&
-        c.name
-    );
-  }, [chats]);
+    return chats.filter((c) => {
+      if (c.id === 'notes' || c.type === 'channel' || c.type === 'group') return false;
+      const contactCode = c.peerCode || (c.name && c.name.length === 36 ? c.name : undefined) || c.id;
+      if (contactCode && existingMemberIds.has(String(contactCode).trim().toLowerCase())) return false;
+      if (c.name && existingMemberIds.has(String(c.name).trim().toLowerCase())) return false;
+      return true;
+    });
+  }, [chats, existingMemberIds]);
 
   const filteredContacts = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return contacts;
+    if (!searchQuery.trim()) return contacts;
+    const q = searchQuery.toLowerCase().trim();
     return contacts.filter((c) => c.name.toLowerCase().includes(q));
   }, [contacts, searchQuery]);
 
@@ -113,7 +112,8 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
           inviteCode,
           contact.name,
           userCode,
-          contact.avatarUrl || null
+          contact.avatarUrl || null,
+          myNickname
         );
 
         const newMember = {

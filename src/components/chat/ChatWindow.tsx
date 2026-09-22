@@ -4752,6 +4752,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             linkPreview: parsedData?.linkPreview || row.link_preview || undefined,
             reactions: row.reactions || undefined,
             systemType: parsedData?.systemType || undefined,
+            actorNickname: parsedData?.actorNickname || undefined,
+            targetNickname: parsedData?.targetNickname || undefined,
           };
           newMessages.push(msgItem);
           try {
@@ -4986,6 +4988,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               audioMetadata: parsed?.audioMetadata || data.audioMetadata || undefined,
               linkPreview: parsed?.linkPreview || data.linkPreview || undefined,
               systemType: parsed?.systemType || data.systemType || undefined,
+              actorNickname: parsed?.actorNickname || data.actorNickname || undefined,
+              targetNickname: parsed?.targetNickname || data.targetNickname || undefined,
             };
             useChatStore.getState().addMessage(activeChatId, item);
             try {
@@ -6947,6 +6951,30 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     const renderContent = () => {
       if (msg.mediaType === 'system') {
         const timeStr = new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let displayedText = msg.text;
+        if (msg.systemType) {
+          const act = msg.actorNickname || '';
+          const trg = msg.targetNickname || '';
+          if (msg.systemType === 'create' && act) {
+            displayedText = t('system.group_created', { actor: act, defaultValue: msg.text });
+          } else if (msg.systemType === 'invite' && act) {
+            displayedText = t('system.member_invited', { actor: act, target: trg, defaultValue: msg.text });
+          } else if (msg.systemType === 'join' && act) {
+            displayedText = t('system.member_joined', { actor: act, defaultValue: msg.text });
+          } else if (msg.systemType === 'title' && act) {
+            displayedText = t('system.title_changed', { actor: act, defaultValue: msg.text });
+          } else if (msg.systemType === 'avatar' && act) {
+            displayedText = t('system.avatar_changed', { actor: act, defaultValue: msg.text });
+          } else if (msg.systemType === 'admin' && act) {
+            displayedText = t('system.promoted_admin', { actor: act, target: trg, defaultValue: msg.text });
+          } else if (msg.systemType === 'unadmin' && act) {
+            displayedText = t('system.demoted_admin', { actor: act, target: trg, defaultValue: msg.text });
+          } else if (msg.systemType === 'call' && act) {
+            displayedText = t('system.call_started', { actor: act, defaultValue: msg.text });
+          } else if (msg.systemType === 'kick' && act) {
+            displayedText = t('system.member_removed', { actor: act, target: trg, defaultValue: msg.text });
+          }
+        }
         return (
           <div
             data-message="true"
@@ -6974,7 +7002,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 gap: '1px',
               }}
             >
-              <span>{msg.text}</span>
+              <span>{displayedText}</span>
               <span style={{ fontSize: '10px', opacity: 0.6, marginTop: '1px' }}>{timeStr}</span>
             </div>
           </div>

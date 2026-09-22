@@ -145,7 +145,9 @@ export interface Message {
   uploading?: boolean;
   uploadedMb?: number;
   mediaType?: 'photo' | 'video' | 'audio' | 'voice' | 'file' | 'call' | 'emoji' | 'gif' | 'sticker' | 'system' | null;
-  systemType?: 'join' | 'title' | 'avatar' | 'admin' | 'call' | 'kick';
+  systemType?: 'join' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'kick' | 'create' | 'invite';
+  actorNickname?: string;
+  targetNickname?: string;
   mediaUrl?: string;
   mediaName?: string;
   mediaKey?: string;
