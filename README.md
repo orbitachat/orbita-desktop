@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="logo.svg" alt="Orbita Logo" width="128" height="128" />
+<img src="public/orbita.jpg" alt="Orbita Logo" width="128" height="128" />
 
 # Orbita Desktop
 
