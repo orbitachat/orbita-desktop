@@ -150,6 +150,7 @@ export interface Message {
   mediaName?: string;
   mediaKey?: string;
   mime?: string;
+  fileSize?: number;
   mediaItems?: MediaItem[];
   audioMetadata?: AudioMetadata;
   thumbnail?: string;

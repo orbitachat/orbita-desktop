@@ -1335,12 +1335,18 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         }
       }
 
+      const nameChanged = (chat.name || '').trim() !== newName;
+      const descChanged = (chat.description || '').trim() !== newDesc;
+      const avatarChanged = (chat.avatarUrl || null) !== (finalAvatarUrl || null);
+
       if (chat.type === 'group') {
-        await groupService.updateGroup(chat.id, {
-          name: newName,
-          description: newDesc,
-          avatarUrl: finalAvatarUrl,
-        });
+        const groupUpdate: { name?: string; description?: string; avatarUrl?: string | null } = {};
+        if (nameChanged) groupUpdate.name = newName;
+        if (descChanged) groupUpdate.description = newDesc;
+        if (avatarChanged) groupUpdate.avatarUrl = finalAvatarUrl;
+        if (Object.keys(groupUpdate).length > 0) {
+          await groupService.updateGroup(chat.id, groupUpdate);
+        }
       } else {
         await channelService.updateChannel(chat.id, {
           name: newName,

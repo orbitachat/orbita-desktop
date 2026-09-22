@@ -160,7 +160,7 @@ const orbitFs = (px: number) => `calc(${px}px * var(--text-scale, 1))`;
 
 const EMPTY_ARRAY: Message[] = [];
 
-const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music' | 'voice' | 'file' | 'call' | 'sticker' | null; url: string | null; fileName?: string; mime?: string } => {
+const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music' | 'voice' | 'file' | 'call' | 'sticker' | null; url: string | null; fileName?: string; mime?: string; size?: number } => {
   if (msg.mediaType === 'call') {
     return { type: 'call', url: null, fileName: msg.mediaName };
   }
@@ -188,7 +188,7 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
     if (msg.mediaType === 'photo') return { type: 'image', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'image/jpeg' };
     if (msg.mediaType === 'video') return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'video/mp4' };
     if (msg.mediaType === 'audio') return { type: 'music', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'audio/mpeg' };
-    if (msg.mediaType === 'file') return { type: 'file', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'application/octet-stream' };
+    if (msg.mediaType === 'file') return { type: 'file', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'application/octet-stream', size: msg.fileSize || (msg as any).size || (msg as any).file_size };
     if (msg.mediaType === ('sticker' as any)) return { type: 'sticker', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
     if (msg.mediaType === 'gif') return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
   }
@@ -1295,20 +1295,85 @@ const EncryptedMedia = memo(({
   );
 });
 
-const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, timeNode, isOwn = false, customRadius }: { url: string; fileName?: string; sharedSecret: string | undefined; chatId?: string; messageId?: string; timeNode?: React.ReactNode; isOwn?: boolean; customRadius?: string }) => {
+const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size: initialSize, timeNode, isOwn = false, customRadius }: { url: string; fileName?: string; sharedSecret: string | undefined; chatId?: string; messageId?: string; size?: number | null; timeNode?: React.ReactNode; isOwn?: boolean; customRadius?: string }) => {
   const { t } = useTranslation();
   const bubbleRadius = useChatStore((state) => state.bubbleRadius);
   const { blobUrl, blob } = useDecryptedMedia(url, sharedSecret, fileName, undefined, chatId, messageId);
   const displayName = fileName || t('chatWindow.file');
   const ext = fileName?.split('.').pop()?.toUpperCase() || 'FILE';
 
+  const [fileSizeBytes, setFileSizeBytes] = useState<number | null>(() => {
+    if (typeof initialSize === 'number' && initialSize > 0) return initialSize;
+    return null;
+  });
+
+  useEffect(() => {
+    if (typeof initialSize === 'number' && initialSize > 0) {
+      setFileSizeBytes(initialSize);
+    }
+  }, [initialSize]);
+
+  useEffect(() => {
+    if (fileSizeBytes && fileSizeBytes > 0) return;
+    if (blob && blob.size > 0) {
+      setFileSizeBytes(blob.size);
+      return;
+    }
+
+    let cancelled = false;
+
+    const probeSize = async () => {
+      if (url) {
+        const cached = mediaManager.getCachedMedia(url, sharedSecret || '');
+        if (cached?.size && cached.size > 0) {
+          if (!cancelled) setFileSizeBytes(cached.size);
+          return;
+        }
+      }
+
+      if (window.orbita?.getFileSize && url && !url.startsWith('http') && !url.startsWith('orbita-media:') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+        try {
+          const sz = await window.orbita.getFileSize(url);
+          if (!cancelled && sz > 0) {
+            setFileSizeBytes(sz);
+            return;
+          }
+        } catch {}
+      }
+
+      const targetUrl = blobUrl || (url && (url.startsWith('http') || url.startsWith('orbita-media:') || url.startsWith('blob:')) ? url : null);
+      if (targetUrl) {
+        try {
+          const res = await fetch(targetUrl, { method: 'HEAD' });
+          if (cancelled) return;
+          const cl = res.headers.get('content-length');
+          if (cl) {
+            const parsed = parseInt(cl, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+              setFileSizeBytes(parsed);
+              return;
+            }
+          }
+        } catch {}
+      }
+    };
+
+    probeSize();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [blob, blobUrl, url, sharedSecret, fileSizeBytes]);
+
   const fileSize = useMemo(() => {
-    if (!blob) return null;
-    const size = blob.size;
-    if (!size || isNaN(size) || size === 0) return null;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }, [blob]);
+    const bytes = fileSizeBytes || (blob ? blob.size : null);
+    if (!bytes || isNaN(bytes) || bytes <= 0) return null;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    const gb = bytes / (1024 * 1024 * 1024);
+    return `${gb >= 10 ? gb.toFixed(1) : gb.toFixed(2)} GB`;
+  }, [fileSizeBytes, blob]);
 
   const handleOpenFile = useCallback(async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -1382,7 +1447,7 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, time
             {displayName}
           </div>
           <div style={{ fontSize: orbitFs(11), color: isOwn ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-dim)' }}>
-            {fileSize || ext || t('chatWindow.document')}
+            {fileSize ? (ext ? `${fileSize} • ${ext}` : fileSize) : ext || t('chatWindow.document')}
           </div>
         </div>
       </div>
@@ -6169,6 +6234,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         const itemType = resolveItemType(file.fileType, file.name);
         const itemMime = resolveMime(file.fileType, file.name);
 
+        const fileSizeBytes = file.sizeMb ? Math.round(file.sizeMb * 1024 * 1024) : undefined;
         const localMessage: Message = {
           id: messageId,
           senderId: myCode,
@@ -6184,6 +6250,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           mediaUrl: file.filePath || file.preview || '',
           mediaName: file.name,
           mime: itemMime,
+          fileSize: fileSizeBytes,
           audioMetadata: file.audioMetadata,
           width: file.width,
           height: file.height,
@@ -6334,6 +6401,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             mediaName: uploaded.name,
             mediaKey: uploaded.key,
             mime: uploaded.mime,
+            fileSize: fileSizeBytes || uploaded.size,
             audioMetadata: networkAudioMetadata,
             width: uploaded.width,
             height: uploaded.height,
@@ -6360,6 +6428,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                         mediaName: uploaded.name,
                         mediaKey: uploaded.key,
                         mime: uploaded.mime,
+                        fileSize: fileSizeBytes || uploaded.size,
                         audioMetadata: uploaded.audioMetadata,
                         width: uploaded.width,
                         height: uploaded.height,
@@ -7326,6 +7395,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   sharedSecret={msg.mediaKey || sharedSecret}
                   chatId={activeChatId || undefined}
                   messageId={msg.id}
+                  size={media.size || msg.fileSize || (msg as any).size}
                   timeNode={timeBadge(msg, isMessagePinned(index))}
                   isOwn={isOwn}
                   customRadius={customRadius}

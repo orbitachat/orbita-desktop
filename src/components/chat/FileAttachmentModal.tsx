@@ -181,6 +181,10 @@ export const FileAttachmentModal = ({
     if (mb < 1) {
       return `${(mb * 1024).toFixed(1)} KB`;
     }
+    if (mb >= 1024) {
+      const gb = mb / 1024;
+      return `${gb >= 10 ? gb.toFixed(1) : gb.toFixed(2)} GB`;
+    }
     return `${mb.toFixed(1)} MB`;
   };
 

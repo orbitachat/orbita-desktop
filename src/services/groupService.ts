@@ -9,6 +9,7 @@ import {
   isValidGroupCode,
 } from '../lib/groupCrypto';
 import { encryptMessage } from '../lib/crypto';
+import { useChatStore } from '../store/useChatStore';
 
 export interface GroupMemberInfo {
   nickname: string;
@@ -543,12 +544,18 @@ class GroupService {
         }),
       });
       if (data.name !== undefined) {
-        const secret = deriveGroupKey(groupId);
-        this.sendSystemMessage(groupId, secret, 'title', groupId, undefined);
+        const currentChat = useChatStore.getState().chats.find((c) => c.id === groupId);
+        if (!currentChat || (currentChat.name || '').trim() !== data.name.trim()) {
+          const secret = deriveGroupKey(groupId);
+          this.sendSystemMessage(groupId, secret, 'title', groupId, undefined);
+        }
       }
       if (data.avatarUrl !== undefined) {
-        const secret = deriveGroupKey(groupId);
-        this.sendSystemMessage(groupId, secret, 'avatar', groupId, undefined);
+        const currentChat = useChatStore.getState().chats.find((c) => c.id === groupId);
+        if (!currentChat || (currentChat.avatarUrl || null) !== (data.avatarUrl || null)) {
+          const secret = deriveGroupKey(groupId);
+          this.sendSystemMessage(groupId, secret, 'avatar', groupId, undefined);
+        }
       }
       return res.ok;
     } catch {

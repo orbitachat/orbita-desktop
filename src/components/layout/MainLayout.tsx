@@ -1525,6 +1525,7 @@ export const MainLayout = () => {
               blurPreview: messageData.blurPreview || undefined,
               thumbnail: messageData.thumbnail || undefined,
               audioMetadata: messageData.audioMetadata || undefined,
+              fileSize: messageData.fileSize || messageData.size || undefined,
               duration: messageData.duration || undefined,
               waveform: messageData.waveform || undefined,
               linkPreview: messageData.linkPreview || undefined,
@@ -1759,6 +1760,7 @@ export const MainLayout = () => {
                 mime: messageData.mime || null,
                 mediaItems: messageData.mediaItems || undefined,
                 audioMetadata: messageData.audioMetadata || undefined,
+                fileSize: messageData.fileSize || messageData.size || undefined,
                 duration: messageData.duration || undefined,
                 waveform: messageData.waveform || undefined,
                 linkPreview: messageData.linkPreview || undefined,
@@ -2706,6 +2708,7 @@ export const MainLayout = () => {
           duration: parsedData?.duration || data.duration || undefined,
           waveform: parsedData?.waveform || data.waveform || undefined,
           audioMetadata: parsedData?.audioMetadata || data.audioMetadata || undefined,
+          fileSize: parsedData?.fileSize || data.fileSize || parsedData?.size || data.size || undefined,
           linkPreview: parsedData?.linkPreview || data.linkPreview || undefined,
         };
 
@@ -3453,6 +3456,7 @@ export const MainLayout = () => {
               mime: messageData.mime || null,
               mediaItems: messageData.mediaItems || undefined,
               audioMetadata: messageData.audioMetadata || undefined,
+              fileSize: messageData.fileSize || messageData.size || undefined,
               duration: messageData.duration || undefined,
               waveform: messageData.waveform || undefined,
               linkPreview: messageData.linkPreview || undefined,
