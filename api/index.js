@@ -11,7 +11,7 @@ const ENV = {
   SUPABASE_URL: process.env.SUPABASE_URL || 'https://majmrtymawymomliowbz.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   CHANNELS_SUPABASE_URL: process.env.CHANNELS_SUPABASE_URL || 'https://rugqiezexuknqcppicma.supabase.co',
-  CHANNELS_SUPABASE_KEY: process.env.CHANNELS_SUPABASE_KEY || process.env.CHANNELS_SUPABASE_SECRET_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_publishable_XYjE7C93LWA-P1OHZqNONg_QHlyZ9sZ',
+  CHANNELS_SUPABASE_KEY: process.env.CHANNELS_SUPABASE_KEY || process.env.CHANNELS_SUPABASE_SECRET_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   PUSHER_KEY: process.env.PUSHER_KEY || 'e8f5cf13f6759775e44e',
   PUSHER_SECRET: process.env.PUSHER_SECRET || '',
   PUSHER_APP_ID: process.env.PUSHER_APP_ID || '2142120',
@@ -21,9 +21,9 @@ const ENV = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   GROUPS_SUPABASE_URL: process.env.GROUPS_SUPABASE_URL || 'https://vxjaybyveerulkdqhggr.supabase.co',
-  GROUPS_SUPABASE_KEY: process.env.GROUPS_SUPABASE_SECRET_KEY || process.env.GROUPS_SUPABASE_KEY || process.env.GROUPS_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_x6OPhg68nS-xBcPn4K47NQ_2nSS4Kfu',
-  GROUPS_LIVEKIT_API_KEY: process.env.GROUPS_LIVEKIT_API_KEY || 'APIjjJTy5q83rMt',
-  GROUPS_LIVEKIT_API_SECRET: process.env.GROUPS_LIVEKIT_API_SECRET || 'etM1iXQVrNnFBetKDZwkHns7Ldq4NIWZhhdAZfDTrPaA',
+  GROUPS_SUPABASE_KEY: process.env.GROUPS_SUPABASE_SECRET_KEY || process.env.GROUPS_SUPABASE_KEY || process.env.GROUPS_SUPABASE_PUBLISHABLE_KEY || '',
+  GROUPS_LIVEKIT_API_KEY: process.env.GROUPS_LIVEKIT_API_KEY || '',
+  GROUPS_LIVEKIT_API_SECRET: process.env.GROUPS_LIVEKIT_API_SECRET || '',
   GROUPS_LIVEKIT_URL: process.env.GROUPS_LIVEKIT_URL || 'wss://fewfregfrtgtr-lq3p5f01.livekit.cloud',
 };
 
@@ -97,7 +97,7 @@ function getChannelsSupabaseClient() {
 
 function getGroupsSupabaseClient() {
   const url = ENV.GROUPS_SUPABASE_URL || 'https://vxjaybyveerulkdqhggr.supabase.co';
-  const key = ENV.GROUPS_SUPABASE_KEY || 'sb_publishable_x6OPhg68nS-xBcPn4K47NQ_2nSS4Kfu';
+  const key = ENV.GROUPS_SUPABASE_KEY || '';
   if (!url || !key) return null;
   return createClient(url, key, {
     auth: { persistSession: false },
