@@ -18,7 +18,7 @@ export const GroupEmptyCard: React.FC<GroupEmptyCardProps> = ({ chat }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const inviteCode = chat.inviteCode || chat.id;
-  const inviteLink = buildGroupInviteLink(inviteCode, chat.name, chat.creatorNickname, chat.avatarUrl);
+  const inviteLink = buildGroupInviteLink(inviteCode, chat.name, chat.creatorNickname);
 
   const handleCopyLink = useCallback(() => {
     navigator.clipboard.writeText(inviteLink);

@@ -40,7 +40,7 @@ export const AddGroupMemberModal: React.FC<AddGroupMemberModalProps> = ({
   const isGroupFull = currentMemberCount >= 10;
 
   const inviteCode = currentChat.inviteCode || currentChat.id;
-  const inviteLink = buildGroupInviteLink(inviteCode, currentChat.name, currentChat.creatorNickname, currentChat.avatarUrl);
+  const inviteLink = buildGroupInviteLink(inviteCode, currentChat.name, currentChat.creatorNickname);
 
   const existingMemberIds = useMemo(() => {
     const set = new Set<string>();

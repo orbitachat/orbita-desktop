@@ -2392,7 +2392,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               >
                 <div
                   onClick={() => {
-                    const link = buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl);
+                    const link = buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname);
                     navigator.clipboard.writeText(link);
                     setCopiedKey(true);
                     setTimeout(() => setCopiedKey(false), 2000);
@@ -2417,7 +2417,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                         fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                       }}
                     >
-                      {buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname, chat.avatarUrl)}
+                      {buildGroupInviteLink(chat.inviteCode || chat.id, chat.name, chat.creatorNickname)}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)' }}>

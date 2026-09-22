@@ -34,11 +34,13 @@ export const CenterToast: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12, ease: 'easeOut' }}
             style={{
-              backgroundColor: 'color-mix(in srgb, var(--accent-color, #7C3AED) 10%, var(--bg-primary, #0D0B14))',
+              backgroundColor: 'var(--md-surface, var(--surface-container, #242424))',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
               color: 'var(--text-main, #ffffff)',
               padding: '8px 18px',
-              borderRadius: '7px',
-              border: 'none',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               outline: 'none',
               display: 'flex',
               alignItems: 'center',

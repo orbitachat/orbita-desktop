@@ -90,8 +90,7 @@ export function extractGroupCode(input: string): string {
 export function buildGroupInviteLink(
   groupCode: string,
   name?: string,
-  creator?: string,
-  avatarUrl?: string
+  creator?: string
 ): string {
   if (!groupCode) return '';
   const cleanCode = groupCode.trim();
@@ -102,9 +101,6 @@ export function buildGroupInviteLink(
   }
   if (creator && creator.trim()) {
     params.set('creator', creator.trim());
-  }
-  if (avatarUrl && avatarUrl.trim()) {
-    params.set('avatar', avatarUrl.trim());
   }
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
@@ -134,8 +130,8 @@ export function extractGroupMetadata(input: string): {
 export function getGroupInviteLink(
   groupCode: string,
   name?: string,
-  creator?: string,
-  avatarUrl?: string
+  creator?: string
 ): string {
-  return buildGroupInviteLink(groupCode, name, creator, avatarUrl);
+  return buildGroupInviteLink(groupCode, name, creator);
 }
+

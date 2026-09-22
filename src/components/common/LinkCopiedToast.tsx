@@ -26,13 +26,13 @@ export const LinkCopiedToast: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
             exit={{ opacity: 0, scale: 0.92, y: 8 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             style={{
-              backgroundColor: 'rgba(20, 18, 30, 0.70)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
+              backgroundColor: 'var(--md-surface, var(--surface-container, #242424))',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
               color: '#ffffff',
               padding: '2px 14px',
-              borderRadius: '10px',
-              border: 'none',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               outline: 'none',
               display: 'flex',
               alignItems: 'center',
