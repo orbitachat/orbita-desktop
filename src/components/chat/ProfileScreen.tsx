@@ -2778,7 +2778,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                           type="button"
                           onClick={async () => {
                             const newRole = isMemberAdmin ? 'member' : 'admin';
-                            await groupService.updateMemberRole(chat.id, member.nickname, newRole, memberCode);
+                            await groupService.updateMemberRole(chat.id, member.nickname, newRole, memberCode, myNickname);
                             const updatedMembers = (chat.members || []).map((m: any) => {
                               const mCode = m.userId || m.userCode;
                               const isTarget = memberCode && mCode ? mCode === memberCode : m.nickname === member.nickname;

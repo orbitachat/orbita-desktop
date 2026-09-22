@@ -10,6 +10,7 @@ import {
 } from '../lib/groupCrypto';
 import { encryptMessage } from '../lib/crypto';
 import { useChatStore } from '../store/useChatStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export interface GroupMemberInfo {
   nickname: string;
@@ -584,7 +585,8 @@ class GroupService {
     groupId: string,
     targetNickname: string,
     role: 'admin' | 'member',
-    targetUserCode?: string
+    targetUserCode?: string,
+    actorNickname?: string
   ): Promise<boolean> {
     try {
       let q = this.supabase.from('group_members').update({ role }).eq('group_id', groupId);
@@ -603,8 +605,9 @@ class GroupService {
         body: JSON.stringify({ groupId, targetNickname, targetUserCode: targetUserCode || null, role }),
       });
       if (role === 'admin') {
+        const actor = actorNickname || useAuthStore.getState().nickname || '';
         const secret = deriveGroupKey(groupId);
-        this.sendSystemMessage(groupId, secret, 'admin', '', targetNickname);
+        this.sendSystemMessage(groupId, secret, 'admin', actor, targetNickname);
       }
       return res.ok;
     } catch {
@@ -702,7 +705,7 @@ class GroupService {
       join: `${actorNickname} вступил(а) в группу`,
       title: 'Название группы было изменено',
       avatar: 'Аватарка группы была изменена',
-      admin: `${actorNickname ? actorNickname + ' назначил(а)' : 'Участник назначен'} ${targetNickname || ''} администратором`,
+      admin: `${(actorNickname || useAuthStore.getState().nickname) ? (actorNickname || useAuthStore.getState().nickname) + ' назначил(а)' : 'Участник назначен'} ${targetNickname || ''} администратором`,
       call: `${actorNickname} начал(а) групповой звонок`,
       kick: `${actorNickname} удалил(а) ${targetNickname || ''} из группы`,
     };
