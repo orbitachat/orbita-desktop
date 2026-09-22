@@ -1,112 +1,92 @@
-```text
-                                         _.oo.
-                 _.u[[/;:,.         .odMMMMMM'
-              .o888UU[[[/;:-.  .o@P^    MMM^
-             oN88888UU[[[/;::-.        dP^
-            dNMMNN888UU[[[/;:--.   .o@P^
-           ,MMMMMMN888UU[[/;::-. o@^
-           NNMMMNN888UU[[[/~.o@P^
-           888888888UU[[[/o@^-..
-          oI8888UU[[[/o@P^:--..
-       .@^  YUU[[[/o@^;::---..
-     oMP     ^/o@P^;:::---..
-  .dMMM    .o@^ ^;::---...
- dMMMMMMM@^`       `^^^^
-YMMMUP^
-```
+<div align="center">
+
+<img src="public/orbita1.png" alt="Orbita Logo" width="128" height="128" />
 
 # Orbita Desktop
 
-> High-performance, end-to-end encrypted desktop messenger with native Windows integration, real-time messaging, and low-latency voice and video calls.
+**Десктопный клиент мессенджера Orbita со сквозным шифрованием и высокой производительностью**
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-9c78ff.svg)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-33.x-blue.svg)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19.x-61dafb.svg)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)](https://www.typescriptlang.org/)
+[![Rust](https://img.shields.io/badge/Rust-N--API-orange.svg)](https://www.rust-lang.org/)
+
+</div>
 
 ---
 
-## Overview
+## Описание
 
-Orbita is a secure and minimalist desktop communication platform engineered with an emphasis on cryptographic privacy, memory efficiency, and native operating system integration.
-
----
-
-## Core Capabilities
-
-- **End-to-End Encryption (E2EE)**: Implementation of the Double Ratchet protocol (X25519, HKDF, AES-GCM / ChaCha20-Poly1305) ensures zero-knowledge forward secrecy and backward privacy.
-- **Low-Latency Calls**: High-definition peer-to-peer and multi-party voice/video calling powered by LiveKit and WebRTC with dedicated lightweight window processes.
-- **Resilient Realtime Transport**: Redundant transport architecture featuring automatic failover and load balancing between Pusher and Ably networks.
-- **Native Rust Engine**: High-performance Win32 system tray integration, native system interactions, and hardware-accelerated cryptographic routines via N-API.
-- **Dynamic Interface Engine**: Material Design 3 design system with customizable adaptive palettes and dark/light modes.
-- **Local Vault Storage**: Secure, zero-telemetry local database with optimized memory and disk caching.
+**Orbita Desktop** — официальный кроссплатформенный клиент нового поколения для мессенджера Orbita. Приложение сочетает современный графический интерфейс, продвинутые механизмы безопасности и высокий уровень оптимизации благодаря интеграции нативного модуля на языке Rust.
 
 ---
 
-## Architecture and Technology Stack
+## Ключевые особенности
 
-- **Application Shell**: Electron (Chromium, Node.js)
-- **Frontend Architecture**: React 19, Vite, TailwindCSS
-- **Native Extension**: Rust (`napi-rs`, Win32 API)
-- **Realtime Layer**: LiveKit Client, Pusher Channels, Ably Realtime
-- **Gateway & Relay**: Cloudflare Workers, Vercel Serverless Gateway, Supabase
-- **Cryptographic Core**: Double Ratchet, `@stablelib/x25519`, `@stablelib/sha256`, Native Rust Crypto
+- **Сквозное шифрование (E2EE)**
+  Использование криптографического протокола Double Ratchet (X25519, HKDF, AES-GCM / ChaCha20-Poly1305) обеспечивает максимальную конфиденциальность переписки, прямой и обратной секретности сообщений.
+
+- **Оригинальный интерфейс**
+  Уникальный графический дизайн с поддержкой динамических тем, кастомных эффектов и адаптивной компоновкой, созданной специально для десктопных операционных систем.
+
+- **Локальное распознавание речи**
+  Транскрипция голосовых сообщений выполняется непосредственно на устройстве пользователя при помощи локальных нейросетевых моделей без передачи аудиоданных на внешние сервера.
+
+- **Защита приватности и очистка метаданных**
+  Автоматическое удаление служебных метаданных из медиафайлов и документов перед их отправкой в чат.
+
+- **Голосовая и видеосвязь**
+  Низкая задержка и высокое качество звука и видео в личных и групповых звонках благодаря технологиям LiveKit и WebRTC.
 
 ---
 
-## Getting Started
+## Технологический стек
 
-### Prerequisites
-- Node.js (v20 or newer)
-- Rust and Cargo (for compiling `native/` modules)
+| Компонент | Технологии |
+| :--- | :--- |
+| **Платформа** | Electron, Node.js |
+| **Интерфейс** | React 19, TypeScript, Vite, TailwindCSS |
+| **Нативный слой** | Rust, N-API, Win32 System Tray, Ring |
+| **Инфраструктура** | Supabase, Cloudflare Workers, Vercel Serverless |
 
-### Installation
+---
+
+## Быстрый старт
+
+### Требования к окружению
+
+- **Node.js**: версия 20.0 или выше
+- **Rust**: актуальная версия компилятора `rustc` и пакетного менеджера `cargo` (для сборки нативного модуля из директории `native/`)
+
+### Установка зависимостей
+
 ```bash
-git clone https://github.com/orbita-messenger/orbita-desktop.git
+git clone https://github.com/orbitachat/orbita-desktop.git
 cd orbita-desktop
 npm install
 ```
 
-### Development
+### Разработка
+
+Запуск приложения в режиме разработки с поддержкой горячей перезагрузки (Hot Reload):
+
 ```bash
 npm run dev
 ```
 
-### Production Build (Windows Installer)
+### Сборка дистрибутива
+
+Компиляция нативного модуля Rust и сборка установочного пакета:
+
 ```bash
 npm run electron:build
 ```
-Compiled setup executable will be generated in `release/setup_1.0.0-beta.exe`.
+
+Готовый файл установки будет доступен в директории `release/`.
 
 ---
 
-## Project Structure
+## Лицензия
 
-```text
-orbita-desktop/
-├── api/                  # Serverless token gateway and relay endpoints
-├── electron/             # Electron main and preload processes
-├── native/               # Native Rust addon (N-API, Win32 system tray)
-├── public/               # Static fonts, sounds, and assets
-├── src/
-│   ├── components/       # Interface components (chats, calls, settings)
-│   ├── lib/              # Cryptographic algorithms and protocols
-│   ├── locales/          # Internationalization dictionaries (RU, EN)
-│   ├── services/         # Communication, network, and gateway services
-│   ├── store/            # State management (Zustand)
-│   ├── App.tsx           # Primary application window
-│   └── call-main.tsx     # Dedicated call window entry point
-├── call.html             # Call window markup
-├── index.html            # Main application markup
-└── vite.config.ts        # Vite multi-entry bundler configuration
-```
-
----
-
-## Contributors
-
-- **Saizzi** — Creator and Lead Developer
-
----
-
-## License
-
-**Source-Available License (All Rights Reserved)**
-- The source code is publicly accessible exclusively for viewing, evaluation, security audit, and educational research purposes.
-- Copying, redistribution, commercial use, and creation of derivative works without prior written consent of the author are strictly prohibited.
-- For complete terms and conditions, refer to the [LICENSE](LICENSE) file.
+Проект **Orbita Desktop** распространяется под свободным лицензионным соглашением **GNU General Public License v3.0 (GPLv3)**. Полный текст лицензии доступен в файле [LICENSE](LICENSE).
