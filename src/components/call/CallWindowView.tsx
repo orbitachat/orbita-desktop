@@ -669,8 +669,11 @@ export const CallWindowView = () => {
             return null;
           })();
           const uniqueTag = myUserId || Math.random().toString(36).slice(2, 8);
-          const identity = `${myNick}_${uniqueTag}`;
-          const res = await gatewayManager.fetch('/token', {
+          const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
+          const endpoint = isGrp ? '/groups/livekit-token' : '/token';
+          const sessionNonce = Math.random().toString(36).slice(2, 6);
+          const identity = `${myNick}_${uniqueTag}_${sessionNonce}`;
+          const res = await gatewayManager.fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ room: roomName, identity, name: myNick }),
@@ -691,7 +694,8 @@ export const CallWindowView = () => {
         if (isVideoEnabled) {
           await liveKitService.enableCamera();
         }
-        if (liveKitService.remoteParticipants.length > 0) {
+        const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
+        if (isGrp || liveKitService.remoteParticipants.length > 0) {
           sendAction('activateConnected');
         }
       } catch {}

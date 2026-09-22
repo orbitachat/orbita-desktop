@@ -42,6 +42,7 @@ export interface ActiveCall {
   verificationEmojis?: string[];
   token?: string;
   url?: string;
+  chatType?: 'group' | 'private' | 'channel';
 }
 
 interface CallStore {
@@ -113,9 +114,10 @@ let lastSeenOfferRoom: string | null = null;
 function getLivekitParticipantIdentity(nick: string): { identity: string; name: string } {
   const myUserId = useAuthStore.getState().userId;
   const myCode = useChatStore.getState().myCode;
-  const uniqueTag = myUserId || myCode || Math.random().toString(36).slice(2, 8);
+  const uniqueTag = myUserId || myCode || 'user';
+  const sessionNonce = Math.random().toString(36).slice(2, 6);
   return {
-    identity: `${nick}_${uniqueTag}`,
+    identity: `${nick}_${uniqueTag}_${sessionNonce}`,
     name: nick,
   };
 }
@@ -325,7 +327,10 @@ export const useCallStore = create<CallStore>((set, get) => {
       const connectedAt = syncedConnectedAt
         || (stateAfterCrypto.activeCall.startTime > 0 ? stateAfterCrypto.activeCall.startTime : Date.now());
 
-      if (stateAfterCrypto.activeCall.direction === 'outgoing' && !syncedConnectedAt) {
+      const isGroup = stateAfterCrypto.activeCall.chatType === 'group' ||
+        useChatStore.getState().chats.find((c) => c.id === stateAfterCrypto.activeCall?.chatId)?.type === 'group';
+
+      if (!isGroup && stateAfterCrypto.activeCall.direction === 'outgoing' && !syncedConnectedAt) {
         sendCallSignalReliable(stateAfterCrypto.activeCall.chatId, {
           type: 'call-connected',
           connectedAt,
@@ -359,6 +364,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       console.log(`${LOG_PREFIX} LiveKit disconnected event`);
       const state = get();
       if (state.isEnding) return;
+      if (liveKitService.isCurrentlyConnecting) return;
       if (state.activeCall && state.callState === 'connected') {
         get().endCall();
       }
@@ -374,27 +380,48 @@ export const useCallStore = create<CallStore>((set, get) => {
     });
 
     liveKitService.on('connected', () => {
+      const act = get().activeCall;
+      if (act) {
+        set({ activeCall: { ...act, participants: liveKitService.remoteParticipants } });
+      }
+      get().updateParticipants(liveKitService.allParticipants);
       const current = get();
+      const isGrp = current.activeCall?.chatType === 'group' ||
+        useChatStore.getState().chats.find((c) => c.id === current.activeCall?.chatId)?.type === 'group';
       if (current.callState === 'connecting' || current.callState === 'ringing') {
-        if (liveKitService.remoteParticipants.length > 0) {
+        if (isGrp || liveKitService.remoteParticipants.length > 0) {
           activateConnected();
         }
       }
     });
 
     liveKitService.on('trackSubscribed', () => {
+      const act = get().activeCall;
+      if (act) {
+        set({ activeCall: { ...act, participants: liveKitService.remoteParticipants } });
+      }
+      get().updateParticipants(liveKitService.allParticipants);
       const current = get();
       if (current.callState === 'connecting' || current.callState === 'ringing') {
         activateConnected();
       }
     });
 
+    liveKitService.on('participantsChanged', (participants: ParticipantInfo[]) => {
+      const act = get().activeCall;
+      if (act) {
+        set({ activeCall: { ...act, participants: liveKitService.remoteParticipants } });
+      }
+      get().updateParticipants(participants);
+    });
+
     liveKitService.on('participantJoined', (participant: ParticipantInfo) => {
       console.log(`${LOG_PREFIX} participantJoined:`, participant.identity);
       const act = get().activeCall;
       if (!act) return;
-      if (act.participants.some((p) => p.identity === participant.identity)) return;
-      set({ activeCall: { ...act, participants: [...act.participants, participant] } });
+      const filtered = act.participants.filter((p) => p.identity !== participant.identity);
+      set({ activeCall: { ...act, participants: [...filtered, participant] } });
+      get().updateParticipants(liveKitService.allParticipants);
       const current = get();
       if (current.callState === 'connecting' || current.callState === 'ringing') activateConnected();
     });
@@ -404,6 +431,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       const act = get().activeCall;
       if (!act) return;
       set({ activeCall: { ...act, participants: act.participants.filter((p) => p.identity !== identity) } });
+      get().updateParticipants(liveKitService.allParticipants);
     });
 
     liveKitService.on('connectionQuality', (quality: string) => {
@@ -564,8 +592,25 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (isGroup) {
         set({
           myNickname,
-          activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: Date.now(), participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
-          callState: 'connected',
+          activeCall: {
+            chatId,
+            roomName,
+            direction: 'outgoing',
+            callType,
+            startTime: 0,
+            participants: [],
+            isMuted: false,
+            isVideoEnabled: isVideo,
+            isScreenSharing: false,
+            connectionQuality: 'unknown',
+            endedStatus: null,
+            verificationSecret,
+            verificationSalt,
+            verificationEmojis: undefined,
+            chatType: 'group',
+          },
+          callState: 'connecting',
+          statusMessage: i18n.t('call.connecting'),
           isMicEnabled: true,
           isVideoEnabled: isVideo,
           isScreenSharing: false,
@@ -574,18 +619,20 @@ export const useCallStore = create<CallStore>((set, get) => {
           remoteScreenShareIdentity: null,
           connectionQuality: 'unknown',
           duration: 0,
-          statusMessage: '',
           isEnding: false,
         });
-        const myCode = useChatStore.getState().myCode;
-        groupService.startCall(chatId, roomName, myCode || myNickname, myNickname).catch(() => {});
-        useChatStore.getState().updateChat(chatId, { activeCallRoom: roomName });
-        try {
-          const groupPusher = getGroupPusher();
-          const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
-          const notifyCall = () => grpCh.trigger('group-call-started', { roomName });
-          if (grpCh.subscribed) notifyCall(); else grpCh.bind('pusher:subscription_succeeded', notifyCall);
-        } catch {}
+        const isNewCall = !chat?.activeCallRoom;
+        if (isNewCall) {
+          const myCode = useChatStore.getState().myCode;
+          groupService.startCall(chatId, roomName, myCode || myNickname, myNickname).catch(() => {});
+          useChatStore.getState().updateChat(chatId, { activeCallRoom: roomName });
+          try {
+            const groupPusher = getGroupPusher();
+            const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
+            const notifyCall = () => grpCh.trigger('group-call-started', { roomName });
+            if (grpCh.subscribed) notifyCall(); else grpCh.bind('pusher:subscription_succeeded', notifyCall);
+          } catch {}
+        }
 
         try {
           const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
@@ -594,9 +641,21 @@ export const useCallStore = create<CallStore>((set, get) => {
           const act = get().activeCall;
           if (act) set({ activeCall: { ...act, token, url } });
           await liveKitService.connect(roomName, token, url, sessionKey);
-          activateConnected();
+          await activateConnected();
+          await liveKitService.enableMicrophone();
+          if (isVideo) {
+            await liveKitService.enableCamera();
+          }
+          const currentAct = get().activeCall;
+          if (currentAct) {
+            set({ activeCall: { ...currentAct, participants: liveKitService.remoteParticipants } });
+          }
+          get().updateParticipants(liveKitService.allParticipants);
         } catch (err) {
           console.warn(`${LOG_PREFIX} Initial LiveKit group connect warning:`, err);
+          if (get().activeCall && get().callState === 'connecting') {
+            get().endCall();
+          }
         }
         return;
       }
@@ -771,16 +830,22 @@ export const useCallStore = create<CallStore>((set, get) => {
           default: endedStatus = endedStatus || null; signalType = null;
         }
       }
-      if (signalType) sendCallSignalReliable(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName });
       const currentChat = useChatStore.getState().chats.find((c) => c.id === chatId);
-      if (currentChat?.type === 'group') {
-        groupService.endCall(chatId).catch(() => {});
-        useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
-        try {
-          const groupPusher = getGroupPusher();
-          const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
-          grpCh.trigger('group-call-ended', {});
-        } catch {}
+      const isGroup = activeCall.chatType === 'group' || currentChat?.type === 'group';
+      if (!isGroup && signalType) {
+        sendCallSignalReliable(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName });
+      }
+      if (isGroup) {
+        const remainingRemotes = liveKitService.remoteParticipants.length;
+        if (remainingRemotes === 0) {
+          groupService.endCall(chatId).catch(() => {});
+          useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
+          try {
+            const groupPusher = getGroupPusher();
+            const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
+            grpCh.trigger('group-call-ended', {});
+          } catch {}
+        }
       }
       try { void liveKitService.stopScreenShare(); } catch {}
       liveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} disconnect error:`, err));

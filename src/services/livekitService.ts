@@ -185,6 +185,14 @@ class LiveKitService extends EventEmitter {
     return Array.from(this.participants.values());
   }
 
+  public get isCurrentlyConnecting(): boolean {
+    return this.isConnecting;
+  }
+
+  public getParticipants(): ParticipantInfo[] {
+    return this.allParticipants;
+  }
+
   public async connect(
     roomName: string,
     token: string,
@@ -453,14 +461,14 @@ class LiveKitService extends EventEmitter {
         autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: true,
-        channelCount: 2,
+        channelCount: 1,
         sampleRate: 48000,
         sampleSize: 16,
       }, {
-        dtx: true,
-        forceStereo: true,
+        dtx: false,
+        forceStereo: false,
         audioPreset: {
-          maxBitrate: 96000,
+          maxBitrate: 48000,
           priority: 'high',
         },
       });
@@ -900,6 +908,33 @@ class LiveKitService extends EventEmitter {
     this.connectionAttempts = 0;
     this.localParticipant = this.room!.localParticipant;
     this.updateParticipants();
+    if (this.room) {
+      for (const p of this.room.remoteParticipants.values()) {
+        for (const pub of p.trackPublications.values()) {
+          if (pub.track && pub.track.kind === Track.Kind.Audio) {
+            const key = `${p.identity}:${pub.track.sid}`;
+            if (!this.attachedAudioElements.has(key)) {
+              try {
+                const el = (pub.track as RemoteTrack).attach();
+                el.id = `livekit-audio-${p.identity}`;
+                el.autoplay = true;
+                el.volume = Math.min(1.0, this.peerVolume);
+                el.style.display = 'none';
+                document.body.appendChild(el);
+                this.attachedAudioElements.set(key, el);
+                try {
+                  const pl = el.play();
+                  if (pl && typeof pl.catch === 'function') pl.catch(() => {});
+                } catch {}
+                try {
+                  (pub.track as any).setVolume?.(this.peerVolume);
+                } catch {}
+              } catch {}
+            }
+          }
+        }
+      }
+    }
     this.emit('connected');
     console.log(`${LOG_PREFIX} Connected to room`);
   }
@@ -1051,9 +1086,12 @@ class LiveKitService extends EventEmitter {
         screenPub.track.mediaStreamTrack.enabled &&
         !screenPub.isMuted
       );
+      const parsedName = participant.name && participant.name !== identity
+        ? participant.name
+        : (identity.includes('_') ? identity.split('_')[0] : identity);
       const info: ParticipantInfo = {
         identity,
-        name: participant.name || identity,
+        name: parsedName,
         audioEnabled,
         videoEnabled,
         screenShareEnabled,
@@ -1062,14 +1100,11 @@ class LiveKitService extends EventEmitter {
       };
       this.participants.set(identity, info);
     }
+    this.emit('participantsChanged', this.allParticipants);
   }
 
   public getParticipant(identity: string): ParticipantInfo | undefined {
     return this.participants.get(identity);
-  }
-
-  public getParticipants(): ParticipantInfo[] {
-    return Array.from(this.participants.values());
   }
 
   public enableAutoReconnect(): void {

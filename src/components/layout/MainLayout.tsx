@@ -3718,6 +3718,8 @@ export const MainLayout = () => {
       }
 
       if (data.type === 'call-hangup') {
+        const targetChat = useChatStore.getState().chats.find((c) => c.id === chatId);
+        if (targetChat?.type === 'group') return;
         callSoundService.stop();
         useCallStore.getState().handleHangup(data.roomName);
         return;
