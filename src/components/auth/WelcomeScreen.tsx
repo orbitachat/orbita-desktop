@@ -527,13 +527,13 @@ export const WelcomeScreen: React.FC = () => {
                     <div
                       style={{
                         position: 'absolute',
-                        top: 'calc(100% + 7px)',
+                        top: 'calc(100% + 21px)',
                         left: '50%',
-                        transform: 'translateX(-50%)',
+                        transform: 'translate(-50%, -50%)',
                         color: 'var(--text-dim, #8e8e93)',
                         fontSize: '12.5px',
                         fontWeight: 500,
-                        lineHeight: 1.2,
+                        lineHeight: 1,
                         whiteSpace: 'nowrap',
                         pointerEvents: 'none',
                       }}
@@ -656,13 +656,13 @@ export const WelcomeScreen: React.FC = () => {
                     <div
                       style={{
                         position: 'absolute',
-                        top: 'calc(100% + 7px)',
+                        top: 'calc(100% + 21px)',
                         left: '50%',
-                        transform: 'translateX(-50%)',
+                        transform: 'translate(-50%, -50%)',
                         color: 'var(--text-dim, #8e8e93)',
                         fontSize: '12.5px',
                         fontWeight: 500,
-                        lineHeight: 1.2,
+                        lineHeight: 1,
                         whiteSpace: 'nowrap',
                         pointerEvents: 'none',
                       }}
@@ -751,7 +751,7 @@ export const WelcomeScreen: React.FC = () => {
                 }}
               />
 
-              <div style={{ position: 'relative', width: '100%', marginBottom: '36px' }}>
+              <div style={{ position: 'relative', width: '100%', marginBottom: '42px' }}>
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => {
@@ -869,13 +869,13 @@ export const WelcomeScreen: React.FC = () => {
                   <div
                     style={{
                       position: 'absolute',
-                      top: 'calc(100% + 7px)',
+                      top: 'calc(100% + 21px)',
                       left: '50%',
-                      transform: 'translateX(-50%)',
+                      transform: 'translate(-50%, -50%)',
                       color: 'var(--text-dim, #8e8e93)',
                       fontSize: '12.5px',
                       fontWeight: 500,
-                      lineHeight: 1.2,
+                      lineHeight: 1,
                       whiteSpace: 'nowrap',
                       pointerEvents: 'none',
                     }}
@@ -997,13 +997,13 @@ export const WelcomeScreen: React.FC = () => {
                     <div
                       style={{
                         position: 'absolute',
-                        top: 'calc(100% + 7px)',
+                        top: 'calc(100% + 21px)',
                         left: '50%',
-                        transform: 'translateX(-50%)',
+                        transform: 'translate(-50%, -50%)',
                         color: 'var(--text-dim, #8e8e93)',
                         fontSize: '12.5px',
                         fontWeight: 500,
-                        lineHeight: 1.2,
+                        lineHeight: 1,
                         whiteSpace: 'nowrap',
                         pointerEvents: 'none',
                       }}
