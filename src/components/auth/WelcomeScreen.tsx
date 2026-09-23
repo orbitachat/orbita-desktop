@@ -209,6 +209,47 @@ export const WelcomeScreen: React.FC = () => {
         boxSizing: 'border-box',
       }}
     >
+      {activeStep !== 'menu' && (
+        <button
+          type="button"
+          onClick={() => {
+            if (activeStep === 'restore_backup_phrase') {
+              navigateBack('restore_backup_file');
+            } else {
+              navigateBack('menu');
+            }
+          }}
+          aria-label={t('welcome.back', 'Назад')}
+          style={{
+            position: 'absolute',
+            top: '24px',
+            left: '24px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px',
+            borderRadius: '50%',
+            outline: 'none',
+            zIndex: 50,
+            transition: 'color 0.15s ease, background-color 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'var(--text-main, #ffffff)';
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          <ArrowLeft size={24} />
+        </button>
+      )}
+
       <div
         style={{
           width: '100%',
@@ -384,53 +425,19 @@ export const WelcomeScreen: React.FC = () => {
                 alignItems: 'flex-start',
               }}
             >
-              <button
-                type="button"
-                onClick={() => navigateBack('menu')}
-                aria-label={t('welcome.back', 'Назад')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 0',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  outline: 'none',
-                  marginBottom: '20px',
-                  transition: 'color 0.12s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
-              >
-                <ArrowLeft size={18} />
-                <span>{t('welcome.back', 'Назад')}</span>
-              </button>
-
               <h2
                 style={{
-                  margin: '0 0 8px 0',
+                  margin: '0 0 32px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
                   letterSpacing: '-0.02em',
+                  width: '100%',
+                  textAlign: 'left',
                 }}
               >
                 {t('nickname.title', 'Придумайте никнейм')}
               </h2>
-              <p
-                style={{
-                  margin: '0 0 28px 0',
-                  fontSize: '14px',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  lineHeight: 1.4,
-                }}
-              >
-                {t('nickname.placeholder', 'Как тебя называть?')}
-              </p>
 
               <form onSubmit={handleRegisterSubmit} style={{ width: '100%' }}>
                 <input
@@ -439,7 +446,6 @@ export const WelcomeScreen: React.FC = () => {
                   onChange={(e) => setNickname(e.target.value)}
                   maxLength={24}
                   autoFocus
-                  placeholder={t('nickname.placeholder', 'Как тебя называть?')}
                   aria-label={t('nickname.title', 'Придумайте никнейм')}
                   style={{
                     width: '100%',
@@ -507,76 +513,21 @@ export const WelcomeScreen: React.FC = () => {
                 alignItems: 'flex-start',
               }}
             >
-              <button
-                type="button"
-                onClick={() => navigateBack('menu')}
-                aria-label={t('welcome.back', 'Назад')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 0',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  outline: 'none',
-                  marginBottom: '20px',
-                  transition: 'color 0.12s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
-              >
-                <ArrowLeft size={18} />
-                <span>{t('welcome.back', 'Назад')}</span>
-              </button>
-
               <h2
                 style={{
-                  margin: '0 0 8px 0',
+                  margin: '0 0 32px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
                   letterSpacing: '-0.02em',
+                  width: '100%',
+                  textAlign: 'left',
                 }}
               >
                 {t('welcome.unique_id_title', 'Восстановление по ID')}
               </h2>
-              <p
-                style={{
-                  margin: '0 0 20px 0',
-                  fontSize: '13.5px',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  lineHeight: 1.4,
-                }}
-              >
-                {t('welcome.unique_id_desc', 'Введите ваш уникальный 64-значный ID / мастер-ключ аккаунта')}
-              </p>
 
               <form onSubmit={handleIdRestore} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--text-main, rgba(255, 255, 255, 0.85))',
-                    }}
-                  >
-                    {t('welcome.master_key_label', 'Мастер-ключ аккаунта (64 HEX символа)')}
-                  </label>
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: cleanMasterKey.length === 64 ? 'var(--accent-color, #5c54e5)' : 'var(--text-dim, rgba(255, 255, 255, 0.45))',
-                    }}
-                  >
-                    {cleanMasterKey.length} / 64
-                  </span>
-                </div>
-
                 <textarea
                   value={masterKey}
                   onChange={(e) => {
@@ -584,9 +535,8 @@ export const WelcomeScreen: React.FC = () => {
                     setMasterKey(e.target.value);
                   }}
                   autoFocus
-                  placeholder={t('welcome.master_key_placeholder', 'Вставьте 64-значный шестнадцатеричный ключ...')}
-                  rows={3}
-                  aria-label={t('welcome.master_key_label', 'Мастер-ключ аккаунта')}
+                  rows={2}
+                  aria-label={t('welcome.unique_id_title', 'Восстановление по ID')}
                   style={{
                     width: '100%',
                     padding: '10px 0',
@@ -595,13 +545,13 @@ export const WelcomeScreen: React.FC = () => {
                     borderBottom: '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
                     backgroundColor: 'transparent',
                     color: 'var(--text-main, #ffffff)',
-                    fontSize: '13.5px',
+                    fontSize: '14px',
                     fontFamily: 'monospace',
                     resize: 'none',
                     outline: 'none',
                     boxSizing: 'border-box',
                     wordBreak: 'break-all',
-                    marginBottom: errorMessage ? '10px' : '28px',
+                    marginBottom: errorMessage ? '10px' : '32px',
                     transition: 'border-color 0.15s ease',
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
@@ -686,53 +636,19 @@ export const WelcomeScreen: React.FC = () => {
                 alignItems: 'flex-start',
               }}
             >
-              <button
-                type="button"
-                onClick={() => navigateBack('menu')}
-                aria-label={t('welcome.back', 'Назад')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 0',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  outline: 'none',
-                  marginBottom: '20px',
-                  transition: 'color 0.12s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
-              >
-                <ArrowLeft size={18} />
-                <span>{t('welcome.back', 'Назад')}</span>
-              </button>
-
               <h2
                 style={{
-                  margin: '0 0 8px 0',
+                  margin: '0 0 32px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
                   letterSpacing: '-0.02em',
+                  width: '100%',
+                  textAlign: 'left',
                 }}
               >
                 {t('welcome.backup_file_title', 'Файл резервной копии')}
               </h2>
-              <p
-                style={{
-                  margin: '0 0 20px 0',
-                  fontSize: '13.5px',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  lineHeight: 1.4,
-                }}
-              >
-                {t('welcome.backup_file_desc', 'Прикрепите локальный файл бэкапа с расширением .orbita')}
-              </p>
 
               <input
                 type="file"
@@ -848,14 +764,6 @@ export const WelcomeScreen: React.FC = () => {
                     >
                       {t('welcome.select_file', 'Выбрать файл .orbita')}
                     </span>
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--text-dim, rgba(255, 255, 255, 0.5))',
-                      }}
-                    >
-                      {t('welcome.drop_file_here', 'Перетащите файл сюда или нажмите')}
-                    </span>
                   </>
                 )}
               </div>
@@ -923,76 +831,21 @@ export const WelcomeScreen: React.FC = () => {
                 alignItems: 'flex-start',
               }}
             >
-              <button
-                type="button"
-                onClick={() => navigateBack('restore_backup_file')}
-                aria-label={t('welcome.back', 'Назад')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 0',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  outline: 'none',
-                  marginBottom: '20px',
-                  transition: 'color 0.12s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
-              >
-                <ArrowLeft size={18} />
-                <span>{t('welcome.back', 'Назад')}</span>
-              </button>
-
               <h2
                 style={{
-                  margin: '0 0 8px 0',
+                  margin: '0 0 32px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
                   letterSpacing: '-0.02em',
+                  width: '100%',
+                  textAlign: 'left',
                 }}
               >
                 {t('welcome.backup_phrase_title', 'Секретная фраза')}
               </h2>
-              <p
-                style={{
-                  margin: '0 0 20px 0',
-                  fontSize: '13.5px',
-                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
-                  lineHeight: 1.4,
-                }}
-              >
-                {t('welcome.backup_phrase_desc', 'Введите 12 слов для расшифровки локального бэкапа')}
-              </p>
 
               <form onSubmit={handleBackupPhraseRestore} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--text-main, rgba(255, 255, 255, 0.85))',
-                    }}
-                  >
-                    {t('welcome.phrase_label', 'Секретная фраза (12 слов)')}
-                  </label>
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: parsedWords.length === 12 ? 'var(--accent-color, #5c54e5)' : 'var(--text-dim, rgba(255, 255, 255, 0.45))',
-                    }}
-                  >
-                    {parsedWords.length} / 12
-                  </span>
-                </div>
-
                 <textarea
                   value={phrase}
                   onChange={(e) => {
@@ -1000,9 +853,8 @@ export const WelcomeScreen: React.FC = () => {
                     setPhrase(e.target.value);
                   }}
                   autoFocus
-                  placeholder={t('welcome.phrase_placeholder', 'Введите или вставьте 12 английских слов через пробел...')}
-                  rows={3}
-                  aria-label={t('welcome.phrase_label', 'Секретная фраза')}
+                  rows={2}
+                  aria-label={t('welcome.backup_phrase_title', 'Секретная фраза')}
                   style={{
                     width: '100%',
                     padding: '10px 0',
@@ -1011,12 +863,12 @@ export const WelcomeScreen: React.FC = () => {
                     borderBottom: '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
                     backgroundColor: 'transparent',
                     color: 'var(--text-main, #ffffff)',
-                    fontSize: '14px',
+                    fontSize: '14.5px',
                     lineHeight: 1.5,
                     resize: 'none',
                     outline: 'none',
                     boxSizing: 'border-box',
-                    marginBottom: errorMessage ? '10px' : '28px',
+                    marginBottom: errorMessage ? '10px' : '32px',
                     transition: 'border-color 0.15s ease',
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
