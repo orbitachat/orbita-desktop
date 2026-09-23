@@ -1,20 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { KeyRound } from 'lucide-react';
+import { ArrowLeft, HardDrive, KeyRound, UserPlus, Upload, FileCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
-import { AccountRestoreModal } from './AccountRestoreModal';
+import { generateRandomCode } from '../../lib/codes';
+import { isValidMasterSeedHex } from '../../lib/zkAccountCrypto';
+import { accountSyncService } from '../../services/accountSyncService';
+import { restoreAccountBackup } from '../../services/accountBackupService';
+
+type StepType = 'menu' | 'register' | 'restore_id' | 'restore_backup_file' | 'restore_backup_phrase';
 
 export const WelcomeScreen: React.FC = () => {
   const { t } = useTranslation();
   const setStep = useAuthStore((state) => state.setStep);
+  const setNicknameStore = useAuthStore((state) => state.setNickname);
   const currentTheme = useChatStore((state) => state.currentTheme);
-  const [isRestoreOpen, setIsRestoreOpen] = useState(false);
 
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < 640 : false
-  );
+  const [activeStep, setActiveStep] = useState<StepType>('menu');
+  const [direction, setDirection] = useState<number>(1);
+
+  const [nickname, setNickname] = useState('');
+  const [masterKey, setMasterKey] = useState('');
+  const [phrase, setPhrase] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileBytes, setFileBytes] = useState<Uint8Array | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isLight, setIsLight] = useState(() => {
     if (typeof document !== 'undefined') {
@@ -23,14 +38,6 @@ export const WelcomeScreen: React.FC = () => {
     }
     return false;
   });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   useEffect(() => {
     const updateTheme = () => {
@@ -47,41 +54,143 @@ export const WelcomeScreen: React.FC = () => {
     return () => observer.disconnect();
   }, [currentTheme]);
 
-  const palette = isLight
-    ? {
-        bg: '#edeafc',
-        glow: 'radial-gradient(circle at 50% 50%, rgba(92, 84, 229, 0.20) 0%, rgba(92, 84, 229, 0) 70%)',
-        shadow: '0 12px 36px rgba(92, 84, 229, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04)',
-        strokeFaint: 'rgba(92, 84, 229, 0.18)',
-        strokeSoft: 'rgba(92, 84, 229, 0.26)',
-        strokeMedium: 'rgba(92, 84, 229, 0.38)',
-        strokeMain: 'rgba(92, 84, 229, 0.65)',
-        strokeStrong: '#5c54e5',
-        fillFaint: 'rgba(92, 84, 229, 0.08)',
-        fillSoft: 'rgba(92, 84, 229, 0.14)',
-        fillMedium: 'rgba(92, 84, 229, 0.28)',
-        fillSolid: '#5c54e5',
-        planetLogo: '#5c54e5',
-        saturnGradStart: 'rgba(92, 84, 229, 0.45)',
-        saturnGradEnd: 'rgba(92, 84, 229, 0.12)',
+  const navigateTo = useCallback((nextStep: StepType) => {
+    setErrorMessage(null);
+    setDirection(1);
+    setActiveStep(nextStep);
+  }, []);
+
+  const navigateBack = useCallback((prevStep: StepType) => {
+    setErrorMessage(null);
+    setDirection(-1);
+    setActiveStep(prevStep);
+  }, []);
+
+  const handleRegisterSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = nickname.trim();
+    if (trimmed.length < 2) return;
+
+    setNicknameStore(trimmed);
+    const currentCode = useChatStore.getState().myCode;
+    if (!currentCode) {
+      useChatStore.getState().setMyCode(generateRandomCode());
+    }
+    accountSyncService.ensureMasterSeed();
+    setStep('main');
+  };
+
+  const cleanMasterKey = masterKey.trim();
+
+  const handleIdRestore = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!isValidMasterSeedHex(cleanMasterKey)) {
+      setErrorMessage(t('welcome.err_invalid_key'));
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await accountSyncService.restoreAccountFromCloud(cleanMasterKey);
+      if (result.restored) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('orbita:sync-now'));
+        }
       }
-    : {
-        bg: 'var(--bg-secondary, #211d2f)',
-        glow: 'radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 70%)',
-        shadow: '0 12px 36px rgba(0, 0, 0, 0.25)',
-        strokeFaint: 'rgba(255, 255, 255, 0.12)',
-        strokeSoft: 'rgba(255, 255, 255, 0.16)',
-        strokeMedium: 'rgba(255, 255, 255, 0.22)',
-        strokeMain: 'rgba(255, 255, 255, 0.50)',
-        strokeStrong: '#ffffff',
-        fillFaint: 'rgba(255, 255, 255, 0.06)',
-        fillSoft: 'rgba(255, 255, 255, 0.12)',
-        fillMedium: 'rgba(255, 255, 255, 0.30)',
-        fillSolid: '#ffffff',
-        planetLogo: '#BCC0C3',
-        saturnGradStart: 'rgba(255, 255, 255, 0.25)',
-        saturnGradEnd: 'rgba(255, 255, 255, 0.05)',
-      };
+      setStep('main');
+    } catch (err: any) {
+      if (err?.message === 'INVALID_KEY_OR_CORRUPT') {
+        setErrorMessage(t('welcome.err_key_decrypt'));
+      } else if (err?.message?.startsWith('SERVER_ERROR')) {
+        setErrorMessage(t('welcome.err_server'));
+      } else {
+        setErrorMessage(t('welcome.err_key_decrypt'));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileChange = async (file: File) => {
+    setErrorMessage(null);
+    setSelectedFile(file);
+    try {
+      const buffer = await file.arrayBuffer();
+      setFileBytes(new Uint8Array(buffer));
+    } catch {
+      setErrorMessage(t('welcome.err_corrupted'));
+    }
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await handleFileChange(e.dataTransfer.files[0]);
+    }
+  };
+
+  const parsedWords = phrase
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const handleBackupPhraseRestore = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!fileBytes) {
+      setErrorMessage(t('welcome.err_select_file'));
+      return;
+    }
+    if (parsedWords.length !== 12) {
+      setErrorMessage(t('welcome.err_invalid_phrase'));
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      await restoreAccountBackup(fileBytes, phrase);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('orbita:sync-now'));
+      }
+      setStep('main');
+    } catch (err: any) {
+      if (err?.message === 'INVALID_MNEMONIC') {
+        setErrorMessage(t('welcome.err_restore_failed'));
+      } else {
+        setErrorMessage(t('welcome.err_corrupted'));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const slideVariants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? 60 : -60,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (dir: number) => ({
+      x: dir < 0 ? 60 : -60,
+      opacity: 0,
+    }),
+  };
+
+  const logoColor = isLight ? '#5c54e5' : '#BCC0C3';
 
   return (
     <div
@@ -90,293 +199,901 @@ export const WelcomeScreen: React.FC = () => {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: 'var(--bg-primary, #14111d)',
         userSelect: 'none',
         overflow: 'hidden',
         position: 'relative',
+        padding: '24px 20px',
+        boxSizing: 'border-box',
       }}
     >
       <div
         style={{
           width: '100%',
-          flex: '0.85 1 0%',
-          minHeight: isMobile ? '180px' : '220px',
-          maxHeight: isMobile ? '260px' : '340px',
-          position: 'relative',
-          backgroundColor: palette.bg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          boxShadow: palette.shadow,
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: palette.glow,
-            pointerEvents: 'none',
-          }}
-        />
-
-        <svg
-          viewBox="0 0 1000 500"
-          preserveAspectRatio="xMidYMid slice"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-          }}
-        >
-          <defs>
-            <linearGradient id="orbGlow" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor={isLight ? '#5c54e5' : '#ffffff'} stopOpacity="0.85" />
-              <stop offset="100%" stopColor={isLight ? '#8b83fa' : '#c7d2fe'} stopOpacity="0.4" />
-            </linearGradient>
-            <linearGradient id="saturnGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={palette.saturnGradStart} />
-              <stop offset="100%" stopColor={palette.saturnGradEnd} />
-            </linearGradient>
-            <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="6" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
-
-          <ellipse cx="500" cy="250" rx="420" ry="190" fill="none" stroke={palette.strokeFaint} strokeWidth="1.5" strokeDasharray="6 8" />
-          <ellipse cx="500" cy="250" rx="320" ry="140" fill="none" stroke={palette.strokeSoft} strokeWidth="1.5" transform="rotate(-15 500 250)" />
-          <ellipse cx="500" cy="250" rx="230" ry="95" fill="none" stroke={palette.strokeMedium} strokeWidth="1.5" transform="rotate(18 500 250)" />
-
-          <circle cx="210" cy="180" r="3.5" fill={palette.fillSolid} opacity={isLight ? 0.85 : 0.75} />
-          <circle cx="790" cy="310" r="4.5" fill={palette.fillSolid} opacity={isLight ? 0.9 : 0.8} />
-          <circle cx="360" cy="360" r="3" fill={palette.fillSolid} opacity={isLight ? 0.8 : 0.6} />
-          <circle cx="680" cy="140" r="4" fill={palette.fillSolid} opacity={isLight ? 0.85 : 0.7} />
-
-          <g transform="translate(130, 95) scale(1.1)">
-            <circle cx="40" cy="40" r="22" fill="url(#saturnGrad)" stroke={palette.strokeMain} strokeWidth="1.8" />
-            <ellipse cx="40" cy="40" rx="38" ry="10" fill="none" stroke={palette.strokeMain} strokeWidth="1.8" transform="rotate(-25 40 40)" />
-            <path d="M90,20 Q90,32 102,32 Q90,32 90,44 Q90,32 78,32 Q90,32 90,20 Z" fill={palette.strokeMain} />
-            <circle cx="10" cy="15" r="2" fill={palette.strokeMain} />
-            <circle cx="100" cy="70" r="2.5" fill={palette.strokeMain} />
-          </g>
-
-          <g transform="translate(70, 260) scale(0.95)" stroke={palette.strokeMain} strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="20" y="20" width="70" height="46" rx="4" fill={palette.fillFaint} />
-            <line x1="30" y1="32" x2="55" y2="32" stroke={palette.strokeMain} strokeWidth="2" />
-            <line x1="30" y1="40" x2="70" y2="40" stroke={palette.strokeSoft} strokeWidth="1.5" />
-            <line x1="30" y1="48" x2="60" y2="48" stroke={palette.strokeSoft} strokeWidth="1.5" />
-            <path d="M10,66 L100,66 L94,76 L16,76 Z" fill={palette.fillSoft} />
-            <line x1="45" y1="69" x2="65" y2="69" stroke={palette.strokeMain} strokeWidth="1.5" />
-          </g>
-
-          <g transform="translate(240, 310) scale(0.9)" stroke={palette.strokeMain} strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15,15 h36 a12,12 0 0 1 12,12 v10 a12,12 0 0 1 -12,12 h-20 l-10,8 v-8 h-6 a12,12 0 0 1 -12,-12 v-10 a12,12 0 0 1 12,-12 z" fill={palette.fillFaint} />
-            <circle cx="25" cy="31" r="2" fill={palette.fillSolid} stroke="none" />
-            <circle cx="33" cy="31" r="2" fill={palette.fillSolid} stroke="none" />
-            <circle cx="41" cy="31" r="2" fill={palette.fillSolid} stroke="none" />
-          </g>
-
-          <g transform="translate(760, 75) scale(0.95)" stroke={palette.strokeMain} strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="25" y="10" width="42" height="74" rx="9" fill={palette.fillFaint} />
-            <line x1="41" y1="16" x2="51" y2="16" stroke={palette.strokeMain} strokeWidth="2" />
-            <rect x="31" y="26" width="22" height="12" rx="4" fill={palette.fillMedium} stroke="none" />
-            <rect x="39" y="44" width="22" height="12" rx="4" fill={palette.fillSoft} stroke="none" />
-            <line x1="40" y1="78" x2="52" y2="78" stroke={palette.strokeMain} strokeWidth="2" />
-
-            <g transform="translate(70, 15) scale(0.85)">
-              <path d="M0,25 L40,0 L20,38 L14,24 Z" fill={palette.fillSoft} stroke={palette.strokeMain} strokeWidth="1.8" />
-              <path d="M14,24 L40,0" stroke={palette.strokeMain} strokeWidth="1.8" />
-            </g>
-          </g>
-
-          <g transform="translate(820, 240) scale(1.05)">
-            <circle cx="35" cy="35" r="25" fill={palette.fillFaint} stroke={palette.strokeMain} strokeWidth="1.8" />
-            <ellipse cx="35" cy="35" rx="14" ry="25" fill="none" stroke={palette.strokeMedium} strokeWidth="1.4" />
-            <line x1="10" y1="35" x2="60" y2="35" stroke={palette.strokeMedium} strokeWidth="1.4" />
-            <path d="M14,23 Q35,28 56,23" fill="none" stroke={palette.strokeSoft} strokeWidth="1.2" />
-            <path d="M14,47 Q35,42 56,47" fill="none" stroke={palette.strokeSoft} strokeWidth="1.2" />
-          </g>
-
-          <g transform="translate(680, 320) scale(0.9)" stroke={palette.strokeMain} strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M30,10 L50,18 V32 C50,44 30,52 30,52 C30,52 10,44 10,32 V18 Z" fill={palette.fillFaint} />
-            <rect x="24" y="27" width="12" height="10" rx="2" fill={palette.fillMedium} stroke="none" />
-            <path d="M26,27 V23 A4,4 0 0 1 34,23 V27" stroke={palette.strokeMain} strokeWidth="1.8" />
-          </g>
-
-          <path d="M310,80 Q310,90 320,90 Q310,90 310,100 Q310,90 300,90 Q310,90 310,80 Z" fill={palette.strokeMain} />
-          <path d="M680,85 Q680,95 690,95 Q680,95 680,105 Q680,95 670,95 Q680,95 680,85 Z" fill={palette.strokeMain} />
-          <path d="M220,230 Q220,238 228,238 Q220,238 220,246 Q220,238 212,238 Q220,238 220,230 Z" fill={palette.strokeMain} />
-          <path d="M760,250 Q760,258 768,258 Q760,258 760,266 Q760,258 752,258 Q760,258 760,250 Z" fill={palette.strokeMain} />
-          <path d="M430,370 Q430,378 438,378 Q430,378 430,386 Q430,378 422,378 Q430,378 430,370 Z" fill={palette.strokeMain} />
-
-          <polygon points="170,200 173,208 181,208 175,213 177,221 170,216 163,221 165,213 159,208 167,208" fill={palette.strokeMain} />
-          <polygon points="860,160 862,166 869,166 864,170 866,176 860,172 854,176 856,170 851,166 858,166" fill={palette.strokeMain} />
-
-          <circle cx="260" cy="130" r="1.8" fill={palette.fillSolid} opacity={isLight ? 0.8 : 0.6} />
-          <circle cx="380" cy="120" r="1.5" fill={palette.fillSolid} opacity={isLight ? 0.75 : 0.5} />
-          <circle cx="480" cy="80" r="2" fill={palette.fillSolid} opacity={isLight ? 0.85 : 0.65} />
-          <circle cx="580" cy="110" r="1.5" fill={palette.fillSolid} opacity={isLight ? 0.75 : 0.55} />
-          <circle cx="620" cy="170" r="1.8" fill={palette.fillSolid} opacity={isLight ? 0.85 : 0.7} />
-          <circle cx="160" cy="380" r="2" fill={palette.fillSolid} opacity={isLight ? 0.75 : 0.45} />
-          <circle cx="820" cy="370" r="2.2" fill={palette.fillSolid} opacity={isLight ? 0.8 : 0.55} />
-          <circle cx="890" cy="300" r="1.5" fill={palette.fillSolid} opacity={isLight ? 0.7 : 0.4} />
-          <circle cx="70" cy="180" r="2" fill={palette.fillSolid} opacity={isLight ? 0.75 : 0.5} />
-          <circle cx="930" cy="120" r="2" fill={palette.fillSolid} opacity={isLight ? 0.8 : 0.6} />
-        </svg>
-
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          style={{
-            position: 'relative',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: isMobile ? '160px' : '220px',
-            height: isMobile ? '160px' : '220px',
-          }}
-        >
-          <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ overflow: 'visible' }}>
-            <defs>
-                <clipPath id="front-clip">
-                    <rect x="-600" y="0" width="1200" height="600" />
-                </clipPath>
-                <mask id="back-ring-mask">
-                    <rect x="0" y="0" width="800" height="800" fill="white" />
-                    <circle cx="400" cy="400" r="192" fill="black" />
-                </mask>
-                <mask id="planet-mask">
-                    <rect x="0" y="0" width="800" height="800" fill="white" />
-                    <g transform="translate(400, 400) rotate(-26)">
-                        <path d="M 224 0 A 224 59 0 0 1 -224 0 L -376 0 A 376 121 0 0 0 376 0 Z" fill="black" />
-                    </g>
-                </mask>
-                <mask id="ring-hole">
-                    <rect x="-600" y="-600" width="1200" height="1200" fill="white" />
-                    <ellipse cx="0" cy="0" rx="240" ry="75" fill="black" />
-                </mask>
-            </defs>
-            <g mask="url(#back-ring-mask)">
-                <g transform="translate(400, 400) rotate(-26)">
-                    <ellipse cx="0" cy="0" rx="360" ry="105" fill={palette.planetLogo} mask="url(#ring-hole)" />
-                </g>
-            </g>
-            <circle cx="400" cy="400" r="175" fill={palette.planetLogo} mask="url(#planet-mask)" />
-            <g transform="translate(400, 400) rotate(-26)">
-                <g clip-path="url(#front-clip)">
-                    <ellipse cx="0" cy="0" rx="360" ry="105" fill={palette.planetLogo} mask="url(#ring-hole)" />
-                </g>
-            </g>
-          </svg>
-        </motion.div>
-      </div>
-
-      <div
-        style={{
-          width: '100%',
-          flex: '1 1 0%',
-          backgroundColor: 'transparent',
+          maxWidth: '420px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: isMobile ? '40px' : '64px',
-          paddingLeft: isMobile ? '20px' : '32px',
-          paddingRight: isMobile ? '20px' : '32px',
-          paddingBottom: isMobile ? '24px' : '36px',
-          boxSizing: 'border-box',
-          textAlign: 'center',
           position: 'relative',
-          zIndex: 2,
         }}
       >
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            maxWidth: '440px',
-            width: '100%',
-          }}
-        >
-          <h1
-            style={{
-              margin: '0 0 34px 0',
-              fontSize: isMobile ? '32px' : '40px',
-              fontWeight: 800,
-              letterSpacing: '-0.025em',
-              color: 'var(--text-main, #ffffff)',
-              lineHeight: 1.15,
-            }}
-          >
-            {t('welcome.title', 'Orbita Desktop')}
-          </h1>
+        <AnimatePresence mode="wait" custom={direction}>
+          {activeStep === 'menu' && (
+            <motion.div
+              key="menu"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: '130px',
+                  height: '130px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '16px',
+                }}
+              >
+                <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ overflow: 'visible' }}>
+                  <defs>
+                    <clipPath id="welcome-front-clip">
+                      <rect x="-600" y="0" width="1200" height="600" />
+                    </clipPath>
+                    <mask id="welcome-back-ring-mask">
+                      <rect x="0" y="0" width="800" height="800" fill="white" />
+                      <circle cx="400" cy="400" r="192" fill="black" />
+                    </mask>
+                    <mask id="welcome-planet-mask">
+                      <rect x="0" y="0" width="800" height="800" fill="white" />
+                      <g transform="translate(400, 400) rotate(-26)">
+                        <path d="M 224 0 A 224 59 0 0 1 -224 0 L -376 0 A 376 121 0 0 0 376 0 Z" fill="black" />
+                      </g>
+                    </mask>
+                    <mask id="welcome-ring-hole">
+                      <rect x="-600" y="-600" width="1200" height="1200" fill="white" />
+                      <ellipse cx="0" cy="0" rx="240" ry="75" fill="black" />
+                    </mask>
+                  </defs>
+                  <g mask="url(#welcome-back-ring-mask)">
+                    <g transform="translate(400, 400) rotate(-26)">
+                      <ellipse cx="0" cy="0" rx="360" ry="105" fill={logoColor} mask="url(#welcome-ring-hole)" />
+                    </g>
+                  </g>
+                  <circle cx="400" cy="400" r="175" fill={logoColor} mask="url(#welcome-planet-mask)" />
+                  <g transform="translate(400, 400) rotate(-26)">
+                    <g clipPath="url(#welcome-front-clip)">
+                      <ellipse cx="0" cy="0" rx="360" ry="105" fill={logoColor} mask="url(#welcome-ring-hole)" />
+                    </g>
+                  </g>
+                </svg>
+              </div>
 
-          <motion.button
-            onClick={() => setStep('nickname')}
-            aria-label={t('welcome.start_messaging')}
-            style={{
-              width: isMobile ? '100%' : '270px',
-              maxWidth: '300px',
-              height: '52px',
-              borderRadius: '10px',
-              border: 'none',
-              backgroundColor: 'var(--accent-color, #5c54e5)',
-              color: '#ffffff',
-              fontSize: '16px',
-              fontWeight: 650,
-              letterSpacing: '0.01em',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              outline: 'none',
-              boxShadow: '0 4px 14px var(--accent-glow, rgba(92, 84, 229, 0.35))',
-            }}
-          >
-            {t('welcome.start_messaging', 'Начните общаться')}
-          </motion.button>
+              <h1
+                style={{
+                  margin: '0 0 36px 0',
+                  fontSize: '38px',
+                  fontWeight: 800,
+                  letterSpacing: '-0.025em',
+                  color: 'var(--text-main, #ffffff)',
+                  lineHeight: 1.15,
+                }}
+              >
+                {t('welcome.title', 'Orbita')}
+              </h1>
 
-          <motion.button
-            onClick={() => setIsRestoreOpen(true)}
-            aria-label={t('welcome.restore_account')}
-            style={{
-              marginTop: '12px',
-              width: isMobile ? '100%' : '270px',
-              maxWidth: '300px',
-              height: '46px',
-              borderRadius: '10px',
-              border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
-              backgroundColor: 'var(--surface-container-soft, transparent)',
-              color: 'var(--text-main, rgba(255, 255, 255, 0.75))',
-              fontSize: '14.5px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              outline: 'none',
-            }}
-          >
-            <KeyRound size={16} color="currentColor" />
-            {t('welcome.restore_account', 'Восстановить аккаунт')}
-          </motion.button>
-        </motion.div>
+              <div
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => navigateTo('register')}
+                  aria-label={t('welcome.register', 'Зарегистрироваться')}
+                  style={{
+                    width: '100%',
+                    height: '52px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: 'var(--accent-color, #5c54e5)',
+                    color: '#ffffff',
+                    fontSize: '15.5px',
+                    fontWeight: 650,
+                    letterSpacing: '0.01em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    boxShadow: '0 4px 14px var(--accent-glow, rgba(92, 84, 229, 0.35))',
+                    transition: 'transform 0.12s ease, opacity 0.12s ease',
+                  }}
+                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.985)')}
+                  onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                  <UserPlus size={18} />
+                  <span>{t('welcome.register', 'Зарегистрироваться')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateTo('restore_id')}
+                  aria-label={t('welcome.restore_by_id', 'Восстановить по уникальному ID')}
+                  style={{
+                    width: '100%',
+                    height: '48px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
+                    backgroundColor: 'var(--surface-container-soft, transparent)',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '14.5px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    transition: 'background-color 0.15s ease, transform 0.12s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))')}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface-container-soft, transparent)';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.985)')}
+                  onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                  <KeyRound size={17} />
+                  <span>{t('welcome.restore_by_id', 'Восстановить по уникальному ID')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateTo('restore_backup_file')}
+                  aria-label={t('welcome.restore_by_backup', 'Восстановить из локального бэкапа')}
+                  style={{
+                    width: '100%',
+                    height: '48px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
+                    backgroundColor: 'var(--surface-container-soft, transparent)',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '14.5px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    transition: 'background-color 0.15s ease, transform 0.12s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))')}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface-container-soft, transparent)';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.985)')}
+                  onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                  <HardDrive size={17} />
+                  <span>{t('welcome.restore_by_backup', 'Восстановить из локального бэкапа')}</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {activeStep === 'register' && (
+            <motion.div
+              key="register"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => navigateBack('menu')}
+                aria-label={t('welcome.back', 'Назад')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 0',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  outline: 'none',
+                  marginBottom: '20px',
+                  transition: 'color 0.12s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
+              >
+                <ArrowLeft size={18} />
+                <span>{t('welcome.back', 'Назад')}</span>
+              </button>
+
+              <h2
+                style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '26px',
+                  fontWeight: 800,
+                  color: 'var(--text-main, #ffffff)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {t('nickname.title', 'Придумайте никнейм')}
+              </h2>
+              <p
+                style={{
+                  margin: '0 0 28px 0',
+                  fontSize: '14px',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  lineHeight: 1.4,
+                }}
+              >
+                {t('nickname.placeholder', 'Как тебя называть?')}
+              </p>
+
+              <form onSubmit={handleRegisterSubmit} style={{ width: '100%' }}>
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  maxLength={24}
+                  autoFocus
+                  placeholder={t('nickname.placeholder', 'Как тебя называть?')}
+                  aria-label={t('nickname.title', 'Придумайте никнейм')}
+                  style={{
+                    width: '100%',
+                    height: '50px',
+                    padding: '0 16px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
+                    backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '16px',
+                    fontWeight: 500,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    marginBottom: '24px',
+                    transition: 'border-color 0.15s ease',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.14))')}
+                />
+
+                <button
+                  type="submit"
+                  disabled={nickname.trim().length < 2}
+                  aria-label={t('welcome.continue', 'Продолжить')}
+                  style={{
+                    width: '100%',
+                    height: '50px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: nickname.trim().length >= 2 ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
+                    color: nickname.trim().length >= 2 ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
+                    fontSize: '15.5px',
+                    fontWeight: 650,
+                    cursor: nickname.trim().length >= 2 ? 'pointer' : 'not-allowed',
+                    outline: 'none',
+                    boxShadow: nickname.trim().length >= 2 ? '0 4px 14px var(--accent-glow, rgba(92, 84, 229, 0.35))' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {t('welcome.continue', 'Продолжить')}
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {activeStep === 'restore_id' && (
+            <motion.div
+              key="restore_id"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => navigateBack('menu')}
+                aria-label={t('welcome.back', 'Назад')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 0',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  outline: 'none',
+                  marginBottom: '20px',
+                  transition: 'color 0.12s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
+              >
+                <ArrowLeft size={18} />
+                <span>{t('welcome.back', 'Назад')}</span>
+              </button>
+
+              <h2
+                style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '26px',
+                  fontWeight: 800,
+                  color: 'var(--text-main, #ffffff)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {t('welcome.unique_id_title', 'Восстановление по ID')}
+              </h2>
+              <p
+                style={{
+                  margin: '0 0 20px 0',
+                  fontSize: '13.5px',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  lineHeight: 1.4,
+                }}
+              >
+                {t('welcome.unique_id_desc', 'Введите ваш уникальный 64-значный ID / мастер-ключ аккаунта')}
+              </p>
+
+              <form onSubmit={handleIdRestore} style={{ width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--text-main, rgba(255, 255, 255, 0.85))',
+                    }}
+                  >
+                    {t('welcome.master_key_label', 'Мастер-ключ аккаунта (64 HEX символа)')}
+                  </label>
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: cleanMasterKey.length === 64 ? 'var(--accent-color, #5c54e5)' : 'var(--text-dim, rgba(255, 255, 255, 0.45))',
+                    }}
+                  >
+                    {cleanMasterKey.length} / 64
+                  </span>
+                </div>
+
+                <textarea
+                  value={masterKey}
+                  onChange={(e) => {
+                    setErrorMessage(null);
+                    setMasterKey(e.target.value);
+                  }}
+                  autoFocus
+                  placeholder={t('welcome.master_key_placeholder', 'Вставьте 64-значный шестнадцатеричный ключ...')}
+                  rows={3}
+                  aria-label={t('welcome.master_key_label', 'Мастер-ключ аккаунта')}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
+                    backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '13px',
+                    fontFamily: 'monospace',
+                    resize: 'none',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    wordBreak: 'break-all',
+                    marginBottom: errorMessage ? '10px' : '20px',
+                    transition: 'border-color 0.15s ease',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.14))')}
+                />
+
+                {errorMessage && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                      color: '#ef4444',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      marginBottom: '20px',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading || cleanMasterKey.length !== 64}
+                  aria-label={t('welcome.restore_button', 'Восстановить аккаунт')}
+                  style={{
+                    width: '100%',
+                    height: '50px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: cleanMasterKey.length === 64 && !isLoading ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
+                    color: cleanMasterKey.length === 64 && !isLoading ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
+                    fontSize: '15.5px',
+                    fontWeight: 650,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: cleanMasterKey.length === 64 && !isLoading ? 'pointer' : 'not-allowed',
+                    outline: 'none',
+                    boxShadow: cleanMasterKey.length === 64 && !isLoading ? '0 4px 14px var(--accent-glow, rgba(92, 84, 229, 0.35))' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>{t('welcome.restoring', 'Восстановление...')}</span>
+                    </>
+                  ) : (
+                    <span>{t('welcome.restore_button', 'Восстановить аккаунт')}</span>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          )}
+
+          {activeStep === 'restore_backup_file' && (
+            <motion.div
+              key="restore_backup_file"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => navigateBack('menu')}
+                aria-label={t('welcome.back', 'Назад')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 0',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  outline: 'none',
+                  marginBottom: '20px',
+                  transition: 'color 0.12s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
+              >
+                <ArrowLeft size={18} />
+                <span>{t('welcome.back', 'Назад')}</span>
+              </button>
+
+              <h2
+                style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '26px',
+                  fontWeight: 800,
+                  color: 'var(--text-main, #ffffff)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {t('welcome.backup_file_title', 'Файл резервной копии')}
+              </h2>
+              <p
+                style={{
+                  margin: '0 0 20px 0',
+                  fontSize: '13.5px',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  lineHeight: 1.4,
+                }}
+              >
+                {t('welcome.backup_file_desc', 'Прикрепите локальный файл бэкапа с расширением .orbita')}
+              </p>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".orbita"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleFileChange(e.target.files[0]);
+                  }
+                }}
+              />
+
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={handleFileDrop}
+                style={{
+                  width: '100%',
+                  padding: '28px 16px',
+                  borderRadius: '16px',
+                  border: `2px dashed ${isDragOver ? 'var(--accent-color, #5c54e5)' : selectedFile ? 'var(--accent-color, #5c54e5)' : 'var(--border-color, rgba(255, 255, 255, 0.16))'}`,
+                  backgroundColor: isDragOver
+                    ? 'rgba(92, 84, 229, 0.08)'
+                    : selectedFile
+                    ? 'var(--surface-container-soft, rgba(255, 255, 255, 0.04))'
+                    : 'var(--surface-container, rgba(0, 0, 0, 0.2))',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  boxSizing: 'border-box',
+                  marginBottom: errorMessage ? '10px' : '24px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {selectedFile ? (
+                  <>
+                    <div
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--accent-color, #5c54e5)',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <FileCheck size={24} />
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '14.5px',
+                        fontWeight: 650,
+                        color: 'var(--text-main, #ffffff)',
+                        maxWidth: '280px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {selectedFile.name}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--text-dim, rgba(255, 255, 255, 0.5))',
+                        marginTop: '4px',
+                      }}
+                    >
+                      {formatFileSize(selectedFile.size)} • {t('welcome.change_file', 'Изменить')}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
+                        color: 'var(--accent-color, #5c54e5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <Upload size={22} />
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: 'var(--text-main, #ffffff)',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      {t('welcome.select_file', 'Выбрать файл .orbita')}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--text-dim, rgba(255, 255, 255, 0.5))',
+                      }}
+                    >
+                      {t('welcome.drop_file_here', 'Перетащите файл сюда или нажмите')}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {errorMessage && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                    color: '#ef4444',
+                    fontSize: '12.5px',
+                    fontWeight: 500,
+                    marginBottom: '20px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={!selectedFile || !fileBytes}
+                onClick={() => navigateTo('restore_backup_phrase')}
+                aria-label={t('welcome.continue', 'Продолжить')}
+                style={{
+                  width: '100%',
+                  height: '50px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  backgroundColor: selectedFile && fileBytes ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
+                  color: selectedFile && fileBytes ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
+                  fontSize: '15.5px',
+                  fontWeight: 650,
+                  cursor: selectedFile && fileBytes ? 'pointer' : 'not-allowed',
+                  outline: 'none',
+                  boxShadow: selectedFile && fileBytes ? '0 4px 14px var(--accent-glow, rgba(92, 84, 229, 0.35))' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {t('welcome.continue', 'Продолжить')}
+              </button>
+            </motion.div>
+          )}
+
+          {activeStep === 'restore_backup_phrase' && (
+            <motion.div
+              key="restore_backup_phrase"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => navigateBack('restore_backup_file')}
+                aria-label={t('welcome.back', 'Назад')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 0',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  outline: 'none',
+                  marginBottom: '20px',
+                  transition: 'color 0.12s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main, #ffffff)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))')}
+              >
+                <ArrowLeft size={18} />
+                <span>{t('welcome.back', 'Назад')}</span>
+              </button>
+
+              <h2
+                style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '26px',
+                  fontWeight: 800,
+                  color: 'var(--text-main, #ffffff)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {t('welcome.backup_phrase_title', 'Секретная фраза')}
+              </h2>
+              <p
+                style={{
+                  margin: '0 0 20px 0',
+                  fontSize: '13.5px',
+                  color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+                  lineHeight: 1.4,
+                }}
+              >
+                {t('welcome.backup_phrase_desc', 'Введите 12 слов для расшифровки локального бэкапа')}
+              </p>
+
+              <form onSubmit={handleBackupPhraseRestore} style={{ width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: 'var(--text-main, rgba(255, 255, 255, 0.85))',
+                    }}
+                  >
+                    {t('welcome.phrase_label', 'Секретная фраза (12 слов)')}
+                  </label>
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: parsedWords.length === 12 ? 'var(--accent-color, #5c54e5)' : 'var(--text-dim, rgba(255, 255, 255, 0.45))',
+                    }}
+                  >
+                    {parsedWords.length} / 12
+                  </span>
+                </div>
+
+                <textarea
+                  value={phrase}
+                  onChange={(e) => {
+                    setErrorMessage(null);
+                    setPhrase(e.target.value);
+                  }}
+                  autoFocus
+                  placeholder={t('welcome.phrase_placeholder', 'Введите или вставьте 12 английских слов через пробел...')}
+                  rows={4}
+                  aria-label={t('welcome.phrase_label', 'Секретная фраза')}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
+                    backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '13.5px',
+                    lineHeight: 1.5,
+                    resize: 'none',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    marginBottom: errorMessage ? '10px' : '20px',
+                    transition: 'border-color 0.15s ease',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.14))')}
+                />
+
+                {errorMessage && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                      color: '#ef4444',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      marginBottom: '20px',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading || parsedWords.length !== 12}
+                  aria-label={t('welcome.restore_button', 'Восстановить аккаунт')}
+                  style={{
+                    width: '100%',
+                    height: '50px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: parsedWords.length === 12 && !isLoading ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
+                    color: parsedWords.length === 12 && !isLoading ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
+                    fontSize: '15.5px',
+                    fontWeight: 650,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: parsedWords.length === 12 && !isLoading ? 'pointer' : 'not-allowed',
+                    outline: 'none',
+                    boxShadow: parsedWords.length === 12 && !isLoading ? '0 4px 14px var(--accent-glow, rgba(92, 84, 229, 0.35))' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>{t('welcome.restoring', 'Восстановление...')}</span>
+                    </>
+                  ) : (
+                    <span>{t('welcome.restore_button', 'Восстановить аккаунт')}</span>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-
-      <AccountRestoreModal
-        isOpen={isRestoreOpen}
-        onClose={() => setIsRestoreOpen(false)}
-      />
     </div>
   );
 };
