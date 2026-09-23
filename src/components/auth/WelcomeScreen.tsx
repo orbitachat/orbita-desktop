@@ -528,10 +528,11 @@ export const WelcomeScreen: React.FC = () => {
                     style={{
                       width: '100%',
                       textAlign: 'center',
-                      color: '#ef4444',
-                      fontSize: '13.5px',
+                      color: 'var(--text-dim, #8e8e93)',
+                      fontSize: '12.5px',
                       fontWeight: 500,
-                      lineHeight: 1.35,
+                      lineHeight: 1.25,
+                      whiteSpace: 'nowrap',
                       marginBottom: '20px',
                     }}
                   >
@@ -653,10 +654,11 @@ export const WelcomeScreen: React.FC = () => {
                     style={{
                       width: '100%',
                       textAlign: 'center',
-                      color: '#ef4444',
-                      fontSize: '13.5px',
+                      color: 'var(--text-dim, #8e8e93)',
+                      fontSize: '12.5px',
                       fontWeight: 500,
-                      lineHeight: 1.35,
+                      lineHeight: 1.25,
+                      whiteSpace: 'nowrap',
                       marginBottom: '20px',
                     }}
                   >
@@ -862,10 +864,11 @@ export const WelcomeScreen: React.FC = () => {
                   style={{
                     width: '100%',
                     textAlign: 'center',
-                    color: '#ef4444',
-                    fontSize: '13.5px',
+                    color: 'var(--text-dim, #8e8e93)',
+                    fontSize: '12.5px',
                     fontWeight: 500,
-                    lineHeight: 1.35,
+                    lineHeight: 1.25,
+                    whiteSpace: 'nowrap',
                     marginBottom: '20px',
                   }}
                 >
@@ -986,10 +989,11 @@ export const WelcomeScreen: React.FC = () => {
                     style={{
                       width: '100%',
                       textAlign: 'center',
-                      color: '#ef4444',
-                      fontSize: '13.5px',
+                      color: 'var(--text-dim, #8e8e93)',
+                      fontSize: '12.5px',
                       fontWeight: 500,
-                      lineHeight: 1.35,
+                      lineHeight: 1.25,
+                      whiteSpace: 'nowrap',
                       marginBottom: '20px',
                     }}
                   >
