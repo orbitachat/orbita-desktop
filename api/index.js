@@ -648,6 +648,31 @@ module.exports = async function handler(req, res) {
       return sendJson(res, signResult);
     }
 
+    if (pathname === '/cloudinary/destroy' || pathname === '/cloudinary-destroy') {
+      const publicId = body.public_id || body.publicId || query.public_id || query.publicId || '';
+      const resourceType = body.resourceType || body.resource_type || 'image';
+      if (!publicId || !ENV.CLOUDINARY_API_KEY || !ENV.CLOUDINARY_API_SECRET || !ENV.CLOUDINARY_CLOUD_NAME) {
+        return sendJson(res, { success: false });
+      }
+      try {
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}${ENV.CLOUDINARY_API_SECRET}`;
+        const signature = crypto.createHash('sha1').update(paramsToSign).digest('hex');
+        const formData = new URLSearchParams();
+        formData.append('public_id', publicId);
+        formData.append('api_key', ENV.CLOUDINARY_API_KEY);
+        formData.append('timestamp', timestamp);
+        formData.append('signature', signature);
+        await fetch(`https://api.cloudinary.com/v1_1/${ENV.CLOUDINARY_CLOUD_NAME}/${resourceType}/destroy`, {
+          method: 'POST',
+          body: formData,
+        });
+        return sendJson(res, { success: true });
+      } catch {
+        return sendJson(res, { success: false });
+      }
+    }
+
     if (pathname === '/relay/message' && req.method === 'POST') {
       const supabase = getSupabaseClient();
       if (!supabase) return sendError(res, 'Database not configured', 500);

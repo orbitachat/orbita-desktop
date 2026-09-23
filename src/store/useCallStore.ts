@@ -682,6 +682,18 @@ export const useCallStore = create<CallStore>((set, get) => {
       }
 
       if (isGroup) {
+        const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
+        const { identity: myLivekitIdentity, name: myLivekitName } = getLivekitParticipantIdentity(myNickname);
+        let fetchedToken: string | undefined;
+        let fetchedUrl: string | undefined;
+        try {
+          const res = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName, true);
+          fetchedToken = res.token;
+          fetchedUrl = res.url;
+        } catch (err) {
+          console.warn(`${LOG_PREFIX} Token fetch error:`, err);
+        }
+
         set({
           myNickname,
           activeCall: {
@@ -700,6 +712,8 @@ export const useCallStore = create<CallStore>((set, get) => {
             verificationSalt,
             verificationEmojis: precomputedEmojis,
             chatType: 'group',
+            token: fetchedToken,
+            url: fetchedUrl,
           },
           callState: 'connecting',
           statusMessage: i18n.t('call.connecting'),
@@ -713,6 +727,7 @@ export const useCallStore = create<CallStore>((set, get) => {
           duration: 0,
           isEnding: false,
         });
+
         const isNewCall = !chat?.activeCallRoom;
         if (isNewCall) {
           const myCode = useChatStore.getState().myCode;
@@ -726,15 +741,10 @@ export const useCallStore = create<CallStore>((set, get) => {
           } catch {}
         }
 
-        try {
-          const sessionKey = verificationSecret ? (verificationSalt ? `${verificationSecret}:${verificationSalt}` : verificationSecret) : undefined;
-          const { identity: myLivekitIdentity, name: myLivekitName } = getLivekitParticipantIdentity(myNickname);
-          const { token, url } = await fetchLivekitToken(roomName, myLivekitIdentity, myLivekitName, true);
-          const act = get().activeCall;
-          if (act) set({ activeCall: { ...act, token, url } });
-          const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
-          if (!isElectronSeparateCallWindow) {
-            await groupLiveKitService.connect(roomName, token, url, sessionKey);
+        const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
+        if (!isElectronSeparateCallWindow && fetchedToken && fetchedUrl) {
+          try {
+            await groupLiveKitService.connect(roomName, fetchedToken, fetchedUrl, sessionKey);
             await activateConnected();
             await groupLiveKitService.enableMicrophone();
             if (isVideo) {
@@ -745,14 +755,14 @@ export const useCallStore = create<CallStore>((set, get) => {
               set({ activeCall: { ...currentAct, participants: groupLiveKitService.remoteParticipants } });
             }
             get().updateParticipants(groupLiveKitService.allParticipants);
-          } else {
-            activateConnected();
+          } catch (err) {
+            console.warn(`${LOG_PREFIX} Initial LiveKit group connect warning:`, err);
+            if (get().activeCall && get().callState === 'connecting') {
+              get().endCall();
+            }
           }
-        } catch (err) {
-          console.warn(`${LOG_PREFIX} Initial LiveKit group connect warning:`, err);
-          if (get().activeCall && get().callState === 'connecting') {
-            get().endCall();
-          }
+        } else {
+          activateConnected();
         }
         return;
       }

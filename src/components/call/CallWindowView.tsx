@@ -681,8 +681,10 @@ export const CallWindowView = () => {
     if (!activeCall) return;
     const isShouldConnect = callState === 'connected' || callState === 'connecting' || (callState === 'ringing' && activeCall.direction === 'outgoing');
     if (!isShouldConnect) return;
-    if (liveKitService.isConnected) {
-      if (liveKitService.remoteParticipants.length > 0) {
+    const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
+    const svc = isGrp ? groupLiveKitService : liveKitService;
+    if (svc.isConnected || svc.isCurrentlyConnecting) {
+      if (svc.isConnected && (isGrp || svc.remoteParticipants.length > 0)) {
         sendAction('activateConnected');
       }
       return;
@@ -691,6 +693,7 @@ export const CallWindowView = () => {
     let cancelled = false;
     const doConnect = async () => {
       try {
+        if (svc.isConnected || svc.isCurrentlyConnecting) return;
         const roomName = activeCall.roomName;
         const myNick = callData?.myNickname || (() => {
           try {
@@ -732,9 +735,7 @@ export const CallWindowView = () => {
           url = 'wss://orbita-qd7zok2r.livekit.cloud';
         }
         if (cancelled || !token || !url) return;
-        const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
-        const svc = isGrp ? groupLiveKitService : liveKitService;
-        if (svc.isConnected) return;
+        if (svc.isConnected || svc.isCurrentlyConnecting) return;
         await svc.connect(roomName, token, url, sessionKey);
         if (micEnabledRef.current) {
           await svc.enableMicrophone();

@@ -53,7 +53,7 @@ const envPath = app.isPackaged
   : path.join(__dirname, '..', '.env');
 dotenv.config({ path: envPath });
 
-const WORKER_URL = process.env.VITE_WORKER_URL || 'https://orbita.ypgreg78.workers.dev';
+const VERCEL_URL = process.env.VITE_VERCEL_URL || 'https://orbitad.vercel.app';
 const {
   CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET,
@@ -62,7 +62,7 @@ const {
 } = process.env;
 
 if (!CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !CLOUDINARY_CLOUD_NAME) {
-  console.log('[App] Cloudinary credentials not in local .env, using Worker signing gateway');
+  console.log('[App] Cloudinary credentials not in local .env, using Vercel signing gateway');
 }
 
 if (process.platform === 'win32') {
@@ -1503,13 +1503,13 @@ async function cloudinaryUploadWithProgress(event: Electron.IpcMainInvokeEvent, 
     uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
   } else {
     try {
-      const resp = await fetch(`${WORKER_URL}/cloudinary/sign`, {
+      const resp = await fetch(`${VERCEL_URL}/cloudinary/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publicId }),
       });
 
-      if (!resp.ok) throw new Error(`Worker signing failed: ${resp.statusText}`);
+      if (!resp.ok) throw new Error(`Gateway signing failed: ${resp.statusText}`);
       const signed = await resp.json();
 
       fields = {
@@ -1870,7 +1870,7 @@ ipcMain.handle('orbita:destroyCloudinaryMedia', async (_event, publicId: string,
       }
       return { success: true };
     } else {
-      fetch(`${WORKER_URL}/cloudinary/destroy`, {
+      fetch(`${VERCEL_URL}/cloudinary/destroy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ public_id: publicId, resourceType }),
@@ -3745,9 +3745,8 @@ ipcMain.handle('orbita:setProxy', async (_event, config: { host: string; port: n
     const proxyProtocol = (config.type || 'socks5').toLowerCase() === 'http' ? 'http' : 'socks5';
     const proxyRules = `${proxyProtocol}://${config.host.trim()}:${config.port}`;
 
-    // When proxyCalls is false, bypass WebRTC signaling & media servers so calls connect directly
     const proxyBypassRules = config.proxyCalls === false
-      ? '<local>;*.livekit.cloud;*.turn.livekit.cloud;orbita.ypgreg78.workers.dev'
+      ? '<local>;*.livekit.cloud;*.turn.livekit.cloud;orbitad.vercel.app'
       : '<local>';
 
     await session.defaultSession.setProxy({
