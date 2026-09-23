@@ -177,7 +177,7 @@ export const WelcomeScreen: React.FC = () => {
 
   const slideVariants = {
     enter: (dir: number) => ({
-      x: dir > 0 ? 36 : -36,
+      x: dir > 0 ? 32 : -32,
       opacity: 0,
     }),
     center: {
@@ -185,7 +185,7 @@ export const WelcomeScreen: React.FC = () => {
       opacity: 1,
     },
     exit: (dir: number) => ({
-      x: dir < 0 ? 36 : -36,
+      x: dir < 0 ? 32 : -32,
       opacity: 0,
     }),
   };
@@ -253,7 +253,7 @@ export const WelcomeScreen: React.FC = () => {
       <div
         style={{
           width: '100%',
-          maxWidth: '400px',
+          maxWidth: '330px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -280,12 +280,12 @@ export const WelcomeScreen: React.FC = () => {
             >
               <div
                 style={{
-                  width: '124px',
-                  height: '124px',
+                  width: '160px',
+                  height: '160px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: '16px',
+                  marginBottom: '20px',
                 }}
               >
                 <svg viewBox="0 0 800 800" width="100%" height="100%" style={{ overflow: 'visible' }}>
@@ -324,15 +324,16 @@ export const WelcomeScreen: React.FC = () => {
 
               <h1
                 style={{
-                  margin: '0 0 32px 0',
-                  fontSize: '36px',
+                  margin: '0 0 30px 0',
+                  fontSize: '32px',
                   fontWeight: 800,
                   letterSpacing: '-0.025em',
                   color: 'var(--text-main, #ffffff)',
                   lineHeight: 1.15,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {t('welcome.title', 'Orbita')}
+                {t('welcome.title', 'Orbita Desktop')}
               </h1>
 
               <div
@@ -340,7 +341,7 @@ export const WelcomeScreen: React.FC = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '14px',
+                  gap: '8px',
                 }}
               >
                 <button
@@ -351,10 +352,11 @@ export const WelcomeScreen: React.FC = () => {
                     background: 'none',
                     border: 'none',
                     color: 'var(--accent-color, #5c54e5)',
-                    fontSize: '15px',
+                    fontSize: '14.5px',
                     fontWeight: 600,
+                    lineHeight: 1.25,
                     cursor: 'pointer',
-                    padding: '4px 8px',
+                    padding: '0',
                     outline: 'none',
                     transition: 'opacity 0.15s ease',
                   }}
@@ -372,10 +374,11 @@ export const WelcomeScreen: React.FC = () => {
                     background: 'none',
                     border: 'none',
                     color: 'var(--accent-color, #5c54e5)',
-                    fontSize: '15px',
+                    fontSize: '14.5px',
                     fontWeight: 600,
+                    lineHeight: 1.25,
                     cursor: 'pointer',
-                    padding: '4px 8px',
+                    padding: '0',
                     outline: 'none',
                     transition: 'opacity 0.15s ease',
                   }}
@@ -393,10 +396,11 @@ export const WelcomeScreen: React.FC = () => {
                     background: 'none',
                     border: 'none',
                     color: 'var(--accent-color, #5c54e5)',
-                    fontSize: '15px',
+                    fontSize: '14.5px',
                     fontWeight: 600,
+                    lineHeight: 1.25,
                     cursor: 'pointer',
-                    padding: '4px 8px',
+                    padding: '0',
                     outline: 'none',
                     transition: 'opacity 0.15s ease',
                   }}
@@ -423,11 +427,12 @@ export const WelcomeScreen: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
+                paddingTop: '32px',
               }}
             >
               <h2
                 style={{
-                  margin: '0 0 32px 0',
+                  margin: '0 0 28px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
@@ -511,11 +516,12 @@ export const WelcomeScreen: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
+                paddingTop: '32px',
               }}
             >
               <h2
                 style={{
-                  margin: '0 0 32px 0',
+                  margin: '0 0 28px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
@@ -634,11 +640,12 @@ export const WelcomeScreen: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
+                paddingTop: '32px',
               }}
             >
               <h2
                 style={{
-                  margin: '0 0 32px 0',
+                  margin: '0 0 28px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
@@ -687,7 +694,7 @@ export const WelcomeScreen: React.FC = () => {
                   cursor: 'pointer',
                   textAlign: 'center',
                   boxSizing: 'border-box',
-                  marginBottom: errorMessage ? '10px' : '24px',
+                  marginBottom: errorMessage ? '10px' : '28px',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
@@ -829,11 +836,12 @@ export const WelcomeScreen: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
+                paddingTop: '32px',
               }}
             >
               <h2
                 style={{
-                  margin: '0 0 32px 0',
+                  margin: '0 0 28px 0',
                   fontSize: '26px',
                   fontWeight: 800,
                   color: 'var(--text-main, #ffffff)',
