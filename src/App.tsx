@@ -32,9 +32,9 @@ class ErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode
 }
 
 const pageVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-  exit: { opacity: 0, y: -20, transition: { duration: 0.2 } },
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.15 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
 function App() {
@@ -315,11 +315,11 @@ function App() {
           <div className="h-full w-full overflow-hidden relative">
             {step !== 'main' ? (
               <>
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={step}
                     variants={pageVariants}
-                    initial="initial"
+                    initial={false}
                     animate="animate"
                     exit="exit"
                     style={{ height: '100%', position: 'relative', zIndex: 1 }}

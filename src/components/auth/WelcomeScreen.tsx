@@ -32,6 +32,11 @@ export const WelcomeScreen: React.FC = () => {
   const [hasInputError, setHasInputError] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFirstMountRef = useRef(true);
+
+  useEffect(() => {
+    isFirstMountRef.current = false;
+  }, []);
 
   const [isLight, setIsLight] = useState(() => {
     if (typeof document !== 'undefined') {
@@ -286,13 +291,13 @@ export const WelcomeScreen: React.FC = () => {
           position: 'relative',
         }}
       >
-        <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence mode="wait" custom={direction} initial={false}>
           {activeStep === 'menu' && (
             <motion.div
               key="menu"
               custom={direction}
               variants={slideVariants}
-              initial="enter"
+              initial={isFirstMountRef.current ? false : 'enter'}
               animate="center"
               exit="exit"
               transition={{ duration: 0.1, ease: 'easeOut' }}
