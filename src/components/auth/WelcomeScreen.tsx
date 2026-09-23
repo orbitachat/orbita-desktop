@@ -471,74 +471,77 @@ export const WelcomeScreen: React.FC = () => {
               </h2>
 
               <form onSubmit={handleRegisterSubmit} style={{ width: '100%' }}>
-                <input
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => {
-                    setNickname(e.target.value);
-                    if (hasInputError) {
-                      setHasInputError(false);
-                      setErrorMessage(null);
-                    }
-                  }}
-                  maxLength={24}
-                  autoFocus
-                  aria-label={t('nickname.title', 'Придумайте никнейм')}
-                  style={{
-                    width: '100%',
-                    padding: '10px 0',
-                    borderRadius: '0px',
-                    border: 'none',
-                    borderBottom: hasInputError
-                      ? '1.5px solid #ef4444'
-                      : '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-main, #ffffff)',
-                    fontSize: '17px',
-                    fontWeight: 500,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    marginBottom: hasInputError && errorMessage ? '10px' : '32px',
-                    transition: 'border-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!hasInputError && document.activeElement !== e.currentTarget) {
-                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
-                    }
-                  }}
-                  onFocus={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
-                    }
-                  }}
-                />
-
-                {hasInputError && errorMessage && (
-                  <div
+                <div style={{ position: 'relative', width: '100%', marginBottom: '42px' }}>
+                  <input
+                    type="text"
+                    value={nickname}
+                    onChange={(e) => {
+                      setNickname(e.target.value);
+                      if (hasInputError) {
+                        setHasInputError(false);
+                        setErrorMessage(null);
+                      }
+                    }}
+                    maxLength={24}
+                    autoFocus
+                    aria-label={t('nickname.title', 'Придумайте никнейм')}
                     style={{
                       width: '100%',
-                      textAlign: 'center',
-                      color: 'var(--text-dim, #8e8e93)',
-                      fontSize: '12.5px',
+                      padding: '10px 0',
+                      borderRadius: '0px',
+                      border: 'none',
+                      borderBottom: hasInputError
+                        ? '1.5px solid #ef4444'
+                        : '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-main, #ffffff)',
+                      fontSize: '17px',
                       fontWeight: 500,
-                      lineHeight: 1.25,
-                      whiteSpace: 'nowrap',
-                      marginBottom: '20px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'border-color 0.15s ease',
                     }}
-                  >
-                    {errorMessage}
-                  </div>
-                )}
+                    onMouseEnter={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!hasInputError && document.activeElement !== e.currentTarget) {
+                        e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                      }
+                    }}
+                    onFocus={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                      }
+                    }}
+                  />
+
+                  {hasInputError && errorMessage && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 7px)',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        color: 'var(--text-dim, #8e8e93)',
+                        fontSize: '12.5px',
+                        fontWeight: 500,
+                        lineHeight: 1.2,
+                        whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      {errorMessage}
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="submit"
@@ -596,75 +599,78 @@ export const WelcomeScreen: React.FC = () => {
               </h2>
 
               <form onSubmit={handleIdRestore} style={{ width: '100%' }}>
-                <textarea
-                  value={masterKey}
-                  onChange={(e) => {
-                    setMasterKey(e.target.value);
-                    if (hasInputError) {
-                      setHasInputError(false);
-                      setErrorMessage(null);
-                    }
-                  }}
-                  autoFocus
-                  rows={2}
-                  aria-label={t('welcome.unique_id_title', 'Восстановление по ID')}
-                  style={{
-                    width: '100%',
-                    padding: '10px 0',
-                    borderRadius: '0px',
-                    border: 'none',
-                    borderBottom: hasInputError
-                      ? '1.5px solid #ef4444'
-                      : '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-main, #ffffff)',
-                    fontSize: '14px',
-                    fontFamily: 'monospace',
-                    resize: 'none',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    wordBreak: 'break-all',
-                    marginBottom: hasInputError && errorMessage ? '10px' : '32px',
-                    transition: 'border-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!hasInputError && document.activeElement !== e.currentTarget) {
-                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
-                    }
-                  }}
-                  onFocus={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
-                    }
-                  }}
-                />
-
-                {hasInputError && errorMessage && (
-                  <div
+                <div style={{ position: 'relative', width: '100%', marginBottom: '42px' }}>
+                  <textarea
+                    value={masterKey}
+                    onChange={(e) => {
+                      setMasterKey(e.target.value);
+                      if (hasInputError) {
+                        setHasInputError(false);
+                        setErrorMessage(null);
+                      }
+                    }}
+                    autoFocus
+                    rows={2}
+                    aria-label={t('welcome.unique_id_title', 'Восстановление по ID')}
                     style={{
                       width: '100%',
-                      textAlign: 'center',
-                      color: 'var(--text-dim, #8e8e93)',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      lineHeight: 1.25,
-                      whiteSpace: 'nowrap',
-                      marginBottom: '20px',
+                      padding: '10px 0',
+                      borderRadius: '0px',
+                      border: 'none',
+                      borderBottom: hasInputError
+                        ? '1.5px solid #ef4444'
+                        : '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-main, #ffffff)',
+                      fontSize: '14px',
+                      fontFamily: 'monospace',
+                      resize: 'none',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      wordBreak: 'break-all',
+                      transition: 'border-color 0.15s ease',
                     }}
-                  >
-                    {errorMessage}
-                  </div>
-                )}
+                    onMouseEnter={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!hasInputError && document.activeElement !== e.currentTarget) {
+                        e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                      }
+                    }}
+                    onFocus={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                      }
+                    }}
+                  />
+
+                  {hasInputError && errorMessage && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 7px)',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        color: 'var(--text-dim, #8e8e93)',
+                        fontSize: '12.5px',
+                        fontWeight: 500,
+                        lineHeight: 1.2,
+                        whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      {errorMessage}
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="submit"
@@ -745,136 +751,139 @@ export const WelcomeScreen: React.FC = () => {
                 }}
               />
 
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(true);
-                }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={handleFileDrop}
-                style={{
-                  width: '100%',
-                  padding: '28px 16px',
-                  borderRadius: '16px',
-                  border: `2px dashed ${
-                    hasInputError
-                      ? '#ef4444'
-                      : isDragOver
-                      ? 'var(--accent-color, #5c54e5)'
-                      : selectedFile
-                      ? 'var(--accent-color, #5c54e5)'
-                      : 'var(--border-color, rgba(255, 255, 255, 0.16))'
-                  }`,
-                  backgroundColor: isDragOver
-                    ? 'rgba(92, 84, 229, 0.08)'
-                    : selectedFile
-                    ? 'var(--surface-container-soft, rgba(255, 255, 255, 0.04))'
-                    : 'var(--surface-container, rgba(0, 0, 0, 0.2))',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  boxSizing: 'border-box',
-                  marginBottom: hasInputError && errorMessage ? '10px' : '28px',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  if (!selectedFile && !hasInputError) e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!selectedFile && !hasInputError) e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.16))';
-                }}
-              >
-                {selectedFile ? (
-                  <>
-                    <div
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '12px',
-                        backgroundColor: 'var(--accent-color, #5c54e5)',
-                        color: '#ffffff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '12px',
-                      }}
-                    >
-                      <FileCheck size={24} />
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '14.5px',
-                        fontWeight: 650,
-                        color: 'var(--text-main, #ffffff)',
-                        maxWidth: '280px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {selectedFile.name}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--text-dim, rgba(255, 255, 255, 0.5))',
-                        marginTop: '4px',
-                      }}
-                    >
-                      {formatFileSize(selectedFile.size)} • {t('welcome.change_file', 'Изменить')}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <div
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '12px',
-                        backgroundColor: 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
-                        color: 'var(--accent-color, #5c54e5)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '12px',
-                      }}
-                    >
-                      <Upload size={22} />
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: 'var(--text-main, #ffffff)',
-                        marginBottom: '4px',
-                      }}
-                    >
-                      {t('welcome.select_file', 'Выбрать файл .orbita')}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {hasInputError && errorMessage && (
+              <div style={{ position: 'relative', width: '100%', marginBottom: '36px' }}>
                 <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(true);
+                  }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={handleFileDrop}
                   style={{
                     width: '100%',
+                    padding: '28px 16px',
+                    borderRadius: '16px',
+                    border: `2px dashed ${
+                      hasInputError
+                        ? '#ef4444'
+                        : isDragOver
+                        ? 'var(--accent-color, #5c54e5)'
+                        : selectedFile
+                        ? 'var(--accent-color, #5c54e5)'
+                        : 'var(--border-color, rgba(255, 255, 255, 0.16))'
+                    }`,
+                    backgroundColor: isDragOver
+                      ? 'rgba(92, 84, 229, 0.08)'
+                      : selectedFile
+                      ? 'var(--surface-container-soft, rgba(255, 255, 255, 0.04))'
+                      : 'var(--surface-container, rgba(0, 0, 0, 0.2))',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
                     textAlign: 'center',
-                    color: 'var(--text-dim, #8e8e93)',
-                    fontSize: '12.5px',
-                    fontWeight: 500,
-                    lineHeight: 1.25,
-                    whiteSpace: 'nowrap',
-                    marginBottom: '20px',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!selectedFile && !hasInputError) e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!selectedFile && !hasInputError) e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.16))';
                   }}
                 >
-                  {errorMessage}
+                  {selectedFile ? (
+                    <>
+                      <div
+                        style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--accent-color, #5c54e5)',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <FileCheck size={24} />
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '14.5px',
+                          fontWeight: 650,
+                          color: 'var(--text-main, #ffffff)',
+                          maxWidth: '280px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {selectedFile.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--text-dim, rgba(255, 255, 255, 0.5))',
+                          marginTop: '4px',
+                        }}
+                      >
+                        {formatFileSize(selectedFile.size)} • {t('welcome.change_file', 'Изменить')}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <div
+                        style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
+                          color: 'var(--accent-color, #5c54e5)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <Upload size={22} />
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: 'var(--text-main, #ffffff)',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        {t('welcome.select_file', 'Выбрать файл .orbita')}
+                      </span>
+                    </>
+                  )}
                 </div>
-              )}
+
+                {hasInputError && errorMessage && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 7px)',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      color: 'var(--text-dim, #8e8e93)',
+                      fontSize: '12.5px',
+                      fontWeight: 500,
+                      lineHeight: 1.2,
+                      whiteSpace: 'nowrap',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {errorMessage}
+                  </div>
+                )}
+              </div>
 
               <button
                 type="button"
@@ -932,74 +941,77 @@ export const WelcomeScreen: React.FC = () => {
               </h2>
 
               <form onSubmit={handleBackupPhraseRestore} style={{ width: '100%' }}>
-                <textarea
-                  value={phrase}
-                  onChange={(e) => {
-                    setPhrase(e.target.value);
-                    if (hasInputError) {
-                      setHasInputError(false);
-                      setErrorMessage(null);
-                    }
-                  }}
-                  autoFocus
-                  rows={2}
-                  aria-label={t('welcome.backup_phrase_title', 'Секретная фраза')}
-                  style={{
-                    width: '100%',
-                    padding: '10px 0',
-                    borderRadius: '0px',
-                    border: 'none',
-                    borderBottom: hasInputError
-                      ? '1.5px solid #ef4444'
-                      : '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-main, #ffffff)',
-                    fontSize: '14.5px',
-                    lineHeight: 1.5,
-                    resize: 'none',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    marginBottom: hasInputError && errorMessage ? '10px' : '32px',
-                    transition: 'border-color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!hasInputError && document.activeElement !== e.currentTarget) {
-                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
-                    }
-                  }}
-                  onFocus={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (!hasInputError) {
-                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
-                    }
-                  }}
-                />
-
-                {hasInputError && errorMessage && (
-                  <div
+                <div style={{ position: 'relative', width: '100%', marginBottom: '42px' }}>
+                  <textarea
+                    value={phrase}
+                    onChange={(e) => {
+                      setPhrase(e.target.value);
+                      if (hasInputError) {
+                        setHasInputError(false);
+                        setErrorMessage(null);
+                      }
+                    }}
+                    autoFocus
+                    rows={2}
+                    aria-label={t('welcome.backup_phrase_title', 'Секретная фраза')}
                     style={{
                       width: '100%',
-                      textAlign: 'center',
-                      color: 'var(--text-dim, #8e8e93)',
-                      fontSize: '12.5px',
-                      fontWeight: 500,
-                      lineHeight: 1.25,
-                      whiteSpace: 'nowrap',
-                      marginBottom: '20px',
+                      padding: '10px 0',
+                      borderRadius: '0px',
+                      border: 'none',
+                      borderBottom: hasInputError
+                        ? '1.5px solid #ef4444'
+                        : '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-main, #ffffff)',
+                      fontSize: '14.5px',
+                      lineHeight: 1.5,
+                      resize: 'none',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'border-color 0.15s ease',
                     }}
-                  >
-                    {errorMessage}
-                  </div>
-                )}
+                    onMouseEnter={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!hasInputError && document.activeElement !== e.currentTarget) {
+                        e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                      }
+                    }}
+                    onFocus={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)';
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (!hasInputError) {
+                        e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                      }
+                    }}
+                  />
+
+                  {hasInputError && errorMessage && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 7px)',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        color: 'var(--text-dim, #8e8e93)',
+                        fontSize: '12.5px',
+                        fontWeight: 500,
+                        lineHeight: 1.2,
+                        whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      {errorMessage}
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="submit"
