@@ -358,10 +358,10 @@ export const WelcomeScreen: React.FC = () => {
                     cursor: 'pointer',
                     padding: '0',
                     outline: 'none',
-                    transition: 'opacity 0.15s ease',
+                    textDecoration: 'none',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                 >
                   {t('welcome.register', 'Зарегистрироваться')}
                 </button>
@@ -380,10 +380,10 @@ export const WelcomeScreen: React.FC = () => {
                     cursor: 'pointer',
                     padding: '0',
                     outline: 'none',
-                    transition: 'opacity 0.15s ease',
+                    textDecoration: 'none',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                 >
                   {t('welcome.restore_by_id', 'Восстановить по уникальному ID')}
                 </button>
@@ -402,10 +402,10 @@ export const WelcomeScreen: React.FC = () => {
                     cursor: 'pointer',
                     padding: '0',
                     outline: 'none',
-                    transition: 'opacity 0.15s ease',
+                    textDecoration: 'none',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                  onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                 >
                   {t('welcome.restore_by_backup', 'Восстановить из локального бэкапа')}
                 </button>
