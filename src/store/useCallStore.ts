@@ -10,6 +10,7 @@ import { useAudioStore } from './useAudioStore';
 import { gatewayManager } from '../services/gatewayManager';
 import { ablyService } from '../services/ablyService';
 import { groupService } from '../services/groupService';
+import { deriveGroupKey } from '../lib/groupCrypto';
 import i18n from '../i18n';
 
 export type CallType = 'audio' | 'video';
@@ -123,8 +124,8 @@ function getLivekitParticipantIdentity(nick: string): { identity: string; name: 
   };
 }
 
-async function fetchLivekitToken(room: string, identity: string, name?: string, isGroup?: boolean): Promise<{ token: string; url: string }> {
-  const endpoint = isGroup ? '/groups/livekit-token' : '/token';
+async function fetchLivekitToken(room: string, identity: string, name?: string, _isGroup?: boolean): Promise<{ token: string; url: string }> {
+  const endpoint = '/token';
   const res = await gatewayManager.fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -139,7 +140,11 @@ async function fetchLivekitToken(room: string, identity: string, name?: string, 
   if (typeof data.token !== 'string' || typeof data.url !== 'string') {
     throw new Error(`Invalid token response: expected { token, url }, got ${JSON.stringify(data)}`);
   }
-  return data as { token: string; url: string };
+  let url = data.url;
+  if (!url || url.includes('fewfregfrtgtr') || !url.startsWith('wss://')) {
+    url = 'wss://orbita-qd7zok2r.livekit.cloud';
+  }
+  return { token: data.token, url };
 }
 
 const savedPeerVolume = typeof localStorage !== 'undefined' ? Number(localStorage.getItem('orbita_call_peer_volume') || '100') : 100;
@@ -665,9 +670,16 @@ export const useCallStore = create<CallStore>((set, get) => {
       const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
       const isGroup = chat?.type === 'group';
       const roomName = isGroup ? (chat?.activeCallRoom || `group-call-${chatId}`) : `call-${chatId}-${Date.now()}`;
-      const verificationSecret = isGroup ? chat?.sharedSecret : (chat?.type === 'private' ? chat?.sharedSecret : undefined);
-      const verificationSalt = crypto.randomUUID().replace(/-/g, '');
+      const verificationSecret = isGroup ? (chat?.sharedSecret || deriveGroupKey(chatId)) : (chat?.type === 'private' ? chat?.sharedSecret : undefined);
+      const verificationSalt = isGroup ? `group-salt-${chatId}` : crypto.randomUUID().replace(/-/g, '');
       const isVideo = callType === 'video';
+
+      let precomputedEmojis: string[] | undefined;
+      if (isGroup && verificationSecret && verificationSalt) {
+        try {
+          precomputedEmojis = await generateCallVerificationEmojis(verificationSecret + verificationSalt);
+        } catch {}
+      }
 
       if (isGroup) {
         set({
@@ -686,7 +698,7 @@ export const useCallStore = create<CallStore>((set, get) => {
             endedStatus: null,
             verificationSecret,
             verificationSalt,
-            verificationEmojis: undefined,
+            verificationEmojis: precomputedEmojis,
             chatType: 'group',
           },
           callState: 'connecting',

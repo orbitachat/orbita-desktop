@@ -210,7 +210,8 @@ export class GroupLiveKitService extends EventEmitter {
           },
         };
 
-        await this.room.connect(url, token, roomConnectOptions);
+        const targetUrl = (!url || url.includes('fewfregfrtgtr') || !url.startsWith('wss://')) ? LIVEKIT_URL : url;
+        await this.room.connect(targetUrl, token, roomConnectOptions);
         this.localParticipant = this.room.localParticipant;
         this.updateParticipants();
 

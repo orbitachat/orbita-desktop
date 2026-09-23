@@ -24,7 +24,7 @@ const ENV = {
   GROUPS_SUPABASE_KEY: process.env.GROUPS_SUPABASE_SECRET_KEY || process.env.GROUPS_SUPABASE_KEY || process.env.GROUPS_SUPABASE_PUBLISHABLE_KEY || '',
   GROUPS_LIVEKIT_API_KEY: process.env.GROUPS_LIVEKIT_API_KEY || '',
   GROUPS_LIVEKIT_API_SECRET: process.env.GROUPS_LIVEKIT_API_SECRET || '',
-  GROUPS_LIVEKIT_URL: process.env.GROUPS_LIVEKIT_URL || 'wss://fewfregfrtgtr-lq3p5f01.livekit.cloud',
+  GROUPS_LIVEKIT_URL: (process.env.GROUPS_LIVEKIT_URL && !process.env.GROUPS_LIVEKIT_URL.includes('fewfregfrtgtr')) ? process.env.GROUPS_LIVEKIT_URL : (process.env.LIVEKIT_URL || 'wss://orbita-qd7zok2r.livekit.cloud'),
 };
 
 const CORS_HEADERS = {
@@ -568,7 +568,7 @@ module.exports = async function handler(req, res) {
 
       const apiKey = ENV.GROUPS_LIVEKIT_API_KEY || ENV.LIVEKIT_API_KEY;
       const apiSecret = ENV.GROUPS_LIVEKIT_API_SECRET || ENV.LIVEKIT_API_SECRET;
-      const livekitUrl = ENV.GROUPS_LIVEKIT_URL || ENV.LIVEKIT_URL;
+      const livekitUrl = (ENV.GROUPS_LIVEKIT_URL && !ENV.GROUPS_LIVEKIT_URL.includes('fewfregfrtgtr')) ? ENV.GROUPS_LIVEKIT_URL : ENV.LIVEKIT_URL;
 
       const at = new AccessToken(apiKey, apiSecret, {
         identity,

@@ -9,6 +9,7 @@ import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 import { liveKitService, type ParticipantInfo } from '../../services/livekitService';
 import { groupLiveKitService } from '../../services/groupLiveKitService';
 import { gatewayManager } from '../../services/gatewayManager';
+import { generateCallVerificationEmojis } from '../../lib/call-verification';
 import { FONT_MAP, type FontFamily } from '../../store/useChatStore';
 
 interface CallStatePayload {
@@ -713,8 +714,7 @@ export const CallWindowView = () => {
             return null;
           })();
           const uniqueTag = myUserId || Math.random().toString(36).slice(2, 8);
-          const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
-          const endpoint = isGrp ? '/groups/livekit-token' : '/token';
+          const endpoint = '/token';
           const sessionNonce = Math.random().toString(36).slice(2, 6);
           const identity = `${myNick}_${uniqueTag}_${sessionNonce}`;
           const res = await gatewayManager.fetch(endpoint, {
@@ -727,6 +727,9 @@ export const CallWindowView = () => {
             token = data.token;
             url = data.url;
           }
+        }
+        if (!url || url.includes('fewfregfrtgtr') || !url.startsWith('wss://')) {
+          url = 'wss://orbita-qd7zok2r.livekit.cloud';
         }
         if (cancelled || !token || !url) return;
         const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
@@ -752,7 +755,22 @@ export const CallWindowView = () => {
     return () => {
       cancelled = true;
     };
-  }, [callState, activeCall?.roomName, activeCall?.token]);
+  }, [activeCall?.roomName, activeCall?.token]);
+
+  useEffect(() => {
+    if (activeCall && !activeCall.verificationEmojis && activeCall.verificationSecret && activeCall.verificationSalt) {
+      generateCallVerificationEmojis(activeCall.verificationSecret + activeCall.verificationSalt)
+        .then((emojis) => {
+          if (emojis && emojis.length === 4) {
+            setCallData((prev) => prev?.activeCall ? {
+              ...prev,
+              activeCall: { ...prev.activeCall, verificationEmojis: emojis }
+            } : prev);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeCall?.verificationSecret, activeCall?.verificationSalt, activeCall?.verificationEmojis]);
 
   useEffect(() => {
     if (isRemoteScreenShareActive && remoteScreenShareRef.current) {

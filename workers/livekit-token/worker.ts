@@ -432,7 +432,7 @@ export default {
       }
 
       // 3. LiveKit Token (/token или /api/livekit/token)
-      if (pathname === '/token' || pathname === '/api/livekit/token') {
+      if (pathname === '/token' || pathname === '/api/livekit/token' || pathname === '/groups/token' || pathname === '/groups/livekit/token' || pathname === '/groups/livekit-token' || pathname === '/livekit-token') {
         if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
         if (!env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET) {
           return errorResponse('LiveKit credentials not configured on server', 500);

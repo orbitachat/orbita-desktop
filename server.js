@@ -125,7 +125,7 @@ app.post(['/groups/token', '/groups/livekit/token', '/groups/livekit-token'], as
   if (!room || !identity) return res.status(400).json({ error: 'Missing room or identity' });
   const apiKey = process.env.GROUPS_LIVEKIT_API_KEY || '';
   const apiSecret = process.env.GROUPS_LIVEKIT_API_SECRET || '';
-  const livekitUrl = process.env.GROUPS_LIVEKIT_URL || 'wss://fewfregfrtgtr-lq3p5f01.livekit.cloud';
+  const livekitUrl = (process.env.GROUPS_LIVEKIT_URL && !process.env.GROUPS_LIVEKIT_URL.includes('fewfregfrtgtr')) ? process.env.GROUPS_LIVEKIT_URL : (process.env.LIVEKIT_URL || 'wss://orbita-qd7zok2r.livekit.cloud');
 
   try {
     const at = new AccessToken(apiKey, apiSecret, {
