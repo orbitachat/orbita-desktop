@@ -411,7 +411,7 @@ export const NicknameEditModal = ({ open, onClose, currentNickname, onSave }: Ni
 
   const handleSave = () => {
     const trimmed = value.trim();
-    if (trimmed.length < 2 || trimmed.length > 24) {
+    if (trimmed.length < 1 || trimmed.length > 24) {
       setError(t('settings.nickname_length_error'));
       return;
     }

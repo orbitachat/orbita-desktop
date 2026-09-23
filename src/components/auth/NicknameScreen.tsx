@@ -29,7 +29,7 @@ export const NicknameScreen = () => {
   };
 
   const handleNext = () => {
-    if (value.trim().length >= 2) {
+    if (value.trim().length >= 1) {
       setNickname(value.trim());
       const currentCode = useChatStore.getState().myCode;
       if (!currentCode) {
@@ -201,7 +201,7 @@ export const NicknameScreen = () => {
         </Button>
         <Button
           variant="contained"
-          disabled={value.trim().length < 2}
+          disabled={value.trim().length < 1}
           onClick={handleNext}
           aria-label={t('nickname.next')}
           sx={{

@@ -193,7 +193,11 @@
       "err_invalid_key": "Master key must contain exactly 64 hexadecimal characters (0-9, a-f)",
       "err_key_decrypt": "Invalid decryption key or corrupted cloud backup data",
       "err_server": "Server error while fetching cloud config",
-      "cloud_restore_success": "Account successfully restored from cloud!"
+      "cloud_restore_success": "Account successfully restored from cloud!",
+      "err_nickname_format": "Invalid nickname format. Please try again.",
+      "err_id_format": "Invalid ID. Please try again.",
+      "err_phrase_format": "Invalid recovery phrase. Please try again.",
+      "err_file_format": "Please select a backup file. Try again."
     },
     "nickname": {
       "title": "Choose a nickname",
@@ -794,7 +798,7 @@
       "current_version": "Current version",
       "update_error": "Error checking for updates",
       "update_dev_mode": "Development mode (download disabled)",
-      "nickname_length_error": "Name must be between 3 and 20 characters",
+      "nickname_length_error": "Name must be between 1 and 24 characters",
       "edit_nickname_title": "Edit name",
       "edit_nickname_desc": "This name will be seen by your contacts in chats.",
       "nickname_placeholder": "Your name",
