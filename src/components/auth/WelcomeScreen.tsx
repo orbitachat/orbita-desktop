@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, HardDrive, KeyRound, UserPlus, Upload, FileCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { generateRandomCode } from '../../lib/codes';
@@ -177,7 +177,7 @@ export const WelcomeScreen: React.FC = () => {
 
   const slideVariants = {
     enter: (dir: number) => ({
-      x: dir > 0 ? 60 : -60,
+      x: dir > 0 ? 36 : -36,
       opacity: 0,
     }),
     center: {
@@ -185,7 +185,7 @@ export const WelcomeScreen: React.FC = () => {
       opacity: 1,
     },
     exit: (dir: number) => ({
-      x: dir < 0 ? 60 : -60,
+      x: dir < 0 ? 36 : -36,
       opacity: 0,
     }),
   };
@@ -212,7 +212,7 @@ export const WelcomeScreen: React.FC = () => {
       <div
         style={{
           width: '100%',
-          maxWidth: '420px',
+          maxWidth: '400px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -228,7 +228,7 @@ export const WelcomeScreen: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -239,8 +239,8 @@ export const WelcomeScreen: React.FC = () => {
             >
               <div
                 style={{
-                  width: '130px',
-                  height: '130px',
+                  width: '124px',
+                  height: '124px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -283,8 +283,8 @@ export const WelcomeScreen: React.FC = () => {
 
               <h1
                 style={{
-                  margin: '0 0 36px 0',
-                  fontSize: '38px',
+                  margin: '0 0 32px 0',
+                  fontSize: '36px',
                   fontWeight: 800,
                   letterSpacing: '-0.025em',
                   color: 'var(--text-main, #ffffff)',
@@ -296,10 +296,10 @@ export const WelcomeScreen: React.FC = () => {
 
               <div
                 style={{
-                  width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '12px',
+                  alignItems: 'center',
+                  gap: '14px',
                 }}
               >
                 <button
@@ -307,30 +307,20 @@ export const WelcomeScreen: React.FC = () => {
                   onClick={() => navigateTo('register')}
                   aria-label={t('welcome.register', 'Зарегистрироваться')}
                   style={{
-                    width: '100%',
-                    height: '52px',
-                    borderRadius: '12px',
+                    background: 'none',
                     border: 'none',
-                    backgroundColor: 'var(--accent-color, #5c54e5)',
-                    color: '#ffffff',
-                    fontSize: '15.5px',
-                    fontWeight: 650,
-                    letterSpacing: '0.01em',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
+                    color: 'var(--accent-color, #5c54e5)',
+                    fontSize: '15px',
+                    fontWeight: 600,
                     cursor: 'pointer',
+                    padding: '4px 8px',
                     outline: 'none',
-                    boxShadow: '0 4px 14px var(--accent-glow, rgba(92, 84, 229, 0.35))',
-                    transition: 'transform 0.12s ease, opacity 0.12s ease',
+                    transition: 'opacity 0.15s ease',
                   }}
-                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.985)')}
-                  onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                 >
-                  <UserPlus size={18} />
-                  <span>{t('welcome.register', 'Зарегистрироваться')}</span>
+                  {t('welcome.register', 'Зарегистрироваться')}
                 </button>
 
                 <button
@@ -338,32 +328,20 @@ export const WelcomeScreen: React.FC = () => {
                   onClick={() => navigateTo('restore_id')}
                   aria-label={t('welcome.restore_by_id', 'Восстановить по уникальному ID')}
                   style={{
-                    width: '100%',
-                    height: '48px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
-                    backgroundColor: 'var(--surface-container-soft, transparent)',
-                    color: 'var(--text-main, #ffffff)',
-                    fontSize: '14.5px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-color, #5c54e5)',
+                    fontSize: '15px',
                     fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
                     cursor: 'pointer',
+                    padding: '4px 8px',
                     outline: 'none',
-                    transition: 'background-color 0.15s ease, transform 0.12s ease',
+                    transition: 'opacity 0.15s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))')}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--surface-container-soft, transparent)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.985)')}
-                  onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                 >
-                  <KeyRound size={17} />
-                  <span>{t('welcome.restore_by_id', 'Восстановить по уникальному ID')}</span>
+                  {t('welcome.restore_by_id', 'Восстановить по уникальному ID')}
                 </button>
 
                 <button
@@ -371,32 +349,20 @@ export const WelcomeScreen: React.FC = () => {
                   onClick={() => navigateTo('restore_backup_file')}
                   aria-label={t('welcome.restore_by_backup', 'Восстановить из локального бэкапа')}
                   style={{
-                    width: '100%',
-                    height: '48px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
-                    backgroundColor: 'var(--surface-container-soft, transparent)',
-                    color: 'var(--text-main, #ffffff)',
-                    fontSize: '14.5px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-color, #5c54e5)',
+                    fontSize: '15px',
                     fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
                     cursor: 'pointer',
+                    padding: '4px 8px',
                     outline: 'none',
-                    transition: 'background-color 0.15s ease, transform 0.12s ease',
+                    transition: 'opacity 0.15s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))')}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--surface-container-soft, transparent)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.985)')}
-                  onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                 >
-                  <HardDrive size={17} />
-                  <span>{t('welcome.restore_by_backup', 'Восстановить из локального бэкапа')}</span>
+                  {t('welcome.restore_by_backup', 'Восстановить из локального бэкапа')}
                 </button>
               </div>
             </motion.div>
@@ -410,7 +376,7 @@ export const WelcomeScreen: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -477,21 +443,27 @@ export const WelcomeScreen: React.FC = () => {
                   aria-label={t('nickname.title', 'Придумайте никнейм')}
                   style={{
                     width: '100%',
-                    height: '50px',
-                    padding: '0 16px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
-                    backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                    padding: '10px 0',
+                    borderRadius: '0px',
+                    border: 'none',
+                    borderBottom: '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
+                    backgroundColor: 'transparent',
                     color: 'var(--text-main, #ffffff)',
-                    fontSize: '16px',
+                    fontSize: '17px',
                     fontWeight: 500,
                     outline: 'none',
                     boxSizing: 'border-box',
-                    marginBottom: '24px',
+                    marginBottom: '32px',
                     transition: 'border-color 0.15s ease',
                   }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.14))')}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
+                  onMouseLeave={(e) => {
+                    if (document.activeElement !== e.currentTarget) {
+                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                    }
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
+                  onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))')}
                 />
 
                 <button
@@ -500,12 +472,12 @@ export const WelcomeScreen: React.FC = () => {
                   aria-label={t('welcome.continue', 'Продолжить')}
                   style={{
                     width: '100%',
-                    height: '50px',
+                    height: '48px',
                     borderRadius: '12px',
                     border: 'none',
                     backgroundColor: nickname.trim().length >= 2 ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
                     color: nickname.trim().length >= 2 ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
-                    fontSize: '15.5px',
+                    fontSize: '15px',
                     fontWeight: 650,
                     cursor: nickname.trim().length >= 2 ? 'pointer' : 'not-allowed',
                     outline: 'none',
@@ -527,7 +499,7 @@ export const WelcomeScreen: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -617,22 +589,29 @@ export const WelcomeScreen: React.FC = () => {
                   aria-label={t('welcome.master_key_label', 'Мастер-ключ аккаунта')}
                   style={{
                     width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
-                    backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                    padding: '10px 0',
+                    borderRadius: '0px',
+                    border: 'none',
+                    borderBottom: '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
+                    backgroundColor: 'transparent',
                     color: 'var(--text-main, #ffffff)',
-                    fontSize: '13px',
+                    fontSize: '13.5px',
                     fontFamily: 'monospace',
                     resize: 'none',
                     outline: 'none',
                     boxSizing: 'border-box',
                     wordBreak: 'break-all',
-                    marginBottom: errorMessage ? '10px' : '20px',
+                    marginBottom: errorMessage ? '10px' : '28px',
                     transition: 'border-color 0.15s ease',
                   }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.14))')}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
+                  onMouseLeave={(e) => {
+                    if (document.activeElement !== e.currentTarget) {
+                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                    }
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
+                  onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))')}
                 />
 
                 {errorMessage && (
@@ -661,12 +640,12 @@ export const WelcomeScreen: React.FC = () => {
                   aria-label={t('welcome.restore_button', 'Восстановить аккаунт')}
                   style={{
                     width: '100%',
-                    height: '50px',
+                    height: '48px',
                     borderRadius: '12px',
                     border: 'none',
                     backgroundColor: cleanMasterKey.length === 64 && !isLoading ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
                     color: cleanMasterKey.length === 64 && !isLoading ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
-                    fontSize: '15.5px',
+                    fontSize: '15px',
                     fontWeight: 650,
                     display: 'flex',
                     alignItems: 'center',
@@ -699,7 +678,7 @@ export const WelcomeScreen: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -794,6 +773,12 @@ export const WelcomeScreen: React.FC = () => {
                   boxSizing: 'border-box',
                   marginBottom: errorMessage ? '10px' : '24px',
                   transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!selectedFile) e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!selectedFile) e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.16))';
                 }}
               >
                 {selectedFile ? (
@@ -904,12 +889,12 @@ export const WelcomeScreen: React.FC = () => {
                 aria-label={t('welcome.continue', 'Продолжить')}
                 style={{
                   width: '100%',
-                  height: '50px',
+                  height: '48px',
                   borderRadius: '12px',
                   border: 'none',
                   backgroundColor: selectedFile && fileBytes ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
                   color: selectedFile && fileBytes ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
-                  fontSize: '15.5px',
+                  fontSize: '15px',
                   fontWeight: 650,
                   cursor: selectedFile && fileBytes ? 'pointer' : 'not-allowed',
                   outline: 'none',
@@ -930,7 +915,7 @@ export const WelcomeScreen: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -1016,25 +1001,32 @@ export const WelcomeScreen: React.FC = () => {
                   }}
                   autoFocus
                   placeholder={t('welcome.phrase_placeholder', 'Введите или вставьте 12 английских слов через пробел...')}
-                  rows={4}
+                  rows={3}
                   aria-label={t('welcome.phrase_label', 'Секретная фраза')}
                   style={{
                     width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
-                    backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                    padding: '10px 0',
+                    borderRadius: '0px',
+                    border: 'none',
+                    borderBottom: '1.5px solid var(--border-color, rgba(255, 255, 255, 0.2))',
+                    backgroundColor: 'transparent',
                     color: 'var(--text-main, #ffffff)',
-                    fontSize: '13.5px',
+                    fontSize: '14px',
                     lineHeight: 1.5,
                     resize: 'none',
                     outline: 'none',
                     boxSizing: 'border-box',
-                    marginBottom: errorMessage ? '10px' : '20px',
+                    marginBottom: errorMessage ? '10px' : '28px',
                     transition: 'border-color 0.15s ease',
                   }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-color, #5c54e5)')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color, rgba(255, 255, 255, 0.14))')}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
+                  onMouseLeave={(e) => {
+                    if (document.activeElement !== e.currentTarget) {
+                      e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))';
+                    }
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #5c54e5)')}
+                  onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255, 255, 255, 0.2))')}
                 />
 
                 {errorMessage && (
@@ -1063,12 +1055,12 @@ export const WelcomeScreen: React.FC = () => {
                   aria-label={t('welcome.restore_button', 'Восстановить аккаунт')}
                   style={{
                     width: '100%',
-                    height: '50px',
+                    height: '48px',
                     borderRadius: '12px',
                     border: 'none',
                     backgroundColor: parsedWords.length === 12 && !isLoading ? 'var(--accent-color, #5c54e5)' : 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))',
                     color: parsedWords.length === 12 && !isLoading ? '#ffffff' : 'var(--text-dim, rgba(255, 255, 255, 0.35))',
-                    fontSize: '15.5px',
+                    fontSize: '15px',
                     fontWeight: 650,
                     display: 'flex',
                     alignItems: 'center',
