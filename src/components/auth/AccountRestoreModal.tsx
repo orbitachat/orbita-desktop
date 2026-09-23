@@ -150,7 +150,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
           style={{
             width: '100%',
             maxWidth: '480px',
-            backgroundColor: 'var(--bg-secondary, #211d2f)',
+            backgroundColor: 'var(--settings-bg, var(--bg-secondary))',
             border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
             borderRadius: '20px',
             boxShadow: '0 20px 48px rgba(0, 0, 0, 0.4)',
@@ -174,7 +174,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                   width: '38px',
                   height: '38px',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                  backgroundColor: 'var(--surface-container-strong, rgba(255, 255, 255, 0.06))',
                   color: 'var(--accent-color, #9b7dd4)',
                   display: 'flex',
                   alignItems: 'center',
@@ -189,7 +189,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                     margin: 0,
                     fontSize: '17px',
                     fontWeight: 700,
-                    color: '#ffffff',
+                    color: 'var(--text-main, #ffffff)',
                   }}
                 >
                   {t('welcome.restore_title')}
@@ -198,7 +198,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                   style={{
                     margin: '2px 0 0',
                     fontSize: '12.5px',
-                    color: 'rgba(255, 255, 255, 0.55)',
+                    color: 'var(--text-dim, rgba(255, 255, 255, 0.55))',
                   }}
                 >
                   {t('welcome.restore_desc')}
@@ -214,7 +214,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'rgba(255, 255, 255, 0.6)',
+                color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
                 cursor: 'pointer',
                 padding: '6px',
                 borderRadius: '8px',
@@ -246,8 +246,8 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                 padding: '10px 14px',
                 borderRadius: '10px',
                 border: 'none',
-                backgroundColor: activeTab === 'cloud' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                color: activeTab === 'cloud' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                backgroundColor: activeTab === 'cloud' ? 'var(--surface-container-strong, rgba(255, 255, 255, 0.12))' : 'var(--surface-container-soft, rgba(255, 255, 255, 0.03))',
+                color: activeTab === 'cloud' ? 'var(--text-main, #ffffff)' : 'var(--text-dim, rgba(255, 255, 255, 0.5))',
                 fontWeight: 600,
                 fontSize: '13px',
                 cursor: 'pointer',
@@ -274,8 +274,8 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                 padding: '10px 14px',
                 borderRadius: '10px',
                 border: 'none',
-                backgroundColor: activeTab === 'file' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                color: activeTab === 'file' ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
+                backgroundColor: activeTab === 'file' ? 'var(--surface-container-strong, rgba(255, 255, 255, 0.12))' : 'var(--surface-container-soft, rgba(255, 255, 255, 0.03))',
+                color: activeTab === 'file' ? 'var(--text-main, #ffffff)' : 'var(--text-dim, rgba(255, 255, 255, 0.5))',
                 fontWeight: 600,
                 fontSize: '13px',
                 cursor: 'pointer',
@@ -299,7 +299,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                     style={{
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: 'rgba(255, 255, 255, 0.85)',
+                      color: 'var(--text-main, rgba(255, 255, 255, 0.85))',
                     }}
                   >
                     {t('welcome.master_key_label')}
@@ -308,7 +308,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                     style={{
                       fontSize: '12px',
                       fontWeight: 600,
-                      color: cleanMasterKey.length === 64 ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.45)',
+                      color: cleanMasterKey.length === 64 ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, rgba(255, 255, 255, 0.45))',
                     }}
                   >
                     {t('welcome.key_chars_count', { count: cleanMasterKey.length })}
@@ -325,9 +325,9 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                     width: '100%',
                     padding: '12px 14px',
                     borderRadius: '12px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                    color: '#ffffff',
+                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                    backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                    color: 'var(--text-main, #ffffff)',
                     fontSize: '13px',
                     fontFamily: 'monospace',
                     resize: 'none',
@@ -357,7 +357,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                       display: 'block',
                       fontSize: '13px',
                       fontWeight: 600,
-                      color: 'rgba(255, 255, 255, 0.85)',
+                      color: 'var(--text-main, rgba(255, 255, 255, 0.85))',
                       marginBottom: '8px',
                     }}
                   >
@@ -374,7 +374,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                       onDrop={handleDrop}
                       onClick={() => fileInputRef.current?.click()}
                       style={{
-                        border: `1.5px dashed ${isDragOver ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.15)'}`,
+                        border: `1.5px dashed ${isDragOver ? 'var(--accent-color, #9b7dd4)' : 'var(--border-color, rgba(255, 255, 255, 0.15))'}`,
                         borderRadius: '14px',
                         padding: '24px 16px',
                         display: 'flex',
@@ -383,7 +383,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                         justifyContent: 'center',
                         gap: '10px',
                         cursor: 'pointer',
-                        backgroundColor: isDragOver ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.15)',
+                        backgroundColor: isDragOver ? 'var(--surface-container-soft, rgba(255, 255, 255, 0.03))' : 'var(--surface-container, rgba(0, 0, 0, 0.15))',
                         transition: 'all 0.2s',
                       }}
                     >
@@ -392,11 +392,11 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                           width: '44px',
                           height: '44px',
                           borderRadius: '12px',
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          backgroundColor: 'var(--surface-container-strong, rgba(255, 255, 255, 0.05))',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: 'rgba(255, 255, 255, 0.7)',
+                          color: 'var(--text-main, rgba(255, 255, 255, 0.7))',
                         }}
                       >
                         <UploadCloud size={24} />
@@ -406,13 +406,13 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                           style={{
                             fontSize: '13.5px',
                             fontWeight: 600,
-                            color: '#ffffff',
+                            color: 'var(--text-main, #ffffff)',
                             marginBottom: '2px',
                           }}
                         >
                           {t('welcome.drop_file_here')}
                         </div>
-                        <div style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.4)' }}>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-dim, rgba(255, 255, 255, 0.4))' }}>
                           .orbita
                         </div>
                       </div>
@@ -420,13 +420,13 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                   ) : (
                     <div
                       style={{
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
                         borderRadius: '12px',
                         padding: '12px 16px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                        backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.2))',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
@@ -450,7 +450,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                             style={{
                               fontSize: '13px',
                               fontWeight: 600,
-                              color: '#ffffff',
+                              color: 'var(--text-main, #ffffff)',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -458,7 +458,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                           >
                             {selectedFile.name}
                           </div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-dim, rgba(255, 255, 255, 0.45))' }}>
                             {formatFileSize(selectedFile.size)}
                           </div>
                         </div>
@@ -498,7 +498,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                       style={{
                         fontSize: '13px',
                         fontWeight: 600,
-                        color: 'rgba(255, 255, 255, 0.85)',
+                        color: 'var(--text-main, rgba(255, 255, 255, 0.85))',
                       }}
                     >
                       {t('welcome.phrase_label')}
@@ -507,7 +507,7 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                       style={{
                         fontSize: '12px',
                         fontWeight: 600,
-                        color: parsedWords.length === 12 ? 'var(--accent-color, #9b7dd4)' : 'rgba(255, 255, 255, 0.45)',
+                        color: parsedWords.length === 12 ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, rgba(255, 255, 255, 0.45))',
                       }}
                     >
                       {t('welcome.words_count', { count: parsedWords.length })}
@@ -524,9 +524,9 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                       width: '100%',
                       padding: '12px 14px',
                       borderRadius: '12px',
-                      border: 'none',
-                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                      color: '#ffffff',
+                      border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                      backgroundColor: 'var(--surface-container, rgba(0, 0, 0, 0.25))',
+                      color: 'var(--text-main, #ffffff)',
                       fontSize: '14px',
                       fontFamily: 'inherit',
                       resize: 'none',
@@ -555,12 +555,12 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                             gap: '6px',
                             padding: '4px 8px',
                             borderRadius: '6px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                            backgroundColor: 'var(--surface-container-strong, rgba(255, 255, 255, 0.06))',
                             fontSize: '12px',
-                            color: 'rgba(255, 255, 255, 0.9)',
+                            color: 'var(--text-main, rgba(255, 255, 255, 0.9))',
                           }}
                         >
-                          <span style={{ opacity: 0.5, fontSize: '10px' }}>{idx + 1}</span>
+                          <span style={{ opacity: 0.5, fontSize: '10px', color: 'var(--text-dim)' }}>{idx + 1}</span>
                           <span style={{ fontWeight: 550 }}>{word}</span>
                         </div>
                       ))}
@@ -607,8 +607,13 @@ export const AccountRestoreModal: React.FC<AccountRestoreModalProps> = ({ isOpen
                   ((activeTab === 'cloud' && cleanMasterKey.length === 64) ||
                     (activeTab === 'file' && fileBytes && parsedWords.length === 12))
                     ? 'var(--accent-color, #9b7dd4)'
-                    : 'rgba(255, 255, 255, 0.1)',
-                color: '#ffffff',
+                    : 'var(--surface-container-strong, rgba(255, 255, 255, 0.1))',
+                color:
+                  !isLoading &&
+                  ((activeTab === 'cloud' && cleanMasterKey.length === 64) ||
+                    (activeTab === 'file' && fileBytes && parsedWords.length === 12))
+                    ? '#ffffff'
+                    : 'var(--text-dim, rgba(255, 255, 255, 0.4))',
                 fontSize: '15px',
                 fontWeight: 650,
                 cursor:

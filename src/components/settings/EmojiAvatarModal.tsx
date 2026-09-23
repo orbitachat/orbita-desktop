@@ -116,7 +116,7 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'transparent',
+        backgroundColor: 'rgba(0, 0, 0, 0.55)',
         backdropFilter: 'none',
         WebkitBackdropFilter: 'none',
         zIndex: 99999,
@@ -135,10 +135,10 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
           width: '100%',
           maxWidth: '380px',
           maxHeight: '86vh',
-          backgroundColor: '#1b1726',
+          backgroundColor: 'var(--settings-bg, var(--bg-secondary))',
           borderRadius: '10px',
-          border: 'none',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75), 0 4px 16px rgba(0, 0, 0, 0.5)',
+          border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -161,7 +161,7 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
             style={{
               background: 'none',
               border: 'none',
-              color: '#fff',
+              color: 'var(--text-main, #fff)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -173,7 +173,7 @@ export const EmojiAvatarModal: React.FC<EmojiAvatarModalProps> = ({
             <ArrowLeft size={20} />
           </button>
 
-          <span style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-main, #fff)' }}>
             {t('avatar.choose_emoji')}
           </span>
 

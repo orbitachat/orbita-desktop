@@ -214,8 +214,8 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
     if (cameraBtnRef.current) {
       const rect = cameraBtnRef.current.getBoundingClientRect();
       setMenuPos({
-        top: rect.top - 12,
-        left: rect.right + 12,
+        top: rect.top - 8,
+        left: rect.right - 6,
       });
     }
     setAvatarMenuOpen((prev) => !prev);
@@ -597,35 +597,39 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                 }}
               >
                 <div
-                  style={{ position: 'relative', width: 96, height: 96, marginBottom: 10, marginTop: 0, cursor: avatarUrl ? 'pointer' : 'default' }}
-                  onClick={() => {
-                    if (avatarUrl) {
-                      const orbita = (window as any).orbita;
-                      if (orbita?.openMediaWindow) {
-                        orbita.openMediaWindow({
-                          items: [{
-                            id: 'my-avatar',
-                            url: avatarUrl,
-                            directUrl: avatarUrl,
-                            type: 'photo',
-                            name: `${nickname || 'Avatar'}.png`,
-                            sender: nickname || 'Я',
-                            time: Date.now(),
-                          }],
-                          initialIndex: 0,
-                        });
-                      } else {
-                        setIsAvatarViewerOpen(true);
-                      }
-                    }
-                  }}
+                  style={{ position: 'relative', width: 96, height: 96, marginBottom: 10, marginTop: 0 }}
                 >
-                  <Avatar
-                    src={avatarUrl}
-                    alt={nickname || 'User'}
-                    className="w-24 h-24 rounded-full"
-                    style={{ width: '96px', height: '96px' }}
-                  />
+                  <div
+                    style={{ width: 96, height: 96, cursor: avatarUrl ? 'pointer' : 'default', borderRadius: '50%' }}
+                    onClick={() => {
+                      if (avatarUrl) {
+                        const orbita = (window as any).orbita;
+                        if (orbita?.openMediaWindow) {
+                          orbita.openMediaWindow({
+                            items: [{
+                              id: 'my-avatar',
+                              url: avatarUrl,
+                              directUrl: avatarUrl,
+                              type: 'photo',
+                              name: `${nickname || 'Avatar'}.png`,
+                              sender: nickname || 'Я',
+                              time: Date.now(),
+                            }],
+                            initialIndex: 0,
+                          });
+                        } else {
+                          setIsAvatarViewerOpen(true);
+                        }
+                      }
+                    }}
+                  >
+                    <Avatar
+                      src={avatarUrl}
+                      alt={nickname || 'User'}
+                      className="w-24 h-24 rounded-full"
+                      style={{ width: '96px', height: '96px' }}
+                    />
+                  </div>
                   <button
                     ref={cameraBtnRef}
                     onClick={handleToggleAvatarMenu}
@@ -634,25 +638,26 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                       position: 'absolute',
                       bottom: '-2px',
                       right: '-2px',
-                      width: '30px',
-                      height: '30px',
+                      width: '35px',
+                      height: '35px',
+                      boxSizing: 'border-box',
                       borderRadius: '50%',
                       background: 'var(--accent-color)',
                       color: '#fff',
-                      border: 'none',
+                      border: '3.5px solid var(--settings-bg, var(--bg-secondary))',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       padding: 0,
-                      boxShadow: '0 0 0 4px var(--settings-bg, var(--bg-secondary)), 0 2px 8px rgba(0,0,0,0.3)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
                       transition: 'opacity 0.15s ease',
                       zIndex: 10,
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="17" height="17">
                       <path fill="currentColor" d="M12 17.5q1.875 0 3.188-1.312T16.5 13t-1.312-3.187T12 8.5T8.813 9.813T7.5 13t1.313 3.188T12 17.5m0-2q-1.05 0-1.775-.725T9.5 13t.725-1.775T12 10.5t1.775.725T14.5 13t-.725 1.775T12 15.5M4 21q-.825 0-1.412-.587T2 19V7q0-.825.588-1.412T4 5h3.15L9 3h6l1.85 2H20q.825 0 1.413.588T22 7v12q0 .825-.587 1.413T20 21z"/>
                     </svg>
                   </button>
@@ -661,20 +666,24 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                     <>
                       <div
                         style={{ position: 'fixed', inset: 0, zIndex: 999998 }}
-                        onClick={() => setAvatarMenuOpen(false)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAvatarMenuOpen(false);
+                        }}
                       />
                       <div
+                        onClick={(e) => e.stopPropagation()}
                         style={{
                           position: 'fixed',
                           top: `${menuPos.top}px`,
                           left: `${menuPos.left}px`,
-                          backgroundColor: '#1b1726',
-                          borderRadius: '10px',
-                          border: 'none',
-                          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4)',
+                          backgroundColor: 'var(--settings-bg, var(--bg-secondary))',
+                          borderRadius: '9px',
+                          border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+                          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)',
                           padding: '0',
                           overflow: 'hidden',
-                          minWidth: '185px',
+                          minWidth: '145px',
                           width: 'max-content',
                           zIndex: 999999,
                           display: 'flex',
@@ -686,18 +695,21 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                       >
                         <button
                           type="button"
-                          onClick={handlePickFile}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePickFile();
+                          }}
                           style={{
                             width: '100%',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
-                            padding: '7px 12px',
+                            gap: '8px',
+                            padding: '7px 11px',
                             borderRadius: '0px',
                             background: 'transparent',
                             border: 'none',
-                            color: '#fff',
-                            fontSize: '13px',
+                            color: 'var(--text-main, #fff)',
+                            fontSize: '12.5px',
                             fontWeight: 500,
                             cursor: 'pointer',
                             textAlign: 'left',
@@ -705,11 +717,11 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                             boxSizing: 'border-box',
                             transition: 'background-color 0.12s ease',
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))')}
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
-                          <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                          <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" style={{ color: 'var(--text-main, rgba(255, 255, 255, 0.85))' }}>
                               <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
                                 <path d="M15 8h.01M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/>
                                 <path d="m3 16l5-5c.928-.893 2.072-.893 3 0l5 5"/>
@@ -717,23 +729,26 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                               </g>
                             </svg>
                           </div>
-                          <span style={{ whiteSpace: 'nowrap' }}>Файл</span>
+                          <span style={{ whiteSpace: 'nowrap' }}>{t('common.file', 'Файл')}</span>
                         </button>
 
                         <button
                           type="button"
-                          onClick={handlePasteClipboard}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePasteClipboard();
+                          }}
                           style={{
                             width: '100%',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
-                            padding: '7px 12px',
+                            gap: '8px',
+                            padding: '7px 11px',
                             borderRadius: '0px',
                             background: 'transparent',
                             border: 'none',
-                            color: '#fff',
-                            fontSize: '13px',
+                            color: 'var(--text-main, #fff)',
+                            fontSize: '12.5px',
                             fontWeight: 500,
                             cursor: 'pointer',
                             textAlign: 'left',
@@ -741,32 +756,35 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                             boxSizing: 'border-box',
                             transition: 'background-color 0.12s ease',
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))')}
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
-                          <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                          <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" style={{ color: 'var(--text-main, rgba(255, 255, 255, 0.85))' }}>
                               <path fill="currentColor" d="M5 5h2v1c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V5h2v6h2V5c0-1.1-.9-2-2-2h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h5v-2H5zm7-2c.55 0 1 .45 1 1s-.45 1-1 1s-1-.45-1-1s.45-1 1-1"/>
                               <path fill="currentColor" d="m21.29 16.29l-2.58-2.58a.996.996 0 1 0-1.41 1.41l.87.88H13c-.55 0-1 .45-1 1s.45 1 1 1h5.17l-.87.88a.996.996 0 1 0 1.41 1.41l2.58-2.58c.39-.4.39-1.03 0-1.42"/>
                             </svg>
                           </div>
-                          <span style={{ whiteSpace: 'nowrap' }}>Из буфера обмена</span>
+                          <span style={{ whiteSpace: 'nowrap' }}>{t('common.from_clipboard', 'Из буфера обмена')}</span>
                         </button>
 
                         <button
                           type="button"
-                          onClick={handleOpenEmojiAvatar}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEmojiAvatar();
+                          }}
                           style={{
                             width: '100%',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
-                            padding: '7px 12px',
+                            gap: '8px',
+                            padding: '7px 11px',
                             borderRadius: '0px',
                             background: 'transparent',
                             border: 'none',
-                            color: '#fff',
-                            fontSize: '13px',
+                            color: 'var(--text-main, #fff)',
+                            fontSize: '12.5px',
                             fontWeight: 500,
                             cursor: 'pointer',
                             textAlign: 'left',
@@ -774,13 +792,13 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                             boxSizing: 'border-box',
                             transition: 'background-color 0.12s ease',
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-container-strong, rgba(255, 255, 255, 0.08))')}
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
                           <div
                             style={{
-                              width: '28px',
-                              height: '28px',
+                              width: '24px',
+                              height: '24px',
                               borderRadius: '50%',
                               background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
                               display: 'flex',
@@ -789,11 +807,11 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                               flexShrink: 0,
                             }}
                           >
-                            <span className="emoji-font" style={{ fontSize: '18px', lineHeight: 1 }}>
+                            <span className="emoji-font" style={{ fontSize: '15px', lineHeight: 1 }}>
                               🙈
                             </span>
                           </div>
-                          <span style={{ whiteSpace: 'nowrap' }}>Выбрать эмодзи</span>
+                          <span style={{ whiteSpace: 'nowrap' }}>{t('avatar.choose_emoji', 'Выбрать эмодзи')}</span>
                         </button>
                       </div>
                     </>

@@ -308,7 +308,7 @@ export const WelcomeScreen: React.FC = () => {
               height: '52px',
               borderRadius: '10px',
               border: 'none',
-              backgroundColor: 'var(--bg-secondary, #211d2f)',
+              backgroundColor: 'var(--accent-color, #7C3AED)',
               color: '#ffffff',
               fontSize: '16px',
               fontWeight: 650,
@@ -318,6 +318,7 @@ export const WelcomeScreen: React.FC = () => {
               justifyContent: 'center',
               cursor: 'pointer',
               outline: 'none',
+              boxShadow: '0 4px 14px var(--accent-glow, rgba(124, 58, 237, 0.35))',
             }}
           >
             {t('welcome.start_messaging', 'Начните общаться')}
@@ -332,9 +333,9 @@ export const WelcomeScreen: React.FC = () => {
               maxWidth: '300px',
               height: '46px',
               borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              backgroundColor: 'transparent',
-              color: 'rgba(255, 255, 255, 0.75)',
+              border: '1px solid var(--border-color, rgba(255, 255, 255, 0.14))',
+              backgroundColor: 'var(--surface-container-soft, transparent)',
+              color: 'var(--text-main, rgba(255, 255, 255, 0.75))',
               fontSize: '14.5px',
               fontWeight: 600,
               display: 'flex',
@@ -345,7 +346,7 @@ export const WelcomeScreen: React.FC = () => {
               outline: 'none',
             }}
           >
-            <KeyRound size={16} color="rgba(255, 255, 255, 0.75)" />
+            <KeyRound size={16} color="currentColor" />
             {t('welcome.restore_account', 'Восстановить аккаунт')}
           </motion.button>
         </motion.div>
