@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { liveKitService, ParticipantInfo } from '../services/livekitService';
+import { groupLiveKitService } from '../services/groupLiveKitService';
 import { getPusher, getGroupPusher } from '../utils/pusher';
 import { useChatStore } from './useChatStore';
 import { useAuthStore } from './useAuthStore';
@@ -319,16 +320,17 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
       if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
       callSoundService.stop();
-      liveKitService.enableMicrophone().catch(() => {});
+
+      const isGroup = stateAfterCrypto.activeCall.chatType === 'group' ||
+        useChatStore.getState().chats.find((c) => c.id === stateAfterCrypto.activeCall?.chatId)?.type === 'group';
+      const svc = isGroup ? groupLiveKitService : liveKitService;
+      svc.enableMicrophone().catch(() => {});
       if (stateAfterCrypto.isVideoEnabled || stateAfterCrypto.activeCall.callType === 'video') {
-        liveKitService.enableCamera().catch(() => {});
+        svc.enableCamera().catch(() => {});
       }
 
       const connectedAt = syncedConnectedAt
         || (stateAfterCrypto.activeCall.startTime > 0 ? stateAfterCrypto.activeCall.startTime : Date.now());
-
-      const isGroup = stateAfterCrypto.activeCall.chatType === 'group' ||
-        useChatStore.getState().chats.find((c) => c.id === stateAfterCrypto.activeCall?.chatId)?.type === 'group';
 
       if (!isGroup && stateAfterCrypto.activeCall.direction === 'outgoing' && !syncedConnectedAt) {
         sendCallSignalReliable(stateAfterCrypto.activeCall.chatId, {
@@ -463,6 +465,84 @@ export const useCallStore = create<CallStore>((set, get) => {
     });
     liveKitService.on('trackUnmuted', () => {
       get().updateParticipants(liveKitService.allParticipants);
+    });
+
+    groupLiveKitService.on('disconnected', () => {
+      const state = get();
+      if (state.isEnding) return;
+      if (groupLiveKitService.isCurrentlyConnecting) return;
+      if (state.activeCall && state.callState === 'connected' && state.activeCall.chatType === 'group') {
+        get().endCall();
+      }
+    });
+
+    groupLiveKitService.on('connected', () => {
+      const act = get().activeCall;
+      if (act && act.chatType === 'group') {
+        set({ activeCall: { ...act, participants: groupLiveKitService.remoteParticipants } });
+        get().updateParticipants(groupLiveKitService.allParticipants);
+        const current = get();
+        if (current.callState === 'connecting' || current.callState === 'ringing') {
+          activateConnected();
+        }
+      }
+    });
+
+    groupLiveKitService.on('trackSubscribed', () => {
+      const act = get().activeCall;
+      if (act && act.chatType === 'group') {
+        set({ activeCall: { ...act, participants: groupLiveKitService.remoteParticipants } });
+        get().updateParticipants(groupLiveKitService.allParticipants);
+      }
+    });
+
+    groupLiveKitService.on('participantsChanged', (participants: ParticipantInfo[]) => {
+      const act = get().activeCall;
+      if (act && act.chatType === 'group') {
+        set({ activeCall: { ...act, participants: groupLiveKitService.remoteParticipants } });
+        get().updateParticipants(participants);
+      }
+    });
+
+    groupLiveKitService.on('micChanged', (enabled: boolean) => {
+      const state = get();
+      if (state.activeCall && state.activeCall.chatType === 'group') {
+        set({ isMicEnabled: enabled });
+      }
+    });
+
+    groupLiveKitService.on('cameraChanged', (enabled: boolean) => {
+      const state = get();
+      if (state.activeCall && state.activeCall.chatType === 'group') {
+        if (enabled) {
+          set({ isVideoEnabled: true });
+          const act = get().activeCall;
+          if (act) set({ activeCall: { ...act, isVideoEnabled: true } });
+        }
+      }
+    });
+
+    groupLiveKitService.on('screenShareChanged', (enabled: boolean) => {
+      const state = get();
+      if (state.activeCall && state.activeCall.chatType === 'group') {
+        set({ isScreenSharing: enabled });
+        const act = get().activeCall;
+        if (act) set({ activeCall: { ...act, isScreenSharing: enabled } });
+      }
+    });
+
+    groupLiveKitService.on('trackMuted', () => {
+      const act = get().activeCall;
+      if (act && act.chatType === 'group') {
+        get().updateParticipants(groupLiveKitService.allParticipants);
+      }
+    });
+
+    groupLiveKitService.on('trackUnmuted', () => {
+      const act = get().activeCall;
+      if (act && act.chatType === 'group') {
+        get().updateParticipants(groupLiveKitService.allParticipants);
+      }
     });
 
     liveKitService.on('connectAttempt', (attempt: number, total: number) => {
@@ -642,17 +722,17 @@ export const useCallStore = create<CallStore>((set, get) => {
           if (act) set({ activeCall: { ...act, token, url } });
           const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
           if (!isElectronSeparateCallWindow) {
-            await liveKitService.connect(roomName, token, url, sessionKey);
+            await groupLiveKitService.connect(roomName, token, url, sessionKey);
             await activateConnected();
-            await liveKitService.enableMicrophone();
+            await groupLiveKitService.enableMicrophone();
             if (isVideo) {
-              await liveKitService.enableCamera();
+              await groupLiveKitService.enableCamera();
             }
             const currentAct = get().activeCall;
             if (currentAct) {
-              set({ activeCall: { ...currentAct, participants: liveKitService.remoteParticipants } });
+              set({ activeCall: { ...currentAct, participants: groupLiveKitService.remoteParticipants } });
             }
-            get().updateParticipants(liveKitService.allParticipants);
+            get().updateParticipants(groupLiveKitService.allParticipants);
           } else {
             activateConnected();
           }
@@ -843,7 +923,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (isGroup) {
         const remainingRemotes = typeof remotesOverride === 'number'
           ? remotesOverride
-          : (activeCall.participants?.filter((p: any) => !p.isLocal).length || liveKitService.remoteParticipants.length);
+          : (activeCall.participants?.filter((p: any) => !p.isLocal).length || groupLiveKitService.remoteParticipants.length);
         if (remainingRemotes === 0) {
           groupService.endCall(chatId, state.myNickname || undefined).catch(() => {});
           useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
@@ -855,7 +935,9 @@ export const useCallStore = create<CallStore>((set, get) => {
         }
       }
       try { void liveKitService.stopScreenShare(); } catch {}
+      try { void groupLiveKitService.stopScreenShare(); } catch {}
       liveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} disconnect error:`, err));
+      groupLiveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} group disconnect error:`, err));
       clearAllTimers();
       activationInProgress = false;
       if (endedStatus !== null && state.myNickname) createCallMessage(chatId, direction, duration, endedStatus);
@@ -982,10 +1064,12 @@ export const useCallStore = create<CallStore>((set, get) => {
       const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
       if (!isElectronSeparateCallWindow) {
         try {
+          const isGroup = state.activeCall?.chatType === 'group';
+          const svc = isGroup ? groupLiveKitService : liveKitService;
           if (enabled) {
-            await liveKitService.enableMicrophone();
+            await svc.enableMicrophone();
           } else {
-            await liveKitService.disableMicrophone();
+            await svc.disableMicrophone();
           }
         } catch (err) {
           console.error(`${LOG_PREFIX} setMicEnabled failed:`, err);
@@ -1005,10 +1089,12 @@ export const useCallStore = create<CallStore>((set, get) => {
       const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
       if (!isElectronSeparateCallWindow) {
         try {
+          const isGroup = state.activeCall?.chatType === 'group';
+          const svc = isGroup ? groupLiveKitService : liveKitService;
           if (next) {
-            await liveKitService.enableCamera();
+            await svc.enableCamera();
           } else {
-            await liveKitService.disableCamera();
+            await svc.disableCamera();
           }
         } catch (err) {
           console.error(`${LOG_PREFIX} toggleVideo failed:`, err);
@@ -1023,7 +1109,9 @@ export const useCallStore = create<CallStore>((set, get) => {
       const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
       if (!isElectronSeparateCallWindow) {
         try {
-          await liveKitService.startScreenShare(options);
+          const isGroup = get().activeCall?.chatType === 'group';
+          const svc = isGroup ? groupLiveKitService : liveKitService;
+          await svc.startScreenShare(options);
         } catch (err) {
           console.error(`${LOG_PREFIX} startScreenShareWithOptions failed:`, err);
         }
@@ -1034,7 +1122,9 @@ export const useCallStore = create<CallStore>((set, get) => {
       const isElectronSeparateCallWindow = typeof window !== 'undefined' && !!(window as any).orbita?.openCallWindow;
       if (!isElectronSeparateCallWindow) {
         try {
-          await liveKitService.stopScreenShare();
+          const isGroup = get().activeCall?.chatType === 'group';
+          const svc = isGroup ? groupLiveKitService : liveKitService;
+          await svc.stopScreenShare();
         } catch (err) {
           console.error(`${LOG_PREFIX} stopScreenShare failed:`, err);
         }

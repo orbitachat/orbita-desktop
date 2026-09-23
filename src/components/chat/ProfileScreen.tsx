@@ -1371,10 +1371,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     const currentMode = groupModalMode;
     setIsDeleteGroupModalOpen(false);
     onClose();
+    const myCode = useChatStore.getState().myCode;
     if (currentMode === 'delete') {
       await groupService.deleteGroup(targetChatId);
     } else {
-      await groupService.leaveGroup(targetChatId, myNickname, myUserId);
+      await groupService.leaveGroup(targetChatId, myNickname, myCode, myUserId);
     }
     useChatStore.getState().deleteChat(targetChatId);
   }, [chat, groupModalMode, onClose, myNickname, myUserId]);
@@ -2812,7 +2813,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                         type="button"
                         onClick={async () => {
                           if (window.confirm(`${t('groupSettings.kick', 'Исключить')} ${member.nickname}?`)) {
-                            await groupService.kickMember(chat.id, member.nickname, myNickname, memberCode);
+                            await groupService.kickMember(chat.id, member.nickname, myNickname, memberCode, member.userId);
                             const updatedMembers = (chat.members || []).filter((m: any) => {
                               const mCode = m.userId || m.userCode;
                               if (memberCode && mCode) return mCode !== memberCode;

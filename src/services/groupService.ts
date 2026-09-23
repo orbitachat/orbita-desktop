@@ -474,15 +474,18 @@ class GroupService {
     }
   }
 
-  async leaveGroup(groupId: string, nickname: string, userCode?: string): Promise<void> {
+  async leaveGroup(groupId: string, nickname: string, userCode?: string, userId?: string): Promise<void> {
     try {
-      let q = this.supabase.from('group_members').delete().eq('group_id', groupId);
+      const filters = [`nickname.eq.${nickname}`];
       if (userCode) {
-        q = q.or(`user_code.eq.${userCode},user_id.eq.${userCode}`);
-      } else {
-        q = q.eq('nickname', nickname);
+        filters.push(`user_code.eq.${userCode}`);
+        filters.push(`user_id.eq.${userCode}`);
       }
-      await q;
+      if (userId && userId !== userCode) {
+        filters.push(`user_code.eq.${userId}`);
+        filters.push(`user_id.eq.${userId}`);
+      }
+      await this.supabase.from('group_members').delete().eq('group_id', groupId).or(filters.join(','));
     } catch {}
 
     try {
@@ -493,20 +496,45 @@ class GroupService {
           groupId,
           nickname,
           userCode: userCode || null,
+          userId: userId || null,
         }),
       }).catch(() => {});
     } catch {}
+
+    try {
+      const groupPusher = getGroupPusher();
+      const channel = groupPusher.subscribe(`presence-group-${groupId}`);
+      const leaveData = {
+        type: 'member-left',
+        groupId,
+        nickname,
+        userCode: userCode || null,
+        userId: userId || null,
+      };
+      const sendLeave = () => {
+        try { channel.trigger('member-left', leaveData); } catch {}
+        try { channel.trigger('client-message', leaveData); } catch {}
+      };
+      if (channel.subscribed) sendLeave();
+      else channel.bind('pusher:subscription_succeeded', sendLeave);
+    } catch {}
+
+    const secret = deriveGroupKey(groupId);
+    this.sendSystemMessage(groupId, secret, 'leave', nickname);
   }
 
-  async kickMember(groupId: string, targetNickname: string, adminNickname: string, targetUserCode?: string): Promise<void> {
+  async kickMember(groupId: string, targetNickname: string, adminNickname: string, targetUserCode?: string, targetUserId?: string): Promise<void> {
     try {
-      let q = this.supabase.from('group_members').delete().eq('group_id', groupId);
+      const filters = [`nickname.eq.${targetNickname}`];
       if (targetUserCode) {
-        q = q.or(`user_code.eq.${targetUserCode},user_id.eq.${targetUserCode}`);
-      } else {
-        q = q.eq('nickname', targetNickname);
+        filters.push(`user_code.eq.${targetUserCode}`);
+        filters.push(`user_id.eq.${targetUserCode}`);
       }
-      await q;
+      if (targetUserId && targetUserId !== targetUserCode) {
+        filters.push(`user_code.eq.${targetUserId}`);
+        filters.push(`user_id.eq.${targetUserId}`);
+      }
+      await this.supabase.from('group_members').delete().eq('group_id', groupId).or(filters.join(','));
     } catch {}
 
     try {
@@ -517,9 +545,29 @@ class GroupService {
           groupId,
           targetNickname,
           targetUserCode: targetUserCode || null,
+          targetUserId: targetUserId || null,
           adminNickname,
         }),
       }).catch(() => {});
+    } catch {}
+
+    try {
+      const groupPusher = getGroupPusher();
+      const channel = groupPusher.subscribe(`presence-group-${groupId}`);
+      const kickData = {
+        type: 'kick',
+        target: targetNickname,
+        targetNickname,
+        targetUserCode: targetUserCode || null,
+        targetUserId: targetUserId || null,
+        admin: adminNickname,
+      };
+      const sendKick = () => {
+        try { channel.trigger('kick', kickData); } catch {}
+        try { channel.trigger('client-message', kickData); } catch {}
+      };
+      if (channel.subscribed) sendKick();
+      else channel.bind('pusher:subscription_succeeded', sendKick);
     } catch {}
 
     const secret = deriveGroupKey(groupId);
@@ -568,7 +616,24 @@ class GroupService {
 
   async deleteGroup(groupId: string): Promise<boolean> {
     try {
-      await this.supabase.from('groups').delete().eq('id', groupId);
+      const groupPusher = getGroupPusher();
+      const channel = groupPusher.subscribe(`presence-group-${groupId}`);
+      const deleteData = { type: 'group-deleted', groupId };
+      const sendDelete = () => {
+        try { channel.trigger('group-deleted', deleteData); } catch {}
+        try { channel.trigger('client-message', deleteData); } catch {}
+      };
+      if (channel.subscribed) sendDelete();
+      else channel.bind('pusher:subscription_succeeded', sendDelete);
+    } catch {}
+
+    try {
+      await Promise.allSettled([
+        this.supabase.from('group_members').delete().eq('group_id', groupId),
+        this.supabase.from('group_messages').delete().eq('group_id', groupId),
+        this.supabase.from('group_calls').delete().eq('group_id', groupId),
+        this.supabase.from('groups').delete().eq('id', groupId),
+      ]);
     } catch {}
 
     try {
@@ -641,11 +706,11 @@ class GroupService {
         .from('group_messages')
         .select('*')
         .eq('group_id', groupId)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(limit);
 
       if (!error && Array.isArray(data)) {
-        return data;
+        return data.reverse();
       }
     } catch {}
 
@@ -702,7 +767,7 @@ class GroupService {
   async sendSystemMessage(
     groupId: string,
     sharedSecret: string,
-    eventType: 'join' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'call_ended' | 'kick' | 'create' | 'invite',
+    eventType: 'join' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'call_ended' | 'kick' | 'create' | 'invite' | 'leave',
     actorNickname: string,
     targetNickname?: string
   ): Promise<void> {
@@ -711,6 +776,7 @@ class GroupService {
       create: `${actor} создал(а) группу`,
       invite: `${actor} пригласил(а) ${targetNickname || ''} в группу`,
       join: `${actor} вступил(а) в группу`,
+      leave: `${actor} покинул(а) группу`,
       title: `${actor} изменил(а) имя группы`,
       avatar: `${actor} изменил(а) аватарку группы`,
       admin: `${actor} назначил(а) ${targetNickname || ''} администратором`,

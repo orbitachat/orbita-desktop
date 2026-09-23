@@ -7,6 +7,7 @@ import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 import { liveKitService, type ParticipantInfo } from '../../services/livekitService';
+import { groupLiveKitService } from '../../services/groupLiveKitService';
 import { gatewayManager } from '../../services/gatewayManager';
 import { FONT_MAP, type FontFamily } from '../../store/useChatStore';
 
@@ -100,7 +101,7 @@ const GroupParticipantTile = React.memo(({
     if (!el) return;
     const attach = () => {
       if (hasScreenShare) {
-        const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
+        const sTrack = isLocal ? groupLiveKitService.getScreenShareTrack() : groupLiveKitService.getRemoteScreenShareTrack(participant.identity);
         if (sTrack) {
           sTrack.attach(el);
           try { el.play().catch(() => {}); } catch {}
@@ -108,7 +109,7 @@ const GroupParticipantTile = React.memo(({
         }
       }
       if (hasCamera) {
-        const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
+        const vTrack = isLocal ? groupLiveKitService.getLocalVideoTrack() : groupLiveKitService.getRemoteVideoTrack(participant.identity);
         if (vTrack) {
           vTrack.attach(el);
           try { el.play().catch(() => {}); } catch {}
@@ -117,23 +118,23 @@ const GroupParticipantTile = React.memo(({
       }
     };
     attach();
-    liveKitService.on('trackSubscribed', attach);
-    liveKitService.on('trackUnsubscribed', attach);
-    liveKitService.on('cameraChanged', attach);
-    liveKitService.on('screenShareChanged', attach);
-    liveKitService.on('remoteScreenShareChanged', attach);
+    groupLiveKitService.on('trackSubscribed', attach);
+    groupLiveKitService.on('trackUnsubscribed', attach);
+    groupLiveKitService.on('cameraChanged', attach);
+    groupLiveKitService.on('screenShareChanged', attach);
+    groupLiveKitService.on('remoteScreenShareChanged', attach);
     return () => {
-      liveKitService.off('trackSubscribed', attach);
-      liveKitService.off('trackUnsubscribed', attach);
-      liveKitService.off('cameraChanged', attach);
-      liveKitService.off('screenShareChanged', attach);
-      liveKitService.off('remoteScreenShareChanged', attach);
+      groupLiveKitService.off('trackSubscribed', attach);
+      groupLiveKitService.off('trackUnsubscribed', attach);
+      groupLiveKitService.off('cameraChanged', attach);
+      groupLiveKitService.off('screenShareChanged', attach);
+      groupLiveKitService.off('remoteScreenShareChanged', attach);
       try {
         if (hasScreenShare) {
-          const sTrack = isLocal ? liveKitService.getScreenShareTrack() : liveKitService.getRemoteScreenShareTrack(participant.identity);
+          const sTrack = isLocal ? groupLiveKitService.getScreenShareTrack() : groupLiveKitService.getRemoteScreenShareTrack(participant.identity);
           sTrack?.detach(el);
         } else if (hasCamera) {
-          const vTrack = isLocal ? liveKitService.getLocalVideoTrack() : liveKitService.getRemoteVideoTrack(participant.identity);
+          const vTrack = isLocal ? groupLiveKitService.getLocalVideoTrack() : groupLiveKitService.getRemoteVideoTrack(participant.identity);
           vTrack?.detach(el);
         }
       } catch {}
@@ -310,6 +311,7 @@ export const CallWindowView = () => {
       setExpandedShare(null);
       setIsScreenPickerOpen(false);
       liveKitService.disconnect().catch(() => {});
+      groupLiveKitService.disconnect().catch(() => {});
     };
 
     if (orbita?.getCallState) {
@@ -333,23 +335,27 @@ export const CallWindowView = () => {
     });
 
     const unsubCallAction = orbita?.onCallAction?.((action: any) => {
+      const isGrp = callData?.activeCall?.chatType === 'group' ||
+        Boolean(callData?.activeCall?.roomName?.startsWith('group-call-')) ||
+        new URLSearchParams(window.location.search).get('chatType') === 'group';
+      const svc = isGrp ? groupLiveKitService : liveKitService;
       if (action?.type === 'toggleMic') {
         const target = typeof action?.payload === 'boolean' ? action.payload : !micEnabledRef.current;
         micEnabledRef.current = target;
         setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
         if (target) {
-          liveKitService.enableMicrophone().catch(() => {});
+          svc.enableMicrophone().catch(() => {});
         } else {
-          liveKitService.disableMicrophone().catch(() => {});
+          svc.disableMicrophone().catch(() => {});
         }
       } else if (action?.type === 'setMicEnabled') {
         const target = !!action.payload;
         micEnabledRef.current = target;
         setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
         if (target) {
-          liveKitService.enableMicrophone().catch(() => {});
+          svc.enableMicrophone().catch(() => {});
         } else {
-          liveKitService.disableMicrophone().catch(() => {});
+          svc.disableMicrophone().catch(() => {});
         }
       } else if (action?.type === 'endCall' || action?.type === 'cancelCall') {
         handleHangupRef.current?.('endCall');
@@ -368,23 +374,27 @@ export const CallWindowView = () => {
             }
           }
         } else if (event.data?.type === 'CALL_ACTION') {
+          const isGrp = callData?.activeCall?.chatType === 'group' ||
+            Boolean(callData?.activeCall?.roomName?.startsWith('group-call-')) ||
+            new URLSearchParams(window.location.search).get('chatType') === 'group';
+          const svc = isGrp ? groupLiveKitService : liveKitService;
           if (event.data.action === 'toggleMic') {
             const target = typeof event.data?.payload === 'boolean' ? event.data.payload : !micEnabledRef.current;
             micEnabledRef.current = target;
             setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
             if (target) {
-              liveKitService.enableMicrophone().catch(() => {});
+              svc.enableMicrophone().catch(() => {});
             } else {
-              liveKitService.disableMicrophone().catch(() => {});
+              svc.disableMicrophone().catch(() => {});
             }
           } else if (event.data.action === 'setMicEnabled') {
             const target = !!event.data.payload;
             micEnabledRef.current = target;
             setCallData((prev) => (prev ? { ...prev, isMicEnabled: target } : prev));
             if (target) {
-              liveKitService.enableMicrophone().catch(() => {});
+              svc.enableMicrophone().catch(() => {});
             } else {
-              liveKitService.disableMicrophone().catch(() => {});
+              svc.disableMicrophone().catch(() => {});
             }
           } else if (event.data.action === 'endCall' || event.data.action === 'cancelCall') {
             handleHangupRef.current?.('endCall');
@@ -555,26 +565,26 @@ export const CallWindowView = () => {
   useEffect(() => {
     if (!isConnected || !isGroupCall) return;
     const updateList = () => {
-      setGroupParticipants(liveKitService.getParticipants());
+      setGroupParticipants(groupLiveKitService.getParticipants());
     };
     updateList();
-    liveKitService.on('participantsChanged', updateList);
-    liveKitService.on('trackSubscribed', updateList);
-    liveKitService.on('trackUnsubscribed', updateList);
-    liveKitService.on('trackMuted', updateList);
-    liveKitService.on('trackUnmuted', updateList);
-    liveKitService.on('cameraChanged', updateList);
-    liveKitService.on('screenShareChanged', updateList);
-    liveKitService.on('remoteScreenShareChanged', updateList);
+    groupLiveKitService.on('participantsChanged', updateList);
+    groupLiveKitService.on('trackSubscribed', updateList);
+    groupLiveKitService.on('trackUnsubscribed', updateList);
+    groupLiveKitService.on('trackMuted', updateList);
+    groupLiveKitService.on('trackUnmuted', updateList);
+    groupLiveKitService.on('cameraChanged', updateList);
+    groupLiveKitService.on('screenShareChanged', updateList);
+    groupLiveKitService.on('remoteScreenShareChanged', updateList);
     return () => {
-      liveKitService.off('participantsChanged', updateList);
-      liveKitService.off('trackSubscribed', updateList);
-      liveKitService.off('trackUnsubscribed', updateList);
-      liveKitService.off('trackMuted', updateList);
-      liveKitService.off('trackUnmuted', updateList);
-      liveKitService.off('cameraChanged', updateList);
-      liveKitService.off('screenShareChanged', updateList);
-      liveKitService.off('remoteScreenShareChanged', updateList);
+      groupLiveKitService.off('participantsChanged', updateList);
+      groupLiveKitService.off('trackSubscribed', updateList);
+      groupLiveKitService.off('trackUnsubscribed', updateList);
+      groupLiveKitService.off('trackMuted', updateList);
+      groupLiveKitService.off('trackUnmuted', updateList);
+      groupLiveKitService.off('cameraChanged', updateList);
+      groupLiveKitService.off('screenShareChanged', updateList);
+      groupLiveKitService.off('remoteScreenShareChanged', updateList);
     };
   }, [isConnected, isGroupCall]);
 
@@ -625,12 +635,16 @@ export const CallWindowView = () => {
   }, [isConnected, isConnecting]);
 
   const handleHangupOrCancel = async (action: 'cancelCall' | 'endCall' | 'rejectCall') => {
+    const svc = isGroupCall ? groupLiveKitService : liveKitService;
     try {
-      await liveKitService.stopScreenShare();
+      await svc.stopScreenShare();
     } catch {}
-    const remainingRemotes = liveKitService.remoteParticipants.length;
+    const remainingRemotes = svc.remoteParticipants.length;
     try {
       await liveKitService.disconnect();
+    } catch {}
+    try {
+      await groupLiveKitService.disconnect();
     } catch {}
     setIsLocalScreenShareActive(false);
     setIsRemoteScreenShareActive(false);
@@ -715,17 +729,19 @@ export const CallWindowView = () => {
           }
         }
         if (cancelled || !token || !url) return;
-        await liveKitService.connect(roomName, token, url, sessionKey);
+        const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
+        const svc = isGrp ? groupLiveKitService : liveKitService;
+        if (svc.isConnected) return;
+        await svc.connect(roomName, token, url, sessionKey);
         if (micEnabledRef.current) {
-          await liveKitService.enableMicrophone();
+          await svc.enableMicrophone();
         } else {
-          await liveKitService.disableMicrophone();
+          await svc.disableMicrophone();
         }
         if (isVideoEnabled) {
-          await liveKitService.enableCamera();
+          await svc.enableCamera();
         }
-        const isGrp = activeCall.chatType === 'group' || activeCall.roomName?.startsWith('group-call-');
-        if (isGrp || liveKitService.remoteParticipants.length > 0) {
+        if (isGrp || svc.remoteParticipants.length > 0) {
           sendAction('activateConnected');
         }
       } catch {}
@@ -912,7 +928,16 @@ export const CallWindowView = () => {
     liveKitService.on('participantJoined', handleParticipantJoined);
     liveKitService.on('micChanged', handleMicChanged);
 
-    if (liveKitService.isConnected) {
+    groupLiveKitService.on('trackSubscribed', handleTrackSubscribed);
+    groupLiveKitService.on('trackUnsubscribed', handleTrackUnsubscribed);
+    groupLiveKitService.on('cameraChanged', handleCameraChanged);
+    groupLiveKitService.on('screenShareChanged', handleScreenShareChanged);
+    groupLiveKitService.on('remoteScreenShareChanged', handleRemoteScreenShareChanged);
+    groupLiveKitService.on('connected', handleConnected);
+    groupLiveKitService.on('participantJoined', handleParticipantJoined);
+    groupLiveKitService.on('micChanged', handleMicChanged);
+
+    if (liveKitService.isConnected || groupLiveKitService.isConnected) {
       handleConnected();
     }
 
@@ -925,6 +950,15 @@ export const CallWindowView = () => {
       liveKitService.off('connected', handleConnected);
       liveKitService.off('participantJoined', handleParticipantJoined);
       liveKitService.off('micChanged', handleMicChanged);
+
+      groupLiveKitService.off('trackSubscribed', handleTrackSubscribed);
+      groupLiveKitService.off('trackUnsubscribed', handleTrackUnsubscribed);
+      groupLiveKitService.off('cameraChanged', handleCameraChanged);
+      groupLiveKitService.off('screenShareChanged', handleScreenShareChanged);
+      groupLiveKitService.off('remoteScreenShareChanged', handleRemoteScreenShareChanged);
+      groupLiveKitService.off('connected', handleConnected);
+      groupLiveKitService.off('participantJoined', handleParticipantJoined);
+      groupLiveKitService.off('micChanged', handleMicChanged);
     };
   }, []);
 
@@ -943,6 +977,7 @@ export const CallWindowView = () => {
         try { liveKitService.getScreenShareTrack()?.detach(localScreenShareRef.current); } catch {}
       }
       liveKitService.disconnect().catch(() => {});
+      groupLiveKitService.disconnect().catch(() => {});
     };
   }, []);
 
@@ -950,10 +985,11 @@ export const CallWindowView = () => {
     const next = !isMicEnabled;
     micEnabledRef.current = next;
     setCallData((prev) => (prev ? { ...prev, isMicEnabled: next } : prev));
+    const svc = isGroupCall ? groupLiveKitService : liveKitService;
     if (next) {
-      await liveKitService.enableMicrophone();
+      await svc.enableMicrophone();
     } else {
-      await liveKitService.disableMicrophone();
+      await svc.disableMicrophone();
     }
     sendAction('toggleMic', next);
   };
@@ -963,30 +999,33 @@ export const CallWindowView = () => {
 
   const prevMicRef = useRef(isMicEnabled);
   useEffect(() => {
-    if (prevMicRef.current !== isMicEnabled && liveKitService.isConnected) {
+    const svc = isGroupCall ? groupLiveKitService : liveKitService;
+    if (prevMicRef.current !== isMicEnabled && svc.isConnected) {
       prevMicRef.current = isMicEnabled;
       if (isMicEnabled) {
-        liveKitService.enableMicrophone().catch(() => {});
+        svc.enableMicrophone().catch(() => {});
       } else {
-        liveKitService.disableMicrophone().catch(() => {});
+        svc.disableMicrophone().catch(() => {});
       }
     }
-  }, [isMicEnabled]);
+  }, [isMicEnabled, isGroupCall]);
 
   const handleToggleVideo = async () => {
     const next = !isVideoEnabled;
     setCallData((prev) => (prev ? { ...prev, isVideoEnabled: next } : prev));
+    const svc = isGroupCall ? groupLiveKitService : liveKitService;
     if (next) {
-      await liveKitService.enableCamera();
+      await svc.enableCamera();
     } else {
-      await liveKitService.disableCamera();
+      await svc.disableCamera();
     }
     sendAction('toggleVideo', next);
   };
 
   const handleToggleScreenShare = async () => {
+    const svc = isGroupCall ? groupLiveKitService : liveKitService;
     if (hasLocalScreenShare) {
-      await liveKitService.stopScreenShare();
+      await svc.stopScreenShare();
       setIsLocalScreenShareActive(false);
       setCallData((prev) => (prev ? { ...prev, isScreenSharing: false } : prev));
       sendAction('stopScreenShare');

@@ -1908,6 +1908,40 @@ const VoiceMessagePlayer = memo(({
   );
 });
 
+interface ChatScrollState {
+  scrollTop: number;
+  scrollHeight: number;
+  atBottom: boolean;
+  timestamp: number;
+}
+
+const chatScrollRegistry = new Map<string, ChatScrollState>();
+
+const saveChatScroll = (chatId: string, el: HTMLElement) => {
+  if (!chatId || !el) return;
+  const isBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 80;
+  chatScrollRegistry.set(chatId, {
+    scrollTop: el.scrollTop,
+    scrollHeight: el.scrollHeight,
+    atBottom: isBottom,
+    timestamp: Date.now(),
+  });
+};
+
+const restoreChatScroll = (chatId: string, el: HTMLElement): boolean => {
+  if (!chatId || !el) return false;
+  const saved = chatScrollRegistry.get(chatId);
+  if (!saved) return false;
+  if (saved.atBottom) {
+    el.scrollTop = el.scrollHeight;
+    return true;
+  }
+  const diff = el.scrollHeight - saved.scrollHeight;
+  const targetTop = Math.max(0, saved.scrollTop + (diff > 0 ? diff : 0));
+  el.scrollTop = targetTop;
+  return true;
+};
+
 interface ChatWindowProps {
   isMobileView?: boolean;
   onBack?: () => void;
@@ -2383,25 +2417,38 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, []);
 
+  const activeChatIdRef = useRef<string | null>(activeChatId);
+
   useEffect(() => {
-    setShowScrollDown(false);
-    atBottomRef.current = true;
-    lastChatSwitchTimeRef.current = performance.now();
     const el = messagesContainerRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
+    if (activeChatIdRef.current && el && activeChatIdRef.current !== activeChatId) {
+      saveChatScroll(activeChatIdRef.current, el);
+    }
+    activeChatIdRef.current = activeChatId;
+
+    setShowScrollDown(false);
+    lastChatSwitchTimeRef.current = performance.now();
+    if (el && activeChatId) {
+      const restored = restoreChatScroll(activeChatId, el);
+      if (!restored) {
+        el.scrollTop = el.scrollHeight;
+        atBottomRef.current = true;
+        setShowScrollDown(false);
+      } else {
+        const isBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 80;
+        atBottomRef.current = isBottom;
+        setShowScrollDown(!isBottom);
+      }
       requestAnimationFrame(() => {
         if (el) {
-          el.scrollTop = el.scrollHeight;
-          setShowScrollDown(false);
-          atBottomRef.current = true;
+          const r = restoreChatScroll(activeChatId, el);
+          if (!r) el.scrollTop = el.scrollHeight;
         }
       });
       setTimeout(() => {
         if (el) {
-          el.scrollTop = el.scrollHeight;
-          setShowScrollDown(false);
-          atBottomRef.current = true;
+          const r = restoreChatScroll(activeChatId, el);
+          if (!r) el.scrollTop = el.scrollHeight;
         }
       }, 50);
     }
@@ -2432,7 +2479,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     return () => window.removeEventListener('orbita:scroll-to-bottom', handleForceScroll);
   }, [activeChatId]);
 
-  // Auto-scroll on new message if user was at bottom or outgoing message
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -2447,11 +2493,16 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
       if (isOutgoing || isNearBottom) {
         requestAnimationFrame(() => {
-          if (el) el.scrollTop = el.scrollHeight;
+          if (el) {
+            el.scrollTop = el.scrollHeight;
+            if (activeChatId) {
+              saveChatScroll(activeChatId, el);
+            }
+          }
         });
       }
     }
-  }, [messages, myCode, myNickname, activeChat]);
+  }, [messages, myCode, myNickname, activeChat, activeChatId]);
 
   useEffect(() => {
     if (otherUserTyping) {
@@ -3424,6 +3475,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (atBottomRef.current !== isAtBottom) {
       atBottomRef.current = isAtBottom;
       setShowScrollDown(!isAtBottom && hasOverflow);
+    }
+    if (activeChatId) {
+      saveChatScroll(activeChatId, el);
     }
 
     const virtualTopHeight = startIndex * 46;
@@ -4761,12 +4815,33 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           } catch {}
         }
         if (newMessages.length > 0) {
+          const el = messagesContainerRef.current;
+          const wasAtBottom = el ? (el.scrollHeight - el.scrollTop - el.clientHeight <= 120) : true;
+          const prevScrollTop = el?.scrollTop ?? 0;
+          const prevScrollHeight = el?.scrollHeight ?? 0;
+
           useChatStore.setState((state) => ({
             messagesByChatId: {
               ...state.messagesByChatId,
               [activeChatId]: [...(state.messagesByChatId[activeChatId] || []), ...newMessages].sort((a, b) => a.time - b.time),
             },
           }));
+
+          requestAnimationFrame(() => {
+            const currentEl = messagesContainerRef.current;
+            if (!currentEl) return;
+            const entry = chatScrollRegistry.get(activeChatId);
+            if (entry && !entry.atBottom) {
+              restoreChatScroll(activeChatId, currentEl);
+            } else if (wasAtBottom) {
+              currentEl.scrollTop = currentEl.scrollHeight;
+              saveChatScroll(activeChatId, currentEl);
+            } else {
+              const delta = currentEl.scrollHeight - prevScrollHeight;
+              currentEl.scrollTop = prevScrollTop + delta;
+              saveChatScroll(activeChatId, currentEl);
+            }
+          });
         }
       }).catch(() => {});
 

@@ -1371,8 +1371,9 @@ export const MainLayout = () => {
       if (!serverGroups || serverGroups.length === 0) return;
       const currentChats = useChatStore.getState().chats;
       const currentIds = new Set(currentChats.map((c) => c.id));
+      const deletedIds = new Set(useChatStore.getState().deletedChatIds || []);
       for (const g of serverGroups) {
-        if (currentIds.has(g.id)) continue;
+        if (currentIds.has(g.id) || deletedIds.has(g.id)) continue;
         useChatStore.getState().addChat({
           id: g.id,
           type: 'group',
@@ -2390,7 +2391,8 @@ export const MainLayout = () => {
                 lastReadTimestamp: Date.now(),
                 muted: false,
                 notificationsEnabled: true,
-              });
+                isExplicitJoin: true,
+              } as any);
             } else {
               const shouldUpdateName = existing.name === 'Группа' || existing.name === 'Group' || (result.group.name && result.group.name !== 'Группа' && result.group.name !== 'Group');
               useChatStore.getState().updateChat(existing.id, {
@@ -2505,7 +2507,36 @@ export const MainLayout = () => {
       if (data.type === 'pin') { updateChat(chatId, { pinnedMessage: data.pinData }); return; }
       if (data.type === 'unpin') { updateChat(chatId, { pinnedMessage: null }); return; }
       if (data.type === 'member-joined') {
-        if (data.members) updateChat(chatId, { members: data.members });
+        if (data.members) updateChat(chatId, { members: data.members, membersCount: data.members.length });
+        return;
+      }
+      if (data.type === 'member-left') {
+        const isTarget = (member: any) => {
+          const mId = member.userId || member.userCode;
+          if (data.userId && mId) return mId === data.userId;
+          if (data.userCode && mId) return mId === data.userCode;
+          return member.nickname === data.nickname;
+        };
+        const updatedMembers = (chat.members || []).filter((member: any) => !isTarget(member)) as any;
+        updateChat(chatId, { members: updatedMembers, membersCount: updatedMembers.length });
+        return;
+      }
+      if (data.type === 'group-deleted' || (data.type === 'system' && data.action === 'group-deleted')) {
+        useChatStore.getState().deleteChat(chatId);
+        if (useChatStore.getState().activeChatId === chatId) {
+          useChatStore.getState().setActiveChat(null);
+        }
+        if (activeSubscriptions.current.has(chatId)) {
+          const sub = activeSubscriptions.current.get(chatId)!;
+          sub.channel.unbind_all();
+          getGroupPusher().unsubscribe(`presence-group-${chatId}`);
+          activeSubscriptions.current.delete(chatId);
+        }
+        if (ablyMessageUnsubscribes.current.has(chatId)) {
+          const unsub = ablyMessageUnsubscribes.current.get(chatId)!;
+          unsub();
+          ablyMessageUnsubscribes.current.delete(chatId);
+        }
         return;
       }
       if (data.type === 'kick') {
@@ -2517,7 +2548,7 @@ export const MainLayout = () => {
           return member.nickname === data.target;
         };
         const updatedMembers = (chat.members || []).filter((member: any) => !isTarget(member)) as any;
-        updateChat(chatId, { members: updatedMembers });
+        updateChat(chatId, { members: updatedMembers, membersCount: updatedMembers.length });
         const myUid = useAuthStore.getState().userId;
         const myC = useChatStore.getState().myCode;
         const isMeKicked = Boolean(
@@ -2527,10 +2558,21 @@ export const MainLayout = () => {
           data.target === nickname
         );
         if (isMeKicked) {
-          useChatStore.setState((state) => ({
-            chats: state.chats.filter((c) => c.id !== chatId),
-            activeChatId: state.activeChatId === chatId ? null : state.activeChatId,
-          }));
+          useChatStore.getState().deleteChat(chatId);
+          if (useChatStore.getState().activeChatId === chatId) {
+            useChatStore.getState().setActiveChat(null);
+          }
+          if (activeSubscriptions.current.has(chatId)) {
+            const sub = activeSubscriptions.current.get(chatId)!;
+            sub.channel.unbind_all();
+            getGroupPusher().unsubscribe(`presence-group-${chatId}`);
+            activeSubscriptions.current.delete(chatId);
+          }
+          if (ablyMessageUnsubscribes.current.has(chatId)) {
+            const unsub = ablyMessageUnsubscribes.current.get(chatId)!;
+            unsub();
+            ablyMessageUnsubscribes.current.delete(chatId);
+          }
         }
         return;
       }
@@ -2848,10 +2890,21 @@ export const MainLayout = () => {
       useChatStore.getState().updateChat(chatId, updates);
     });
     channel.bind('group-deleted', () => {
-      useChatStore.setState((s) => ({
-        chats: s.chats.filter((c) => c.id !== chatId),
-        activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
-      }));
+      useChatStore.getState().deleteChat(chatId);
+      if (useChatStore.getState().activeChatId === chatId) {
+        useChatStore.getState().setActiveChat(null);
+      }
+      if (activeSubscriptions.current.has(chatId)) {
+        const sub = activeSubscriptions.current.get(chatId)!;
+        sub.channel.unbind_all();
+        getGroupPusher().unsubscribe(`presence-group-${chatId}`);
+        activeSubscriptions.current.delete(chatId);
+      }
+      if (ablyMessageUnsubscribes.current.has(chatId)) {
+        const unsub = ablyMessageUnsubscribes.current.get(chatId)!;
+        unsub();
+        ablyMessageUnsubscribes.current.delete(chatId);
+      }
     });
     channel.bind('member-role-updated', (data: any) => {
       const current = useChatStore.getState().chats.find((c) => c.id === chatId);
@@ -3931,6 +3984,25 @@ export const MainLayout = () => {
         const sub = activeSubscriptions.current.get(chatId)!;
         sub.channel.unbind_all();
         getPusher().unsubscribe(`public-channel-${chatId}`);
+        activeSubscriptions.current.delete(chatId);
+      }
+      if (ablyMessageUnsubscribes.current.has(chatId)) {
+        const unsub = ablyMessageUnsubscribes.current.get(chatId)!;
+        unsub();
+        ablyMessageUnsubscribes.current.delete(chatId);
+      }
+    } else if (chat.type === 'group') {
+      const myUid = useAuthStore.getState().userId;
+      const isOwner = chat.role === 'owner' || chat.isOwner || chat.creatorNickname === nickname || (chat.creatorCode && (chat.creatorCode === myCode || chat.creatorCode === myUid));
+      if (isOwner) {
+        groupService.deleteGroup(chatId).catch(() => {});
+      } else {
+        groupService.leaveGroup(chatId, nickname, myCode, myUid).catch(() => {});
+      }
+      if (activeSubscriptions.current.has(chatId)) {
+        const sub = activeSubscriptions.current.get(chatId)!;
+        sub.channel.unbind_all();
+        getGroupPusher().unsubscribe(`presence-group-${chatId}`);
         activeSubscriptions.current.delete(chatId);
       }
       if (ablyMessageUnsubscribes.current.has(chatId)) {

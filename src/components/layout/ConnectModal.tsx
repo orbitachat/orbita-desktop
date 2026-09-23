@@ -135,7 +135,8 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
                 lastReadTimestamp: Date.now(),
                 muted: false,
                 notificationsEnabled: true,
-              });
+                isExplicitJoin: true,
+              } as any);
             }
             setActiveChat(result.group.id);
             onClose();

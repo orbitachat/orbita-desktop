@@ -145,7 +145,7 @@ export interface Message {
   uploading?: boolean;
   uploadedMb?: number;
   mediaType?: 'photo' | 'video' | 'audio' | 'voice' | 'file' | 'call' | 'emoji' | 'gif' | 'sticker' | 'system' | null;
-  systemType?: 'join' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'call_ended' | 'kick' | 'create' | 'invite';
+  systemType?: 'join' | 'leave' | 'title' | 'avatar' | 'admin' | 'unadmin' | 'call' | 'call_ended' | 'kick' | 'create' | 'invite';
   actorNickname?: string;
   targetNickname?: string;
   mediaUrl?: string;
@@ -859,16 +859,17 @@ export const useChatStore = create<ChatState>()(
           peerCode: newChat.peerCode,
         };
         set((state) => {
+          if (chatEntry.type === 'group' && state.deletedChatIds?.includes(chatEntry.id) && !(newChat as any).isExplicitJoin) {
+            return state;
+          }
           const currentDeleted = (state.deletedChatIds || []).filter(id => id !== chatEntry.id);
           const exists = state.chats.find(c => c.id === chatEntry.id);
           if (exists) {
-            console.log('[ChatStore] Updating existing chat:', chatEntry.id);
             return {
               chats: state.chats.map(c => c.id === chatEntry.id ? { ...c, ...chatEntry } : c),
               deletedChatIds: currentDeleted,
             };
           }
-          console.log('[ChatStore] Adding new chat:', chatEntry.id);
           return {
             chats: [...state.chats, chatEntry],
             deletedChatIds: currentDeleted,
