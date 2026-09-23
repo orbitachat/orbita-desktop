@@ -4762,7 +4762,7 @@ export const MainLayout = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.15 }}
-              className="fixed inset-x-0 bottom-0 top-[30px] z-[100] flex flex-col"
+              className="fixed inset-x-0 bottom-0 top-[var(--titlebar-height,0px)] z-[100] flex flex-col"
               style={{ backgroundColor: 'var(--bg-primary)' }}
             >
               <InChatSidebarSearch

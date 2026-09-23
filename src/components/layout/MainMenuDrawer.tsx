@@ -73,7 +73,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-x-0 bottom-0 top-[30px] z-[150] flex"
+          className="fixed inset-x-0 bottom-0 top-[var(--titlebar-height,0px)] z-[150] flex"
           style={{
             userSelect: 'none',
           }}
@@ -84,7 +84,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={onClose}
-            className="fixed inset-x-0 bottom-0 top-[30px]"
+            className="fixed inset-x-0 bottom-0 top-[var(--titlebar-height,0px)]"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.45)',
               backdropFilter: 'none',

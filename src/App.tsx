@@ -8,7 +8,7 @@ import { WelcomeScreen } from './components/auth/WelcomeScreen';
 import { NicknameScreen } from './components/auth/NicknameScreen';
 import { MainLayout } from './components/layout/MainLayout';
 import { CenterToast } from './components/common/CenterToast';
-import { TitleBar } from './components/layout/TitleBar';
+import { TitleBar, isElectronApp } from './components/layout/TitleBar';
 import { AppLockScreen } from './components/auth/AppLockScreen';
 import { securityService } from './services/securityService';
 import { ablyService } from './services/ablyService';
@@ -38,7 +38,12 @@ const pageVariants = {
 };
 
 function App() {
+  const isElectron = isElectronApp();
   const [isHydrated, setIsHydrated] = useState(() => useAuthStore.persist.hasHydrated());
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--titlebar-height', isElectron ? '30px' : '0px');
+  }, [isElectron]);
 
   useEffect(() => {
     if (isHydrated) return;
@@ -273,10 +278,12 @@ function App() {
     return (
       <ThemeProvider theme={md3Theme}>
         <CssBaseline />
-        <div className="h-screen w-screen bg-[var(--bg-primary)]" style={{ paddingTop: '30px', boxSizing: 'border-box' }}>
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999999 }}>
-            <TitleBar />
-          </div>
+        <div className="h-screen w-screen bg-[var(--bg-primary)]" style={{ paddingTop: isElectron ? '30px' : '0px', boxSizing: 'border-box' }}>
+          {isElectron && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999999 }}>
+              <TitleBar />
+            </div>
+          )}
         </div>
       </ThemeProvider>
     );
@@ -285,10 +292,12 @@ function App() {
   return (
     <ThemeProvider theme={md3Theme}>
       <CssBaseline />
-      <div className="h-screen w-screen overflow-hidden bg-[var(--bg-primary)]" style={{ paddingTop: '30px', boxSizing: 'border-box' }}>
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999999 }}>
-          <TitleBar />
-        </div>
+      <div className="h-screen w-screen overflow-hidden bg-[var(--bg-primary)]" style={{ paddingTop: isElectron ? '30px' : '0px', boxSizing: 'border-box' }}>
+        {isElectron && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999999 }}>
+            <TitleBar />
+          </div>
+        )}
         <CenterToast />
 
         {isAppLocked && (
@@ -296,7 +305,7 @@ function App() {
         )}
 
         <ErrorBoundary fallback={
-          <div className="flex items-center justify-center h-full text-red-400" style={{ height: 'calc(100vh - 30px)' }}>
+          <div className="flex items-center justify-center h-full text-red-400" style={{ height: isElectron ? 'calc(100vh - 30px)' : '100vh' }}>
             <div className="text-center p-6 border border-red-500/30 rounded-xl bg-red-500/10">
               <h2 className="text-xl font-bold mb-2">Произошла ошибка</h2>
               <p className="text-sm opacity-70">Попробуй перезагрузить приложение</p>

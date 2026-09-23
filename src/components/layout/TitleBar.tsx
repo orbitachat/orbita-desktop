@@ -1,11 +1,22 @@
 // src/components/layout/TitleBar.tsx
 import React, { useEffect, useState } from 'react';
 
+export const isElectronApp = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    (window as any).__ELECTRON_RENDERER__ ||
+    (window as any).orbita?.getDesktopSources ||
+    (typeof navigator !== 'undefined' && /electron/i.test(navigator.userAgent))
+  );
+};
+
 export const TitleBar = () => {
+  const isElectron = isElectronApp();
   const [isMaximized, setIsMaximized] = useState(false);
   const [isHoverSuppressed, setIsHoverSuppressed] = useState(false);
 
   useEffect(() => {
+    if (!isElectron) return;
     const orbita = (window as any).orbita;
 
     const checkMaximized = async () => {
@@ -96,6 +107,10 @@ export const TitleBar = () => {
 
   const btnClass = `orbita-titlebar-btn ${isHoverSuppressed ? 'hover-suppressed' : ''}`;
 
+  if (!isElectron) {
+    return null;
+  }
+
   return (
     <div
       className="flex items-center justify-end flex-shrink-0 select-none"
@@ -149,6 +164,7 @@ export const TitleBar = () => {
         <button
           onClick={handleMinimize}
           className={btnClass}
+          aria-label="Minimize"
         >
           <MinimizeIcon />
         </button>
@@ -156,6 +172,7 @@ export const TitleBar = () => {
         <button
           onClick={handleMaximize}
           className={btnClass}
+          aria-label="Maximize"
         >
           {isMaximized ? <RestoreIcon /> : <MaximizeIcon />}
         </button>
@@ -163,6 +180,7 @@ export const TitleBar = () => {
         <button
           onClick={handleClose}
           className={btnClass}
+          aria-label="Close"
         >
           <CloseIcon />
         </button>
