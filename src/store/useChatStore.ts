@@ -547,6 +547,7 @@ interface ChatState {
   markChatAsRead: (chatId: string) => void;
   getUnreadChatsCount: () => number;
   closeChat: () => void;
+  purgeExpiredMessages: () => void;
   setFontFamily: (font: FontFamily) => void;
   setTextScale: (scale: number) => void;
   setDotColor: (color: string) => void;
@@ -1035,6 +1036,7 @@ export const useChatStore = create<ChatState>()(
                   ...c,
                   lastMsg: message.text || (message.mediaItems && message.mediaItems.length > 0 ? '[MediaGroup]' : (message.mediaType ? `[${message.mediaType}]` : '')),
                   unreadCount: newUnreadCount,
+                  updatedAt: message.time || Date.now(),
                 }
               : c
           ),
@@ -1111,6 +1113,7 @@ export const useChatStore = create<ChatState>()(
               ...c,
               lastMsg: update.lastMsg ?? c.lastMsg,
               unreadCount: newUnreadCount,
+              updatedAt: Date.now(),
             };
           }),
         });
@@ -1257,6 +1260,12 @@ export const useChatStore = create<ChatState>()(
           },
         });
 
+        const updatedMsg = updated[targetIdx];
+        if (updatedMsg && typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          (window as any).orbita.storageAddMessage(chatId, updatedMsg.id, updatedMsg).catch(() => {});
+        }
+        flushStorageSet();
+
         return resultingAction;
       },
       syncReactionsFromSupabase: async (chatId) => {
@@ -1314,6 +1323,14 @@ export const useChatStore = create<ChatState>()(
                 [chatId]: updatedMessages,
               },
             });
+            if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+              for (const m of updatedMessages) {
+                if (m.id && idReactionsMap.has(m.id)) {
+                  (window as any).orbita.storageAddMessage(chatId, m.id, m).catch(() => {});
+                }
+              }
+            }
+            flushStorageSet();
           }
 
           const chat = state.chats.find((c) => c.id === chatId);
@@ -1357,6 +1374,43 @@ export const useChatStore = create<ChatState>()(
           activeProxyInfo: active ? (info ?? state.activeProxyInfo) : null,
         })),
       setMessageTTL: (seconds) => set({ messageTTLSeconds: seconds }),
+      purgeExpiredMessages: () => {
+        const now = Date.now();
+        const state = get();
+        let hasChanges = false;
+        const newMessagesByChatId: Record<string, Message[]> = {};
+        const expiredIds: string[] = [];
+
+        for (const [chatId, msgs] of Object.entries(state.messagesByChatId || {})) {
+          if (!Array.isArray(msgs)) continue;
+          const valid = msgs.filter((m) => {
+            if (m.expiresAt && m.expiresAt <= now) {
+              if (m.id) expiredIds.push(m.id);
+              hasChanges = true;
+              return false;
+            }
+            return true;
+          });
+          if (valid.length !== msgs.length) {
+            newMessagesByChatId[chatId] = valid;
+          }
+        }
+
+        if (hasChanges) {
+          set((s) => ({
+            messagesByChatId: {
+              ...s.messagesByChatId,
+              ...newMessagesByChatId,
+            },
+          }));
+          if (typeof window !== 'undefined' && (window as any).orbita?.storageDeleteMessage) {
+            for (const id of expiredIds) {
+              (window as any).orbita.storageDeleteMessage(id).catch(() => {});
+            }
+          }
+          flushStorageSet();
+        }
+      },
       setEyeCareEnabled: (enabled) => set({ eyeCareEnabled: enabled }),
       setEyeCareOpacity: (opacity) => set({ eyeCareOpacity: opacity }),
       setEyeCareDensity: (density) => set({ eyeCareDensity: density }),
@@ -1868,6 +1922,7 @@ export const useChatStore = create<ChatState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHasHydrated(true);
+          state.purgeExpiredMessages();
         }
         if (state && !Array.isArray(state.pinnedChatIds)) {
           state.pinnedChatIds = [];
@@ -1895,3 +1950,9 @@ export const useChatStore = create<ChatState>()(
     }
   )
 );
+
+if (typeof window !== 'undefined') {
+  setInterval(() => {
+    useChatStore.getState().purgeExpiredMessages();
+  }, 5000);
+}

@@ -4111,14 +4111,19 @@ export const MainLayout = () => {
 
   const sortedChats = useMemo(() => {
     return [...filteredChats].sort((a, b) => {
-      // Заметки всегда первые (если отображаются)
       if (a.id === 'notes') return -1;
       if (b.id === 'notes') return 1;
       if (pinnedChatsSet.has(a.id) && !pinnedChatsSet.has(b.id)) return -1;
       if (!pinnedChatsSet.has(a.id) && pinnedChatsSet.has(b.id)) return 1;
-      return 0;
+
+      const aMsgs = messagesByChatId[a.id];
+      const bMsgs = messagesByChatId[b.id];
+      const aLastTime = (aMsgs && aMsgs.length > 0) ? aMsgs[aMsgs.length - 1].time : (a.updatedAt || a.createdAt || 0);
+      const bLastTime = (bMsgs && bMsgs.length > 0) ? bMsgs[bMsgs.length - 1].time : (b.updatedAt || b.createdAt || 0);
+
+      return bLastTime - aLastTime;
     });
-  }, [filteredChats, pinnedChatsSet]);
+  }, [filteredChats, pinnedChatsSet, messagesByChatId]);
 
   const isSupportFound = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
