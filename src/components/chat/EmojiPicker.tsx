@@ -43,6 +43,36 @@ const PICKER_HEIGHT_DESKTOP = 650;
 const MOBILE_BREAKPOINT = 650;
 const MOBILE_HEIGHT = 420;
 
+const StickerGridButton: React.FC<{
+  sticker: StickerItem;
+  onSelect: (s: StickerItem) => void;
+}> = ({ sticker, onSelect }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const isTgs = sticker.url.endsWith('.tgs');
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(sticker)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative aspect-square flex items-center justify-center p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all cursor-pointer bg-transparent border-0"
+      aria-label={sticker.name}
+    >
+      {isTgs && isHovered ? (
+        <TgsPlayer src={sticker.url} className="w-full h-full select-none" />
+      ) : (
+        <img
+          src={sticker.thumbUrl || sticker.url}
+          alt=""
+          className="w-full h-full object-contain pointer-events-none select-none"
+          loading="lazy"
+        />
+      )}
+    </button>
+  );
+};
+
 export const EmojiPicker = ({
   onSelect,
   onSelectGif,
@@ -505,28 +535,11 @@ export const EmojiPicker = ({
                   ) : (
                     <div className="grid grid-cols-4 gap-2 pt-1">
                       {filteredStickers.map((sticker) => (
-                        <button
+                        <StickerGridButton
                           key={sticker.id}
-                          type="button"
-                          onClick={() => handleSelectSticker(sticker)}
-                          className="relative aspect-square flex items-center justify-center p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all cursor-pointer bg-transparent border-0"
-                          aria-label={sticker.name}
-                        >
-                          {sticker.url.endsWith('.tgs') ? (
-                            <TgsPlayer
-                              src={sticker.url}
-                              hoverToPlay={true}
-                              className="w-full h-full select-none"
-                            />
-                          ) : (
-                            <img
-                              src={sticker.url}
-                              alt=""
-                              className="w-full h-full object-contain pointer-events-none select-none"
-                              loading="lazy"
-                            />
-                          )}
-                        </button>
+                          sticker={sticker}
+                          onSelect={handleSelectSticker}
+                        />
                       ))}
                     </div>
                   )
@@ -538,28 +551,11 @@ export const EmojiPicker = ({
                       </div>
                       <div className="grid grid-cols-4 gap-2">
                         {pack.stickers.map((sticker) => (
-                          <button
+                          <StickerGridButton
                             key={sticker.id}
-                            type="button"
-                            onClick={() => handleSelectSticker(sticker)}
-                            className="relative aspect-square flex items-center justify-center p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all cursor-pointer bg-transparent border-0"
-                            aria-label={sticker.name}
-                          >
-                            {sticker.url.endsWith('.tgs') ? (
-                              <TgsPlayer
-                                src={sticker.url}
-                                hoverToPlay={true}
-                                className="w-full h-full select-none"
-                              />
-                            ) : (
-                              <img
-                                src={sticker.url}
-                                alt=""
-                                className="w-full h-full object-contain pointer-events-none select-none"
-                                loading="lazy"
-                              />
-                            )}
-                          </button>
+                            sticker={sticker}
+                            onSelect={handleSelectSticker}
+                          />
                         ))}
                       </div>
                     </div>
@@ -631,11 +627,7 @@ export const EmojiPicker = ({
                       className="w-7 h-7 rounded-md overflow-hidden p-0.5 hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 bg-transparent border-0 cursor-pointer"
                       aria-label={pack.title}
                     >
-                      {pack.avatarUrl.endsWith('.tgs') ? (
-                        <TgsPlayer src={pack.avatarUrl} hoverToPlay={true} className="w-full h-full" />
-                      ) : (
-                        <img src={pack.avatarUrl} alt="" className="w-full h-full object-contain pointer-events-none" />
-                      )}
+                      <img src={pack.avatarUrl} alt="" className="w-full h-full object-contain pointer-events-none" />
                     </button>
                   ))}
                   <button

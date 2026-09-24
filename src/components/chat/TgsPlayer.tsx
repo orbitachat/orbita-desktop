@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import lottie, { AnimationItem } from 'lottie-web';
 
 interface TgsPlayerProps {
@@ -7,7 +7,6 @@ interface TgsPlayerProps {
   style?: React.CSSProperties;
   loop?: boolean;
   autoplay?: boolean;
-  hoverToPlay?: boolean;
 }
 
 const tgsCache = new Map<string, any>();
@@ -58,7 +57,6 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   style,
   loop = true,
   autoplay = true,
-  hoverToPlay = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<AnimationItem | null>(null);
@@ -98,24 +96,13 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       anim = lottie.loadAnimation({
         container,
         renderer: 'svg',
-        loop: hoverToPlay ? true : loop,
-        autoplay: false,
+        loop,
+        autoplay,
         animationData: animData,
         rendererSettings: {
           preserveAspectRatio: 'xMidYMid meet',
-          progressiveLoad: true,
-          hideOnTransparent: false,
         },
       });
-
-      if (hoverToPlay) {
-        anim.goToAndStop(0, true);
-      } else if (autoplay) {
-        anim.play();
-      } else {
-        anim.goToAndStop(0, true);
-      }
-
       animRef.current = anim;
     } catch (e) {
       console.error('[TgsPlayer] render error:', e);
@@ -127,19 +114,9 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       }
       animRef.current = null;
     };
-  }, [animData, loop, autoplay, hoverToPlay]);
+  }, [animData, loop, autoplay]);
 
-  const handleMouseEnter = useCallback(() => {
-    if (hoverToPlay && animRef.current) {
-      animRef.current.goToAndPlay(0, true);
-    }
-  }, [hoverToPlay]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (hoverToPlay && animRef.current) {
-      animRef.current.goToAndStop(0, true);
-    }
-  }, [hoverToPlay]);
+  const thumbUrl = src.replace('.tgs', '.webp');
 
   return (
     <div
@@ -151,10 +128,17 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        position: 'relative',
         ...style,
       }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    />
+    >
+      {!animData && (
+        <img
+          src={thumbUrl}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      )}
+    </div>
   );
 };

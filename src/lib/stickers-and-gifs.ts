@@ -1,6 +1,7 @@
 export interface StickerItem {
   id: string;
   url: string;
+  thumbUrl?: string;
   packId: string;
   name: string;
   tags: string[];
@@ -207,12 +208,13 @@ export const SPOTTY_STICKER_PACK: StickerPack = {
   id: 'spotty',
   title: 'Spotty',
   author: 'Telegram',
-  avatarUrl: './stickers/SpottyAnimated/file_3298489.tgs',
+  avatarUrl: './stickers/SpottyAnimated/file_3298489.webp',
   stickers: Array.from({ length: 50 }, (_, i) => {
     const fileId = 3298489 + i;
     return {
       id: `spotty_${fileId}`,
       url: `./stickers/SpottyAnimated/file_${fileId}.tgs`,
+      thumbUrl: `./stickers/SpottyAnimated/file_${fileId}.webp`,
       packId: 'spotty',
       name: `Spotty ${i + 1}`,
       tags: ['spotty', 'спотти', 'dog', 'собака', 'пес', 'telegram', 'tgs', 'анимация', 'animated'],
