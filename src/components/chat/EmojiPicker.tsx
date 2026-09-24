@@ -18,6 +18,7 @@ import {
   StickerItem,
   searchStickers,
 } from '../../lib/stickers-and-gifs';
+import { TgsPlayer } from './TgsPlayer';
 
 interface EmojiPickerProps {
   onSelect: (emoji: string) => void;
@@ -511,12 +512,19 @@ export const EmojiPicker = ({
                           className="relative aspect-square flex items-center justify-center p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all cursor-pointer bg-transparent border-0"
                           aria-label={sticker.name}
                         >
-                          <img
-                            src={sticker.url}
-                            alt=""
-                            className="w-full h-full object-contain pointer-events-none select-none"
-                            loading="lazy"
-                          />
+                          {sticker.url.endsWith('.tgs') ? (
+                            <TgsPlayer
+                              src={sticker.url}
+                              className="w-full h-full pointer-events-none select-none"
+                            />
+                          ) : (
+                            <img
+                              src={sticker.url}
+                              alt=""
+                              className="w-full h-full object-contain pointer-events-none select-none"
+                              loading="lazy"
+                            />
+                          )}
                         </button>
                       ))}
                     </div>
@@ -536,12 +544,19 @@ export const EmojiPicker = ({
                             className="relative aspect-square flex items-center justify-center p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all cursor-pointer bg-transparent border-0"
                             aria-label={sticker.name}
                           >
-                            <img
-                              src={sticker.url}
-                              alt=""
-                              className="w-full h-full object-contain pointer-events-none select-none"
-                              loading="lazy"
-                            />
+                            {sticker.url.endsWith('.tgs') ? (
+                              <TgsPlayer
+                                src={sticker.url}
+                                className="w-full h-full pointer-events-none select-none"
+                              />
+                            ) : (
+                              <img
+                                src={sticker.url}
+                                alt=""
+                                className="w-full h-full object-contain pointer-events-none select-none"
+                                loading="lazy"
+                              />
+                            )}
                           </button>
                         ))}
                       </div>
@@ -614,7 +629,11 @@ export const EmojiPicker = ({
                       className="w-7 h-7 rounded-md overflow-hidden p-0.5 hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center flex-shrink-0 bg-transparent border-0 cursor-pointer"
                       aria-label={pack.title}
                     >
-                      <img src={pack.avatarUrl} alt="" className="w-full h-full object-contain pointer-events-none" />
+                      {pack.avatarUrl.endsWith('.tgs') ? (
+                        <TgsPlayer src={pack.avatarUrl} className="w-full h-full pointer-events-none" />
+                      ) : (
+                        <img src={pack.avatarUrl} alt="" className="w-full h-full object-contain pointer-events-none" />
+                      )}
                     </button>
                   ))}
                   <button

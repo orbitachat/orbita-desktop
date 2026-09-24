@@ -62,6 +62,8 @@ import { useAudioStore } from '../../store/useAudioStore';
 import { type MediaViewerItem } from './TelegramMediaViewer';
 import { channelService, type ChannelPost } from '../../services/channelService';
 import { EmojiPicker } from './EmojiPicker';
+import { TgsPlayer } from './TgsPlayer';
+import { resolveStickerUrl } from '../../lib/stickers-and-gifs';
 import { DiscordFileLimitModal } from './DiscordFileLimitModal';
 import { SendAsTxtModal } from './SendAsTxtModal';
 import { FileAttachmentModal } from './FileAttachmentModal';
@@ -189,15 +191,15 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
     if (msg.mediaType === 'video') return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'video/mp4' };
     if (msg.mediaType === 'audio') return { type: 'music', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'audio/mpeg' };
     if (msg.mediaType === 'file') return { type: 'file', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'application/octet-stream', size: msg.fileSize || (msg as any).size || (msg as any).file_size };
-    if (msg.mediaType === ('sticker' as any)) return { type: 'sticker', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
+    if (msg.mediaType === ('sticker' as any)) return { type: 'sticker', url: resolveStickerUrl(msg.mediaUrl || null), fileName: msg.mediaName, mime: msg.mime || (msg.mediaUrl?.endsWith('.tgs') ? 'application/x-tgsticker' : 'image/webp') };
     if (msg.mediaType === 'gif') return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
   }
 
   const text = msg.text || '';
   const stickerMatch = text.match(/^\[Sticker\]\s*(\S+.*)$/i);
-  if (stickerMatch) return { type: 'sticker', url: msg.mediaUrl || stickerMatch[1].trim(), fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
+  if (stickerMatch) return { type: 'sticker', url: resolveStickerUrl(msg.mediaUrl || stickerMatch[1].trim()), fileName: msg.mediaName, mime: msg.mime || (stickerMatch[1].trim().endsWith('.tgs') ? 'application/x-tgsticker' : 'image/webp') };
   const stickerMatchGeneric = text.match(/^\[Sticker\]/i);
-  if (stickerMatchGeneric) return { type: 'sticker', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
+  if (stickerMatchGeneric) return { type: 'sticker', url: resolveStickerUrl(msg.mediaUrl || null), fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
 
   const gifMatch = text.match(/^\[GIF\]\s*(.+)$/i);
   if (gifMatch) return { type: 'video', url: gifMatch[1].trim(), fileName: msg.mediaName || 'animation.mp4', mime: 'video/mp4' };
@@ -6717,12 +6719,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   const handleSendSticker = (stickerOrUrl: any) => {
     const url = typeof stickerOrUrl === 'string' ? stickerOrUrl : stickerOrUrl?.url;
     const name = typeof stickerOrUrl === 'object' && stickerOrUrl?.name ? stickerOrUrl.name : 'sticker';
+    const isTgs = url?.endsWith('.tgs');
 
     triggerMessage(`[Sticker] ${url}`, {
       type: 'sticker' as any,
       url: url,
       name: name,
-      mime: 'image/webp',
+      mime: isTgs ? 'application/x-tgsticker' : 'image/webp',
     });
     setEmojiPanelOpen(false);
   };
@@ -7350,13 +7353,20 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
               >
                 <div className="relative w-[180px] h-[180px] max-w-[min(180px,70vw)] max-h-[min(180px,70vw)] flex items-center justify-center">
-                  <img
-                    src={media.url!}
-                    alt=""
-                    className="w-full h-full object-contain select-none cursor-pointer"
-                    style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-                    loading="lazy"
-                  />
+                  {media.url && media.url.toLowerCase().endsWith('.tgs') ? (
+                    <TgsPlayer
+                      src={media.url}
+                      className="w-full h-full select-none cursor-pointer"
+                    />
+                  ) : (
+                    <img
+                      src={media.url!}
+                      alt=""
+                      className="w-full h-full object-contain select-none cursor-pointer"
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                      loading="lazy"
+                    />
+                  )}
                   <div
                     className="absolute bottom-0.5 right-0.5 select-none tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-150 message-time-badge"
                     style={{

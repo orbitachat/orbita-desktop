@@ -203,6 +203,23 @@ export const GIF_ITEMS: GifItem[] = [
   },
 ];
 
+export const SPOTTY_STICKER_PACK: StickerPack = {
+  id: 'spotty',
+  title: 'Spotty',
+  author: 'Telegram',
+  avatarUrl: './stickers/SpottyAnimated/file_3298489.tgs',
+  stickers: Array.from({ length: 50 }, (_, i) => {
+    const fileId = 3298489 + i;
+    return {
+      id: `spotty_${fileId}`,
+      url: `./stickers/SpottyAnimated/file_${fileId}.tgs`,
+      packId: 'spotty',
+      name: `Spotty ${i + 1}`,
+      tags: ['spotty', 'спотти', 'dog', 'собака', 'пес', 'telegram', 'tgs', 'анимация', 'animated'],
+    };
+  }),
+};
+
 export const BISCUIT_STICKER_PACK: StickerPack = {
   id: 'biscuit',
   title: 'Biscuit',
@@ -221,8 +238,47 @@ export const BISCUIT_STICKER_PACK: StickerPack = {
 };
 
 export const STICKER_PACKS: StickerPack[] = [
+  SPOTTY_STICKER_PACK,
   BISCUIT_STICKER_PACK,
 ];
+
+export function resolveStickerUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null;
+  const clean = rawUrl.trim();
+  if (
+    clean.startsWith('http://') ||
+    clean.startsWith('https://') ||
+    clean.startsWith('data:') ||
+    clean.startsWith('blob:')
+  ) {
+    return clean;
+  }
+  if (clean.startsWith('./stickers/') || clean.startsWith('/stickers/')) {
+    return clean;
+  }
+  if (clean.startsWith('stickers/')) {
+    return `./${clean}`;
+  }
+  if (clean.includes('SpottyAnimated') || clean.includes('spotty')) {
+    const match = clean.match(/file_(\d+)/i) || clean.match(/(\d{7})/);
+    if (match) {
+      return `./stickers/SpottyAnimated/file_${match[1]}.tgs`;
+    }
+  }
+  if (clean.includes('biscuit')) {
+    const match = clean.match(/(\d+)/);
+    if (match) {
+      return `./stickers/biscuit/biscuit ${match[1]}.webp`;
+    }
+  }
+  if (clean.endsWith('.tgs')) {
+    return `./stickers/SpottyAnimated/${clean}`;
+  }
+  if (clean.endsWith('.webp')) {
+    return `./stickers/biscuit/${clean}`;
+  }
+  return clean;
+}
 
 export function searchStickers(query: string): StickerItem[] {
   const q = query.toLowerCase().trim();
