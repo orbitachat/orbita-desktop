@@ -3206,7 +3206,7 @@ export const MainLayout = () => {
           const existingIds = new Set<string>();
 
           const validExisting = currentMsgs.filter((m) =>
-            !m.id || fetchedIds.has(m.id) || (m.isOutgoing && Date.now() - (m.time || 0) < 20000)
+            !m.id || fetchedIds.has(m.id) || m.isOutgoing || (Date.now() - (m.time || 0) < 60000)
           );
 
           const updatedExisting = validExisting.map((m) => {
@@ -3216,7 +3216,7 @@ export const MainLayout = () => {
                 (m.isOutgoing &&
                   m.sender === p.sender &&
                   ((p.text && m.text === p.text) || (p.mediaUrl && m.mediaUrl === p.mediaUrl) || (p.mediaName && m.mediaName === p.mediaName)) &&
-                  Math.abs(m.time - (p.time || 0)) < 30000)
+                  Math.abs(m.time - (p.time || 0)) < 60000)
             );
             if (fetched) {
               existingIds.add(fetched.id);
@@ -3226,6 +3226,7 @@ export const MainLayout = () => {
                 text: fetched.text || m.text,
                 time: fetched.time || m.time,
                 reactions: fetched.reactions || m.reactions,
+                status: 'read' as const,
               };
             }
             if (m.id) existingIds.add(m.id);

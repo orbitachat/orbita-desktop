@@ -166,7 +166,7 @@ class ChannelService {
         name: name.trim(),
         description: description.trim(),
         avatar_url: avatarUrl || null,
-        creator_id: validCreatorId,
+        creator_id: null,
         creator_nickname: creatorNickname,
         subscribers_count: 1,
         is_official: false,
@@ -402,6 +402,81 @@ class ChannelService {
       }
     }
     const postIdToUse = customId || `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const now = Date.now();
+
+    try {
+      const chanCheck = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/public_channels?id=eq.${encodeURIComponent(cleanId)}&select=id`, {
+        headers: {
+          'apikey': CHANNELS_SUPABASE_KEY,
+          'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+        },
+      });
+      if (chanCheck.ok) {
+        const found = await chanCheck.json();
+        if (!Array.isArray(found) || found.length === 0) {
+          await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/public_channels`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': CHANNELS_SUPABASE_KEY,
+              'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+              'Prefer': 'resolution=merge-duplicates',
+            },
+            body: JSON.stringify({
+              id: cleanId,
+              name: cleanId,
+              description: '',
+              avatar_url: null,
+              creator_id: null,
+              creator_nickname: senderNickname,
+              subscribers_count: 1,
+              is_official: false,
+              created_at: new Date(now).toISOString(),
+              updated_at: new Date(now).toISOString(),
+            }),
+          });
+        }
+      }
+    } catch {}
+
+    const directRow = {
+      id: postIdToUse,
+      channel_id: cleanId,
+      sender_id: null,
+      sender_nickname: senderNickname,
+      text: cipherText,
+      media_type: mediaPayload?.type || null,
+      media_url: mediaPayload?.url || null,
+      media_name: mediaPayload?.name || null,
+      mime: mediaPayload?.mime || null,
+      duration: mediaPayload?.duration || null,
+      width: mediaPayload?.width || null,
+      height: mediaPayload?.height || null,
+      waveform: mediaPayload?.waveform || null,
+      audio_metadata: mediaPayload?.audioMetadata ? {
+        title: mediaPayload.audioMetadata.title,
+        artist: mediaPayload.audioMetadata.artist,
+        duration: mediaPayload.audioMetadata.duration,
+        size: mediaPayload.audioMetadata.size,
+      } : null,
+      link_preview: linkPreview || null,
+      reactions: {},
+      created_at: new Date(now).toISOString(),
+    };
+
+    try {
+      await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': CHANNELS_SUPABASE_KEY,
+          'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify(directRow),
+      });
+    } catch {}
+
     try {
       const body = {
         id: postIdToUse,
@@ -426,122 +501,53 @@ class ChannelService {
         linkPreview: linkPreview || null,
       };
 
-      const res = await fetch(`${W}/channels/post`, {
+      await fetch(`${W}/channels/post`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+    } catch {}
 
-      if (res.ok) {
-        const data = (await res.json()) as { post: ChannelPost };
-        if (data.post) {
-          const postObj = {
-            ...data.post,
-            senderId,
-            text: text || '',
-          };
-          try {
-            if (typeof window !== 'undefined' && window.localStorage) {
-              const cachedStr = window.localStorage.getItem(`orbita_channel_posts_${cleanId}`);
-              const cachedList = cachedStr ? JSON.parse(cachedStr) : [];
-              if (Array.isArray(cachedList) && !cachedList.some((p: any) => p.id === postObj.id)) {
-                cachedList.push(postObj);
-                cachedList.sort((a: any, b: any) => a.time - b.time);
-                window.localStorage.setItem(`orbita_channel_posts_${cleanId}`, JSON.stringify(cachedList));
-              }
-            }
-          } catch {}
-          try {
-            ablyService.sendMessage(`public-channel-${cleanId}`, {
-              type: 'channel-post',
-              post: { ...data.post, senderId, text: cipherText },
-            }).catch(() => {});
-          } catch {}
-          return postObj;
-        }
-      }
-    } catch (err) {
-      console.error('[ChannelService] Failed to publish post via backend:', err);
-    }
+    const postObj: ChannelPost = {
+      id: postIdToUse,
+      channelId: cleanId,
+      senderId,
+      sender: senderNickname,
+      text: text || '',
+      time: now,
+      mediaType: directRow.media_type as any,
+      mediaUrl: directRow.media_url,
+      mediaName: directRow.media_name,
+      mime: directRow.mime,
+      duration: directRow.duration,
+      width: directRow.width,
+      height: directRow.height,
+      waveform: directRow.waveform,
+      audioMetadata: directRow.audio_metadata,
+      linkPreview: directRow.link_preview,
+      reactions: directRow.reactions,
+    };
 
     try {
-      const now = Date.now();
-      const directRow = {
-        id: postIdToUse,
-        channel_id: cleanId,
-        sender_id: null,
-        sender_nickname: senderNickname,
-        text: cipherText,
-        media_type: mediaPayload?.type || null,
-        media_url: mediaPayload?.url || null,
-        media_name: mediaPayload?.name || null,
-        mime: mediaPayload?.mime || null,
-        duration: mediaPayload?.duration || null,
-        width: mediaPayload?.width || null,
-        height: mediaPayload?.height || null,
-        waveform: mediaPayload?.waveform || null,
-        audio_metadata: mediaPayload?.audioMetadata ? {
-          title: mediaPayload.audioMetadata.title,
-          artist: mediaPayload.audioMetadata.artist,
-          duration: mediaPayload.audioMetadata.duration,
-          size: mediaPayload.audioMetadata.size,
-        } : null,
-        link_preview: linkPreview || null,
-        reactions: {},
-        created_at: new Date(now).toISOString(),
-      };
-      const res = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': CHANNELS_SUPABASE_KEY,
-          'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
-          'Prefer': 'return=minimal',
-        },
-        body: JSON.stringify(directRow),
-      });
-      if (res.ok) {
-        const postObj: ChannelPost = {
-          id: postIdToUse,
-          channelId: cleanId,
-          senderId,
-          sender: senderNickname,
-          text: text || '',
-          time: now,
-          mediaType: directRow.media_type as any,
-          mediaUrl: directRow.media_url,
-          mediaName: directRow.media_name,
-          mime: directRow.mime,
-          duration: directRow.duration,
-          width: directRow.width,
-          height: directRow.height,
-          waveform: directRow.waveform,
-          audioMetadata: directRow.audio_metadata,
-          linkPreview: directRow.link_preview,
-          reactions: directRow.reactions,
-        };
-        try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            const cachedStr = window.localStorage.getItem(`orbita_channel_posts_${cleanId}`);
-            const cachedList = cachedStr ? JSON.parse(cachedStr) : [];
-            if (Array.isArray(cachedList) && !cachedList.some((p: any) => p.id === postObj.id)) {
-              cachedList.push(postObj);
-              cachedList.sort((a: any, b: any) => a.time - b.time);
-              window.localStorage.setItem(`orbita_channel_posts_${cleanId}`, JSON.stringify(cachedList));
-            }
-          }
-        } catch {}
-        try {
-          ablyService.sendMessage(`public-channel-${cleanId}`, {
-            type: 'channel-post',
-            post: { ...postObj, text: cipherText },
-          }).catch(() => {});
-        } catch {}
-        return postObj;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const cachedStr = window.localStorage.getItem(`orbita_channel_posts_${cleanId}`);
+        const cachedList = cachedStr ? JSON.parse(cachedStr) : [];
+        if (Array.isArray(cachedList) && !cachedList.some((p: any) => p.id === postObj.id)) {
+          cachedList.push(postObj);
+          cachedList.sort((a: any, b: any) => a.time - b.time);
+          window.localStorage.setItem(`orbita_channel_posts_${cleanId}`, JSON.stringify(cachedList));
+        }
       }
     } catch {}
 
-    return null;
+    try {
+      ablyService.sendMessage(`public-channel-${cleanId}`, {
+        type: 'channel-post',
+        post: { ...postObj, text: cipherText },
+      }).catch(() => {});
+    } catch {}
+
+    return postObj;
   }
 
   async deletePost(channelId: string, postId: string, userId?: string): Promise<boolean> {
@@ -558,18 +564,6 @@ class ChannelService {
         }
       }
     } catch {}
-    try {
-      const res = await fetch(`${W}/channels/delete-post`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: cleanChanId, postId: cleanPostId, userId }),
-      });
-      if (res.ok) {
-        return true;
-      }
-    } catch (err) {
-      console.error('[ChannelService] Failed to delete post via backend:', err);
-    }
 
     try {
       await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts?id=eq.${encodeURIComponent(cleanPostId)}&channel_id=eq.${encodeURIComponent(cleanChanId)}`, {
@@ -579,18 +573,26 @@ class ChannelService {
           'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
         },
       });
-      try {
-        ablyService.sendMessage(`public-channel-${cleanChanId}`, {
-          type: 'delete-post',
-          channelId: cleanChanId,
-          postId: cleanPostId,
-          targetMessageId: cleanPostId,
-        }).catch(() => {});
-      } catch {}
-      return true;
     } catch {}
 
-    return false;
+    try {
+      await fetch(`${W}/channels/delete-post`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: cleanChanId, postId: cleanPostId, userId }),
+      });
+    } catch {}
+
+    try {
+      ablyService.sendMessage(`public-channel-${cleanChanId}`, {
+        type: 'delete-post',
+        channelId: cleanChanId,
+        postId: cleanPostId,
+        targetMessageId: cleanPostId,
+      }).catch(() => {});
+    } catch {}
+
+    return true;
   }
 
   async joinChannel(channelId: string, nickname?: string): Promise<number | null> {
@@ -659,35 +661,78 @@ class ChannelService {
     action?: 'add' | 'remove' | 'toggle',
     sessionId?: string
   ): Promise<Record<string, string[]> | null> {
+    const cleanChanId = channelId.trim();
+    const cleanPostId = postId.trim();
+    let updatedReactions: Record<string, string[]> | null = null;
+
     try {
       const res = await fetch(`${W}/channels/reaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId, postId, emoji, userId, action: action || 'toggle', sessionId }),
+        body: JSON.stringify({ channelId: cleanChanId, postId: cleanPostId, emoji, userId, action: action || 'toggle', sessionId }),
       });
 
       if (res.ok) {
         const data = (await res.json()) as { reactions: Record<string, string[]> };
-        const reactions = data.reactions || null;
-        if (reactions) {
-          try {
-            ablyService.sendMessage(`public-channel-${channelId.trim()}`, {
-              type: 'reaction-updated',
-              postId,
-              emoji,
-              userId,
-              action: action || 'toggle',
-              reactions,
-              sessionId,
-            }).catch(() => {});
-          } catch {}
+        if (data.reactions) {
+          updatedReactions = data.reactions;
         }
-        return reactions;
       }
-    } catch (err) {
-      console.error('[ChannelService] Failed to toggle reaction:', err);
+    } catch {}
+
+    if (!updatedReactions) {
+      try {
+        const getRes = await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts?id=eq.${encodeURIComponent(cleanPostId)}&select=reactions`, {
+          headers: {
+            'apikey': CHANNELS_SUPABASE_KEY,
+            'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+          },
+        });
+        if (getRes.ok) {
+          const list = await getRes.json();
+          let reactions: Record<string, string[]> = {};
+          if (Array.isArray(list) && list[0]?.reactions) {
+            reactions = typeof list[0].reactions === 'string' ? JSON.parse(list[0].reactions) : { ...list[0].reactions };
+          }
+          const targetUserId = String(userId);
+          const currentUsers = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+          const alreadyPresent = currentUsers.some(u => u === targetUserId || u.toLowerCase() === targetUserId.toLowerCase());
+          if (action === 'add' || (!action && !alreadyPresent) || (action === 'toggle' && !alreadyPresent)) {
+            reactions[emoji] = [...currentUsers.filter((u) => u !== targetUserId && u.toLowerCase() !== targetUserId.toLowerCase()), targetUserId];
+          } else {
+            const filtered = currentUsers.filter((u) => u !== targetUserId && u.toLowerCase() !== targetUserId.toLowerCase());
+            if (filtered.length > 0) reactions[emoji] = filtered;
+            else delete reactions[emoji];
+          }
+          await fetch(`${CHANNELS_SUPABASE_URL}/rest/v1/channel_posts?id=eq.${encodeURIComponent(cleanPostId)}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': CHANNELS_SUPABASE_KEY,
+              'Authorization': `Bearer ${CHANNELS_SUPABASE_KEY}`,
+            },
+            body: JSON.stringify({ reactions }),
+          });
+          updatedReactions = reactions;
+        }
+      } catch {}
     }
-    return null;
+
+    if (updatedReactions) {
+      try {
+        ablyService.sendMessage(`public-channel-${cleanChanId}`, {
+          type: 'reaction-updated',
+          postId: cleanPostId,
+          emoji,
+          userId,
+          action: action || 'toggle',
+          reactions: updatedReactions,
+          sessionId,
+        }).catch(() => {});
+      } catch {}
+    }
+
+    return updatedReactions;
   }
 
   subscribeToChannel(

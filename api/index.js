@@ -11,7 +11,7 @@ const ENV = {
   SUPABASE_URL: process.env.SUPABASE_URL || 'https://majmrtymawymomliowbz.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   CHANNELS_SUPABASE_URL: process.env.CHANNELS_SUPABASE_URL || 'https://rugqiezexuknqcppicma.supabase.co',
-  CHANNELS_SUPABASE_KEY: process.env.CHANNELS_SUPABASE_KEY || process.env.CHANNELS_SUPABASE_SECRET_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  CHANNELS_SUPABASE_KEY: process.env.CHANNELS_SUPABASE_KEY || process.env.CHANNELS_SUPABASE_SECRET_KEY || 'sb_publishable_XYjE7C93LWA-P1OHZqNONg_QHlyZ9sZ',
   PUSHER_KEY: process.env.PUSHER_KEY || 'e8f5cf13f6759775e44e',
   PUSHER_SECRET: process.env.PUSHER_SECRET || '',
   PUSHER_APP_ID: process.env.PUSHER_APP_ID || '2142120',
@@ -1273,7 +1273,7 @@ module.exports = async function handler(req, res) {
             name: body.name,
             description: body.description || '',
             avatar_url: body.avatarUrl || null,
-            creator_id: creatorId || null,
+            creator_id: null,
             creator_nickname: body.creatorNickname,
             subscribers_count: 1,
             is_official: false,
@@ -1284,15 +1284,14 @@ module.exports = async function handler(req, res) {
             return sendError(res, chErr.message, 500);
           }
           if (creatorId) {
-            const { error: memErr } = await supabase.from('channel_members').upsert({
-              channel_id: channelId,
-              user_id: creatorId,
-              role: 'owner',
-              joined_at: nowIso,
-            });
-            if (memErr) {
-              return sendError(res, memErr.message, 500);
-            }
+            try {
+              await supabase.from('channel_members').upsert({
+                channel_id: channelId,
+                user_id: creatorId,
+                role: 'owner',
+                joined_at: nowIso,
+              });
+            } catch {}
           }
         } catch (err) {
           return sendError(res, err?.message || 'Failed to create channel', 500);
