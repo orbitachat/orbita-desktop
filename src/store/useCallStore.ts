@@ -934,6 +934,9 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (state.callState !== 'ended') {
         switch (state.callState) {
           case 'preparing':
+            endedStatus = null;
+            signalType = null;
+            break;
           case 'ringing': endedStatus = endedStatus || 'missed'; signalType = 'call-cancel'; break;
           case 'connecting': endedStatus = endedStatus || 'failed'; signalType = 'call-hangup'; break;
           case 'connected': endedStatus = 'completed'; signalType = 'call-hangup'; break;
@@ -1070,7 +1073,13 @@ export const useCallStore = create<CallStore>((set, get) => {
         try { (window as any).orbita?.closeCallWindow?.(); } catch {}
         return;
       }
-      if (state.activeCall) set({ activeCall: { ...state.activeCall, endedStatus: 'missed' }, callState: 'ended' });
+      if (state.activeCall) {
+        if (state.callState === 'preparing') {
+          get().endCall(true);
+          return;
+        }
+        set({ activeCall: { ...state.activeCall, endedStatus: 'missed' }, callState: 'ended' });
+      }
       callSoundService.play('end');
       get().endCall(false);
     },
