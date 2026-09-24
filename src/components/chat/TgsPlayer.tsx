@@ -7,6 +7,7 @@ interface TgsPlayerProps {
   style?: React.CSSProperties;
   loop?: boolean;
   autoplay?: boolean;
+  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 const tgsCache = new Map<string, any>();
@@ -55,12 +56,16 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   src,
   className = '',
   style,
-  loop = true,
+  loop = false,
   autoplay = true,
+  onClick,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<AnimationItem | null>(null);
   const [animData, setAnimData] = useState<any>(() => tgsCache.get(src) || null);
+  const hasPlayedRef = useRef(false);
+  const isIntersectingRef = useRef(false);
+  const isPlayingRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -82,6 +87,12 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
     };
   }, [src]);
 
+  const playOnce = () => {
+    if (!animRef.current) return;
+    isPlayingRef.current = true;
+    animRef.current.goToAndPlay(0, true);
+  };
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !animData) return;
@@ -97,13 +108,28 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
         container,
         renderer: 'svg',
         loop,
-        autoplay,
+        autoplay: false,
         animationData: animData,
         rendererSettings: {
           preserveAspectRatio: 'xMidYMid meet',
         },
       });
+      anim.setSubframe(false);
+      anim.addEventListener('complete', () => {
+        isPlayingRef.current = false;
+      });
       animRef.current = anim;
+
+      if (isIntersectingRef.current && !document.hidden) {
+        if (loop) {
+          isPlayingRef.current = true;
+          anim.play();
+        } else if (!hasPlayedRef.current && autoplay) {
+          hasPlayedRef.current = true;
+          isPlayingRef.current = true;
+          anim.goToAndPlay(0, true);
+        }
+      }
     } catch (e) {
       console.error('[TgsPlayer] render error:', e);
     }
@@ -113,8 +139,82 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
         anim.destroy();
       }
       animRef.current = null;
+      isPlayingRef.current = false;
     };
   }, [animData, loop, autoplay]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        isIntersectingRef.current = entry.isIntersecting;
+
+        if (entry.isIntersecting) {
+          if (!document.hidden) {
+            if (loop) {
+              isPlayingRef.current = true;
+              animRef.current?.play();
+            } else if (!hasPlayedRef.current && autoplay) {
+              hasPlayedRef.current = true;
+              playOnce();
+            } else if (isPlayingRef.current) {
+              animRef.current?.play();
+            }
+          }
+        } else {
+          if (isPlayingRef.current) {
+            animRef.current?.pause();
+          }
+        }
+      },
+      { threshold: 0.05 }
+    );
+
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, [loop, autoplay]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (isPlayingRef.current) {
+          animRef.current?.pause();
+        }
+      } else {
+        if (isIntersectingRef.current) {
+          if (loop) {
+            isPlayingRef.current = true;
+            animRef.current?.play();
+          } else if (!hasPlayedRef.current && autoplay) {
+            hasPlayedRef.current = true;
+            playOnce();
+          } else if (isPlayingRef.current) {
+            animRef.current?.play();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [loop, autoplay]);
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (onClick) {
+      onClick(e);
+    }
+    if (animRef.current) {
+      playOnce();
+    }
+  };
 
   const thumbUrl = src.replace('.tgs', '.webp');
 
@@ -122,6 +222,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
     <div
       ref={containerRef}
       className={className}
+      onClick={handleClick}
       style={{
         width: '100%',
         height: '100%',

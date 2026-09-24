@@ -3321,6 +3321,9 @@ function createMainWindow() {
   }
 
   mainWindow.on('minimize', () => {
+    try {
+      mainWindow.webContents.setBackgroundThrottling(true);
+    } catch { }
     if (global.gc) {
       try { global.gc(); } catch { }
     }
@@ -3329,6 +3332,24 @@ function createMainWindow() {
         mainWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
       } catch { }
     }
+  });
+
+  mainWindow.on('restore', () => {
+    try {
+      mainWindow.webContents.setBackgroundThrottling(false);
+    } catch { }
+  });
+
+  mainWindow.on('hide', () => {
+    try {
+      mainWindow.webContents.setBackgroundThrottling(true);
+    } catch { }
+  });
+
+  mainWindow.on('show', () => {
+    try {
+      mainWindow.webContents.setBackgroundThrottling(false);
+    } catch { }
   });
 
   mainWindow.on('close', (e) => {

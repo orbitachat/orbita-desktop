@@ -7356,7 +7356,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   {media.url && media.url.toLowerCase().endsWith('.tgs') ? (
                     <TgsPlayer
                       src={media.url}
-                      className="w-full h-full select-none cursor-pointer"
+                      className="w-full h-full select-none cursor-pointer active:scale-[0.98] transition-transform"
                     />
                   ) : (
                     <img

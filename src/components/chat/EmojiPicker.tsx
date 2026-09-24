@@ -60,7 +60,7 @@ const StickerGridButton: React.FC<{
       aria-label={sticker.name}
     >
       {isTgs && isHovered ? (
-        <TgsPlayer src={sticker.url} className="w-full h-full select-none" />
+        <TgsPlayer src={sticker.url} loop={true} className="w-full h-full select-none pointer-events-none" />
       ) : (
         <img
           src={sticker.thumbUrl || sticker.url}
