@@ -56,7 +56,7 @@
     }
     .status-text {
       margin-top: 22px;
-      font-size: 13.5px;
+      font-size: 14px;
       font-weight: 700;
       color: #8e8e93;
       text-align: center;
@@ -122,17 +122,25 @@
         </g>
       </svg>
     </div>
-    <div id="status-text" class="status-text">Проверка обновлений...</div>
+    <div id="status-text" class="status-text" style="font-size: 14px; font-weight: 700;">Проверка обновлений...</div>
   </div>
   <script>
     window.setStatus = function(text) {
       var el = document.getElementById('status-text');
-      if (el) el.textContent = text;
+      if (el) {
+        el.textContent = text;
+        el.style.fontWeight = '700';
+        el.style.fontSize = '14px';
+      }
     };
     window.setFont = function(fontCss) {
       if (document.body) document.body.style.fontFamily = fontCss;
       var el = document.getElementById('status-text');
-      if (el) el.style.fontFamily = fontCss;
+      if (el) {
+        el.style.fontFamily = fontCss;
+        el.style.fontWeight = '700';
+        el.style.fontSize = '14px';
+      }
     };
   </script>
 </body>

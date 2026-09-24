@@ -1158,6 +1158,11 @@ export const useChatStore = create<ChatState>()(
             [chatId]: updated,
           },
         });
+        const updatedMsg = updated.find(m => m.id === messageId);
+        if (updatedMsg && typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          (window as any).orbita.storageAddMessage(chatId, messageId, updatedMsg).catch(() => {});
+        }
+        flushStorageSet();
       },
       editMessage: (chatId, messageId, newText, encryptedText?, index?) => {
         const state = get();
@@ -1710,6 +1715,11 @@ export const useChatStore = create<ChatState>()(
         mediaManager.deleteByChatId(chatId).catch(err => {
           console.error('[ChatStore] Failed to delete media cache for chat:', chatId, err);
         });
+
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageDeleteMessages) {
+          (window as any).orbita.storageDeleteMessages(chatId).catch(() => {});
+        }
+        flushStorageSet();
       },
 
       restoreDeletedChat: (chatId) => {

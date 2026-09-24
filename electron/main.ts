@@ -3200,12 +3200,8 @@ function createSplashWindow() {
     icon: icon && !icon.isEmpty() ? icon : undefined,
   });
 
-  const splashPath = isPackaged
-    ? path.join(__dirname, '../dist/splash.html')
-    : path.join(__dirname, '../public/splash.html');
-
-  if (fs.existsSync(splashPath)) {
-    splashWindow.loadFile(splashPath);
+  if (isPackaged) {
+    splashWindow.loadFile(path.join(__dirname, '../dist/splash.html'));
   } else {
     splashWindow.loadURL('http://127.0.0.1:5173/splash.html');
   }
@@ -3731,31 +3727,6 @@ app.whenReady().then(async () => {
     });
   }
 
-  createSplashWindow();
-
-  const isRu = app.getLocale().toLowerCase().startsWith('ru');
-  let statusChecking = isRu ? 'Проверка обновлений...' : 'Checking for updates...';
-  let statusLoading = isRu ? 'Загрузка компонентов...' : 'Loading components...';
-  let statusPreparing = isRu ? 'Подготовка интерфейса...' : 'Preparing interface...';
-  let statusStarting = isRu ? 'Запуск...' : 'Starting...';
-
-  if (splashWindow && !splashWindow.isDestroyed()) {
-    splashWindow.webContents.once('did-finish-load', () => {
-      updateSplashFont(currentFontFamily);
-      updateSplashStatus(statusChecking);
-    });
-  }
-
-  updateSplashStatus(statusChecking);
-  try {
-    await Promise.race([
-      fetchLatestGitHubRelease(),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]);
-  } catch {}
-
-  updateSplashStatus(statusLoading);
-
   getMasterKey();
   registerOrbitaMediaProtocol();
   registerMediaIpcHandlers();
@@ -3776,16 +3747,23 @@ app.whenReady().then(async () => {
         }
       }
     }
-    updateSplashFont(currentFontFamily);
   } catch {}
+
+  const isRu = app.getLocale().toLowerCase().startsWith('ru');
+  let statusChecking = isRu ? 'Проверка обновлений...' : 'Checking for updates...';
+  let statusLoading = isRu ? 'Загрузка компонентов...' : 'Loading components...';
+  let statusPreparing = isRu ? 'Подготовка интерфейса...' : 'Preparing interface...';
+  let statusStarting = isRu ? 'Запуск...' : 'Starting...';
 
   try {
     const savedLang = await getKvValue('language');
     if (savedLang === 'en') {
+      statusChecking = 'Checking for updates...';
       statusLoading = 'Loading components...';
       statusPreparing = 'Preparing interface...';
       statusStarting = 'Starting...';
     } else if (savedLang === 'ru') {
+      statusChecking = 'Проверка обновлений...';
       statusLoading = 'Загрузка компонентов...';
       statusPreparing = 'Подготовка интерфейса...';
       statusStarting = 'Запуск...';
@@ -3799,6 +3777,25 @@ app.whenReady().then(async () => {
     console.error('[Storage] Error checking migration flag:', e);
   }
 
+  createSplashWindow();
+
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.once('did-finish-load', () => {
+      updateSplashFont(currentFontFamily);
+      updateSplashStatus(statusChecking);
+    });
+  }
+
+  updateSplashFont(currentFontFamily);
+  updateSplashStatus(statusChecking);
+  try {
+    await Promise.race([
+      fetchLatestGitHubRelease(),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
+  } catch {}
+
+  updateSplashStatus(statusLoading);
   updateSplashStatus(statusPreparing);
 
   createMainWindow();

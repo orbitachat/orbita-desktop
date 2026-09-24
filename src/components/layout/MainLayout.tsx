@@ -3993,6 +3993,9 @@ export const MainLayout = () => {
         [chatId]: [],
       }
     }));
+    if (typeof window !== 'undefined' && (window as any).orbita?.storageDeleteMessages) {
+      (window as any).orbita.storageDeleteMessages(chatId).catch(() => {});
+    }
     updateChat(chatId, {
       lastMsg: t('common.history_cleared'),
       unreadCount: 0,
