@@ -2029,19 +2029,54 @@ ipcMain.on('orbita:set-current-theme', (_event, { themeId, themeVars }) => {
 });
 
 let currentFontFamily = 'system';
-ipcMain.on('orbita:set-current-font', (_event, fontFamily: string) => {
-  currentFontFamily = fontFamily || 'system';
+
+const FONT_MAP: Record<string, string> = {
+  'system': "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto, sans-serif",
+  'Segoe UI': "'Segoe UI', 'Segoe', system-ui, sans-serif",
+  'Segoe UI Black': "'Segoe UI Black', 'Segoe UI', system-ui, sans-serif",
+  'Inter': "'Inter', system-ui, sans-serif",
+  'Roboto': "'Roboto', sans-serif",
+  'Open Sans': "'Open Sans', sans-serif",
+  'Lato': "'Lato', sans-serif",
+  'Montserrat': "'Montserrat', sans-serif",
+  'Poppins': "'Poppins', sans-serif",
+  'Nunito': "'Nunito', sans-serif",
+  'Rubik': "'Rubik', sans-serif",
+  'Fira Sans': "'Fira Sans', sans-serif",
+  'Ubuntu': "'Ubuntu', sans-serif",
+  'Manrope': "'Manrope', sans-serif",
+  'Arial': "Arial, Helvetica, sans-serif",
+  'Arial Black': "'Arial Black', 'Arial Bold', sans-serif",
+  'Trebuchet MS': "'Trebuchet MS', sans-serif",
+  'Verdana': "Verdana, Geneva, sans-serif",
+  'Tahoma': "Tahoma, Geneva, sans-serif",
+  'Georgia': "Georgia, serif",
+  'Times New Roman': "'Times New Roman', Times, serif",
+  'Merriweather': "'Merriweather', Georgia, serif",
+  'Playfair Display': "'Playfair Display', Georgia, serif",
+  'Fira Code': "'Fira Code', monospace",
+  'JetBrains Mono': "'JetBrains Mono', monospace",
+  'Consolas': "Consolas, 'Courier New', monospace",
+  'Courier New': "'Courier New', Courier, monospace",
+  'Comic Sans MS': "'Comic Sans MS', 'Comic Sans', cursive",
+  'Caveat': "'Caveat', cursive",
+  'Pacifico': "'Pacifico', cursive",
+};
+
+ipcMain.on('orbita:set-current-font', (_event, font: string) => {
+  currentFontFamily = font;
+  setKvValue('selected-font-family', font).catch(() => {});
   if (callWindow && !callWindow.isDestroyed()) {
-    callWindow.webContents.send('orbita:font-changed', currentFontFamily);
+    callWindow.webContents.send('orbita:font-changed', font);
   }
   if (mediaWindow && !mediaWindow.isDestroyed()) {
-    mediaWindow.webContents.send('orbita:font-changed', currentFontFamily);
+    mediaWindow.webContents.send('orbita:font-changed', font);
   }
 });
 
-ipcMain.handle('orbita:get-current-font', () => {
-  return currentFontFamily;
-});
+ipcMain.handle('orbita:get-current-font', () => currentFontFamily);
+
+
 
 let currentAppIconName = 'orbita1';
 let currentNotifIconName = 'orbita1';
@@ -3145,8 +3180,8 @@ ipcMain.handle('orbita:get-os-info', () => {
 function createSplashWindow() {
   const icon = loadNativeAppIcon();
   splashWindow = new BrowserWindow({
-    width: 340,
-    height: 380,
+    width: 296,
+    height: 336,
     frame: false,
     transparent: true,
     resizable: false,
@@ -3156,7 +3191,7 @@ function createSplashWindow() {
     alwaysOnTop: true,
     skipTaskbar: false,
     backgroundColor: '#00000000',
-    hasShadow: true,
+    hasShadow: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -3178,6 +3213,15 @@ function createSplashWindow() {
   splashWindow.on('closed', () => {
     splashWindow = null;
   });
+}
+
+function updateSplashFont(fontName: string) {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    const fontCss = FONT_MAP[fontName] || FONT_MAP['system'];
+    splashWindow.webContents
+      .executeJavaScript(`if (typeof window !== 'undefined' && typeof window.setFont === 'function') { window.setFont(${JSON.stringify(fontCss)}); }`)
+      .catch(() => {});
+  }
 }
 
 function updateSplashStatus(text: string) {
@@ -3696,6 +3740,7 @@ app.whenReady().then(async () => {
 
   if (splashWindow && !splashWindow.isDestroyed()) {
     splashWindow.webContents.once('did-finish-load', () => {
+      updateSplashFont(currentFontFamily);
       updateSplashStatus(statusChecking);
     });
   }
@@ -3716,6 +3761,22 @@ app.whenReady().then(async () => {
   registerDownloadsIpcHandlers();
   await initStorageDb();
   registerStorageIpcHandlers();
+
+  try {
+    const savedFont = await getKvValue('selected-font-family');
+    if (savedFont) {
+      currentFontFamily = savedFont;
+    } else {
+      const rawStorage = await getKvValue('orbita-chat-storage');
+      if (rawStorage) {
+        const parsed = JSON.parse(rawStorage);
+        if (parsed?.state?.fontFamily) {
+          currentFontFamily = parsed.state.fontFamily;
+        }
+      }
+    }
+    updateSplashFont(currentFontFamily);
+  } catch {}
 
   try {
     const savedLang = await getKvValue('language');

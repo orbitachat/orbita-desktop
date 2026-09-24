@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="fonts/offline-fonts.css" />
   <style>
     * {
       box-sizing: border-box;
@@ -19,16 +20,16 @@
       align-items: center;
       background: transparent;
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
       -webkit-app-region: drag;
     }
     .splash-card {
-      width: 296px;
-      height: 336px;
+      width: 100vw;
+      height: 100vh;
       border-radius: 8px;
       background: #121212;
       border: none;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+      box-shadow: none;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -56,7 +57,7 @@
     .status-text {
       margin-top: 22px;
       font-size: 13.5px;
-      font-weight: 500;
+      font-weight: 700;
       color: #8e8e93;
       text-align: center;
       letter-spacing: 0.2px;
@@ -127,6 +128,11 @@
     window.setStatus = function(text) {
       var el = document.getElementById('status-text');
       if (el) el.textContent = text;
+    };
+    window.setFont = function(fontCss) {
+      if (document.body) document.body.style.fontFamily = fontCss;
+      var el = document.getElementById('status-text');
+      if (el) el.style.fontFamily = fontCss;
     };
   </script>
 </body>
