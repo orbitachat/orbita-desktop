@@ -14,6 +14,6 @@ export const ChannelMegaphoneIcon: React.FC<{ size?: number; className?: string;
     style={style}
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M19.5 4.5c-.28 0-.55.07-.79.22L12 8.63V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1.5v3.5a1.5 1.5 0 0 0 2.45 1.16L12 17.37v-2.01l6.71 3.91c.24.15.51.23.79.23.83 0 1.5-.67 1.5-1.5V6c0-.83-.67-1.5-1.5-1.5z" />
+    <path fill="currentColor" d="M12.31 20.095a1.998 1.998 0 0 1-3.864.88L7 17h5zm7.135-18.058A1 1 0 0 1 21 2.869V18.13a1 1 0 0 1-1.555.832L15 16H7.5a5.5 5.5 0 0 1 0-11H15z" />
   </svg>
 );
