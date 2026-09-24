@@ -372,6 +372,7 @@ contextBridge.exposeInMainWorld('orbita', {
     ipcRenderer.on('orbita:updateStatus', handler);
     return () => ipcRenderer.removeListener('orbita:updateStatus', handler);
   },
+  notifyAppReady: () => ipcRenderer.send('orbita:app-ready'),
 });
 
 Object.defineProperty(window, '__ELECTRON_RENDERER__', {

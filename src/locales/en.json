@@ -1329,6 +1329,12 @@
       "call_started": "{{actor}} started a voice chat",
       "call_ended": "Voice call ended",
       "member_removed": "{{actor}} removed {{target}} from the group"
+    },
+    "splash": {
+      "checking_updates": "Checking for updates...",
+      "loading_components": "Loading components...",
+      "preparing_interface": "Preparing interface...",
+      "starting": "Starting..."
     }
   }
 }

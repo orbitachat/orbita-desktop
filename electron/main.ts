@@ -2007,6 +2007,7 @@ let currentThemeId = 'orbita';
 let currentThemeVars: Record<string, string> = {};
 let mainWindow: BrowserWindow | null = null;
 let mediaWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
 let trayInstance: Tray | null = null;
 let showInTraySetting = true;
 let isQuitting = false;
@@ -3141,6 +3142,52 @@ ipcMain.handle('orbita:get-os-info', () => {
 // -----------------------------------------------------------------------------
 // 11. Main Window
 // -----------------------------------------------------------------------------
+function createSplashWindow() {
+  const icon = loadNativeAppIcon();
+  splashWindow = new BrowserWindow({
+    width: 320,
+    height: 360,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    center: true,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    backgroundColor: '#00000000',
+    hasShadow: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      devTools: false,
+    },
+    icon: icon && !icon.isEmpty() ? icon : undefined,
+  });
+
+  const splashPath = isPackaged
+    ? path.join(__dirname, '../dist/splash.html')
+    : path.join(__dirname, '../public/splash.html');
+
+  if (fs.existsSync(splashPath)) {
+    splashWindow.loadFile(splashPath);
+  } else {
+    splashWindow.loadURL('http://127.0.0.1:5173/splash.html');
+  }
+
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+}
+
+function updateSplashStatus(text: string) {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents
+      .executeJavaScript(`if (typeof window !== 'undefined' && typeof window.setStatus === 'function') { window.setStatus(${JSON.stringify(text)}); }`)
+      .catch(() => {});
+  }
+}
+
 function createMainWindow() {
   loadWindowSettings();
   mainWindow = new BrowserWindow({
@@ -3176,8 +3223,10 @@ function createMainWindow() {
   mainWindow.setMenuBarVisibility(!hideMenuBarSetting);
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow?.show();
-    mainWindow?.webContents.send('window:state-changed', mainWindow.isMaximized());
+    if (!splashWindow || splashWindow.isDestroyed()) {
+      mainWindow?.show();
+      mainWindow?.webContents.send('window:state-changed', mainWindow.isMaximized());
+    }
   });
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -3595,6 +3644,9 @@ app.whenReady().then(async () => {
   }
 
   app.on('second-instance', (_event, commandLine) => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.focus();
+    }
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       if (!mainWindow.isVisible()) mainWindow.show();
@@ -3634,6 +3686,30 @@ app.whenReady().then(async () => {
     });
   }
 
+  createSplashWindow();
+
+  const isRu = app.getLocale().toLowerCase().startsWith('ru');
+  let statusChecking = isRu ? 'Проверка обновлений...' : 'Checking for updates...';
+  let statusLoading = isRu ? 'Загрузка компонентов...' : 'Loading components...';
+  let statusPreparing = isRu ? 'Подготовка интерфейса...' : 'Preparing interface...';
+  let statusStarting = isRu ? 'Запуск...' : 'Starting...';
+
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.once('did-finish-load', () => {
+      updateSplashStatus(statusChecking);
+    });
+  }
+
+  updateSplashStatus(statusChecking);
+  try {
+    await Promise.race([
+      fetchLatestGitHubRelease(),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
+  } catch {}
+
+  updateSplashStatus(statusLoading);
+
   getMasterKey();
   registerOrbitaMediaProtocol();
   registerMediaIpcHandlers();
@@ -3642,15 +3718,49 @@ app.whenReady().then(async () => {
   registerStorageIpcHandlers();
 
   try {
+    const savedLang = await getKvValue('language');
+    if (savedLang === 'en') {
+      statusLoading = 'Loading components...';
+      statusPreparing = 'Preparing interface...';
+      statusStarting = 'Starting...';
+    } else if (savedLang === 'ru') {
+      statusLoading = 'Загрузка компонентов...';
+      statusPreparing = 'Подготовка интерфейса...';
+      statusStarting = 'Запуск...';
+    }
+  } catch {}
+
+  try {
     const flag = await getKvValue('migrated_from_localstorage');
     if (!flag) console.log('[Storage] Migration flag not set, will be performed by renderer');
   } catch (e) {
     console.error('[Storage] Error checking migration flag:', e);
   }
 
+  updateSplashStatus(statusPreparing);
+
   createMainWindow();
   setupTray();
   setupAutoUpdater();
+
+  let appReadyHandled = false;
+  const finishStartup = () => {
+    if (appReadyHandled) return;
+    appReadyHandled = true;
+    updateSplashStatus(statusStarting);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.send('window:state-changed', mainWindow.isMaximized());
+    }
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+      splashWindow = null;
+    }
+  };
+
+  ipcMain.once('orbita:app-ready', finishStartup);
+  setTimeout(finishStartup, 8000);
 
 
   setInterval(() => {
@@ -3678,6 +3788,10 @@ app.on('activate', () => {
 app.on('before-quit', () => {
   isQuitting = true;
   flushKvWritesSync();
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.destroy();
+    splashWindow = null;
+  }
   if (callWindow && !callWindow.isDestroyed()) {
     callWindow.destroy();
     callWindow = null;

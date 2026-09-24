@@ -1339,6 +1339,12 @@
       "call_started": "{{actor}} начал(а) голосовой чат",
       "call_ended": "Голосовой звонок завершен",
       "member_removed": "{{actor}} удалил(а) {{target}} из группы"
+    },
+    "splash": {
+      "checking_updates": "Проверка обновлений...",
+      "loading_components": "Загрузка компонентов...",
+      "preparing_interface": "Подготовка интерфейса...",
+      "starting": "Запуск..."
     }
   }
 }
