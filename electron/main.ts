@@ -3145,8 +3145,8 @@ ipcMain.handle('orbita:get-os-info', () => {
 function createSplashWindow() {
   const icon = loadNativeAppIcon();
   splashWindow = new BrowserWindow({
-    width: 320,
-    height: 360,
+    width: 340,
+    height: 380,
     frame: false,
     transparent: true,
     resizable: false,
