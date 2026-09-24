@@ -1261,7 +1261,7 @@ export const CallWindow = () => {
                 style={accentButtonStyle}
               >
                 {isVideoEnabled ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="20" height="20" className="w-5 h-5 text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="28" height="28" className="w-7 h-7 text-white">
                     <path fill="currentColor" fillRule="evenodd" d="M0 5a2 2 0 0 1 2-2h7.5a2 2 0 0 1 1.983 1.738l3.11-1.382A1 1 0 0 1 16 4.269v7.462a1 1 0 0 1-1.406.913l-3.111-1.382A2 2 0 0 1 9.5 13H2a2 2 0 0 1-2-2z" />
                   </svg>
                 ) : (
@@ -1288,14 +1288,14 @@ export const CallWindow = () => {
                 style={neutralButtonStyle(isMicEnabled)}
               >
                 {isMicEnabled ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="20" height="20" className="w-5 h-5 text-current">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="28" height="28" className="w-7 h-7 text-current">
                     <g fill="currentColor">
                       <path d="M13 5a1 1 0 0 1 1 1a6 6 0 0 1-5.005 5.915Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 2 0a4 4 0 1 0 8 0a1 1 0 0 1 1-1" />
                       <path d="M8 1a3 3 0 0 1 3 3v2a3 3 0 0 1-6 0V4a3 3 0 0 1 3-3" />
                     </g>
                   </svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="20" height="20" className="w-5 h-5 text-current">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="28" height="28" className="w-7 h-7 text-current">
                     <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
                   </svg>
                 )}
@@ -1316,11 +1316,11 @@ export const CallWindow = () => {
                 style={neutralButtonStyle(isVideoEnabled)}
               >
                 {isVideoEnabled ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="20" height="20" className="w-5 h-5 text-current">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="28" height="28" className="w-7 h-7 text-current">
                     <path fill="currentColor" fillRule="evenodd" d="M0 5a2 2 0 0 1 2-2h7.5a2 2 0 0 1 1.983 1.738l3.11-1.382A1 1 0 0 1 16 4.269v7.462a1 1 0 0 1-1.406.913l-3.111-1.382A2 2 0 0 1 9.5 13H2a2 2 0 0 1-2-2z" />
                   </svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="20" height="20" className="w-5 h-5 text-current">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="28" height="28" className="w-7 h-7 text-current">
                     <path fill="currentColor" fillRule="evenodd" d="M10.961 12.365a2 2 0 0 0 .522-1.103l3.11 1.382A1 1 0 0 0 16 11.731V4.269a1 1 0 0 0-1.406-.913l-3.111 1.382A2 2 0 0 0 9.5 3H4.272zm-10.114-9A2 2 0 0 0 0 5v6a2 2 0 0 0 2 2h5.728zm9.746 11.925l-10-14l.814-.58l10 14z" />
                   </svg>
                 )}
@@ -1341,7 +1341,7 @@ export const CallWindow = () => {
                   className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transition-transform active:scale-95 flex-shrink-0"
                   style={neutralButtonStyle(hasLocalScreenShare)}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -3 24 24" width="20" height="20" className="w-5 h-5 text-current">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -3 24 24" width="28" height="28" className="w-7 h-7 text-current">
                     <path fill="currentColor" d="M3 2a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm0-2h14a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3m4 16h6a1 1 0 0 1 0 2H7a1 1 0 0 1 0-2" />
                   </svg>
                 </div>
@@ -1375,7 +1375,7 @@ export const CallWindow = () => {
             className="w-16 flex flex-col items-center gap-2 select-none bg-transparent border-0 p-0 outline-none cursor-pointer"
           >
             <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 flex-shrink-0" style={rejectButtonStyle}>
-              <X size={20} color="#ffffff" />
+              <X size={28} color="#ffffff" />
             </div>
             <span className="text-center truncate w-full" style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 500 }}>
               {t('call.close')}
