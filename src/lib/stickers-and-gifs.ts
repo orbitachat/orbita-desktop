@@ -209,7 +209,7 @@ export const SPOTTY_STICKER_PACK: StickerPack = {
   title: 'Spotty',
   author: 'Telegram',
   avatarUrl: './stickers/SpottyAnimated/file_3298489.webp',
-  stickers: Array.from({ length: 50 }, (_, i) => {
+  stickers: Array.from({ length: 49 }, (_, i) => {
     const fileId = 3298489 + i;
     return {
       id: `spotty_${fileId}`,
