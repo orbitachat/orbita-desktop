@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { AudioQueueMenu } from './AudioQueueMenu';
 import { AudioVolumePopover, AudioOrderPopover, AudioSpeedPopover } from './AudioControlsPopups';
+import { appVisibility } from '../../utils/appVisibility';
 
 const formatTime = (seconds: number) => {
   if (!seconds || !isFinite(seconds)) return '00:00';
@@ -191,13 +192,17 @@ export const GlobalAudioPlayer = () => {
         timeDisplayRef.current.textContent = formatTime(currentExactTime);
       }
 
-      if (isPlaying) {
+      if (isPlaying && appVisibility.getIsVisible()) {
         animId = requestAnimationFrame(tick);
       }
     };
 
     if (isPlaying) {
-      animId = requestAnimationFrame(tick);
+      if (appVisibility.getIsVisible()) {
+        animId = requestAnimationFrame(tick);
+      } else {
+        tick();
+      }
     } else {
       const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
       if (progressFillRef.current) {
@@ -208,8 +213,17 @@ export const GlobalAudioPlayer = () => {
       }
     }
 
+    const unsubVisibility = appVisibility.subscribe((visible) => {
+      cancelAnimationFrame(animId);
+      if (visible) {
+        lastSyncTime = performance.now();
+        tick();
+      }
+    });
+
     return () => {
       cancelAnimationFrame(animId);
+      unsubVisibility();
     };
   }, [isPlaying, duration, playbackRate, currentTime]);
 

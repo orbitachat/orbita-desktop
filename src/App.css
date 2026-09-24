@@ -879,3 +879,9 @@ textarea::selection,
   background-color: #ffffff !important;
   color: var(--accent-color, #7C3AED) !important;
 }
+
+html.app-paused *,
+html.app-paused *::before,
+html.app-paused *::after {
+  animation-play-state: paused !important;
+}

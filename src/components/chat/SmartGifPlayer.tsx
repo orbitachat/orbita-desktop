@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useChatStore } from '../../store/useChatStore';
+import { useAppVisibility } from '../../utils/appVisibility';
 
 interface SmartGifPlayerProps {
   blobUrl: string | null;
@@ -132,7 +133,8 @@ export const SmartGifPlayer = memo(({
   }, [blobUrl]);
 
   const isMediaViewerOpen = useChatStore((s) => s.isMediaViewerOpen);
-  const shouldAnimate = inView && !isPaused && !isMediaViewerOpen && !!blobUrl;
+  const isAppVisible = useAppVisibility();
+  const shouldAnimate = inView && !isPaused && !isMediaViewerOpen && !!blobUrl && isAppVisible;
 
   const containerWidth = msgWidth && msgWidth > 0 ? `${Math.min(msgWidth, 440)}px` : '320px';
 

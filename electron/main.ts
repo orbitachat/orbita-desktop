@@ -80,7 +80,7 @@ app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-accelerated-video-encode');
-app.commandLine.appendSwitch('enable-features', 'WebRtcD3D11VideoDecoder,WebRtcHardwareVideoEncoding,WebRtcD3d11DesktopCapturer');
+app.commandLine.appendSwitch('enable-features', 'CalculateNativeWinOcclusion,WebRtcD3D11VideoDecoder,WebRtcHardwareVideoEncoding,WebRtcD3d11DesktopCapturer');
 
 // Load optional native module
 let nativeModule: any = null;
@@ -3279,6 +3279,26 @@ function createMainWindow() {
 
   mainWindow.on('maximize', () => mainWindow?.webContents.send('window:state-changed', true));
   mainWindow.on('unmaximize', () => mainWindow?.webContents.send('window:state-changed', false));
+  mainWindow.on('minimize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('orbita:app-visibility-changed', false);
+    }
+  });
+  mainWindow.on('restore', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('orbita:app-visibility-changed', true);
+    }
+  });
+  mainWindow.on('hide', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('orbita:app-visibility-changed', false);
+    }
+  });
+  mainWindow.on('show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('orbita:app-visibility-changed', true);
+    }
+  });
   mainWindow.on('focus', () => console.log('[Window] Focused'));
   mainWindow.on('blur', () => console.log('[Window] Blurred'));
 

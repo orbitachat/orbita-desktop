@@ -21,6 +21,9 @@ import { gatewayManager } from './services/gatewayManager';
 import { requestNotificationPermission } from './utils/notification';
 import { initAutoBackupListener } from './services/accountBackupService';
 import { accountSyncService } from './services/accountSyncService';
+import { appVisibility } from './utils/appVisibility';
+
+appVisibility.init();
 
 class ErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }> {
   state = { hasError: false };

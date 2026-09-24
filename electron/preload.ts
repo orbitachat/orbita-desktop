@@ -139,6 +139,11 @@ contextBridge.exposeInMainWorld('orbita', {
     ipcRenderer.on('orbita:call-visibility-changed', handler);
     return () => ipcRenderer.removeListener('orbita:call-visibility-changed', handler);
   },
+  onAppVisibilityChanged: (callback: (visible: boolean) => void) => {
+    const handler = (_event: unknown, visible: boolean) => callback(visible);
+    ipcRenderer.on('orbita:app-visibility-changed', handler);
+    return () => ipcRenderer.removeListener('orbita:app-visibility-changed', handler);
+  },
 
   openMediaWindow: (payload?: any) => ipcRenderer.invoke('orbita:open-media-window', payload),
   closeMediaWindow: () => ipcRenderer.invoke('orbita:close-media-window'),

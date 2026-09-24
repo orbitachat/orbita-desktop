@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import lottie, { AnimationItem } from 'lottie-web';
+import { appVisibility } from '../../utils/appVisibility';
 
 interface TgsPlayerProps {
   src: string;
@@ -181,8 +182,8 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   }, [loop, autoplay]);
 
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden) {
+    const handleVisibility = (visible: boolean) => {
+      if (!visible) {
         if (isPlayingRef.current) {
           animRef.current?.pause();
         }
@@ -201,10 +202,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
+    return appVisibility.subscribe(handleVisibility);
   }, [loop, autoplay]);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {

@@ -59,6 +59,7 @@ import { BotIcon } from '../common/BotIcon';
 import { type ConfirmActionType } from '../common/ActionConfirmModal';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useAudioStore } from '../../store/useAudioStore';
+import { appVisibility } from '../../utils/appVisibility';
 import { type MediaViewerItem } from './TelegramMediaViewer';
 import { channelService, type ChannelPost } from '../../services/channelService';
 import { EmojiPicker } from './EmojiPicker';
@@ -1727,13 +1728,17 @@ const VoiceMessagePlayer = memo(({
         timeDisplayRef.current.textContent = `${formatVoiceTime(currentExactTime)} / ${formatVoiceTime(effectiveDuration)}`;
       }
 
-      if (isPlaying) {
+      if (isPlaying && appVisibility.getIsVisible()) {
         animId = requestAnimationFrame(tick);
       }
     };
 
     if (isPlaying) {
-      animId = requestAnimationFrame(tick);
+      if (appVisibility.getIsVisible()) {
+        animId = requestAnimationFrame(tick);
+      } else {
+        tick();
+      }
     } else {
       let ratio = dragProgressRatio !== null
         ? dragProgressRatio
@@ -1751,8 +1756,17 @@ const VoiceMessagePlayer = memo(({
       }
     }
 
+    const unsubVisibility = appVisibility.subscribe((visible) => {
+      cancelAnimationFrame(animId);
+      if (visible) {
+        lastSyncTime = performance.now();
+        tick();
+      }
+    });
+
     return () => {
       cancelAnimationFrame(animId);
+      unsubVisibility();
     };
   }, [isPlaying, isCurrentTrack, effectiveDuration, dragProgressRatio]);
 
