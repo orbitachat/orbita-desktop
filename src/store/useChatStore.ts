@@ -299,6 +299,10 @@ let pendingStorageVal: string | null = null;
 let lastSavedValues: Record<string, string> = {};
 
 const flushStorageSet = () => {
+  if (setItemTimer) {
+    clearTimeout(setItemTimer);
+    setItemTimer = null;
+  }
   if (pendingStorageKey && pendingStorageVal !== null) {
     const key = pendingStorageKey;
     const val = pendingStorageVal;
@@ -312,6 +316,7 @@ const flushStorageSet = () => {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushStorageSet);
+  window.addEventListener('pagehide', flushStorageSet);
 }
 
 const ipcStorage: StateStorage = {
@@ -323,6 +328,12 @@ const ipcStorage: StateStorage = {
     let val = null;
     if ((window as any).orbita?.storageGet) {
       val = await (window as any).orbita.storageGet(name);
+      if (!val) {
+        val = localStorage.getItem(name);
+        if (val) {
+          (window as any).orbita.storageSet(name, val).catch(() => {});
+        }
+      }
     } else {
       val = localStorage.getItem(name);
     }
@@ -342,7 +353,7 @@ const ipcStorage: StateStorage = {
     if (setItemTimer) clearTimeout(setItemTimer);
     setItemTimer = setTimeout(() => {
       flushStorageSet();
-    }, 5000);
+    }, 300);
     return Promise.resolve();
   },
   removeItem: async (name: string): Promise<void> => {
@@ -1028,6 +1039,10 @@ export const useChatStore = create<ChatState>()(
               : c
           ),
         });
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          (window as any).orbita.storageAddMessage(chatId, enrichedMessage.id, enrichedMessage).catch(() => {});
+        }
+        flushStorageSet();
       },
       addMessagesBatch: (items) => {
         if (!items || items.length === 0) return;
@@ -1099,6 +1114,15 @@ export const useChatStore = create<ChatState>()(
             };
           }),
         });
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          for (const item of items) {
+            if (item.message) {
+              const mid = item.message.id || `msg_${Date.now()}`;
+              (window as any).orbita.storageAddMessage(item.chatId, mid, item.message).catch(() => {});
+            }
+          }
+        }
+        flushStorageSet();
       },
       deleteMessage: (chatId, messageId) => {
         const state = get();
@@ -1119,6 +1143,10 @@ export const useChatStore = create<ChatState>()(
               : c
           ),
         });
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageDeleteMessage) {
+          (window as any).orbita.storageDeleteMessage(messageId).catch(() => {});
+        }
+        flushStorageSet();
       },
       updateMessageStatus: (chatId, messageId, status) => {
         const state = get();
@@ -1148,6 +1176,11 @@ export const useChatStore = create<ChatState>()(
             c.id === chatId ? { ...c, lastMsg: newText } : c
           ),
         });
+        const editedMsg = updated.find(m => m.id === messageId);
+        if (editedMsg && typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          (window as any).orbita.storageAddMessage(chatId, messageId, editedMsg).catch(() => {});
+        }
+        flushStorageSet();
       },
       toggleReaction: (chatId, messageIndexOrId, emoji, user) => {
         get().setReaction(chatId, messageIndexOrId, emoji, user, 'toggle');

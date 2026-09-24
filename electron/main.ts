@@ -1274,7 +1274,7 @@ function setKvValue(key: string, value: string): Promise<void> {
       } catch (e) {
         reject(e);
       }
-    }, key === 'orbita-chat-storage' ? 5000 : 2000);
+    }, 300);
 
     kvWriteQueue.set(key, { value, timer });
     resolve();
@@ -3336,6 +3336,7 @@ function createMainWindow() {
   });
 
   mainWindow.on('close', (e) => {
+    flushKvWritesSync();
     if (!isQuitting && showInTraySetting && mainWindow && !mainWindow.isDestroyed()) {
       e.preventDefault();
       mainWindow.hide();

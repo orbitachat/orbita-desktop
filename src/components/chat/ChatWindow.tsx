@@ -4167,10 +4167,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         // Get fresh chat state to get latest ratchetState
         const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
 
+        try {
+          (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, localMessage);
+        } catch {}
+
         if (freshChat?.type === 'group') {
-          try {
-            (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, localMessage);
-          } catch {}
 
           let groupSecret = freshChat.sharedSecret;
           if (!groupSecret && freshChat.id && freshChat.id.length === 36) {
@@ -4718,33 +4719,35 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
   };
 
   useEffect(() => {
-    if (!activeChatId || activeChatId === 'notes') return;
+    if (!activeChatId) return;
 
-    // Sync persisted reactions from Supabase on chat open
-    useChatStore.getState().syncReactionsFromSupabase(activeChatId);
+    if (activeChatId !== 'notes') {
+      useChatStore.getState().syncReactionsFromSupabase(activeChatId);
+    }
+
+    const currentMemoryMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+    if (currentMemoryMsgs.length === 0) {
+      try {
+        (window as any).orbita?.storageGetMessages?.(activeChatId).then((cached: any[]) => {
+          if (Array.isArray(cached) && cached.length > 0) {
+            useChatStore.setState((state) => {
+              const nowMsgs = state.messagesByChatId[activeChatId] || [];
+              if (nowMsgs.length === 0) {
+                return {
+                  messagesByChatId: {
+                    ...state.messagesByChatId,
+                    [activeChatId]: cached,
+                  },
+                };
+              }
+              return state;
+            });
+          }
+        });
+      } catch {}
+    }
 
     if (activeChat?.type === 'group') {
-      const currentMemoryMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-      if (currentMemoryMsgs.length === 0) {
-        try {
-          (window as any).orbita?.storageGetMessages?.(activeChatId).then((cached: any[]) => {
-            if (Array.isArray(cached) && cached.length > 0) {
-              useChatStore.setState((state) => {
-                const nowMsgs = state.messagesByChatId[activeChatId] || [];
-                if (nowMsgs.length === 0) {
-                  return {
-                    messagesByChatId: {
-                      ...state.messagesByChatId,
-                      [activeChatId]: cached,
-                    },
-                  };
-                }
-                return state;
-              });
-            }
-          });
-        } catch {}
-      }
 
       const groupSecret = activeChat.sharedSecret ||
         (activeChat.inviteCode && isValidGroupCode(activeChat.inviteCode) ? deriveGroupKey(activeChat.inviteCode) : undefined) ||
