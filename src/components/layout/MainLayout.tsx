@@ -4363,8 +4363,8 @@ export const MainLayout = () => {
           className="flex flex-col items-center shrink-0 select-none"
           style={{
             width: '72px',
-            backgroundColor: 'var(--surface-container-soft, rgba(255,255,255,0.02))',
-            borderRight: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-primary)',
+            borderRight: 'none',
           }}
         >
           <div
