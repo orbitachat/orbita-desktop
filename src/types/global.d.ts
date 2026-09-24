@@ -86,6 +86,7 @@ declare global {
       toggleFullScreen: () => Promise<void>;
       onWindowStateChange: (callback: (isMaximized: boolean) => void) => () => void;
       onAppVisibilityChanged?: (callback: (visible: boolean) => void) => () => void;
+      onAppFocusChanged?: (callback: (focused: boolean) => void) => () => void;
       doubleClickTitleBar: () => void;
       notificationsEnabled: () => Promise<boolean>;
       onNotificationsChanged: (callback: (enabled: boolean) => void) => () => void;

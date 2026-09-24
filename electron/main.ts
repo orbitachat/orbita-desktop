@@ -3299,8 +3299,16 @@ function createMainWindow() {
       mainWindow.webContents.send('orbita:app-visibility-changed', true);
     }
   });
-  mainWindow.on('focus', () => console.log('[Window] Focused'));
-  mainWindow.on('blur', () => console.log('[Window] Blurred'));
+  mainWindow.on('focus', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('orbita:app-focus-changed', true);
+    }
+  });
+  mainWindow.on('blur', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('orbita:app-focus-changed', false);
+    }
+  });
 
   initNotifManager(mainWindow);
 

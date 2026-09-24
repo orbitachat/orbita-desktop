@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 type VisibilityListener = (visible: boolean) => void;
 
 class AppVisibilityManager {
-  private isVisible: boolean = typeof document !== 'undefined' ? !document.hidden : true;
+  private isVisible: boolean = typeof document !== 'undefined' ? (!document.hidden && (document.hasFocus ? document.hasFocus() : true)) : true;
   private isElectronWindowVisible: boolean = true;
+  private isElectronWindowFocused: boolean = typeof document !== 'undefined' && typeof document.hasFocus === 'function' ? document.hasFocus() : true;
   private listeners: Set<VisibilityListener> = new Set();
+  private blurTimeout: ReturnType<typeof setTimeout> | null = null;
   private initialized: boolean = false;
 
   constructor() {
@@ -18,32 +20,63 @@ class AppVisibilityManager {
     if (this.initialized) return;
     this.initialized = true;
 
-    const update = () => {
-      const docVisible = typeof document !== 'undefined' ? !document.hidden : true;
-      const effectiveVisible = docVisible && this.isElectronWindowVisible;
-      if (this.isVisible !== effectiveVisible) {
-        this.isVisible = effectiveVisible;
+    const applyState = (target: boolean) => {
+      if (this.isVisible !== target) {
+        this.isVisible = target;
         if (typeof document !== 'undefined') {
-          document.documentElement.classList.toggle('app-paused', !effectiveVisible);
+          document.documentElement.classList.toggle('app-paused', !target);
         }
         this.listeners.forEach((listener) => {
           try {
-            listener(effectiveVisible);
+            listener(target);
           } catch {}
         });
-        window.dispatchEvent(new CustomEvent('orbita:app-visibility', { detail: { visible: effectiveVisible } }));
+        window.dispatchEvent(new CustomEvent('orbita:app-visibility', { detail: { visible: target } }));
+      }
+    };
+
+    const update = (immediate: boolean = false) => {
+      const docVisible = typeof document !== 'undefined' ? !document.hidden : true;
+      const docFocused = typeof document !== 'undefined' && typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+      const targetState = docVisible && this.isElectronWindowVisible && this.isElectronWindowFocused && docFocused;
+
+      if (this.blurTimeout) {
+        clearTimeout(this.blurTimeout);
+        this.blurTimeout = null;
+      }
+
+      if (targetState) {
+        applyState(true);
+      } else if (immediate) {
+        applyState(false);
+      } else {
+        this.blurTimeout = setTimeout(() => {
+          this.blurTimeout = null;
+          const freshDocVisible = typeof document !== 'undefined' ? !document.hidden : true;
+          const freshDocFocused = typeof document !== 'undefined' && typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+          const freshTargetState = freshDocVisible && this.isElectronWindowVisible && this.isElectronWindowFocused && freshDocFocused;
+          applyState(freshTargetState);
+        }, 150);
       }
     };
 
     if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', update);
+      document.addEventListener('visibilitychange', () => update());
+      window.addEventListener('focus', () => {
+        this.isElectronWindowFocused = true;
+        update(true);
+      });
+      window.addEventListener('blur', () => {
+        this.isElectronWindowFocused = false;
+        update(false);
+      });
       window.addEventListener('pagehide', () => {
         this.isElectronWindowVisible = false;
-        update();
+        update(true);
       });
       window.addEventListener('pageshow', () => {
         this.isElectronWindowVisible = true;
-        update();
+        update(true);
       });
     }
 
@@ -51,12 +84,20 @@ class AppVisibilityManager {
     if (orbita?.onAppVisibilityChanged) {
       orbita.onAppVisibilityChanged((visible: boolean) => {
         this.isElectronWindowVisible = visible;
-        update();
+        update(!visible);
+      });
+    }
+
+    if (orbita?.onAppFocusChanged) {
+      orbita.onAppFocusChanged((focused: boolean) => {
+        this.isElectronWindowFocused = focused;
+        update(focused);
       });
     }
 
     const docVisible = typeof document !== 'undefined' ? !document.hidden : true;
-    this.isVisible = docVisible && this.isElectronWindowVisible;
+    const docFocused = typeof document !== 'undefined' && typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+    this.isVisible = docVisible && this.isElectronWindowVisible && this.isElectronWindowFocused && docFocused;
     if (typeof document !== 'undefined') {
       document.documentElement.classList.toggle('app-paused', !this.isVisible);
     }
