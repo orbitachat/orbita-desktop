@@ -311,27 +311,30 @@ export const CallWindowView = () => {
       setIsLocalVideoActive(false);
       setExpandedShare(null);
       setIsScreenPickerOpen(false);
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      if (remoteScreenShareRef.current) remoteScreenShareRef.current.srcObject = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (localScreenShareRef.current) localScreenShareRef.current.srcObject = null;
+      if (bgVideoRef.current) bgVideoRef.current.srcObject = null;
       liveKitService.disconnect().catch(() => {});
       groupLiveKitService.disconnect().catch(() => {});
     };
 
     if (orbita?.getCallState) {
       orbita.getCallState().then((state: CallStatePayload | null) => {
-        if (state) {
+        if (state && state.callState !== 'idle' && state.callState !== 'ended') {
           setCallData(state);
-          if (state.callState === 'idle' || state.callState === 'ended') {
-            resetCallStateAndDisconnect();
-          }
+        } else {
+          resetCallStateAndDisconnect();
         }
       }).catch(() => {});
     }
 
     const unsubState = orbita?.onCallState?.((state: CallStatePayload | null) => {
-      if (state) {
+      if (state && state.callState !== 'idle' && state.callState !== 'ended') {
         setCallData(state);
-        if (state.callState === 'idle' || state.callState === 'ended') {
-          resetCallStateAndDisconnect();
-        }
+      } else {
+        resetCallStateAndDisconnect();
       }
     });
 
@@ -368,11 +371,11 @@ export const CallWindowView = () => {
       broadcastChannel = new BroadcastChannel('orbita-call-channel');
       broadcastChannel.onmessage = (event) => {
         if (event.data?.type === 'CALL_STATE_UPDATE') {
-          if (event.data.payload) {
-            setCallData(event.data.payload);
-            if (event.data.payload.callState === 'idle' || event.data.payload.callState === 'ended') {
-              resetCallStateAndDisconnect();
-            }
+          const payload = event.data.payload;
+          if (payload && payload.callState !== 'idle' && payload.callState !== 'ended') {
+            setCallData(payload);
+          } else {
+            resetCallStateAndDisconnect();
           }
         } else if (event.data?.type === 'CALL_ACTION') {
           const isGrp = callData?.activeCall?.chatType === 'group' ||
@@ -402,14 +405,15 @@ export const CallWindowView = () => {
           }
         }
       };
-      broadcastChannel.postMessage({ type: 'REQUEST_CALL_STATE' });
     } catch {}
 
     const handleFocusSync = () => {
       if (orbita?.getCallState) {
         orbita.getCallState().then((state: CallStatePayload | null) => {
-          if (state) {
+          if (state && state.callState !== 'idle' && state.callState !== 'ended') {
             setCallData(state);
+          } else {
+            resetCallStateAndDisconnect();
           }
         }).catch(() => {});
       }
@@ -1510,7 +1514,7 @@ export const CallWindowView = () => {
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-colors flex-shrink-0" style={rejectButtonStyle}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" className="w-[22px] h-[22px] text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" className="w-7 h-7 text-white">
                   <path fill="currentColor" d="m4.51 15.48l2-1.59c.48-.38.76-.96.76-1.57v-2.6c3.02-.98 6.29-.99 9.32 0v2.61c0 .61.28 1.19.76 1.57l1.99 1.58c.8.63 1.94.57 2.66-.15l1.22-1.22c.8-.8.8-2.13-.05-2.88c-6.41-5.66-16.07-5.66-22.48 0c-.85.75-.85 2.08-.05 2.88l1.22 1.22c.71.72 1.85.78 2.65.15" />
                 </svg>
               </div>
@@ -1526,7 +1530,7 @@ export const CallWindowView = () => {
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md flex-shrink-0" style={accentButtonStyle}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" className="w-5 h-5 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" className="w-7 h-7 text-white">
                   <path fill="currentColor" d="m19.23 15.26l-2.54-.29a1.99 1.99 0 0 0-1.64.57l-1.84 1.84a15.05 15.05 0 0 1-6.59-6.59l1.85-1.85c.43-.43.64-1.03.57-1.64l-.29-2.52a2 2 0 0 0-1.99-1.77H5.03c-1.13 0-2.07.94-2 2.07c.53 8.54 7.36 15.36 15.89 15.89c1.13.07 2.07-.87 2.07-2v-1.73c.01-1.01-.75-1.86-1.76-1.98" />
                 </svg>
               </div>
@@ -1569,7 +1573,7 @@ export const CallWindowView = () => {
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-colors flex-shrink-0" style={rejectButtonStyle}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" className="w-[22px] h-[22px] text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" className="w-7 h-7 text-white">
                   <path fill="currentColor" d="m4.51 15.48l2-1.59c.48-.38.76-.96.76-1.57v-2.6c3.02-.98 6.29-.99 9.32 0v2.61c0 .61.28 1.19.76 1.57l1.99 1.58c.8.63 1.94.57 2.66-.15l1.22-1.22c.8-.8.8-2.13-.05-2.88c-6.41-5.66-16.07-5.66-22.48 0c-.85.75-.85 2.08-.05 2.88l1.22 1.22c.71.72 1.85.78 2.65.15" />
                 </svg>
               </div>
@@ -1585,7 +1589,7 @@ export const CallWindowView = () => {
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md flex-shrink-0" style={accentButtonStyle}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" className="w-5 h-5 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" className="w-7 h-7 text-white">
                   <path fill="currentColor" d="m19.23 15.26l-2.54-.29a1.99 1.99 0 0 0-1.64.57l-1.84 1.84a15.05 15.05 0 0 1-6.59-6.59l1.85-1.85c.43-.43.64-1.03.57-1.64l-.29-2.52a2 2 0 0 0-1.99-1.77H5.03c-1.13 0-2.07.94-2 2.07c.53 8.54 7.36 15.36 15.89 15.89c1.13.07 2.07-.87 2.07-2v-1.73c.01-1.01-.75-1.86-1.76-1.98" />
                 </svg>
               </div>
@@ -1671,7 +1675,7 @@ export const CallWindowView = () => {
               className="w-16 flex flex-col items-center gap-2 border-0 bg-transparent cursor-pointer outline-none select-none p-0"
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-colors flex-shrink-0" style={rejectButtonStyle}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" className="w-[22px] h-[22px] text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28" className="w-7 h-7 text-white">
                   <path fill="currentColor" d="m4.51 15.48l2-1.59c.48-.38.76-.96.76-1.57v-2.6c3.02-.98 6.29-.99 9.32 0v2.61c0 .61.28 1.19.76 1.57l1.99 1.58c.8.63 1.94.57 2.66-.15l1.22-1.22c.8-.8.8-2.13-.05-2.88c-6.41-5.66-16.07-5.66-22.48 0c-.85.75-.85 2.08-.05 2.88l1.22 1.22c.71.72 1.85.78 2.65.15" />
                 </svg>
               </div>

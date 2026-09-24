@@ -1247,7 +1247,7 @@ const syncCallState = (state: CallStore) => {
   } catch {}
   const prevCallState = lastKnownCallState;
   lastKnownCallState = state.callState;
-  if (state.callState !== 'idle' && (prevCallState === 'idle' || state.callState === 'ringing' || state.callState === 'preparing')) {
+  if (state.callState !== 'idle' && state.callState !== 'ended' && prevCallState === 'idle') {
     try { (window as any).orbita?.openCallWindow?.(payload); } catch {}
   } else if (state.callState === 'idle' || state.callState === 'ended') {
     try { (window as any).orbita?.closeCallWindow?.(); } catch {}

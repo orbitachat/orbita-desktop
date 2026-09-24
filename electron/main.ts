@@ -2537,7 +2537,7 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
       contextIsolation: true,
       sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
-      backgroundThrottling: true,
+      backgroundThrottling: false,
       devTools: !app.isPackaged,
     },
     title: 'Orbita Call',
@@ -2604,7 +2604,6 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
   callWindow.on('hide', () => {
     if (callWindow && !callWindow.isDestroyed()) {
       callWindow.webContents.send('orbita:call-visibility-changed', false);
-      callWindow.webContents.setBackgroundThrottling(true);
     }
   });
 
@@ -2637,16 +2636,14 @@ function createOrShowCallWindow(initialPayload?: any): BrowserWindow {
 
   const win = initOrGetCallWindow(initialPayload);
 
-  if (!win.isDestroyed()) {
-    win.webContents.setBackgroundThrottling(false);
-  }
-
   if (currentCallStateCache && !win.isDestroyed()) {
     win.webContents.send('orbita:call-state', currentCallStateCache);
   }
 
   if (win.isMinimized()) win.restore();
-  win.show();
+  if (!win.isVisible()) {
+    win.show();
+  }
   win.focus();
 
   if (currentCallStateCache && !win.isDestroyed() && win.webContents.isLoading()) {
