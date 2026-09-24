@@ -515,7 +515,8 @@ export const EmojiPicker = ({
                           {sticker.url.endsWith('.tgs') ? (
                             <TgsPlayer
                               src={sticker.url}
-                              className="w-full h-full pointer-events-none select-none"
+                              hoverToPlay={true}
+                              className="w-full h-full select-none"
                             />
                           ) : (
                             <img
@@ -547,7 +548,8 @@ export const EmojiPicker = ({
                             {sticker.url.endsWith('.tgs') ? (
                               <TgsPlayer
                                 src={sticker.url}
-                                className="w-full h-full pointer-events-none select-none"
+                                hoverToPlay={true}
+                                className="w-full h-full select-none"
                               />
                             ) : (
                               <img
@@ -630,7 +632,7 @@ export const EmojiPicker = ({
                       aria-label={pack.title}
                     >
                       {pack.avatarUrl.endsWith('.tgs') ? (
-                        <TgsPlayer src={pack.avatarUrl} className="w-full h-full pointer-events-none" />
+                        <TgsPlayer src={pack.avatarUrl} hoverToPlay={true} className="w-full h-full" />
                       ) : (
                         <img src={pack.avatarUrl} alt="" className="w-full h-full object-contain pointer-events-none" />
                       )}
