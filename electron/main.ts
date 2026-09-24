@@ -1314,14 +1314,7 @@ function getMessages(chatId: string, limit?: number, offset?: number): Promise<a
             return null;
           }
         })
-        .filter((m) => {
-          if (!m) return false;
-          if (m.expiresAt && m.expiresAt <= Date.now()) {
-            deleteMessageById(m.id).catch(() => {});
-            return false;
-          }
-          return true;
-        });
+        .filter((m) => m !== null);
       resolve(items);
     });
   });

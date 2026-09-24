@@ -286,7 +286,7 @@ export interface InChatSearchState {
 
 const TEXT_SCALE_MIN = 75;
 const TEXT_SCALE_MAX = 200;
-const MAX_MESSAGES_PER_CHAT = 1000;
+const MAX_MESSAGES_PER_CHAT = 1000000;
 
 export function clampTextScale(value: number): number {
   const n = Number.isFinite(value) ? Math.round(value) : 100;
@@ -547,7 +547,6 @@ interface ChatState {
   markChatAsRead: (chatId: string) => void;
   getUnreadChatsCount: () => number;
   closeChat: () => void;
-  purgeExpiredMessages: () => void;
   setFontFamily: (font: FontFamily) => void;
   setTextScale: (scale: number) => void;
   setDotColor: (color: string) => void;
@@ -1374,43 +1373,6 @@ export const useChatStore = create<ChatState>()(
           activeProxyInfo: active ? (info ?? state.activeProxyInfo) : null,
         })),
       setMessageTTL: (seconds) => set({ messageTTLSeconds: seconds }),
-      purgeExpiredMessages: () => {
-        const now = Date.now();
-        const state = get();
-        let hasChanges = false;
-        const newMessagesByChatId: Record<string, Message[]> = {};
-        const expiredIds: string[] = [];
-
-        for (const [chatId, msgs] of Object.entries(state.messagesByChatId || {})) {
-          if (!Array.isArray(msgs)) continue;
-          const valid = msgs.filter((m) => {
-            if (m.expiresAt && m.expiresAt <= now) {
-              if (m.id) expiredIds.push(m.id);
-              hasChanges = true;
-              return false;
-            }
-            return true;
-          });
-          if (valid.length !== msgs.length) {
-            newMessagesByChatId[chatId] = valid;
-          }
-        }
-
-        if (hasChanges) {
-          set((s) => ({
-            messagesByChatId: {
-              ...s.messagesByChatId,
-              ...newMessagesByChatId,
-            },
-          }));
-          if (typeof window !== 'undefined' && (window as any).orbita?.storageDeleteMessage) {
-            for (const id of expiredIds) {
-              (window as any).orbita.storageDeleteMessage(id).catch(() => {});
-            }
-          }
-          flushStorageSet();
-        }
-      },
       setEyeCareEnabled: (enabled) => set({ eyeCareEnabled: enabled }),
       setEyeCareOpacity: (opacity) => set({ eyeCareOpacity: opacity }),
       setEyeCareDensity: (density) => set({ eyeCareDensity: density }),
@@ -1922,7 +1884,6 @@ export const useChatStore = create<ChatState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHasHydrated(true);
-          state.purgeExpiredMessages();
         }
         if (state && !Array.isArray(state.pinnedChatIds)) {
           state.pinnedChatIds = [];
@@ -1950,9 +1911,3 @@ export const useChatStore = create<ChatState>()(
     }
   )
 );
-
-if (typeof window !== 'undefined') {
-  setInterval(() => {
-    useChatStore.getState().purgeExpiredMessages();
-  }, 5000);
-}

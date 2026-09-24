@@ -4725,27 +4725,36 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       useChatStore.getState().syncReactionsFromSupabase(activeChatId);
     }
 
-    const currentMemoryMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-    if (currentMemoryMsgs.length === 0) {
-      try {
-        (window as any).orbita?.storageGetMessages?.(activeChatId).then((cached: any[]) => {
-          if (Array.isArray(cached) && cached.length > 0) {
-            useChatStore.setState((state) => {
-              const nowMsgs = state.messagesByChatId[activeChatId] || [];
-              if (nowMsgs.length === 0) {
-                return {
-                  messagesByChatId: {
-                    ...state.messagesByChatId,
-                    [activeChatId]: cached,
-                  },
-                };
-              }
-              return state;
-            });
-          }
-        });
-      } catch {}
-    }
+    try {
+      (window as any).orbita?.storageGetMessages?.(activeChatId).then((cached: any[]) => {
+        if (Array.isArray(cached) && cached.length > 0) {
+          useChatStore.setState((state) => {
+            const nowMsgs = state.messagesByChatId[activeChatId] || [];
+            if (nowMsgs.length === 0) {
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: cached,
+                },
+              };
+            }
+            if (cached.length > nowMsgs.length) {
+              const map = new Map<string, any>();
+              cached.forEach((m) => { if (m?.id) map.set(m.id, m); });
+              nowMsgs.forEach((m) => { if (m?.id) map.set(m.id, m); });
+              const merged = Array.from(map.values()).sort((a, b) => (a.time || 0) - (b.time || 0));
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [activeChatId]: merged,
+                },
+              };
+            }
+            return state;
+          });
+        }
+      });
+    } catch {}
 
     if (activeChat?.type === 'group') {
 
