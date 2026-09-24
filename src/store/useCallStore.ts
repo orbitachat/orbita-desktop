@@ -736,7 +736,10 @@ export const useCallStore = create<CallStore>((set, get) => {
           try {
             const groupPusher = getGroupPusher();
             const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
-            const notifyCall = () => grpCh.trigger('group-call-started', { roomName });
+            const notifyCall = () => {
+              try { grpCh.trigger('client-group-call-started', { roomName, chatId }); } catch {}
+              try { grpCh.trigger('client-message', { type: 'group-call-started', roomName, chatId }); } catch {}
+            };
             if (grpCh.subscribed) notifyCall(); else grpCh.bind('pusher:subscription_succeeded', notifyCall);
           } catch {}
         }
@@ -943,16 +946,34 @@ export const useCallStore = create<CallStore>((set, get) => {
         sendCallSignalReliable(chatId, { type: signalType, sender: state.myNickname || undefined, text: '', roomName });
       }
       if (isGroup) {
+        const { identity: myLivekitIdentity } = getLivekitParticipantIdentity(state.myNickname || '');
+        const isRemoteParticipant = (p: any) => {
+          if (!p) return false;
+          if (p.isLocal === true) return false;
+          if (state.myNickname && (p.name === state.myNickname || p.identity === state.myNickname)) return false;
+          if (myLivekitIdentity && p.identity === myLivekitIdentity) return false;
+          return p.isLocal === false || (p.identity && p.identity !== 'local');
+        };
+        const activeRemotesCount = activeCall.participants?.filter(isRemoteParticipant).length || 0;
+        const livekitRemotesCount = groupLiveKitService.remoteParticipants.length || 0;
+        const computedRemotes = Math.max(activeRemotesCount, livekitRemotesCount);
+        const isEarlyState = state.callState === 'preparing' || state.callState === 'ringing' || state.callState === 'connecting';
         const remainingRemotes = typeof remotesOverride === 'number'
           ? remotesOverride
-          : (activeCall.participants?.filter((p: any) => !p.isLocal).length || groupLiveKitService.remoteParticipants.length);
-        if (remainingRemotes === 0) {
+          : (isEarlyState ? 0 : computedRemotes);
+        const isInitiator = activeCall.direction === 'outgoing';
+        const shouldEndForGroup = remainingRemotes === 0 || (isInitiator && isEarlyState);
+        if (shouldEndForGroup) {
           groupService.endCall(chatId, state.myNickname || undefined).catch(() => {});
           useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
           try {
             const groupPusher = getGroupPusher();
             const grpCh = groupPusher.subscribe(`presence-group-${chatId}`);
-            grpCh.trigger('group-call-ended', {});
+            const sendEnd = () => {
+              try { grpCh.trigger('client-group-call-ended', { chatId, roomName }); } catch {}
+              try { grpCh.trigger('client-message', { type: 'group-call-ended', chatId, roomName }); } catch {}
+            };
+            if (grpCh.subscribed) sendEnd(); else grpCh.bind('pusher:subscription_succeeded', sendEnd);
           } catch {}
         }
       }
@@ -1233,7 +1254,7 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
     case 'cancelCall':
       lastKnownCallState = 'idle';
       try { void liveKitService.stopScreenShare(); } catch {}
-      store.endCall(true);
+      store.endCall(true, action.payload?.remainingRemotes ?? 0);
       try { (window as any).orbita?.closeCallWindow?.(); } catch {}
       break;
     case 'endCall':

@@ -878,6 +878,13 @@ class GroupService {
         .maybeSingle();
 
       if (data) {
+        const isStale = data.created_at && (Date.now() - new Date(data.created_at).getTime() > 6 * 60 * 60 * 1000);
+        if (isStale) {
+          try {
+            await this.supabase.from('group_calls').update({ status: 'ended', updated_at: new Date().toISOString() }).eq('group_id', groupId);
+          } catch {}
+          return null;
+        }
         return {
           groupId: data.group_id,
           roomName: data.room_name,
@@ -894,6 +901,10 @@ class GroupService {
       if (res.ok) {
         const data = await res.json();
         if (data.call) {
+          const isStale = data.call.created_at && (Date.now() - new Date(data.call.created_at).getTime() > 6 * 60 * 60 * 1000);
+          if (isStale) {
+            return null;
+          }
           return {
             groupId: data.call.group_id,
             roomName: data.call.room_name,
@@ -949,7 +960,7 @@ class GroupService {
     } catch {}
 
     const secret = deriveGroupKey(groupId);
-    this.sendSystemMessage(groupId, secret, 'call_ended', actorNickname || '');
+    await this.sendSystemMessage(groupId, secret, 'call_ended', actorNickname || '');
   }
 
   async fetchMyGroups(userCode: string, userId?: string): Promise<(GroupInfo & { role: string })[]> {

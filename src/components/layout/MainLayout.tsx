@@ -2675,6 +2675,15 @@ export const MainLayout = () => {
         return;
       }
 
+      if (data?.type === 'group-call-ended' || data?.type === 'client-group-call-ended') {
+        useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
+        return;
+      }
+      if (data?.type === 'group-call-started' || data?.type === 'client-group-call-started') {
+        useChatStore.getState().updateChat(chatId, { activeCallRoom: data.roomName || `group-call-${chatId}` });
+        return;
+      }
+
       const myUserId = useAuthStore.getState().userId;
       const isSelfMessage = Boolean(
         (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
@@ -2755,6 +2764,19 @@ export const MainLayout = () => {
         };
 
         addMessage(chatId, msgPayload);
+
+        if (parsedData?.mediaType === 'system' || data.mediaType === 'system') {
+          const sysType = parsedData?.systemType || data.systemType;
+          if (sysType === 'call_ended') {
+            useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
+          } else if (sysType === 'call') {
+            groupService.getActiveCall(chatId).then((call) => {
+              if (call && call.status === 'active') {
+                useChatStore.getState().updateChat(chatId, { activeCallRoom: call.roomName });
+              }
+            }).catch(() => {});
+          }
+        }
 
         try {
           (window as any).orbita?.storageAddMessage?.(chatId, msgId, msgPayload);
@@ -2860,12 +2882,16 @@ export const MainLayout = () => {
         onlineMemberIds: curIds.filter((id) => !remIds.has(id)),
       });
     });
-    channel.bind('group-call-started', (data: any) => {
-      useChatStore.getState().updateChat(chatId, { activeCallRoom: data?.roomName || null });
-    });
-    channel.bind('group-call-ended', () => {
+    const handleGroupCallStarted = (data: any) => {
+      useChatStore.getState().updateChat(chatId, { activeCallRoom: data?.roomName || `group-call-${chatId}` });
+    };
+    const handleGroupCallEnded = () => {
       useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
-    });
+    };
+    channel.bind('group-call-started', handleGroupCallStarted);
+    channel.bind('client-group-call-started', handleGroupCallStarted);
+    channel.bind('group-call-ended', handleGroupCallEnded);
+    channel.bind('client-group-call-ended', handleGroupCallEnded);
     channel.bind('member-joined', (data: any) => {
       if (data?.members) {
         useChatStore.getState().updateChat(chatId, { members: data.members, membersCount: data.members.length });

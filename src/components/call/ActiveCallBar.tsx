@@ -184,12 +184,12 @@ export const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ className = '', st
           aria-label={t('call.hang_up')}
           onClick={(e) => {
             e.stopPropagation();
-            endCall();
+            endCall(false, 0);
             try {
-              (window as any).orbita?.sendCallAction?.({ type: 'endCall' });
+              (window as any).orbita?.sendCallAction?.({ type: 'endCall', payload: { remainingRemotes: 0 } });
               (window as any).orbita?.closeCallWindow?.();
               const bc = new BroadcastChannel('orbita-call-channel');
-              bc.postMessage({ type: 'CALL_ACTION', action: 'endCall' });
+              bc.postMessage({ type: 'CALL_ACTION', action: 'endCall', payload: { remainingRemotes: 0 } });
               setTimeout(() => { try { bc.close(); } catch {} }, 300);
             } catch {}
           }}

@@ -2518,6 +2518,9 @@ function initOrGetCallWindow(initialPayload?: any): BrowserWindow {
     if (!isQuitting) {
       e.preventDefault();
       currentCallStateCache = null;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('orbita:call-action', { type: 'endCall', payload: { remainingRemotes: 0 } });
+      }
       if (callWindow && !callWindow.isDestroyed()) {
         callWindow.hide();
         callWindow.webContents.send('orbita:call-state', null);

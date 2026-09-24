@@ -4848,6 +4848,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       groupService.getActiveCall(activeChatId).then((call) => {
         if (call && call.status === 'active') {
           useChatStore.getState().updateChat(activeChatId, { activeCallRoom: call.roomName });
+        } else {
+          useChatStore.getState().updateChat(activeChatId, { activeCallRoom: null });
         }
       }).catch(() => {});
     }
@@ -5016,6 +5018,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     };
 
     const handleClientMessage = (data: any) => {
+      if (data?.type === 'group-call-ended' || data?.type === 'client-group-call-ended') {
+        useChatStore.getState().updateChat(activeChatId, { activeCallRoom: null });
+        return;
+      }
+      if (data?.type === 'group-call-started' || data?.type === 'client-group-call-started') {
+        useChatStore.getState().updateChat(activeChatId, { activeCallRoom: data.roomName || `group-call-${activeChatId}` });
+        return;
+      }
       if (activeChat?.type === 'group' && (data.type === 'message' || data.type === 'group-message')) {
         const isSelf = Boolean(
           (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
@@ -5067,6 +5077,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               targetNickname: parsed?.targetNickname || data.targetNickname || undefined,
             };
             useChatStore.getState().addMessage(activeChatId, item);
+            if (item.systemType === 'call_ended') {
+              useChatStore.getState().updateChat(activeChatId, { activeCallRoom: null });
+            } else if (item.systemType === 'call') {
+              groupService.getActiveCall(activeChatId).then((call) => {
+                if (call && call.status === 'active') {
+                  useChatStore.getState().updateChat(activeChatId, { activeCallRoom: call.roomName });
+                }
+              }).catch(() => {});
+            }
             try {
               (window as any).orbita?.storageAddMessage?.(activeChatId, mid, item);
             } catch {}
@@ -5306,6 +5325,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       });
     };
 
+    const handleGroupCallStarted = (data: any) => {
+      useChatStore.getState().updateChat(activeChatId, { activeCallRoom: data?.roomName || `group-call-${activeChatId}` });
+    };
+    const handleGroupCallEnded = () => {
+      useChatStore.getState().updateChat(activeChatId, { activeCallRoom: null });
+    };
+
     channel.bind('reaction', handleReaction);
     channel.bind('client-message', handleClientMessage);
     channel.bind('new-post', handleChannelPost);
@@ -5314,6 +5340,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     channel.bind('pusher:subscription_succeeded', handlePresenceSub);
     channel.bind('pusher:member_added', handleMemberAdded);
     channel.bind('pusher:member_removed', handleMemberRemoved);
+    channel.bind('group-call-started', handleGroupCallStarted);
+    channel.bind('client-group-call-started', handleGroupCallStarted);
+    channel.bind('group-call-ended', handleGroupCallEnded);
+    channel.bind('client-group-call-ended', handleGroupCallEnded);
 
     return () => {
       unsubAbly();
@@ -5325,6 +5355,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       channel.unbind('pusher:subscription_succeeded', handlePresenceSub);
       channel.unbind('pusher:member_added', handleMemberAdded);
       channel.unbind('pusher:member_removed', handleMemberRemoved);
+      channel.unbind('group-call-started', handleGroupCallStarted);
+      channel.unbind('client-group-call-started', handleGroupCallStarted);
+      channel.unbind('group-call-ended', handleGroupCallEnded);
+      channel.unbind('client-group-call-ended', handleGroupCallEnded);
     };
   }, [activeChatId, activeChat?.type, myNickname]);
 
