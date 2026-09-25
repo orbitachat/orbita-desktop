@@ -21,6 +21,7 @@ interface MessageItemProps {
   onToggleReaction?: (emoji: string) => void;
   onQuoteClick?: (q: { id?: string; sender: string; text: string; time: string }) => void;
   isGroup?: boolean;
+  isPrevSameSender?: boolean;
   onLinkClick?: (url: string) => void;
   onButtonClick?: (button: { text: string; action: string; channelId?: string; url?: string; data?: string; icon?: 'channel' | 'backup' | 'help' | 'link' }) => void;
   activeChat?: Chat;
@@ -101,7 +102,7 @@ const MessageText = ({
 };
 
 export const MessageItem: React.FC<MessageItemProps> = React.memo(
-  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, onLinkClick, onButtonClick, activeChat: activeChatProp }) => {
+  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, isPrevSameSender = false, onLinkClick, onButtonClick, activeChat: activeChatProp }) => {
     const { t } = useTranslation();
     const myCode = useChatStore((s) => s.myCode);
     const myNickname = useAuthStore((s) => s.nickname);
@@ -242,7 +243,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 fontSize: bubbleFontSize,
               }}
             >
-            {!isOwn && isGroup && msg.sender && (
+            {!isOwn && isGroup && msg.sender && !isPrevSameSender && (
               <div className="flex items-center mb-1 select-none message-sender-name" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                 <span
                   className="truncate font-semibold select-none message-sender-name"
@@ -254,7 +255,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                     WebkitUserSelect: 'none',
                   }}
                 >
-                  {msg.sender}
+                  {activeChat?.members?.find((m) => (m.userId && m.userId === msg.senderId) || ((m as any).userCode && (m as any).userCode === msg.senderId) || m.nickname === msg.sender)?.nickname || msg.sender}
                 </span>
                 {(
                   (activeChat?.creatorCode && (activeChat.creatorCode === msg.senderId || activeChat.creatorCode === (msg as any).senderUserId || activeChat.creatorCode === (msg as any).senderCode)) ||

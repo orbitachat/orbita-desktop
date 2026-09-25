@@ -19,6 +19,7 @@ import { useAccountStore } from '../../services/accountManager';
 import { Avatar } from '../common/Avatar';
 import { PillToggle } from '../common/PillToggle';
 import { themePalettes } from '../../theme';
+import { DeveloperBadge } from '../ui/DeveloperBadge';
 
 interface MainMenuDrawerProps {
   isOpen: boolean;
@@ -47,6 +48,8 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
   const { t } = useTranslation();
   const nickname = useAuthStore((s) => s.nickname);
   const avatarUrl = useAuthStore((s) => s.avatarUrl);
+  const userId = useAuthStore((s) => s.userId);
+  const myCode = useChatStore((s) => s.myCode);
 
   const currentTheme = useChatStore((s) => s.currentTheme);
   const setTheme = useChatStore((s) => s.setTheme);
@@ -156,11 +159,16 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               <div className="flex items-center justify-between min-w-0">
                 <div
                   onClick={onOpenProfile}
-                  className="flex flex-col min-w-0 cursor-pointer flex-1"
+                  className="flex items-center gap-1.5 min-w-0 cursor-pointer flex-1"
                 >
                   <span className="font-bold text-[16px] text-[var(--text-main)] truncate">
                     {nickname || 'User'}
                   </span>
+                  <DeveloperBadge
+                    userId={myCode || userId || nickname}
+                    nickname={nickname}
+                    size={28}
+                  />
                 </div>
                 <button
                   type="button"
@@ -223,10 +231,15 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                         alt={otherAccount.nickname || '?'}
                         className="w-5 h-5 rounded-full shrink-0"
                       />
-                      <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-medium text-[14px] text-[var(--text-main)] truncate">
                           {otherAccount.nickname || 'User'}
                         </span>
+                        <DeveloperBadge
+                          userId={otherAccount.myCode || otherAccount.userId || otherAccount.nickname}
+                          nickname={otherAccount.nickname}
+                          size={20}
+                        />
                       </div>
                     </button>
                   ) : (

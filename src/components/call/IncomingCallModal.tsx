@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '../common/Avatar';
+import { DeveloperBadge } from '../ui/DeveloperBadge';
 
 const accentButtonStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, var(--accent-color), var(--accent-dark))',
@@ -68,9 +69,12 @@ export const IncomingCallModal = () => {
             <Avatar src={avatarUrl} alt={from} className="w-full h-full object-cover pointer-events-none" style={{ fontSize: '48px' }} />
           </div>
 
-          <h2 className="mt-4 text-xl font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>
-            {from}
-          </h2>
+          <div className="mt-4 flex items-center justify-center gap-1.5">
+            <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>
+              {from}
+            </h2>
+            <DeveloperBadge userId={from} nickname={from} size={22} />
+          </div>
         </div>
 
         <div className="flex items-center justify-center gap-6 pb-8 pt-2 relative z-10">

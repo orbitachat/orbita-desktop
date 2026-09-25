@@ -21,16 +21,68 @@ export const MessageStatus: React.FC<MessageStatusProps> = ({ status, className 
   if (status === 'sending' || status === 'pending') {
     return (
       <svg
-        viewBox="0 0 16 16"
-        fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        width="13"
-        height="13"
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
         className={className}
-        style={statusStyle}
+        style={{ ...statusStyle, transform: 'translate(-1.5px, -1.5px)', color: checkColor }}
       >
-        <circle cx="8" cy="8" r="6" stroke={checkColor} strokeWidth="1.3" />
-        <path d="M8 4.5V8L10.5 9.5" stroke={checkColor} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+        <style>
+          {`
+            .clock-hand {
+              transform-origin: 12px 12px;
+              animation: spin 1.2s linear infinite;
+            }
+
+            @keyframes spin {
+              from {
+                transform: rotate(0deg);
+              }
+              to {
+                transform: rotate(360deg);
+              }
+            }
+          `}
+        </style>
+
+        <circle
+          cx="12"
+          cy="12"
+          r="9"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+
+        <line
+          x1="12"
+          y1="12"
+          x2="12"
+          y2="6.5"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+
+        <line
+          className="clock-hand"
+          x1="12"
+          y1="12"
+          x2="16.5"
+          y2="12"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+
+        <circle
+          cx="12"
+          cy="12"
+          r="1.2"
+          fill="currentColor"
+        />
       </svg>
     );
   }

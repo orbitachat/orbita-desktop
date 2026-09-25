@@ -5,7 +5,6 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
 import { X, Trash, WifiOff, LogOut, RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher';
 import {
   generateChatId,
@@ -81,13 +80,42 @@ interface ChatContextMenu {
   chatId: string;
 }
 
-const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.ReactNode => {
+const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = false): React.ReactNode => {
   const accentStyle: React.CSSProperties = { color: 'var(--accent-color, #7C3AED)' };
 
   if (!lastMsg) {
     if (chat.lastMsg === 'HISTORY_CLEARED') return t('common.history_cleared');
     return t('common.no_messages');
   }
+
+  const senderMember = chat.members?.find((m) =>
+    (m.userId && m.userId === lastMsg.senderId) ||
+    ((m as any).userCode && (m as any).userCode === lastMsg.senderId) ||
+    m.nickname === lastMsg.sender
+  );
+  const senderName = isOwn
+    ? t('chatWindow.you', 'Вы')
+    : (senderMember?.nickname || lastMsg.sender || '');
+
+  const senderPrefix = (chat.type === 'group' && lastMsg.mediaType !== 'system' && !lastMsg.text?.startsWith('[Call]') && senderName)
+    ? `${senderName}: `
+    : '';
+
+  const renderWithPrefix = (content: React.ReactNode, isAccent = false) => {
+    if (!senderPrefix) {
+      return isAccent ? (
+        <span className="truncate" style={accentStyle}>{content}</span>
+      ) : (
+        <span className="truncate">{content}</span>
+      );
+    }
+    return (
+      <span className="truncate">
+        <span>{senderPrefix}</span>
+        {isAccent ? <span style={accentStyle}>{content}</span> : content}
+      </span>
+    );
+  };
 
   if (lastMsg.text?.startsWith('[Call]')) {
     const parts = lastMsg.text.split(', ');
@@ -114,7 +142,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
   if (lastMsg?.mediaItems && lastMsg.mediaItems.length > 0) {
     if (lastMsg.text && lastMsg.text.trim()) {
       const cleanText = lastMsg.text.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ');
-      return cleanText ? <span dangerouslySetInnerHTML={{ __html: markdownToHtml(cleanText, 'currentColor', true) }} /> : null;
+      return cleanText ? renderWithPrefix(cleanText) : null;
     }
 
     const items = lastMsg.mediaItems;
@@ -135,9 +163,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'фотографии';
         label = count === 1 ? t('chatWindow.photo') : `${count} ${word}`;
       }
-      return (
-        <span className="truncate" style={accentStyle}>{label}</span>
-      );
+      return renderWithPrefix(label, true);
     }
 
     if (videoCount > 0 && photoCount === 0 && audioCount === 0 && fileCount === 0) {
@@ -151,9 +177,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'видеозаписи';
         label = count === 1 ? t('chatWindow.video') : `${count} ${word}`;
       }
-      return (
-        <span className="truncate" style={accentStyle}>{label}</span>
-      );
+      return renderWithPrefix(label, true);
     }
 
     if ((photoCount > 0 || videoCount > 0) && audioCount === 0 && fileCount === 0) {
@@ -167,9 +191,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'медиафайла';
         label = `${count} ${word}`;
       }
-      return (
-        <span className="truncate" style={accentStyle}>{label}</span>
-      );
+      return renderWithPrefix(label, true);
     }
 
     if (audioCount > 0 && photoCount === 0 && videoCount === 0 && fileCount === 0) {
@@ -183,9 +205,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
         else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'аудиофайла';
         label = count === 1 ? t('chatWindow.audio') : `${count} ${word}`;
       }
-      return (
-        <span className="truncate block min-w-0" style={accentStyle}>🎧 {label}</span>
-      );
+      return renderWithPrefix(<>🎧 {label}</>, true);
     }
 
     const totalFiles = items.length;
@@ -198,100 +218,66 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
       else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'файла';
       label = `${totalFiles} ${word}`;
     }
-    return (
-      <span className="truncate" style={accentStyle}>{label}</span>
-    );
+    return renderWithPrefix(label, true);
   }
 
   if (lastMsg?.mediaType) {
     if (lastMsg.text && /^\[GIF\]/i.test(lastMsg.text)) {
-      return (
-        <span className="truncate" style={accentStyle}>GIF</span>
-      );
+      return renderWithPrefix('GIF', true);
     }
     if (lastMsg.text && /^\[Sticker\]/i.test(lastMsg.text)) {
-      return (
-        <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
-      );
+      return renderWithPrefix(t('chatWindow.sticker'), true);
     }
 
     switch (lastMsg.mediaType) {
       case 'photo':
-        return (
-          <span className="truncate" style={accentStyle}>{t('chatWindow.photo')}</span>
-        );
+        return renderWithPrefix(t('chatWindow.photo'), true);
       case 'video':
-        return (
-          <span className="truncate" style={accentStyle}>{t('chatWindow.video')}</span>
-        );
+        return renderWithPrefix(t('chatWindow.video'), true);
       case 'voice':
-        return (
-          <span className="truncate" style={accentStyle}>{t('chatWindow.voice_message')}</span>
-        );
+        return renderWithPrefix(t('chatWindow.voice_message'), true);
       case 'audio': {
         const meta = lastMsg.audioMetadata;
         const title = (meta && meta.artist && meta.title) ? `${meta.artist} – ${meta.title}` : (lastMsg.mediaName || t('chatWindow.audio'));
-        return (
-          <span className="truncate block min-w-0" style={accentStyle}>🎧 {title}</span>
-        );
+        return renderWithPrefix(<>🎧 {title}</>, true);
       }
       case 'file':
-        return (
-          <span className="truncate" style={accentStyle}>{lastMsg.mediaName || t('chatWindow.file')}</span>
-        );
+        return renderWithPrefix(lastMsg.mediaName || t('chatWindow.file'), true);
       default:
-        return (
-          <span className="truncate" style={accentStyle}>{lastMsg.mediaName || t('chatWindow.file')}</span>
-        );
+        return renderWithPrefix(lastMsg.mediaName || t('chatWindow.file'), true);
     }
   }
 
   if (lastMsg?.text) {
     const text = lastMsg.text.replace(/\[emoji:[a-zA-Z0-9_]+\]/g, '').trim();
     if (text.startsWith('http://') || text.startsWith('https://')) {
-      return (
-        <span className="truncate">{text}</span>
-      );
+      return renderWithPrefix(text);
     }
     const cleanText = text.replace(/^↩\s.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ');
     if (/^\[Sticker\]/i.test(cleanText) || cleanText.includes('/stickers/') || cleanText.includes('\\stickers\\') || cleanText.includes('.stickers')) {
-      return (
-        <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
-      );
+      return renderWithPrefix(t('chatWindow.sticker'), true);
     }
     if (/^\[GIF\]/i.test(cleanText)) {
-      return (
-        <span className="truncate" style={accentStyle}>GIF</span>
-      );
+      return renderWithPrefix('GIF', true);
     }
     if (/^\[Photo\]/i.test(cleanText)) {
-      return (
-        <span className="truncate" style={accentStyle}>{t('chatWindow.photo')}</span>
-      );
+      return renderWithPrefix(t('chatWindow.photo'), true);
     }
     if (/^\[Video\]/i.test(cleanText)) {
-      return (
-        <span className="truncate" style={accentStyle}>{t('chatWindow.video')}</span>
-      );
+      return renderWithPrefix(t('chatWindow.video'), true);
     }
     if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
-      return (
-        <span className="truncate" style={accentStyle}>{t('chatWindow.voice_message')}</span>
-      );
+      return renderWithPrefix(t('chatWindow.voice_message'), true);
     }
     if (/^\[Audio\]/i.test(cleanText)) {
       const match = cleanText.match(/^\[Audio\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
       const title = match ? match[1] : t('chatWindow.audio');
-      return (
-        <span className="truncate block min-w-0" style={accentStyle}>🎧 {title}</span>
-      );
+      return renderWithPrefix(<>🎧 {title}</>, true);
     }
     if (/^\[File\]/i.test(cleanText)) {
       const match = cleanText.match(/^\[File\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
       const fileName = match ? match[1] : t('chatWindow.file');
-      return (
-        <span className="truncate" style={accentStyle}>{fileName}</span>
-      );
+      return renderWithPrefix(fileName, true);
     }
     const plain = cleanText
       .replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n?/, '')
@@ -303,7 +289,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
       .replace(/^>\s?(.*)$/gm, '$1')
       .replace(/\n+/g, ' ')
       .trim();
-    return plain || t('common.no_messages');
+    return renderWithPrefix(plain || t('common.no_messages'));
   }
 
   if (chat.lastMsg === 'E2EE_SECURE_CHANNEL_READY') return t('common.no_messages');
@@ -312,56 +298,36 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
 
   let cleanText = chat.lastMsg || '';
   if (/^\[Sticker\]/i.test(cleanText) || cleanText.includes('/stickers/') || cleanText.includes('\\stickers\\') || cleanText.includes('.stickers')) {
-    return (
-      <span className="truncate" style={accentStyle}>{t('chatWindow.sticker')}</span>
-    );
+    return renderWithPrefix(t('chatWindow.sticker'), true);
   }
   if (/^\[GIF\]/i.test(cleanText)) {
-    return (
-      <span className="truncate" style={accentStyle}>GIF</span>
-    );
+    return renderWithPrefix('GIF', true);
   }
   if (/^\[Photo\]/i.test(cleanText)) {
-    return (
-      <span className="truncate" style={accentStyle}>{t('chatWindow.photo')}</span>
-    );
+    return renderWithPrefix(t('chatWindow.photo'), true);
   }
   if (/^\[Video\]/i.test(cleanText)) {
-    return (
-      <span className="truncate" style={accentStyle}>{t('chatWindow.video')}</span>
-    );
+    return renderWithPrefix(t('chatWindow.video'), true);
   }
   if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
-    return (
-      <span className="truncate" style={accentStyle}>{t('chatWindow.voice_message')}</span>
-    );
+    return renderWithPrefix(t('chatWindow.voice_message'), true);
   }
   if (/^\[Audio\]/i.test(cleanText)) {
     const match = cleanText.match(/^\[Audio\]\s+(.+?)\s+https?:\/\//i);
     if (match) {
       if (/^voice_\d+\.ogg$/i.test(match[1])) {
-        return (
-          <span className="truncate" style={accentStyle}>
-            {t('chatWindow.voice_message')}
-          </span>
-        );
+        return renderWithPrefix(t('chatWindow.voice_message'), true);
       }
       const parts = match[1].split(' – ');
       const title = parts.length === 2 ? `${parts[0]} – ${parts[1]}` : match[1];
-      return (
-        <span className="truncate block min-w-0" style={accentStyle}>🎧 {title}</span>
-      );
+      return renderWithPrefix(<>🎧 {title}</>, true);
     }
-    return (
-      <span className="truncate block min-w-0" style={accentStyle}>🎧 {t('chatWindow.audio')}</span>
-    );
+    return renderWithPrefix(<>🎧 {t('chatWindow.audio')}</>, true);
   }
   if (/^\[File\]/i.test(cleanText)) {
     const match = cleanText.match(/^\[File\]\s+(.+?)\s+https?:\/\//i);
     const fileName = match ? match[1] : t('chatWindow.file');
-    return (
-      <span className="truncate" style={accentStyle}>{fileName}</span>
-    );
+    return renderWithPrefix(fileName, true);
   }
 
   const plain = cleanText
@@ -374,7 +340,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any): React.R
     .replace(/^>\s?(.*)$/gm, '$1')
     .replace(/\n+/g, ' ')
     .trim();
-  return plain || t('common.no_messages');
+  return renderWithPrefix(plain || t('common.no_messages'));
 };
 
 const formatUnreadCount = (count: number): string => {
@@ -535,7 +501,8 @@ const ChatListItem = React.memo(({
               )}
               <DeveloperBadge
                 userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined)}
-                size={18}
+                nickname={chat.name}
+                size={24}
                 style={{ pointerEvents: 'none' }}
               />
               {chat.type === 'channel' && chat.isOfficial && (
@@ -584,7 +551,7 @@ const ChatListItem = React.memo(({
                   <span>{draftText}</span>
                 </span>
               ) : (
-                getLastMsgDisplay(chat, lastMsg, t)
+                getLastMsgDisplay(chat, lastMsg, t, isOwn)
               )}
             </div>
             {chat.type === 'group' && chat.role === 'owner' && (
@@ -831,7 +798,29 @@ export const MainLayout = () => {
       const activeAcc = useAccountStore.getState().accounts.find((a) => a.id === activeId);
       if (activeAcc?.myCode) {
         setMyCode(activeAcc.myCode);
-      } else {
+        return;
+      }
+      try {
+        const regRaw = localStorage.getItem('orbita-accounts-registry');
+        if (regRaw) {
+          const reg = JSON.parse(regRaw);
+          const found = reg?.accounts?.find((a: any) => a.id === activeId || a.id === 'account_1');
+          if (found?.myCode) {
+            setMyCode(found.myCode);
+            return;
+          }
+        }
+        const accChatRaw = localStorage.getItem(`orbita-chat-storage_${activeId}`) || localStorage.getItem('orbita-chat-storage_account_1');
+        if (accChatRaw) {
+          const parsed = JSON.parse(accChatRaw);
+          if (parsed?.state?.myCode || parsed?.myCode) {
+            setMyCode(parsed.state?.myCode || parsed.myCode);
+            return;
+          }
+        }
+      } catch {}
+
+      if (useAccountStore.getState().accounts.length > 0) {
         setMyCode(generateRandomCode());
       }
     }

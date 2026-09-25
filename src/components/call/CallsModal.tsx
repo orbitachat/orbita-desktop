@@ -142,9 +142,6 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
     return list;
   }, [messagesByChatId, chats, myCode, myNickname, t, i18n.language]);
 
-  const contacts = useMemo(() => {
-    return chats.filter((c) => c.id !== 'notes' && c.type !== 'channel');
-  }, [chats]);
 
   const updateCallsThumb = useCallback(() => {
     const el = callsScrollRef.current;
@@ -183,7 +180,7 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     updateCallsThumb();
-  }, [callHistory.length, contacts.length, updateCallsThumb]);
+  }, [callHistory.length, updateCallsThumb]);
 
   useEffect(() => {
     const el = callsScrollRef.current;
@@ -222,7 +219,7 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
       clearTimeout(timer);
       ro?.disconnect();
     };
-  }, [callHistory.length, contacts.length, isMobileWidth, isOpen]);
+  }, [callHistory.length, isMobileWidth, isOpen]);
 
   const handleStartCall = (e: React.MouseEvent, chatId: string) => {
     e.stopPropagation();
@@ -465,95 +462,36 @@ export const CallsModal: React.FC<CallsModalProps> = ({ isOpen, onClose }) => {
                     </div>
                   );
                 })
-              ) : contacts.length > 0 ? (
-                contacts.map((chat) => (
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 px-6 text-center select-none" style={{ minHeight: '300px' }}>
                   <div
-                    key={chat.id}
-                    onClick={() => handleSelectContact(chat.id)}
-                    className="group relative cursor-pointer"
+                    className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
                     style={{
-                      borderRadius: 0,
-                      width: '100%',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      padding: '8px 16px',
-                      minHeight: 48,
-                      boxSizing: 'border-box',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      transition: 'background-color 0.12s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--surface-container-soft, rgba(255, 255, 255, 0.04))';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
+                      backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                      color: 'var(--text-dim, #9f96b3)',
                     }}
                   >
-                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                      <Avatar
-                        src={chat.avatarUrl}
-                        alt={chat.name}
-                        className="w-10 h-10 rounded-full shrink-0"
-                      />
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="font-semibold text-[14.5px] text-[var(--text-main)] truncate">
-                          {chat.name}
-                        </span>
-                        <span className="text-xs text-[var(--text-dim)] mt-0.5">
-                          {chat.online ? t('common.online', 'в сети') : t('common.offline', 'был(а) недавно')}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => handleStartCall(e, chat.id)}
-                      aria-label={t('callsModal.start_call', 'Позвонить')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        outline: 'none',
-                        padding: '6px',
-                        cursor: 'pointer',
-                        color: 'var(--text-dim, #9f96b3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '8px',
-                        flexShrink: 0,
-                        transition: 'color 150ms, background-color 150ms',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = 'var(--text-main, #ffffff)';
-                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = 'var(--text-dim, #9f96b3)';
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="30"
+                      height="30"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ opacity: 0.75 }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24">
-                        <g fill="none">
-                          <path fill="currentColor" d="M20 16v4c-2.758 0-5.07-.495-7-1.325-3.841-1.652-6.176-4.63-7.5-7.675C4.4 8.472 4 5.898 4 4h4l1 4l-3.5 3c1.324 3.045 3.659 6.023 7.5 7.675L16 15z" />
-                          <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 18.675c1.93.83 4.242 1.325 7 1.325v-4l-4-1zm0 0C9.159 17.023 6.824 14.045 5.5 11m0 0C4.4 8.472 4 5.898 4 4h4l1 4z" />
-                        </g>
-                      </svg>
-                    </button>
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                    </svg>
                   </div>
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)] gap-2 text-center px-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" className="opacity-30 mb-1">
-                    <g fill="none">
-                      <path fill="currentColor" d="M20 16v4c-2.758 0-5.07-.495-7-1.325-3.841-1.652-6.176-4.63-7.5-7.675C4.4 8.472 4 5.898 4 4h4l1 4l-3.5 3c1.324 3.045 3.659 6.023 7.5 7.675L16 15z" />
-                      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 18.675c1.93.83 4.242 1.325 7 1.325v-4l-4-1zm0 0C9.159 17.023 6.824 14.045 5.5 11m0 0C4.4 8.472 4 5.898 4 4h4l1 4z" />
-                    </g>
-                  </svg>
-                  <span className="text-sm font-medium">
-                    {t('callsModal.no_calls', 'История звонков пуста')}
-                  </span>
+                  <p
+                    className="text-[13.5px] leading-relaxed max-w-[280px]"
+                    style={{ color: 'var(--text-dim, #9f96b3)' }}
+                  >
+                    {t('callsModal.empty_hint', 'Чтобы позвонить, нажмите на иконку телефона в верхней панели чата.')}
+                  </p>
                 </div>
               )}
             </div>

@@ -7237,13 +7237,34 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       (msg.mime === 'image/gif')
     );
 
+    const isSameSender = (m1: Message | null, m2: Message | null) => {
+      if (!m1 || !m2) return false;
+      if (m1.senderId && m2.senderId) return m1.senderId === m2.senderId;
+      if (m1.sender && m2.sender) return m1.sender === m2.sender;
+      return false;
+    };
+
     const prevMsg = index > 0 ? messages[index - 1] : null;
     const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
 
     const prevIsOwn = prevMsg ? isMessageOutgoing(prevMsg, myCode, myNickname, activeChat, myUserId) : false;
-    const isPrevSameSenderGroup = !!(prevMsg && prevIsOwn === isOwn && Math.abs(msg.time - prevMsg.time) <= 15 * 60 * 1000);
+    const isPrevSameSenderGroup = !!(
+      prevMsg &&
+      prevMsg.mediaType !== 'system' &&
+      prevIsOwn === isOwn &&
+      isSameSender(prevMsg, msg) &&
+      Math.abs(msg.time - prevMsg.time) <= 15 * 60 * 1000 &&
+      isSameDay(prevMsg.time, msg.time)
+    );
     const nextIsOwn = nextMsg ? isMessageOutgoing(nextMsg, myCode, myNickname, activeChat, myUserId) : false;
-    const isNextSameSenderGroup = !!(nextMsg && nextIsOwn === isOwn && Math.abs(nextMsg.time - msg.time) <= 15 * 60 * 1000);
+    const isNextSameSenderGroup = !!(
+      nextMsg &&
+      nextMsg.mediaType !== 'system' &&
+      nextIsOwn === isOwn &&
+      isSameSender(nextMsg, msg) &&
+      Math.abs(nextMsg.time - msg.time) <= 15 * 60 * 1000 &&
+      isSameDay(nextMsg.time, msg.time)
+    );
 
     const topGap = (index === 0 || !prevMsg) ? '4px' : (isPrevSameSenderGroup ? '2px' : '6px');
 
@@ -7264,6 +7285,54 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       const rBottomLeft = isNextSameSenderGroup ? smallRadius : baseRadius;
       customRadius = `${rTopLeft} ${rTopRight} ${rBottomRight} ${rBottomLeft}`;
     }
+
+    const isGroup = activeChat?.type === 'group';
+    const showGroupAvatar = isGroup && !isOwn && msg.mediaType !== 'system';
+
+    const senderMember = showGroupAvatar
+      ? activeChat?.members?.find(
+          (m) => (m.userId && m.userId === msg.senderId) ||
+                 ((m as any).userCode && (m as any).userCode === msg.senderId) ||
+                 m.nickname === msg.sender
+        )
+      : null;
+    const senderAvatar = senderMember?.avatarUrl || (msg as any).senderAvatar || (msg as any).avatarUrl;
+    const senderNickname = senderMember?.nickname || msg.sender || '';
+
+    const wrapWithGroupAvatar = (content: React.ReactNode) => {
+      if (!showGroupAvatar) {
+        return content;
+      }
+      return (
+        <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%', gap: '8px' }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              flexShrink: 0,
+              marginBottom: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {!isNextSameSenderGroup ? (
+              <Avatar
+                src={senderAvatar}
+                alt={senderNickname}
+                className="w-[34px] h-[34px]"
+                style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0 }}
+              />
+            ) : (
+              <div style={{ width: 34, height: 34 }} />
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            {content}
+          </div>
+        </div>
+      );
+    };
 
     const highlightWrapperStyle: React.CSSProperties = {
       width: '100%',
@@ -7408,40 +7477,42 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
 
         return (
-          <div style={{ ...highlightWrapperStyle }}>
-            <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-              <div
-                data-message="true"
-                data-message-id={msg.id}
-                data-sender={msg.sender}
-                data-read={String(msg.read)}
-                data-datelabel={getDateLabel(msg.time)}
-                className={`group relative flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isUnselected ? 'message-unselected' : ''}`}
-                style={{
-                  transformOrigin: isOwn ? 'top right' : 'top left',
-                  flex: 1,
-                  filter: isUnselected ? 'brightness(0.55)' : 'none',
-                  transition: 'filter 0.15s ease',
-                }}
-                onClick={(e) => handleMessageClick(e, msg.id!)}
-                onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
-              >
+          <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
+            {wrapWithGroupAvatar(
+              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                 <div
-                  className="relative"
-                  style={bubbleStyle(isOwn, {
-                    borderRadius: customRadius,
-                    padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
-                    overflow: 'hidden',
-                    width: isPhotoGroup ? groupBubbleWidth : 'fit-content',
-                    maxWidth: 'min(440px, 75%)',
-                    boxSizing: 'border-box',
-                  })}
+                  data-message="true"
+                  data-message-id={msg.id}
+                  data-sender={msg.sender}
+                  data-read={String(msg.read)}
+                  data-datelabel={getDateLabel(msg.time)}
+                  className={`group relative flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isUnselected ? 'message-unselected' : ''}`}
+                  style={{
+                    transformOrigin: isOwn ? 'top right' : 'top left',
+                    flex: 1,
+                    filter: isUnselected ? 'brightness(0.55)' : 'none',
+                    transition: 'filter 0.15s ease',
+                  }}
+                  onClick={(e) => handleMessageClick(e, msg.id!)}
+                  onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
                 >
-                  {renderMediaGroup(msg, index, customRadius, effectiveMediaItems)}
+                  <div
+                    className="relative"
+                    style={bubbleStyle(isOwn, {
+                      borderRadius: customRadius,
+                      padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
+                      overflow: 'hidden',
+                      width: isPhotoGroup ? groupBubbleWidth : 'fit-content',
+                      maxWidth: 'min(440px, 75%)',
+                      boxSizing: 'border-box',
+                    })}
+                  >
+                    {renderMediaGroup(msg, index, customRadius, effectiveMediaItems)}
+                  </div>
+                  {renderReactionBadges(msg, index)}
                 </div>
-                {renderReactionBadges(msg, index)}
               </div>
-            </div>
+            )}
           </div>
         );
       }
@@ -7450,21 +7521,24 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       const isPinned = isMessagePinned(index);
       return (
         <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
-          <MessageItem
-            msg={msg}
-            isOwn={isOwn}
-            isPinned={isPinned}
-            onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
-            themeColor={themeColor}
-            bubbleRadius={customRadius}
-            currentUserId={myUserId || myNickname}
-            onToggleReaction={(emoji) => triggerReactionMessage(msg.id || index, emoji)}
-            onQuoteClick={(q) => handleQuoteClick(q, index)}
-            isGroup={activeChat?.type === 'group'}
-            onLinkClick={handleLinkClick}
-            onButtonClick={handleMessageButtonClick}
-            activeChat={activeChat}
-          />
+          {wrapWithGroupAvatar(
+            <MessageItem
+              msg={msg}
+              isOwn={isOwn}
+              isPinned={isPinned}
+              onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
+              themeColor={themeColor}
+              bubbleRadius={customRadius}
+              currentUserId={myUserId || myNickname}
+              onToggleReaction={(emoji) => triggerReactionMessage(msg.id || index, emoji)}
+              onQuoteClick={(q) => handleQuoteClick(q, index)}
+              isGroup={isGroup}
+              isPrevSameSender={isPrevSameSenderGroup}
+              onLinkClick={handleLinkClick}
+              onButtonClick={handleMessageButtonClick}
+              activeChat={activeChat}
+            />
+          )}
         </div>
       );
     }
@@ -7486,83 +7560,86 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       const spacerWidth = isOwn ? (isMessagePinned(index) ? '72px' : '60px') : (isMessagePinned(index) ? '52px' : '40px');
 
       return (
-        <div style={{ ...highlightWrapperStyle }}>
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-            <div
-              data-message="true"
-              data-message-id={msg.id}
-              data-sender={msg.sender}
-              data-read={String(msg.read)}
-              data-datelabel={getDateLabel(msg.time)}
-              className={`group relative flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isUnselected ? 'message-unselected' : ''}`}
-              style={{
-                transformOrigin: isOwn ? 'top right' : 'top left',
-                flex: 1,
-                filter: isUnselected ? 'brightness(0.55)' : 'none',
-                transition: 'filter 0.15s ease',
-              }}
-              onClick={(e) => handleMessageClick(e, msg.id!)}
-              onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
-            >
+        <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
+          {wrapWithGroupAvatar(
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
               <div
-                className="max-w-[min(440px, 75%)] min-w-[60px] w-fit relative"
-                style={bubbleStyle(isOwn, isMessagePinned(index) ? { outline: '1px solid color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent)' } : {})}
+                data-message="true"
+                data-message-id={msg.id}
+                data-sender={msg.sender}
+                data-read={String(msg.read)}
+                data-datelabel={getDateLabel(msg.time)}
+                className={`group relative flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isUnselected ? 'message-unselected' : ''}`}
+                style={{
+                  transformOrigin: isOwn ? 'top right' : 'top left',
+                  flex: 1,
+                  filter: isUnselected ? 'brightness(0.55)' : 'none',
+                  transition: 'filter 0.15s ease',
+                }}
+                onClick={(e) => handleMessageClick(e, msg.id!)}
+                onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
               >
                 <div
-                  className="select-text"
-                  style={{
-                    fontSize: fontSize,
-                    lineHeight: 1.2,
-                    wordBreak: 'break-word',
-                    whiteSpace: 'pre-wrap',
-                    width: '100%',
-                    position: 'relative',
-                  }}
+                  className="max-w-[min(440px, 75%)] min-w-[60px] w-fit relative"
+                  style={bubbleStyle(isOwn, isMessagePinned(index) ? { outline: '1px solid color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent)' } : {})}
                 >
-                  <span className="selectable-message-text" style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}>
-                    {mainText}
+                  <div
+                    className="select-text"
+                    style={{
+                      fontSize: fontSize,
+                      lineHeight: 1.2,
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap',
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    <span className="selectable-message-text" style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text' }}>
+                      {mainText}
+                      <span
+                        aria-hidden
+                        style={{
+                          display: 'inline-block',
+                          width: spacerWidth,
+                          height: 1,
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                          WebkitUserSelect: 'none',
+                        }}
+                      />
+                    </span>
                     <span
                       aria-hidden
+                      className="flex-shrink-0 select-none message-time-badge"
                       style={{
-                        display: 'inline-block',
-                        width: spacerWidth,
-                        height: 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
                         pointerEvents: 'none',
                         userSelect: 'none',
                         WebkitUserSelect: 'none',
+                        lineHeight: 1,
+                        position: 'absolute',
+                        bottom: '0px',
+                        right: '0px',
+                        whiteSpace: 'nowrap',
                       }}
-                    />
-                  </span>
-                  <span
-                    aria-hidden
-                    className="flex-shrink-0 select-none message-time-badge"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                      WebkitUserSelect: 'none',
-                      lineHeight: 1,
-                      position: 'absolute',
-                      bottom: '0px',
-                      right: '0px',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {timeBadge(msg, isMessagePinned(index))}
-                  </span>
+                    >
+                      {timeBadge(msg, isMessagePinned(index))}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       );
     }
 
     return (
-      <div style={{ ...highlightWrapperStyle }}>
-        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+      <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
+        {wrapWithGroupAvatar(
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
           <div
             data-message="true"
             data-message-id={msg.id}
@@ -7812,6 +7889,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             {renderReactionBadges(msg, index)}
           </div>
         </div>
+        )}
       </div>
     );
   };

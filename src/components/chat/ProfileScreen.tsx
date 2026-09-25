@@ -2752,9 +2752,12 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       className="w-9 h-9 rounded-full flex-shrink-0"
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <span className="truncate" style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
-                        {member.nickname}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="truncate" style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
+                          {member.nickname}
+                        </span>
+                        <DeveloperBadge userId={memberCode || member.userId || member.nickname} nickname={member.nickname} size={15} />
+                      </div>
                       <span style={{ fontSize: '11px', color: isMemberOnline ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim)' }}>
                         {isMemberOnline ? t('userStatus.online', 'в сети') : (member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно'))}
                       </span>

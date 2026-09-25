@@ -44,28 +44,83 @@ const getInitialUserId = (): string => {
   });
 };
 
+const lastSavedAuthValues: Record<string, string> = {};
+
+const isBlankAuthState = (jsonStr: string): boolean => {
+  try {
+    const data = JSON.parse(jsonStr);
+    const s = data?.state || data;
+    return Boolean(!s?.nickname && (!s?.userId || s?.userId.length === 0) && s?.step === 'welcome');
+  } catch {
+    return false;
+  }
+};
+
+const hasExistingAccount = (jsonStr: string | null | undefined): boolean => {
+  if (!jsonStr) return false;
+  try {
+    const data = JSON.parse(jsonStr);
+    const s = data?.state || data;
+    return Boolean(s?.nickname || (s?.step === 'main' && s?.userId));
+  } catch {
+    return false;
+  }
+};
+
 const ipcStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
+    let val: string | null = null;
     if ((window as any).orbita?.storageGet) {
-      return await (window as any).orbita.storageGet(name);
+      try {
+        val = await (window as any).orbita.storageGet(name);
+      } catch {}
     }
-    return localStorage.getItem(name);
+    const localVal = localStorage.getItem(name);
+    if (!val || (!hasExistingAccount(val) && hasExistingAccount(localVal))) {
+      val = localVal;
+      if (val && (window as any).orbita?.storageSet) {
+        (window as any).orbita.storageSet(name, val).catch(() => {});
+      }
+    }
+    if (val && !localVal) {
+      try {
+        localStorage.setItem(name, val);
+      } catch {}
+    }
+    if (val !== null) lastSavedAuthValues[name] = val;
+    return val;
   },
   setItem: async (name: string, value: string): Promise<void> => {
     if (typeof window === 'undefined') return;
-    if ((window as any).orbita?.storageSet) {
-      await (window as any).orbita.storageSet(name, value);
-    } else {
+    if (lastSavedAuthValues[name] === value) return;
+
+    const previousSaved = lastSavedAuthValues[name] || localStorage.getItem(name);
+    if (hasExistingAccount(previousSaved) && isBlankAuthState(value)) {
+      return;
+    }
+
+    lastSavedAuthValues[name] = value;
+    try {
       localStorage.setItem(name, value);
+    } catch {}
+
+    if ((window as any).orbita?.storageSet) {
+      try {
+        await (window as any).orbita.storageSet(name, value);
+      } catch {}
     }
   },
   removeItem: async (name: string): Promise<void> => {
     if (typeof window === 'undefined') return;
-    if ((window as any).orbita?.storageRemove) {
-      await (window as any).orbita.storageRemove(name);
-    } else {
+    delete lastSavedAuthValues[name];
+    try {
       localStorage.removeItem(name);
+    } catch {}
+    if ((window as any).orbita?.storageRemove) {
+      try {
+        await (window as any).orbita.storageRemove(name);
+      } catch {}
     }
   },
 };

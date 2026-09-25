@@ -1093,7 +1093,8 @@
       "no_contacts": "No contacts to call",
       "start_call": "Call",
       "direct_call": "Voice call",
-      "no_calls": "Call history is empty"
+      "no_calls": "Call history is empty",
+      "empty_hint": "To make a call, tap the phone icon in the top bar of a chat."
     },
     "quickEntry": {
       "server_error": "Failed to start authorization server",

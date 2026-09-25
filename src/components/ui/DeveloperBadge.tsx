@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { supabaseService } from '../../services/supabaseService';
+import { useToastStore } from '../../store/useToastStore';
 
-// Динамический список ID разработчиков из Supabase с постоянным кэшированием (Stale-While-Revalidate как в Session)
 const STORAGE_KEY = 'orbita_cached_dev_codes_v2';
 const LAST_FETCH_KEY = 'orbita_dev_codes_last_fetch';
 
@@ -24,14 +24,12 @@ const notifyListeners = () => {
   listeners.forEach((fn) => fn());
 };
 
-// Загрузка и синхронизация разработчиков с сохранением предыдущего кэша
 export const loadDeveloperCodes = async (force = false): Promise<boolean> => {
   if (typeof window === 'undefined') return false;
 
   const now = Date.now();
   const lastFetch = Number(localStorage.getItem(LAST_FETCH_KEY) || 0);
 
-  // Троттлинг: не запрашивать чаще одного раза в 60 секунд, если кэш уже есть
   if (!force && developerCodes.size > 0 && now - lastFetch < 60 * 1000) {
     return true;
   }
@@ -53,7 +51,6 @@ export const loadDeveloperCodes = async (force = false): Promise<boolean> => {
   return false;
 };
 
-// Проверка при первом подключении к человеку (отправке/получении заявки)
 export const revalidateDevelopersOnConnection = async (userId?: string): Promise<boolean> => {
   try {
     await loadDeveloperCodes(false);
@@ -61,12 +58,9 @@ export const revalidateDevelopersOnConnection = async (userId?: string): Promise
   return isDeveloper(userId);
 };
 
-// Инициализация Realtime подписки и фоновой проверки
 if (typeof window !== 'undefined') {
-  // Первичная подгрузка (всегда актуализирует кэш в фоне)
   loadDeveloperCodes(true);
 
-  // Подписка на Realtime изменения в Supabase (моментальное обновление при добавлении в БД)
   supabaseService.subscribeToDevelopers((newCodes) => {
     if (newCodes && newCodes.length > 0) {
       developerCodes = new Set(newCodes.map((c) => c.trim()));
@@ -78,7 +72,6 @@ if (typeof window !== 'undefined') {
     }
   });
 
-  // Фоновая проверка раз в 5 минут
   setInterval(() => {
     loadDeveloperCodes(true);
   }, 5 * 60 * 1000);
@@ -141,8 +134,6 @@ interface DeveloperBadgeProps {
   onClick?: (e: React.MouseEvent) => void;
 }
 
-import { useToastStore } from '../../store/useToastStore';
-
 export const DeveloperBadge: React.FC<DeveloperBadgeProps> = ({
   userId,
   nickname,
@@ -161,14 +152,15 @@ export const DeveloperBadge: React.FC<DeveloperBadgeProps> = ({
     };
   }, []);
 
-  if (!isDeveloper(userId)) return null;
+  const isDev = isDeveloper(userId) || isDeveloper(nickname);
+  if (!isDev) return null;
 
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
       onClick(e);
     } else {
       e.stopPropagation();
-      useToastStore.getState().showDevToast(nickname);
+      useToastStore.getState().showDevToast(nickname || userId);
     }
   };
 

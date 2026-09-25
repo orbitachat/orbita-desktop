@@ -293,6 +293,7 @@ function initNotifManager(win: BrowserWindow) {
 // 2. Master Key Storage Encryption
 // -----------------------------------------------------------------------------
 const KEY_FILE_NAME = 'local_key.enc';
+const KEY_BACKUP_NAME = 'local_key.bak';
 let masterKeyCache: Buffer | null = null;
 
 function getMasterKey(): Buffer {
@@ -300,17 +301,44 @@ function getMasterKey(): Buffer {
 
   const userDataDir = app.getPath('userData');
   const keyFilePath = path.join(userDataDir, KEY_FILE_NAME);
+  const keyBackupPath = path.join(userDataDir, KEY_BACKUP_NAME);
 
   if (fs.existsSync(keyFilePath)) {
-    const encKey = fs.readFileSync(keyFilePath);
-    const hex = safeStorage.decryptString(encKey);
-    masterKeyCache = Buffer.from(hex, 'hex');
-    return masterKeyCache;
+    try {
+      const encKey = fs.readFileSync(keyFilePath);
+      if (safeStorage.isEncryptionAvailable()) {
+        const hex = safeStorage.decryptString(encKey);
+        masterKeyCache = Buffer.from(hex, 'hex');
+        if (!fs.existsSync(keyBackupPath)) {
+          try { fs.writeFileSync(keyBackupPath, encKey); } catch {}
+        }
+        return masterKeyCache;
+      }
+    } catch {}
+  }
+
+  if (fs.existsSync(keyBackupPath)) {
+    try {
+      const encKey = fs.readFileSync(keyBackupPath);
+      if (safeStorage.isEncryptionAvailable()) {
+        const hex = safeStorage.decryptString(encKey);
+        masterKeyCache = Buffer.from(hex, 'hex');
+        return masterKeyCache;
+      }
+    } catch {}
   }
 
   const rawKey = crypto.randomBytes(32);
-  const encKey = safeStorage.encryptString(rawKey.toString('hex'));
-  fs.writeFileSync(keyFilePath, encKey);
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const encKey = safeStorage.encryptString(rawKey.toString('hex'));
+      fs.writeFileSync(keyFilePath, encKey);
+      fs.writeFileSync(keyBackupPath, encKey);
+    } else {
+      fs.writeFileSync(keyFilePath, rawKey);
+      fs.writeFileSync(keyBackupPath, rawKey);
+    }
+  } catch {}
   masterKeyCache = rawKey;
   return masterKeyCache;
 }
@@ -1175,8 +1203,8 @@ function initStorageDb(): Promise<void> {
     const dbPath = getAppDbPath();
     appDbInstance = new sqlite3.Database(dbPath);
     appDbInstance.run('PRAGMA journal_mode = WAL;');
-    appDbInstance.run('PRAGMA synchronous = OFF;');
-    appDbInstance.run('PRAGMA wal_autocheckpoint = 5000;');
+    appDbInstance.run('PRAGMA synchronous = NORMAL;');
+    appDbInstance.run('PRAGMA wal_autocheckpoint = 2000;');
     appDbInstance.run('PRAGMA cache_size = -8192;');
     appDbInstance.serialize(() => {
       appDbInstance!.run(
@@ -1216,6 +1244,7 @@ function initStorageDb(): Promise<void> {
 function closeStorageDb(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (appDbInstance) {
+      flushKvWritesSync();
       appDbInstance.run('PRAGMA wal_checkpoint(TRUNCATE);', () => {
         appDbInstance!.close((err) => {
           appDbInstance = null;
@@ -1234,15 +1263,57 @@ function getDb(): sqlite3.Database {
   return appDbInstance;
 }
 
-const kvWriteQueue = new Map<string, { value: string; timer: NodeJS.Timeout }>();
+function getVaultDir(): string {
+  const dir = path.join(app.getPath('userData'), 'vault');
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {}
+  }
+  return dir;
+}
+
+function writeVaultShadow(key: string, value: string) {
+  try {
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filePath = path.join(getVaultDir(), `${safeKey}.enc`);
+    const enc = encryptData(Buffer.from(value, 'utf8'));
+    fs.writeFileSync(filePath, enc);
+  } catch {}
+}
+
+function readVaultShadow(key: string): string | null {
+  try {
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filePath = path.join(getVaultDir(), `${safeKey}.enc`);
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath);
+      const dec = decryptData(raw);
+      if (dec) return dec.toString('utf8');
+    }
+  } catch {}
+  return null;
+}
+
+function deleteVaultShadow(key: string) {
+  try {
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filePath = path.join(getVaultDir(), `${safeKey}.enc`);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch {}
+}
+
+const kvWriteQueue = new Map<string, { value: string; timer?: NodeJS.Timeout }>();
 
 function flushKvWritesSync() {
   for (const [key, item] of kvWriteQueue.entries()) {
-    clearTimeout(item.timer);
+    if (item.timer) clearTimeout(item.timer);
     try {
       const encrypted = encryptData(Buffer.from(item.value, 'utf8')).toString('base64');
       getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted]);
-    } catch { }
+    } catch {}
   }
   kvWriteQueue.clear();
 }
@@ -1252,30 +1323,43 @@ function getKvValue(key: string): Promise<string | null> {
   if (pending) {
     return Promise.resolve(pending.value);
   }
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     getDb().get(`SELECT value FROM ${KV_TABLE} WHERE key = ?`, [key], (err, row: any) => {
-      if (err) return reject(err);
-      if (row) {
+      if (!err && row) {
         const raw = Buffer.from(row.value, 'base64');
         const decrypted = decryptData(raw);
-        resolve(decrypted ? decrypted.toString('utf8') : null);
-      } else {
-        resolve(null);
+        if (decrypted) {
+          return resolve(decrypted.toString('utf8'));
+        }
       }
+      const shadow = readVaultShadow(key);
+      if (shadow !== null) {
+        try {
+          const encrypted = encryptData(Buffer.from(shadow, 'utf8')).toString('base64');
+          getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted]);
+        } catch {}
+        return resolve(shadow);
+      }
+      resolve(null);
     });
   });
 }
 
 function setKvValue(key: string, value: string): Promise<void> {
+  const isCritical = key.includes('auth') || key.includes('chat') || key.includes('registry') || key.includes('account');
+  if (isCritical) {
+    writeVaultShadow(key, value);
+  }
+
   return new Promise((resolve, reject) => {
     const existing = kvWriteQueue.get(key);
-    if (existing) {
+    if (existing && existing.timer) {
       clearTimeout(existing.timer);
     }
-    const timer = setTimeout(() => {
+
+    if (isCritical) {
       kvWriteQueue.delete(key);
       try {
-        console.log(`[KV] Writing to DB: ${key}`);
         const encrypted = encryptData(Buffer.from(value, 'utf8')).toString('base64');
         getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted], (err) => {
           if (err) reject(err);
@@ -1284,7 +1368,21 @@ function setKvValue(key: string, value: string): Promise<void> {
       } catch (e) {
         reject(e);
       }
-    }, 300);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      kvWriteQueue.delete(key);
+      try {
+        const encrypted = encryptData(Buffer.from(value, 'utf8')).toString('base64');
+        getDb().run(`INSERT OR REPLACE INTO ${KV_TABLE} (key, value) VALUES (?, ?)`, [key, encrypted], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      } catch (e) {
+        reject(e);
+      }
+    }, 150);
 
     kvWriteQueue.set(key, { value, timer });
     resolve();
@@ -1292,6 +1390,12 @@ function setKvValue(key: string, value: string): Promise<void> {
 }
 
 function deleteKvValue(key: string): Promise<void> {
+  deleteVaultShadow(key);
+  const existing = kvWriteQueue.get(key);
+  if (existing && existing.timer) {
+    clearTimeout(existing.timer);
+  }
+  kvWriteQueue.delete(key);
   return new Promise((resolve, reject) => {
     getDb().run(`DELETE FROM ${KV_TABLE} WHERE key = ?`, [key], (err) => {
       if (err) reject(err);
@@ -1302,11 +1406,21 @@ function deleteKvValue(key: string): Promise<void> {
 
 function getMessages(chatId: string, limit?: number, offset?: number): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    const rawId = chatId.replace(/^(account_[12]):::/, '');
-    const scoped1 = `account_1:::${rawId}`;
-    const scoped2 = `account_2:::${rawId}`;
-    let sql = `SELECT id, message_data FROM ${MSG_TABLE} WHERE chat_id IN (?, ?, ?, ?) ORDER BY created_at ASC`;
-    const params: any[] = [chatId, rawId, scoped1, scoped2];
+    let sql: string;
+    let params: any[];
+
+    if (chatId.startsWith('account_2:::')) {
+      sql = `SELECT id, message_data FROM ${MSG_TABLE} WHERE chat_id = ? ORDER BY created_at ASC`;
+      params = [chatId];
+    } else if (chatId.startsWith('account_1:::')) {
+      const rawId = chatId.replace('account_1:::', '');
+      sql = `SELECT id, message_data FROM ${MSG_TABLE} WHERE chat_id IN (?, ?) ORDER BY created_at ASC`;
+      params = [chatId, rawId];
+    } else {
+      sql = `SELECT id, message_data FROM ${MSG_TABLE} WHERE chat_id IN (?, ?) ORDER BY created_at ASC`;
+      params = [chatId, `account_1:::${chatId}`];
+    }
+
     if (limit !== undefined) {
       sql += ' LIMIT ?';
       params.push(limit);
@@ -1351,10 +1465,22 @@ function addMessage(chatId: string, messageId: string, messageData: any): Promis
 
 function deleteMessagesByChat(chatId: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const rawId = chatId.replace(/^(account_[12]):::/, '');
-    const scoped1 = `account_1:::${rawId}`;
-    const scoped2 = `account_2:::${rawId}`;
-    getDb().run(`DELETE FROM ${MSG_TABLE} WHERE chat_id IN (?, ?, ?, ?)`, [chatId, rawId, scoped1, scoped2], (err) => {
+    let sql: string;
+    let params: any[];
+
+    if (chatId.startsWith('account_2:::')) {
+      sql = `DELETE FROM ${MSG_TABLE} WHERE chat_id = ?`;
+      params = [chatId];
+    } else if (chatId.startsWith('account_1:::')) {
+      const rawId = chatId.replace('account_1:::', '');
+      sql = `DELETE FROM ${MSG_TABLE} WHERE chat_id IN (?, ?)`;
+      params = [chatId, rawId];
+    } else {
+      sql = `DELETE FROM ${MSG_TABLE} WHERE chat_id IN (?, ?)`;
+      params = [chatId, `account_1:::${chatId}`];
+    }
+
+    getDb().run(sql, params, (err) => {
       if (err) reject(err);
       else resolve();
     });
@@ -1363,10 +1489,22 @@ function deleteMessagesByChat(chatId: string): Promise<void> {
 
 function deleteMessageById(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const rawId = id.replace(/^(account_[12]):::/, '');
-    const scoped1 = `account_1:::${rawId}`;
-    const scoped2 = `account_2:::${rawId}`;
-    getDb().run(`DELETE FROM ${MSG_TABLE} WHERE id IN (?, ?, ?, ?)`, [id, rawId, scoped1, scoped2], (err) => {
+    let sql: string;
+    let params: any[];
+
+    if (id.startsWith('account_2:::')) {
+      sql = `DELETE FROM ${MSG_TABLE} WHERE id = ?`;
+      params = [id];
+    } else if (id.startsWith('account_1:::')) {
+      const rawId = id.replace('account_1:::', '');
+      sql = `DELETE FROM ${MSG_TABLE} WHERE id IN (?, ?)`;
+      params = [id, rawId];
+    } else {
+      sql = `DELETE FROM ${MSG_TABLE} WHERE id IN (?, ?)`;
+      params = [id, `account_1:::${id}`];
+    }
+
+    getDb().run(sql, params, (err) => {
       if (err) reject(err);
       else resolve();
     });
