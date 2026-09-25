@@ -69,12 +69,17 @@ interface AccountStoreState {
   syncCurrentAccountMeta: () => Promise<void>;
 }
 
+let isInitialized = false;
+
 export const useAccountStore = create<AccountStoreState>((set, get) => ({
   activeAccountId: 'account_1',
   accounts: [],
   isSwitching: false,
 
   init: async () => {
+    if (isInitialized) return;
+    isInitialized = true;
+
     let registry: AccountRegistryData = {
       activeAccountId: 'account_1',
       accounts: [],
@@ -269,7 +274,18 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       }
       ablyService.disconnect();
 
-      chat.resetChats();
+      useChatStore.setState({
+        chats: [],
+        messagesByChatId: {},
+        usersById: {},
+        pinnedChatIds: [],
+        deletedChatIds: [],
+        deletedChatSessions: {},
+        incomingFriendRequests: [],
+        activeChatId: null,
+        activeProfileChatId: null,
+        myCode: '',
+      });
 
       const newUserId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
       auth.importAuthState({
@@ -370,15 +386,35 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     const code = data?.myCode || chat.myCode;
     const uid = auth.userId;
 
-    const updatedAccounts = accounts.filter((a) => a.id !== 'account_2');
-    updatedAccounts.push({
+    let updatedAccounts = accounts.filter((a) => a.id !== 'account_2');
+    let account1 = updatedAccounts.find((a) => a.id === 'account_1');
+    if (!account1) {
+      const raw1 = await storageGet(`${AUTH_STORAGE_PREFIX}account_1`);
+      if (raw1) {
+        try {
+          const parsed = JSON.parse(raw1);
+          account1 = {
+            id: 'account_1',
+            nickname: parsed.nickname || 'User',
+            avatarUrl: parsed.avatarUrl || null,
+            myCode: null,
+            userId: parsed.userId || '',
+            isRegistered: true,
+          };
+          updatedAccounts = [account1, ...updatedAccounts];
+        } catch {}
+      }
+    }
+
+    const account2: AccountMeta = {
       id: 'account_2',
       nickname: nick,
       avatarUrl: avatar,
       myCode: code,
       userId: uid,
       isRegistered: true,
-    });
+    };
+    updatedAccounts = [...updatedAccounts.filter((a) => a.id !== 'account_2'), account2];
 
     const registry: AccountRegistryData = {
       activeAccountId: 'account_2',
@@ -390,6 +426,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     await storageSet(`${CHAT_STORAGE_PREFIX}account_2`, JSON.stringify(chat.exportChatState()));
 
     set({
+      activeAccountId: 'account_2',
       accounts: updatedAccounts,
     });
   },

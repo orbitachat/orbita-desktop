@@ -248,7 +248,7 @@ export const WelcomeScreen: React.FC = () => {
         <button
           type="button"
           onClick={cancelAddSecondAccount}
-          aria-label={t('welcome.back_to_primary', 'Вернуться к основному аккаунту')}
+          aria-label={t('welcome.back', 'Назад')}
           style={{
             position: 'absolute',
             top: '24px',
@@ -259,14 +259,12 @@ export const WelcomeScreen: React.FC = () => {
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '8px 12px',
-            borderRadius: '16px',
+            justifyContent: 'center',
+            padding: '8px',
+            borderRadius: '50%',
             outline: 'none',
             zIndex: 50,
             transition: 'color 0.15s ease, background-color 0.15s ease',
-            fontSize: '13px',
-            fontWeight: 500,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = 'var(--text-main, #ffffff)';
@@ -277,8 +275,7 @@ export const WelcomeScreen: React.FC = () => {
             e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
-          <ArrowLeft size={18} />
-          <span>{t('welcome.back_to_primary', 'Вернуться к основному аккаунту')}</span>
+          <ArrowLeft size={24} />
         </button>
       )}
 

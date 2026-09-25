@@ -50,7 +50,6 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
 
   const currentTheme = useChatStore((s) => s.currentTheme);
   const setTheme = useChatStore((s) => s.setTheme);
-  const myCode = useChatStore((s) => s.myCode);
 
   const [isAccountsOpen, setIsAccountsOpen] = React.useState(false);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
@@ -132,7 +131,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                 <Avatar
                   src={avatarUrl}
                   alt={nickname || '?'}
-                  className="w-12 h-12 rounded-full"
+                  className="w-14 h-14 rounded-full"
                 />
               </div>
               <div className="flex items-center justify-between min-w-0">
@@ -142,9 +141,6 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                 >
                   <span className="font-bold text-[16px] text-[var(--text-main)] truncate">
                     {nickname || 'User'}
-                  </span>
-                  <span className="text-[12px] text-[var(--text-dim)] truncate">
-                    {myCode ? `#${myCode}` : 'Orbita'}
                   </span>
                 </div>
                 <button
@@ -206,17 +202,12 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                       <Avatar
                         src={otherAccount.avatarUrl}
                         alt={otherAccount.nickname || '?'}
-                        className="w-8 h-8 rounded-full"
+                        className="w-9 h-9 rounded-full"
                       />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium text-[14px] text-[var(--text-main)] truncate">
                           {otherAccount.nickname || 'User'}
                         </span>
-                        {otherAccount.myCode && (
-                          <span className="text-[11px] text-[var(--text-dim)] truncate">
-                            #{otherAccount.myCode}
-                          </span>
-                        )}
                       </div>
                     </button>
                   ) : (
