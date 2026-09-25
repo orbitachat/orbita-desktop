@@ -3568,11 +3568,7 @@ export const SettingsScreen = () => {
         onClick={() => setCurrentView('chats')}
       >
         <motion.div
-          initial={{
-            opacity: 1,
-            scale: 1,
-            height: isMobileWidth ? 'calc(100vh - 30px)' : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
-          }}
+          initial={false}
           animate={{
             opacity: 1,
             scale: 1,
@@ -3583,7 +3579,7 @@ export const SettingsScreen = () => {
               : (typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.9, 900) : 900),
           }}
           transition={{
-            height: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
+            height: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
             opacity: { duration: 0 },
             scale: { duration: 0 },
           }}

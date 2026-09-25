@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -51,11 +51,30 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
   const currentTheme = useChatStore((s) => s.currentTheme);
   const setTheme = useChatStore((s) => s.setTheme);
 
-  const [isAccountsOpen, setIsAccountsOpen] = React.useState(false);
+  const [isAccountsOpen, setIsAccountsOpen] = useState(false);
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const accounts = useAccountStore((s) => s.accounts);
   const switchAccount = useAccountStore((s) => s.switchAccount);
   const prepareAddSecondAccount = useAccountStore((s) => s.prepareAddSecondAccount);
+
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      const raf = requestAnimationFrame(() => {
+        setIsAnimating(true);
+      });
+      return () => cancelAnimationFrame(raf);
+    } else {
+      setIsAnimating(false);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 220);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const otherAccount = accounts.find((a) => a.id !== activeAccountId && a.isRegistered);
 
@@ -80,45 +99,42 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <div
-          className="fixed inset-x-0 bottom-0 top-[var(--titlebar-height,0px)] z-[150] flex"
-          style={{
-            userSelect: 'none',
-          }}
-        >
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            onClick={onClose}
-            className="fixed inset-x-0 bottom-0 top-[var(--titlebar-height,0px)]"
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.45)',
-              backdropFilter: 'none',
-              WebkitBackdropFilter: 'none',
-            }}
-          />
+  if (!shouldRender && !isOpen) return null;
 
-          <motion.div
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative z-10 flex flex-col h-full overflow-hidden shadow-2xl"
-            style={{
-              width: '280px',
-              maxWidth: '85vw',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRight: '1px solid var(--border-color)',
-              borderTop: '1px solid var(--border-color)',
-              willChange: 'transform',
-            }}
-          >
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 top-[var(--titlebar-height,0px)] z-[150] flex"
+      style={{
+        userSelect: 'none',
+        pointerEvents: isOpen && isAnimating ? 'auto' : 'none',
+      }}
+    >
+      <div
+        onClick={onClose}
+        className="fixed inset-x-0 bottom-0 top-[var(--titlebar-height,0px)]"
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          opacity: isOpen && isAnimating ? 1 : 0,
+          transition: 'opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          willChange: 'opacity',
+        }}
+      />
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 flex flex-col h-full overflow-hidden shadow-2xl"
+        style={{
+          width: '280px',
+          maxWidth: '85vw',
+          backgroundColor: 'var(--bg-secondary)',
+          borderRight: '1px solid var(--border-color)',
+          borderTop: '1px solid var(--border-color)',
+          transform: isOpen && isAnimating ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)',
+          transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          willChange: 'transform',
+          contain: 'layout style paint',
+        }}
+      >
             <div
               className="px-5 pt-5 pb-3 flex flex-col gap-3 transition-colors hover:bg-[var(--surface-container-soft)]"
               style={{
@@ -433,9 +449,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                 <PillToggle checked={isNightMode} onChange={toggleNightMode} />
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
-      )}
-    </AnimatePresence>
   );
 };
