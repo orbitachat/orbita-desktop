@@ -228,7 +228,10 @@ export const WelcomeScreen: React.FC = () => {
   const logoColor = isLight ? '#5c54e5' : '#BCC0C3';
 
   return (
-    <div
+    <motion.div
+      initial={isSecondAccount ? { x: 48, opacity: 0 } : false}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       style={{
         width: '100%',
         height: '100%',
@@ -1118,6 +1121,6 @@ export const WelcomeScreen: React.FC = () => {
           {`Orbita Desktop v${packageJson.version} x64`}
         </span>
       </div>
-    </div>
+    </motion.div>
   );
 };

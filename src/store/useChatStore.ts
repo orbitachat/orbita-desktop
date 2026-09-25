@@ -192,8 +192,13 @@ export function isMessageOutgoing(
   myUserId?: string | null
 ): boolean {
   if (!msg) return false;
-  if (typeof msg.isOutgoing === 'boolean') {
-    return msg.isOutgoing;
+  if (chat && chat.type === 'private') {
+    if (chat.peerCode && (msg.senderId === chat.peerCode || (msg as any).senderCode === chat.peerCode)) {
+      return false;
+    }
+    if (chat.id && chat.id.length === 36 && (msg.senderId === chat.id || (msg as any).senderCode === chat.id)) {
+      return false;
+    }
   }
   if (myUserId && (msg.senderId === myUserId || (msg as any).senderUserId === myUserId)) {
     return true;
@@ -201,14 +206,17 @@ export function isMessageOutgoing(
   if (myCode && (msg.senderId === myCode || (msg as any).senderCode === myCode)) {
     return true;
   }
-  if (_myNickname && msg.sender && msg.sender === _myNickname && msg.sender !== 'Orbita') {
-    return true;
-  }
-  if (chat && chat.peerCode && msg.senderId && chat.type === 'private') {
-    return msg.senderId !== chat.peerCode;
-  }
   if (chat && chat.id === 'notes') {
     return true;
+  }
+  if (_myNickname && msg.sender && msg.sender === _myNickname && msg.sender !== 'Orbita') {
+    if (chat && chat.name === _myNickname && myCode && msg.senderId && msg.senderId !== myCode) {
+      return false;
+    }
+    return true;
+  }
+  if (typeof msg.isOutgoing === 'boolean') {
+    return msg.isOutgoing;
   }
   return false;
 }

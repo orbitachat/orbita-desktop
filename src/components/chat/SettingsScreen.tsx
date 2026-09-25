@@ -20,6 +20,7 @@ import { liveKitService } from '../../services/livekitService';
 import { supabaseService } from '../../services/supabaseService';
 import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 import { DeleteAccountModal } from '../common/DeleteAccountModal';
+import { useAccountStore } from '../../services/accountManager';
 import { AccountBackupScreen } from '../settings/AccountBackupScreen';
 import { ConnectionSettingsScreen } from '../settings/ConnectionSettingsScreen';
 import { DataMemorySettings } from '../settings/DataMemorySettings';
@@ -2223,8 +2224,6 @@ export const SettingsScreen = () => {
   const setPeerVolume = useCallStore((state) => state.setPeerVolume);
   const setMicVolume = useCallStore((state) => state.setMicVolume);
   const { nickname, avatarUrl, setNickname } = useAuthStore();
-  const deleteAccount = useAuthStore((state) => state.deleteAccount);
-  const resetChats = useChatStore((state) => state.resetChats);
   const setCurrentView = useChatStore((state) => state.setCurrentView);
   const { appVersion } = useDeviceStore();
   const { proxyEnabled, activeProxyId, proxies } = useConnectionStore();
@@ -3779,11 +3778,10 @@ export const SettingsScreen = () => {
       <DeleteAccountModal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        onConfirm={() => {
-          deleteAccount();
-          resetChats();
-          setCurrentView('chats');
+        onConfirm={async () => {
           setDeleteModalOpen(false);
+          await useAccountStore.getState().deleteCurrentAccount();
+          setCurrentView('chats');
         }}
       />
   </>

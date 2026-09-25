@@ -5009,7 +5009,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         if (isSelf) return;
         const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
         const updated = currentMsgs.map((msg) => {
-          const isOut = msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
+          const isOut = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
           if (!isOut) return msg;
           if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
             return { ...msg, read: true, status: 'read' as const };
@@ -5135,7 +5135,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         if (isSelf) return;
         const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
         const updated = currentMsgs.map((msg) => {
-          const isOut = msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
+          const isOut = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
           if (!isOut) return msg;
           if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
             return { ...msg, read: true, status: 'read' as const };

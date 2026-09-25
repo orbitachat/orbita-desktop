@@ -58,6 +58,7 @@ import { IncomingCallModal } from '../call/IncomingCallModal';
 import { CallWindow } from '../call/CallWindow';
 import { CallsModal } from '../call/CallsModal';
 import { MainMenuDrawer } from './MainMenuDrawer';
+import { useAccountStore } from '../../services/accountManager';
 import { DeleteAccountModal } from '../common/DeleteAccountModal';
 import { ActionConfirmModal } from '../common/ActionConfirmModal';
 import { DevicePermissionModal } from '../common/DevicePermissionModal';
@@ -632,7 +633,6 @@ export const MainLayout = () => {
     myCode,
     setMyCode,
     addChat,
-    resetChats,
     setIsHandshaking,
     closeChat: closeChatStore,
     activeProfileChatId,
@@ -658,7 +658,6 @@ export const MainLayout = () => {
     myCode: state.myCode,
     setMyCode: state.setMyCode,
     addChat: state.addChat,
-    resetChats: state.resetChats,
     isHandshaking: state.isHandshaking,
     setIsHandshaking: state.setIsHandshaking,
     closeChat: state.closeChat,
@@ -678,11 +677,10 @@ export const MainLayout = () => {
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
     return typeof navigator !== 'undefined' ? navigator.onLine : true;
   });
-  const { nickname, avatarUrl, step, deleteAccount } = useAuthStore(useShallow(state => ({
+  const { nickname, avatarUrl, step } = useAuthStore(useShallow(state => ({
     nickname: state.nickname,
     avatarUrl: state.avatarUrl,
     step: state.step,
-    deleteAccount: state.deleteAccount,
   })));
   const [searchQuery, setSearchQuery] = useState('');
   const [connectModalConfig, setConnectModalConfig] = useState<{
@@ -1811,7 +1809,6 @@ export const MainLayout = () => {
         is36CharCode;
 
       const isCorruptedAvatar = Boolean(
-        (avatarUrl && chat.avatarUrl === avatarUrl) ||
         chat.avatarUrl === 'undefined' ||
         chat.avatarUrl === 'null'
       );
@@ -1915,7 +1912,7 @@ export const MainLayout = () => {
         } catch {}
       }
 
-      if (isCorruptedAvatar && (recoveredAvatar === avatarUrl || recoveredAvatar === 'undefined' || recoveredAvatar === 'null')) {
+      if (isCorruptedAvatar && (recoveredAvatar === 'undefined' || recoveredAvatar === 'null')) {
         recoveredAvatar = undefined;
       }
 
@@ -1947,7 +1944,8 @@ export const MainLayout = () => {
       const stillCorrupted =
         finalName === 'Peppe' ||
         finalName === 'Saizzi' ||
-        (avatarUrl && finalAvatar === avatarUrl) ||
+        finalAvatar === 'undefined' ||
+        finalAvatar === 'null' ||
         (myCode && finalPeerCode === myCode);
       if (!stillCorrupted) {
         checkedRecoveryChatsRef.current.add(chat.id);
@@ -3925,7 +3923,10 @@ export const MainLayout = () => {
     }
   }, [chatContextMenu.visible]);
 
-  const handleDeleteAccount = () => { deleteAccount(); resetChats(); setShowDeleteModal(false); };
+  const handleDeleteAccount = async () => {
+    setShowDeleteModal(false);
+    await useAccountStore.getState().deleteCurrentAccount();
+  };
   const handleChatContextMenu = (e: React.MouseEvent, chatId: string) => { e.preventDefault(); e.stopPropagation(); setChatContextMenu({ visible: true, x: e.clientX, y: e.clientY, chatId }); };
 
   const requestClearHistory = (chatId: string) => {
@@ -4894,23 +4895,33 @@ export const MainLayout = () => {
           onClose={() => setIsMainMenuOpen(false)}
           onOpenProfile={() => {
             setIsMainMenuOpen(false);
-            setIsMyProfileOpen(true);
+            setTimeout(() => {
+              setIsMyProfileOpen(true);
+            }, 180);
           }}
           onOpenCreateGroup={() => {
             setIsMainMenuOpen(false);
-            setConnectModalConfig({ isOpen: true, type: 'group' });
+            setTimeout(() => {
+              setConnectModalConfig({ isOpen: true, type: 'group' });
+            }, 180);
           }}
           onOpenCreateChannel={() => {
             setIsMainMenuOpen(false);
-            setConnectModalConfig({ isOpen: true, type: 'channel' });
+            setTimeout(() => {
+              setConnectModalConfig({ isOpen: true, type: 'channel' });
+            }, 180);
           }}
           onOpenCreateChat={() => {
             setIsMainMenuOpen(false);
-            setConnectModalConfig({ isOpen: true, type: 'friend' });
+            setTimeout(() => {
+              setConnectModalConfig({ isOpen: true, type: 'friend' });
+            }, 180);
           }}
           onOpenCalls={() => {
             setIsMainMenuOpen(false);
-            setShowCallsModal(true);
+            setTimeout(() => {
+              setShowCallsModal(true);
+            }, 180);
           }}
           onOpenSavedMessages={() => {
             setIsMainMenuOpen(false);
@@ -4918,7 +4929,9 @@ export const MainLayout = () => {
           }}
           onOpenSettings={() => {
             setIsMainMenuOpen(false);
-            handleOpenSettings();
+            setTimeout(() => {
+              handleOpenSettings();
+            }, 180);
           }}
         />
 

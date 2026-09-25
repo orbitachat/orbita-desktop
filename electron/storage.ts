@@ -114,31 +114,41 @@ export function storageRemove(key: string): Promise<void> {
 
 export function storageGetMessages(chatId: string, limit?: number, offset?: number): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    let sql = `SELECT id, message_data FROM ${MESSAGES_TABLE} WHERE chat_id = ? ORDER BY created_at ASC`;
-    const params: any[] = [chatId];
-    if (limit !== undefined) {
-      sql += ` LIMIT ?`;
-      params.push(limit);
-    }
-    if (offset !== undefined) {
-      sql += ` OFFSET ?`;
-      params.push(offset);
-    }
-    getDb().all(sql, params, (err, rows: any[]) => {
-      if (err) reject(err);
-      else {
-        const results = rows.map(row => {
-          const decrypted = decryptLocal(Buffer.from(row.message_data, 'base64'));
-          if (!decrypted) return null;
-          try {
-            return JSON.parse(decrypted.toString('utf8'));
-          } catch {
-            return null;
-          }
-        }).filter(r => r !== null);
-        resolve(results);
+    const runQuery = (targetId: string, isFallback: boolean) => {
+      let sql = `SELECT id, message_data FROM ${MESSAGES_TABLE} WHERE chat_id = ? ORDER BY created_at ASC`;
+      const params: any[] = [targetId];
+      if (limit !== undefined) {
+        sql += ` LIMIT ?`;
+        params.push(limit);
       }
-    });
+      if (offset !== undefined) {
+        sql += ` OFFSET ?`;
+        params.push(offset);
+      }
+      getDb().all(sql, params, (err, rows: any[]) => {
+        if (err) reject(err);
+        else {
+          const results = rows.map(row => {
+            const decrypted = decryptLocal(Buffer.from(row.message_data, 'base64'));
+            if (!decrypted) return null;
+            try {
+              return JSON.parse(decrypted.toString('utf8'));
+            } catch {
+              return null;
+            }
+          }).filter(r => r !== null);
+
+          if (results.length === 0 && !isFallback && targetId.startsWith('account_1:::')) {
+            runQuery(targetId.slice('account_1:::'.length), true);
+            return;
+          }
+
+          resolve(results);
+        }
+      });
+    };
+
+    runQuery(chatId, false);
   });
 }
 
@@ -161,7 +171,8 @@ export function storageAddMessage(chatId: string, messageId: string, messageData
 
 export function storageDeleteMessages(chatId: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    getDb().run(`DELETE FROM ${MESSAGES_TABLE} WHERE chat_id = ?`, [chatId], (err) => {
+    const baseId = chatId.startsWith('account_1:::') ? chatId.slice('account_1:::'.length) : null;
+    getDb().run(`DELETE FROM ${MESSAGES_TABLE} WHERE chat_id = ? OR chat_id = ?`, [chatId, baseId || chatId], (err) => {
       if (err) reject(err);
       else resolve();
     });

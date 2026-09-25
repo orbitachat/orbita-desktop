@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 export const AVATAR_GRADIENTS = [
   'linear-gradient(135deg, #06b6d4, #3b82f6)',
@@ -36,6 +36,7 @@ interface AvatarProps {
 
 export const Avatar = ({ src, alt = '', className = '', style }: AvatarProps) => {
   const [videoError, setVideoError] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const cleanSrc = useMemo(() => {
     if (!src || typeof src !== 'string') return null;
@@ -93,7 +94,12 @@ export const Avatar = ({ src, alt = '', className = '', style }: AvatarProps) =>
     ...({ WebkitUserDrag: 'none' } as any),
   };
 
-  if (!cleanSrc || (isVideo && videoError)) {
+  useEffect(() => {
+    setImageError(false);
+    setVideoError(false);
+  }, [cleanSrc]);
+
+  if (!cleanSrc || (isVideo && videoError) || (!isVideo && imageError)) {
     return (
       <div
         draggable={false}
@@ -172,8 +178,8 @@ export const Avatar = ({ src, alt = '', className = '', style }: AvatarProps) =>
         ...noDragStyle,
         ...style,
       }}
-      onError={(e) => {
-        e.currentTarget.style.display = 'none';
+      onError={() => {
+        setImageError(true);
       }}
     />
   );

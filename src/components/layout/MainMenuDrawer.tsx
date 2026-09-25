@@ -116,6 +116,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
               backgroundColor: 'var(--bg-secondary)',
               borderRight: '1px solid var(--border-color)',
               borderTop: '1px solid var(--border-color)',
+              willChange: 'transform',
             }}
           >
             <div

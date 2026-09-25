@@ -97,7 +97,10 @@ class BrowserOrbitaAdapter {
       mediaDeleteByChatId: async () => ({ deleted: 0 }),
       storageGetMessages: async (chatId: string) => {
         try {
-          const raw = localStorage.getItem(`orbita_msgs_${chatId}`);
+          let raw = localStorage.getItem(`orbita_msgs_${chatId}`);
+          if (!raw && chatId.startsWith('account_1:::')) {
+            raw = localStorage.getItem(`orbita_msgs_${chatId.slice('account_1:::'.length)}`);
+          }
           return raw ? JSON.parse(raw) : [];
         } catch {
           return [];
@@ -120,6 +123,9 @@ class BrowserOrbitaAdapter {
       storageDeleteMessages: async (chatId: string) => {
         try {
           localStorage.removeItem(`orbita_msgs_${chatId}`);
+          if (chatId.startsWith('account_1:::')) {
+            localStorage.removeItem(`orbita_msgs_${chatId.slice('account_1:::'.length)}`);
+          }
         } catch {}
       },
       storageDeleteMessage: async () => {},
