@@ -1963,14 +1963,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
+          justifyContent: 'center',
           alignItems: 'center',
           width: '100%',
           opacity: Math.max(0, 1 - (scrollOffset / 55)),
-          transform: `scale(${Math.max(0.7, 1 - (scrollOffset / 120))}) translateY(${Math.min(0, -scrollOffset * 0.25)}px)`,
-          transformOrigin: 'top center',
+          transform: `translateY(-${scrollOffset * 0.8}px) scale(${Math.max(0.65, 1 - (scrollOffset / 140))})`,
+          transformOrigin: 'center center',
           pointerEvents: scrollOffset > 50 ? 'none' : 'auto',
-          transition: 'opacity 0.08s linear',
+          transition: 'none',
         }}
       >
         <div
@@ -2014,7 +2014,21 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             />
           )}
         </div>
+      </div>
 
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '100%',
+          opacity: Math.max(0, 1 - (scrollOffset / 55)),
+          transform: `translate(-${scrollOffset * 1.5}px, -${scrollOffset * 0.6}px) scale(${Math.max(0.8, 1 - (scrollOffset / 180))})`,
+          transformOrigin: 'center center',
+          pointerEvents: scrollOffset > 50 ? 'none' : 'auto',
+          transition: 'none',
+        }}
+      >
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2px', padding: '0 20px', width: '100%', boxSizing: 'border-box' }}>
           <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -2338,7 +2352,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   onClick={isGroupAdmin ? () => setIsEditingChannel(true) : undefined}
                   style={{
                     padding: '12px 20px',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    borderBottom: 'none',
                     cursor: isGroupAdmin ? 'pointer' : 'default',
                     display: 'flex',
                     flexDirection: 'column',
@@ -2356,7 +2370,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   onClick={() => setIsEditingChannel(true)}
                   style={{
                     padding: '12px 20px',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    borderBottom: 'none',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -2383,7 +2397,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   justifyContent: 'space-between',
                   gap: '12px',
                   cursor: 'pointer',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderBottom: 'none',
                 }}
               >
                 <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -2414,7 +2428,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderBottom: 'none',
                 }}
               >
                 <div
@@ -2571,7 +2585,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 onClick={isChannelOwner ? () => setIsEditingChannel(true) : undefined}
                 style={{
                   padding: '12px 20px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderBottom: 'none',
                   cursor: isChannelOwner ? 'pointer' : 'default',
                   display: 'flex',
                   flexDirection: 'column',
@@ -2589,7 +2603,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 onClick={() => setIsEditingChannel(true)}
                 style={{
                   padding: '12px 20px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderBottom: 'none',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -2606,7 +2620,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             <div
               style={{
                 padding: '12px 20px',
-                borderBottom: profileId ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+                borderBottom: 'none',
                 display: 'flex',
                 flexDirection: 'column',
               }}
@@ -2674,7 +2688,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+              borderBottom: 'none',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2742,7 +2756,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '12px',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                    borderBottom: 'none',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
@@ -2756,7 +2770,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                         <span className="truncate" style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
                           {member.nickname}
                         </span>
-                        <DeveloperBadge userId={memberCode || member.userId || member.nickname} nickname={member.nickname} size={15} />
+                        <DeveloperBadge userId={memberCode || member.userId || member.nickname} nickname={member.nickname} size={24} />
                       </div>
                       <span style={{ fontSize: '11px', color: isMemberOnline ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim)' }}>
                         {isMemberOnline ? t('userStatus.online', 'в сети') : (member.lastSeen ? formatLastSeen(member.lastSeen, t) : t('userStatus.offline', 'был(а) недавно'))}
@@ -3436,12 +3450,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 backgroundColor: subTab !== null
                   ? 'transparent'
                   : `color-mix(in srgb, var(--settings-bg, var(--bg-secondary)) ${Math.min(100, Math.round((Math.max(0, scrollOffset - 20) / 60) * 100))}%, transparent)`,
-                borderBottom: subTab !== null
-                  ? 'none'
-                  : `1px solid rgba(255, 255, 255, ${Math.min(0.08, (Math.max(0, scrollOffset - 30) / 50) * 0.08)})`,
+                borderBottom: 'none',
                 pointerEvents: 'none',
                 boxSizing: 'border-box',
-                transition: 'border-color 0.1s linear',
+                transition: 'none',
               }}
             >
               {subTab === null ? (
@@ -3453,10 +3465,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     minWidth: 0,
                     flex: 1,
                     paddingRight: '12px',
-                    opacity: Math.min(1, Math.max(0, (scrollOffset - 35) / 45)),
-                    transform: `translateY(${Math.max(0, 10 - ((scrollOffset - 35) / 45) * 10)}px)`,
+                    opacity: Math.min(1, Math.max(0, (scrollOffset - 35) / 35)),
+                    transform: `translate(${Math.max(0, 16 - ((scrollOffset - 35) / 35) * 16)}px, ${Math.max(0, 8 - ((scrollOffset - 35) / 35) * 8)}px)`,
                     pointerEvents: scrollOffset > 35 ? 'auto' : 'none',
-                    transition: 'opacity 0.12s ease-out, transform 0.12s ease-out',
+                    transition: 'none',
                   }}
                 >
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
