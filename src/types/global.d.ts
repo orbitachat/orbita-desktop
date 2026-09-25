@@ -139,6 +139,7 @@ declare global {
       checkForUpdates?: () => Promise<any>;
       downloadUpdate?: () => Promise<any>;
       quitAndInstallUpdate?: () => Promise<void>;
+      getDownloadedUpdate?: () => Promise<{ downloaded: boolean; version: string | null }>;
       getAppVersion?: () => Promise<string>;
       setAutoDownloadUpdates?: (autoDownload: boolean) => Promise<boolean>;
       onUpdateStatus?: (callback: (data: {

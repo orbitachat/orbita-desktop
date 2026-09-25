@@ -390,6 +390,7 @@ contextBridge.exposeInMainWorld('orbita', {
   checkForUpdates: () => ipcRenderer.invoke('orbita:checkForUpdates'),
   downloadUpdate: () => ipcRenderer.invoke('orbita:downloadUpdate'),
   quitAndInstallUpdate: () => ipcRenderer.invoke('orbita:quitAndInstallUpdate'),
+  getDownloadedUpdate: () => ipcRenderer.invoke('orbita:getDownloadedUpdate'),
   setAutoDownloadUpdates: (autoDownload: boolean) =>
     ipcRenderer.invoke('orbita:setAutoDownloadUpdates', autoDownload),
   onUpdateStatus: (callback: (data: any) => void) => {

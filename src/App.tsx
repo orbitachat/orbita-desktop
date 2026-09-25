@@ -143,6 +143,26 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.orbita) {
+      if (window.orbita.getDownloadedUpdate) {
+        window.orbita.getDownloadedUpdate().then((res) => {
+          if (res?.downloaded) {
+            useChatStore.getState().setDownloadedUpdateVersion(res.version || 'new');
+          }
+        }).catch(() => {});
+      }
+      if (window.orbita.onUpdateStatus) {
+        const unsub = window.orbita.onUpdateStatus((data: any) => {
+          if (data?.status === 'downloaded') {
+            useChatStore.getState().setDownloadedUpdateVersion(data.version || 'new');
+          }
+        });
+        return unsub;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (isHydrated && step === 'main') {
       accountSyncService.init();
     }

@@ -3,7 +3,7 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash, WifiOff, LogOut } from 'lucide-react';
+import { X, Trash, WifiOff, LogOut, RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { markdownToHtml } from '../../utils/messageUtils';
 import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher';
@@ -673,6 +673,9 @@ export const MainLayout = () => {
     deletedChatSessions: state.deletedChatSessions,
     _hasHydrated: state._hasHydrated,
   })));
+  const downloadedUpdateVersion = useChatStore((s) => s.downloadedUpdateVersion);
+  const isUpdateBannerDismissed = useChatStore((s) => s.isUpdateBannerDismissed);
+  const dismissUpdateBanner = useChatStore((s) => s.dismissUpdateBanner);
   const isServerConnected = useConnectionStore((state) => state.isServerConnected);
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
     return typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -4583,6 +4586,103 @@ export const MainLayout = () => {
                     </div>
                   ) : (
                     <div className="flex flex-col w-full">
+                      {downloadedUpdateVersion && !isUpdateBannerDismissed && (
+                        <div
+                          role="button"
+                          tabIndex={-1}
+                          onClick={() => {
+                            if (typeof window !== 'undefined' && window.orbita?.quitAndInstallUpdate) {
+                              window.orbita.quitAndInstallUpdate();
+                            }
+                          }}
+                          aria-label={t('common.install_update', 'Установить обновление')}
+                          className="group relative cursor-pointer select-none outline-none focus:outline-none"
+                          style={{
+                            borderRadius: 0,
+                            width: '100%',
+                            height: '64px',
+                            minHeight: '64px',
+                            maxHeight: '64px',
+                            backgroundColor: 'var(--accent-color, #5c54e5)',
+                            color: '#ffffff',
+                            border: 'none',
+                            outline: 'none',
+                            boxShadow: 'none',
+                            WebkitTapHighlightColor: 'transparent',
+                            padding: '6px 14px',
+                            boxSizing: 'border-box',
+                            userSelect: 'none',
+                            flexShrink: 0,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            transition: 'background-color 0.15s ease',
+                          }}
+                        >
+                          <div className="flex items-center min-w-0 w-full h-full">
+                            <div
+                              style={{
+                                width: 22,
+                                height: 22,
+                                marginRight: 10,
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <RotateCw size={19} color="#ffffff" strokeWidth={2.2} />
+                            </div>
+                            <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">
+                              <span
+                                style={{
+                                  fontSize: '13px',
+                                  fontWeight: 700,
+                                  color: '#ffffff',
+                                  fontFamily: 'inherit',
+                                  lineHeight: '15px',
+                                  marginBottom: '2px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {t('common.update_available_banner_title', 'Доступно обновление')}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 400,
+                                  color: 'rgba(255, 255, 255, 0.88)',
+                                  lineHeight: '13px',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {t('common.update_available_banner_desc', 'Нажмите, чтобы перезапустить Orbita')}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dismissUpdateBanner();
+                              }}
+                              aria-label={t('common.close', 'Закрыть')}
+                              className="p-1.5 rounded-full hover:bg-black/20 active:bg-black/30 transition-colors text-white/80 hover:text-white shrink-0 ml-2"
+                              style={{
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                outline: 'none',
+                              }}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {(!isServerConnected || !isNetworkOnline) && (
                         <div
                           role="button"

@@ -3696,6 +3696,13 @@ function setupAutoUpdater() {
     return app.getVersion();
   });
 
+  ipcMain.handle('orbita:getDownloadedUpdate', () => {
+    if (downloadedInstallerPath && fs.existsSync(downloadedInstallerPath)) {
+      return { downloaded: true, version: latestGitHubRelease?.version || null };
+    }
+    return { downloaded: false, version: null };
+  });
+
   if (app.isPackaged) {
     setTimeout(() => {
       fetchLatestGitHubRelease()

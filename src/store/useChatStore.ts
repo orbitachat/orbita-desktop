@@ -462,6 +462,10 @@ interface ChatState {
   setIsRecordingVoice: (recording: boolean) => void;
 
   autoUpdate: boolean;
+  downloadedUpdateVersion: string | null;
+  isUpdateBannerDismissed: boolean;
+  setDownloadedUpdateVersion: (version: string | null) => void;
+  dismissUpdateBanner: () => void;
   showInSystemTray: boolean;
   autoLaunch: boolean;
   sendOnEnter: boolean;
@@ -726,6 +730,8 @@ export const useChatStore = create<ChatState>()(
       setIsRecordingVoice: (recording) => set({ isRecordingVoice: recording }),
 
       autoUpdate: true,
+      downloadedUpdateVersion: null,
+      isUpdateBannerDismissed: false,
       showInSystemTray: true,
       autoLaunch: false,
       sendOnEnter: true,
@@ -1711,6 +1717,8 @@ export const useChatStore = create<ChatState>()(
       },
 
       setAutoUpdate: (enabled) => set({ autoUpdate: enabled }),
+      setDownloadedUpdateVersion: (version) => set({ downloadedUpdateVersion: version, isUpdateBannerDismissed: false }),
+      dismissUpdateBanner: () => set({ isUpdateBannerDismissed: true }),
       setShowInSystemTray: (enabled) => set({ showInSystemTray: enabled }),
       setAutoLaunch: (enabled) => set({ autoLaunch: enabled }),
       setSendOnEnter: (enabled) => set({ sendOnEnter: enabled }),

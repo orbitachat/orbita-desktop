@@ -62,6 +62,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setIsAccountsOpen(false);
       setShouldRender(true);
       const raf = requestAnimationFrame(() => {
         setIsAnimating(true);
@@ -71,6 +72,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
       setIsAnimating(false);
       const timer = setTimeout(() => {
         setShouldRender(false);
+        setIsAccountsOpen(false);
       }, 220);
       return () => clearTimeout(timer);
     }
@@ -207,7 +209,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                         switchAccount(otherAccount.id);
                       }}
                       aria-label={t('mainMenu.switch_account', 'Переключить аккаунт')}
-                      className="w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer text-[var(--text-main)]"
+                      className="w-full flex items-center gap-4 px-5 py-3 text-left transition-colors cursor-pointer text-[var(--text-main)]"
                       style={{
                         border: 'none',
                         background: 'transparent',
@@ -219,7 +221,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                       <Avatar
                         src={otherAccount.avatarUrl}
                         alt={otherAccount.nickname || '?'}
-                        className="w-9 h-9 rounded-full"
+                        className="w-5 h-5 rounded-full shrink-0"
                       />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium text-[14px] text-[var(--text-main)] truncate">
@@ -235,7 +237,7 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                         prepareAddSecondAccount();
                       }}
                       aria-label={t('mainMenu.add_account', 'Добавить аккаунт')}
-                      className="w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer text-[var(--text-main)]"
+                      className="w-full flex items-center gap-4 px-5 py-3 text-left transition-colors cursor-pointer text-[var(--text-main)]"
                       style={{
                         border: 'none',
                         background: 'transparent',
@@ -245,13 +247,13 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
                         style={{
                           backgroundColor: 'var(--accent-color, #7c3aed)',
                           color: '#ffffff',
                         }}
                       >
-                        <Plus size={16} />
+                        <Plus size={13} strokeWidth={2.5} />
                       </div>
                       <span className="font-medium text-[14px] text-[var(--text-main)] truncate">
                         {t('mainMenu.add_account', 'Добавить аккаунт')}
