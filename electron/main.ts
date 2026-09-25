@@ -938,12 +938,22 @@ function registerOrbitaMediaProtocol() {
       let item = await getMediaFromCache(mediaUrl);
 
       if (!item.data) {
-        const response = await fetch(mediaUrl);
-        if (!response.ok) {
-          return new Response('Not found', { status: 404 });
+        let rawBuf: Buffer | null = null;
+        if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
+          const response = await fetch(mediaUrl);
+          if (!response.ok) {
+            return new Response('Not found', { status: 404 });
+          }
+          const arrayBuf = await response.arrayBuffer();
+          rawBuf = Buffer.from(arrayBuf) as Buffer;
+        } else {
+          const localPath = mediaUrl.startsWith('file://') ? fileURLToPath(mediaUrl) : mediaUrl;
+          if (fs.existsSync(localPath)) {
+            rawBuf = fs.readFileSync(localPath);
+          } else {
+            return new Response('Not found', { status: 404 });
+          }
         }
-        const arrayBuf = await response.arrayBuffer();
-        let rawBuf = Buffer.from(arrayBuf) as Buffer;
 
         if (secret) {
           rawBuf = decryptMediaBuffer(rawBuf, secret);

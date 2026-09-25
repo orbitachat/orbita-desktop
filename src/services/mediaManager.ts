@@ -90,9 +90,36 @@ class MediaManager {
   private maxConcurrentDownloads = 3;
   private processing = false;
   private fetchAbortControllers = new Map<string, AbortController>();
+  private progressListeners = new Map<string, Set<(loaded: number, total: number) => void>>();
 
   private cacheHits = 0;
   private cacheMisses = 0;
+
+  subscribeProgress(url: string, sharedSecret: string, callback: (loaded: number, total: number) => void): () => void {
+    const key = `${normalizeMediaUrl(url)}::${sharedSecret || 'public'}`;
+    let set = this.progressListeners.get(key);
+    if (!set) {
+      set = new Set();
+      this.progressListeners.set(key, set);
+    }
+    set.add(callback);
+    return () => {
+      const s = this.progressListeners.get(key);
+      if (s) {
+        s.delete(callback);
+        if (s.size === 0) this.progressListeners.delete(key);
+      }
+    };
+  }
+
+  notifyProgress(cacheKey: string, loaded: number, total: number) {
+    const listeners = this.progressListeners.get(cacheKey);
+    if (listeners && listeners.size > 0) {
+      listeners.forEach((cb) => {
+        try { cb(loaded, total); } catch {}
+      });
+    }
+  }
 
   setDirectDecryptedMedia(
     url: string,
@@ -309,7 +336,33 @@ class MediaManager {
       if (!response.ok) {
         throw new Error(`Media fetch failed with status ${response.status}`);
       }
-      const encryptedBuffer = await response.arrayBuffer();
+      let encryptedBuffer: ArrayBuffer;
+      const contentLengthHeader = response.headers.get('content-length');
+      const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
+      if (response.body && totalBytes > 0) {
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let receivedBytes = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            receivedBytes += value.length;
+            this.notifyProgress(cacheKey, receivedBytes, totalBytes);
+          }
+        }
+        const combined = new Uint8Array(receivedBytes);
+        let offset = 0;
+        for (const chunk of chunks) {
+          combined.set(chunk, offset);
+          offset += chunk.length;
+        }
+        encryptedBuffer = combined.buffer;
+      } else {
+        encryptedBuffer = await response.arrayBuffer();
+        this.notifyProgress(cacheKey, encryptedBuffer.byteLength, encryptedBuffer.byteLength);
+      }
 
       if (sharedSecret && sharedSecret.trim()) {
         try {

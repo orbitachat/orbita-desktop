@@ -40,31 +40,27 @@ export const AudioMessageBubble = memo(({
   const pause = useAudioStore((state) => state.pause);
   const addToQueue = useAudioStore((state) => state.addToQueue);
 
-  const autoLoadMedia = useChatStore((state) => state.autoLoadMedia);
+  const autoLoad = useChatStore((state) => state.shouldAutoLoadMedia('audio', msg.fileSize || (msg as any).size, isOwn));
 
   const title = msg.audioMetadata?.title || msg.mediaName?.replace(/\.[^.]+$/, '') || t('chatWindow.audio');
   const artist = msg.audioMetadata?.artist || '';
 
   const effectiveSecret = msg.mediaKey || sharedSecret;
 
-  const { blobUrl, load } = useDecryptedMedia(
+  const { blobUrl, load, isLoading: mediaLoading, progress } = useDecryptedMedia(
     msg.mediaUrl!,
     effectiveSecret,
     msg.mediaName,
     msg.mime,
     msg.id,
     msg.id,
-    autoLoadMedia
+    autoLoad
   );
 
-  useEffect(() => {
-    if (autoLoadMedia && !blobUrl && !isLoading) {
-      handleDownload();
-    }
-  }, [autoLoadMedia, blobUrl, isLoading]);
+  const isDownloading = isLoading || mediaLoading;
 
   const handleDownload = useCallback(async () => {
-    if (isLoading) return;
+    if (isDownloading) return;
     setIsLoading(true);
     try {
       await load();
@@ -73,7 +69,7 @@ export const AudioMessageBubble = memo(({
     } finally {
       setIsLoading(false);
     }
-  }, [load, isLoading]);
+  }, [load, isDownloading]);
 
   useEffect(() => {
     if (!blobUrl) return;
@@ -194,7 +190,7 @@ export const AudioMessageBubble = memo(({
   const coverState = isUploading
     ? 'uploading'
     : (!blobUrl
-      ? (isLoading ? 'downloading' : 'download')
+      ? (isDownloading ? 'downloading' : 'download')
       : (showPause ? 'pause' : 'play'));
 
   return (
@@ -224,8 +220,9 @@ export const AudioMessageBubble = memo(({
           onClick={!blobUrl ? handleDownload : handlePlay}
           onCancel={onCancelUpload}
           state={coverState}
-          progress={isUploading ? uploadProgress : (isLoading ? 0.35 : undefined)}
+          progress={isUploading ? uploadProgress : (isDownloading ? progress : undefined)}
           isOwn={isOwn}
+          ariaLabel={isDownloading ? 'Cancel download' : (!blobUrl ? 'Download audio' : (showPause ? 'Pause' : 'Play'))}
         />
         <div className="flex flex-col min-w-0 flex-1 gap-1 overflow-hidden" style={{ maxWidth: '100%' }}>
           <div

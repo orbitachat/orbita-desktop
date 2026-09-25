@@ -1176,6 +1176,9 @@ const EncryptedMedia = memo(({
   isGif: isGifProp,
   onContextMenu,
   onClick,
+  isOwn = false,
+  fileSize,
+  blurPreview,
 }: {
   url: string;
   type: 'image' | 'video';
@@ -1188,8 +1191,12 @@ const EncryptedMedia = memo(({
   isGif?: boolean;
   onContextMenu?: (e: React.MouseEvent, blobUrl: string) => void;
   onClick?: () => void;
+  isOwn?: boolean;
+  fileSize?: number;
+  blurPreview?: string;
 }) => {
-  const { blobUrl } = useDecryptedMedia(url, sharedSecret, undefined, undefined, chatId, messageId);
+  const autoLoad = useChatStore((state) => state.shouldAutoLoadMedia(type === 'image' ? 'photo' : 'video', fileSize, isOwn));
+  const { blobUrl, load, isLoading, progress } = useDecryptedMedia(url, sharedSecret, undefined, undefined, chatId, messageId, autoLoad);
   const bubbleRadius = useChatStore.getState().bubbleRadius;
 
   const isGif = useMemo(() => {
@@ -1241,8 +1248,50 @@ const EncryptedMedia = memo(({
       }}
     >
       {!blobUrl && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <MD3CircularSpinner size="medium" color="var(--accent-color, #7C3AED)" />
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center z-10 select-none cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isLoading) load();
+          }}
+        >
+          {blurPreview && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `url(${blurPreview})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(16px)',
+                transform: 'scale(1.15)',
+              }}
+            />
+          )}
+          <div className="relative z-10 flex flex-col items-center gap-1.5 pointer-events-auto">
+            <AudioCoverWithPlay
+              cover={null}
+              size={48}
+              state={isLoading ? 'downloading' : 'download'}
+              progress={isLoading ? progress : undefined}
+              onClick={() => { if (!isLoading) load(); }}
+              ariaLabel={isLoading ? 'Cancel download' : 'Download media'}
+            />
+            {fileSize && fileSize > 0 && !isLoading && (
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#ffffff',
+                  backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                  padding: '1px 7px',
+                  borderRadius: '10px',
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                {(fileSize / (1024 * 1024)).toFixed(1)} MB
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -1301,16 +1350,15 @@ const EncryptedMedia = memo(({
 const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size: initialSize, timeNode, isOwn = false, customRadius }: { url: string; fileName?: string; sharedSecret: string | undefined; chatId?: string; messageId?: string; size?: number | null; timeNode?: React.ReactNode; isOwn?: boolean; customRadius?: string }) => {
   const { t } = useTranslation();
   const bubbleRadius = useChatStore((state) => state.bubbleRadius);
-  const autoLoadMedia = useChatStore((state) => state.autoLoadMedia);
-  const { blobUrl, blob, load } = useDecryptedMedia(url, sharedSecret, fileName, undefined, chatId, messageId, autoLoadMedia);
-  const [isLoading, setIsLoading] = useState(false);
-  const displayName = fileName || t('chatWindow.file');
-  const ext = fileName?.split('.').pop()?.toUpperCase() || 'FILE';
-
   const [fileSizeBytes, setFileSizeBytes] = useState<number | null>(() => {
     if (typeof initialSize === 'number' && initialSize > 0) return initialSize;
     return null;
   });
+  const autoLoad = useChatStore((state) => state.shouldAutoLoadMedia('file', fileSizeBytes, isOwn));
+  const { blobUrl, blob, load, isLoading: mediaLoading, progress } = useDecryptedMedia(url, sharedSecret, fileName, undefined, chatId, messageId, autoLoad);
+  const [isLoading, setIsLoading] = useState(false);
+  const displayName = fileName || t('chatWindow.file');
+  const ext = fileName?.split('.').pop()?.toUpperCase() || 'FILE';
 
   useEffect(() => {
     if (typeof initialSize === 'number' && initialSize > 0) {
@@ -1380,10 +1428,12 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size
     return `${gb >= 10 ? gb.toFixed(1) : gb.toFixed(2)} GB`;
   }, [fileSizeBytes, blob]);
 
+  const isDownloading = isLoading || mediaLoading;
+
   const handleOpenFile = useCallback(async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!blobUrl) {
-      if (isLoading) return;
+      if (isDownloading) return;
       setIsLoading(true);
       try {
         await load();
@@ -1418,7 +1468,7 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size
       a.click();
       document.body.removeChild(a);
     }
-  }, [blobUrl, displayName, isLoading, load]);
+  }, [blobUrl, displayName, isDownloading, load]);
 
   return (
     <div
@@ -1444,8 +1494,10 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size
           isPlayingTrack={false}
           size={48}
           onClick={handleOpenFile}
-          state={!blobUrl ? (isLoading ? 'downloading' : 'download') : 'file'}
+          state={!blobUrl ? (isDownloading ? 'downloading' : 'download') : 'file'}
+          progress={isDownloading ? progress : undefined}
           isOwn={isOwn}
+          ariaLabel={isDownloading ? 'Cancel download' : (!blobUrl ? 'Download file' : 'Open file')}
         />
         <div className="flex flex-col min-w-0 flex-1 gap-1 overflow-hidden" style={{ maxWidth: '100%' }}>
           <div
@@ -7493,6 +7545,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   width={msg.width}
                   height={msg.height}
                   isGif={isGif}
+                  isOwn={isOwn}
+                  fileSize={msg.fileSize || (msg as any).size}
+                  blurPreview={msg.blurPreview || msg.thumbnail}
                   timeNode={!(msg.text?.trim() && msg.text.trim().replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*https?:\/\/[^\s]+$/i, '').trim()) ? timeBadge(msg, isMessagePinned(index)) : undefined}
                   onClick={() => openMediaViewer(media.url!, msg.id)}
                   onContextMenu={(e: React.MouseEvent) => handleContextMenu(e, index, isOwn)}
@@ -7521,6 +7576,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                   width={msg.width}
                   height={msg.height}
                   isGif={isGif}
+                  isOwn={isOwn}
+                  fileSize={msg.fileSize || (msg as any).size}
+                  blurPreview={msg.blurPreview || msg.thumbnail}
                   timeNode={!(msg.text?.trim() && msg.text.trim().replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*https?:\/\/[^\s]+$/i, '').trim()) ? timeBadge(msg, isMessagePinned(index)) : undefined}
                   onClick={() => openMediaViewer(media.url!, msg.id)}
                   onContextMenu={(e: React.MouseEvent) => handleContextMenu(e, index, isOwn)}

@@ -42,16 +42,16 @@ const AudioTrackRow = memo(({
   );
   const [artist, setArtist] = useState<string>(item.audioMetadata?.artist || '');
 
-  const autoLoadMedia = useChatStore((state) => state.autoLoadMedia);
+  const autoLoad = useChatStore((state) => state.shouldAutoLoadMedia('audio', item.size || item.audioMetadata?.size, isOwn));
 
-  const { blobUrl } = useDecryptedMedia(
+  const { blobUrl, load, isLoading: mediaLoading, progress } = useDecryptedMedia(
     item.url,
     item.key || sharedSecret,
     item.name,
     item.mime || 'audio/mpeg',
     msgId,
     msgId,
-    autoLoadMedia
+    autoLoad
   );
 
   useEffect(() => {
@@ -131,6 +131,10 @@ const AudioTrackRow = memo(({
 
   const handleRowClick = () => {
     if (isUploading) return;
+    if (!blobUrl) {
+      if (!mediaLoading) load();
+      return;
+    }
     onPlayToggle(cover, duration, title, artist);
   };
 
@@ -142,7 +146,7 @@ const AudioTrackRow = memo(({
   const coverState: AudioCoverState = isUploading
     ? 'uploading'
     : (!blobUrl
-      ? 'download'
+      ? (mediaLoading ? 'downloading' : 'download')
       : (isCurrentTrack && isPlaying ? 'pause' : 'play'));
 
   return (
@@ -161,8 +165,9 @@ const AudioTrackRow = memo(({
         onClick={handleRowClick}
         onCancel={onCancelUpload}
         state={coverState}
-        progress={isUploading ? uploadProgress : undefined}
+        progress={isUploading ? uploadProgress : (mediaLoading ? progress : undefined)}
         isOwn={isOwn}
+        ariaLabel={mediaLoading ? 'Cancel download' : (!blobUrl ? 'Download audio' : (isCurrentTrack && isPlaying ? 'Pause' : 'Play'))}
       />
 
       <div className="flex flex-col min-w-0 flex-1 justify-center overflow-hidden">

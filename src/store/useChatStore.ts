@@ -499,6 +499,26 @@ interface ChatState {
   cacheCleanupAge: number;
 
   autoLoadMedia: boolean;
+  autoLoadPhotos: boolean;
+  autoLoadVideos: boolean;
+  autoLoadAudio: boolean;
+  autoLoadFiles: boolean;
+  autoLoadMaxPhotoSizeMb: number;
+  autoLoadMaxVideoSizeMb: number;
+  autoLoadMaxAudioSizeMb: number;
+  autoLoadMaxFileSizeMb: number;
+
+  setAutoLoadMedia: (enabled: boolean) => void;
+  setAutoLoadPhotos: (enabled: boolean) => void;
+  setAutoLoadVideos: (enabled: boolean) => void;
+  setAutoLoadAudio: (enabled: boolean) => void;
+  setAutoLoadFiles: (enabled: boolean) => void;
+  setAutoLoadMaxPhotoSizeMb: (mb: number) => void;
+  setAutoLoadMaxVideoSizeMb: (mb: number) => void;
+  setAutoLoadMaxAudioSizeMb: (mb: number) => void;
+  setAutoLoadMaxFileSizeMb: (mb: number) => void;
+
+  shouldAutoLoadMedia: (type: 'photo' | 'video' | 'audio' | 'voice' | 'file' | string, sizeBytes?: number | null, isOwn?: boolean) => boolean;
 
   draftsByChatId: Record<string, string>;
   setDraft: (chatId: string, text: string) => void;
@@ -604,8 +624,6 @@ interface ChatState {
   setCacheSizeLimit: (limit: number) => void;
   setMediaCacheLimit: (limit: number) => void;
   setCacheCleanupAge: (age: number) => void;
-
-  setAutoLoadMedia: (enabled: boolean) => void;
 
   deleteChat: (chatId: string) => void;
   deletedChatIds: string[];
@@ -753,7 +771,15 @@ export const useChatStore = create<ChatState>()(
       mediaCacheLimit: 2.5 * 1024 * 1024 * 1024,
       cacheCleanupAge: 7 * 24 * 60 * 60 * 1000,
 
-      autoLoadMedia: false,
+      autoLoadMedia: true,
+      autoLoadPhotos: true,
+      autoLoadVideos: true,
+      autoLoadAudio: true,
+      autoLoadFiles: true,
+      autoLoadMaxPhotoSizeMb: 5,
+      autoLoadMaxVideoSizeMb: 15,
+      autoLoadMaxAudioSizeMb: 10,
+      autoLoadMaxFileSizeMb: 10,
 
       draftsByChatId: {},
       setDraft: (chatId, text) =>
@@ -1759,6 +1785,45 @@ export const useChatStore = create<ChatState>()(
       setCacheCleanupAge: (age) => set({ cacheCleanupAge: age }),
 
       setAutoLoadMedia: (enabled) => set({ autoLoadMedia: enabled }),
+      setAutoLoadPhotos: (enabled) => set({ autoLoadPhotos: enabled }),
+      setAutoLoadVideos: (enabled) => set({ autoLoadVideos: enabled }),
+      setAutoLoadAudio: (enabled) => set({ autoLoadAudio: enabled }),
+      setAutoLoadFiles: (enabled) => set({ autoLoadFiles: enabled }),
+      setAutoLoadMaxPhotoSizeMb: (mb) => set({ autoLoadMaxPhotoSizeMb: mb }),
+      setAutoLoadMaxVideoSizeMb: (mb) => set({ autoLoadMaxVideoSizeMb: mb }),
+      setAutoLoadMaxAudioSizeMb: (mb) => set({ autoLoadMaxAudioSizeMb: mb }),
+      setAutoLoadMaxFileSizeMb: (mb) => set({ autoLoadMaxFileSizeMb: mb }),
+
+      shouldAutoLoadMedia: (type, sizeBytes, isOwn) => {
+        if (isOwn) return true;
+        const state = get();
+        if (!state.autoLoadMedia) return false;
+
+        const t = (type || '').toLowerCase();
+        const sizeMb = (typeof sizeBytes === 'number' && sizeBytes > 0) ? sizeBytes / (1024 * 1024) : 0;
+
+        if (t === 'photo' || t === 'image') {
+          if (!state.autoLoadPhotos) return false;
+          if (state.autoLoadMaxPhotoSizeMb > 0 && sizeMb > state.autoLoadMaxPhotoSizeMb) return false;
+          return true;
+        }
+        if (t === 'video' || t === 'gif') {
+          if (!state.autoLoadVideos) return false;
+          if (state.autoLoadMaxVideoSizeMb > 0 && sizeMb > state.autoLoadMaxVideoSizeMb) return false;
+          return true;
+        }
+        if (t === 'audio' || t === 'music' || t === 'voice') {
+          if (!state.autoLoadAudio) return false;
+          if (state.autoLoadMaxAudioSizeMb > 0 && sizeMb > state.autoLoadMaxAudioSizeMb) return false;
+          return true;
+        }
+        if (t === 'file' || t === 'document') {
+          if (!state.autoLoadFiles) return false;
+          if (state.autoLoadMaxFileSizeMb > 0 && sizeMb > state.autoLoadMaxFileSizeMb) return false;
+          return true;
+        }
+        return true;
+      },
 
       deleteChat: (chatId) => {
         const state = get();
@@ -1887,6 +1952,14 @@ export const useChatStore = create<ChatState>()(
         mediaCacheLimit: state.mediaCacheLimit,
         cacheCleanupAge: state.cacheCleanupAge,
         autoLoadMedia: state.autoLoadMedia,
+        autoLoadPhotos: state.autoLoadPhotos,
+        autoLoadVideos: state.autoLoadVideos,
+        autoLoadAudio: state.autoLoadAudio,
+        autoLoadFiles: state.autoLoadFiles,
+        autoLoadMaxPhotoSizeMb: state.autoLoadMaxPhotoSizeMb,
+        autoLoadMaxVideoSizeMb: state.autoLoadMaxVideoSizeMb,
+        autoLoadMaxAudioSizeMb: state.autoLoadMaxAudioSizeMb,
+        autoLoadMaxFileSizeMb: state.autoLoadMaxFileSizeMb,
         draftsByChatId: state.draftsByChatId,
         callSoundsEnabled: state.callSoundsEnabled,
         alwaysRelayCalls: state.alwaysRelayCalls,

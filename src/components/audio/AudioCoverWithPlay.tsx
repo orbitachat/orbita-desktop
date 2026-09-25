@@ -13,6 +13,7 @@ interface AudioCoverWithPlayProps {
   progress?: number;
   customIcon?: React.ReactNode;
   isOwn?: boolean;
+  ariaLabel?: string;
 }
 
 export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
@@ -25,9 +26,10 @@ export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
   progress,
   customIcon,
   isOwn = false,
+  ariaLabel,
 }) => {
   const iconSize = Math.round(size * 0.42);
-  const strokeW = 2.5;
+  const strokeW = size >= 48 ? 3 : 2.5;
   const radius = Math.max(2, size / 2 - 4.5);
   const circumference = 2 * Math.PI * radius;
   const clampedProgress = Math.max(0.04, Math.min(1, typeof progress === 'number' && isFinite(progress) ? progress : 0.08));
@@ -83,7 +85,9 @@ export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
               style={{
-                transition: 'stroke-dashoffset 0.18s ease-out',
+                willChange: 'stroke-dashoffset',
+                transform: 'translateZ(0)',
+                transition: 'stroke-dashoffset 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             />
           </svg>
@@ -163,6 +167,8 @@ export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
 
   return (
     <div
+      role="button"
+      aria-label={ariaLabel}
       onClick={handleClick}
       style={{
         width: size,

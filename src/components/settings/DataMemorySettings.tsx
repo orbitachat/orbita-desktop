@@ -46,6 +46,23 @@ export const DataMemorySettings: React.FC<DataMemorySettingsProps> = ({
 }) => {
   const { t } = useTranslation();
   const chats = useChatStore((s) => s.chats);
+  const autoLoadPhotos = useChatStore((s) => s.autoLoadPhotos);
+  const autoLoadVideos = useChatStore((s) => s.autoLoadVideos);
+  const autoLoadAudio = useChatStore((s) => s.autoLoadAudio);
+  const autoLoadFiles = useChatStore((s) => s.autoLoadFiles);
+  const autoLoadMaxPhotoSizeMb = useChatStore((s) => s.autoLoadMaxPhotoSizeMb);
+  const autoLoadMaxVideoSizeMb = useChatStore((s) => s.autoLoadMaxVideoSizeMb);
+  const autoLoadMaxAudioSizeMb = useChatStore((s) => s.autoLoadMaxAudioSizeMb);
+  const autoLoadMaxFileSizeMb = useChatStore((s) => s.autoLoadMaxFileSizeMb);
+
+  const setAutoLoadPhotos = useChatStore((s) => s.setAutoLoadPhotos);
+  const setAutoLoadVideos = useChatStore((s) => s.setAutoLoadVideos);
+  const setAutoLoadAudio = useChatStore((s) => s.setAutoLoadAudio);
+  const setAutoLoadFiles = useChatStore((s) => s.setAutoLoadFiles);
+  const setAutoLoadMaxPhotoSizeMb = useChatStore((s) => s.setAutoLoadMaxPhotoSizeMb);
+  const setAutoLoadMaxVideoSizeMb = useChatStore((s) => s.setAutoLoadMaxVideoSizeMb);
+  const setAutoLoadMaxAudioSizeMb = useChatStore((s) => s.setAutoLoadMaxAudioSizeMb);
+  const setAutoLoadMaxFileSizeMb = useChatStore((s) => s.setAutoLoadMaxFileSizeMb);
 
   const [cacheStats, setCacheStats] = useState<{
     totalCount: number;
@@ -780,6 +797,90 @@ export const DataMemorySettings: React.FC<DataMemorySettingsProps> = ({
               </div>
               <M3Switch checked={autoLoadMedia} onChange={onAutoLoadMediaChange} />
             </div>
+
+            {autoLoadMedia && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14, paddingBottom: 12 }}>
+                <div style={{ padding: '10px 14px', borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: MD3.onSurface }}>{t('settings.auto_load_photos')}</span>
+                    <M3Switch checked={autoLoadPhotos} onChange={() => setAutoLoadPhotos(!autoLoadPhotos)} />
+                  </div>
+                  {autoLoadPhotos && (
+                    <div style={{ marginTop: 6 }}>
+                      <BubbleSlider
+                        value={autoLoadMaxPhotoSizeMb}
+                        min={1}
+                        max={30}
+                        step={1}
+                        formatValue={(v) => t('settings.auto_load_up_to', { size: v })}
+                        onChange={(v) => setAutoLoadMaxPhotoSizeMb(v)}
+                        ariaLabel={t('settings.auto_load_photos')}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ padding: '10px 14px', borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: MD3.onSurface }}>{t('settings.auto_load_videos')}</span>
+                    <M3Switch checked={autoLoadVideos} onChange={() => setAutoLoadVideos(!autoLoadVideos)} />
+                  </div>
+                  {autoLoadVideos && (
+                    <div style={{ marginTop: 6 }}>
+                      <BubbleSlider
+                        value={autoLoadMaxVideoSizeMb}
+                        min={5}
+                        max={100}
+                        step={5}
+                        formatValue={(v) => t('settings.auto_load_up_to', { size: v })}
+                        onChange={(v) => setAutoLoadMaxVideoSizeMb(v)}
+                        ariaLabel={t('settings.auto_load_videos')}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ padding: '10px 14px', borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: MD3.onSurface }}>{t('settings.auto_load_audio')}</span>
+                    <M3Switch checked={autoLoadAudio} onChange={() => setAutoLoadAudio(!autoLoadAudio)} />
+                  </div>
+                  {autoLoadAudio && (
+                    <div style={{ marginTop: 6 }}>
+                      <BubbleSlider
+                        value={autoLoadMaxAudioSizeMb}
+                        min={1}
+                        max={50}
+                        step={1}
+                        formatValue={(v) => t('settings.auto_load_up_to', { size: v })}
+                        onChange={(v) => setAutoLoadMaxAudioSizeMb(v)}
+                        ariaLabel={t('settings.auto_load_audio')}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ padding: '10px 14px', borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: MD3.onSurface }}>{t('settings.auto_load_files')}</span>
+                    <M3Switch checked={autoLoadFiles} onChange={() => setAutoLoadFiles(!autoLoadFiles)} />
+                  </div>
+                  {autoLoadFiles && (
+                    <div style={{ marginTop: 6 }}>
+                      <BubbleSlider
+                        value={autoLoadMaxFileSizeMb}
+                        min={1}
+                        max={100}
+                        step={5}
+                        formatValue={(v) => t('settings.auto_load_up_to', { size: v })}
+                        onChange={(v) => setAutoLoadMaxFileSizeMb(v)}
+                        ariaLabel={t('settings.auto_load_files')}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

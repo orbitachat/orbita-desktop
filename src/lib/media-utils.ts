@@ -108,7 +108,7 @@ export function useDecryptedMedia(
   chatId?: string,
   messageId?: string,
   autoLoad: boolean = true
-): { blobUrl: string | null; blob: Blob | null; load: () => Promise<void> } {
+): { blobUrl: string | null; blob: Blob | null; load: () => Promise<void>; isLoading: boolean; progress: number } {
   const cleanUrl = useMemo(() => {
     if (!url || typeof url !== 'string') return null;
     const trimmed = url.replace(/^\[(?:Photo|GIF|Sticker|Video|Audio|File)\]\s*/i, '').trim();
@@ -130,6 +130,9 @@ export function useDecryptedMedia(
     return mediaManager.getCachedMedia(cleanUrl, sharedSecret || '')?.blobUrl || null;
   }, [cleanUrl, sharedSecret]);
 
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
+
   const initialBlobUrl = useMemo(() => {
     if (cachedUrl) return cachedUrl;
     if (!autoLoad) return null;
@@ -139,54 +142,75 @@ export function useDecryptedMedia(
     return null;
   }, [cachedUrl, autoLoad, streamUrl]);
 
-  const [result, setResult] = useState<{ blobUrl: string | null; blob: Blob | null; load: () => Promise<void> }>(() => ({
+  const [result, setResult] = useState<{ blobUrl: string | null; blob: Blob | null; load: () => Promise<void>; isLoading: boolean; progress: number }>(() => ({
     blobUrl: initialBlobUrl,
     blob: null,
     load: async () => {},
+    isLoading: false,
+    progress: 0,
   }));
+
+  useEffect(() => {
+    if (!cleanUrl) return;
+    const unsubscribe = mediaManager.subscribeProgress(cleanUrl, sharedSecret || '', (loaded, total) => {
+      if (total > 0) {
+        setProgress(Math.min(1, Math.max(0.04, loaded / total)));
+      }
+    });
+    return unsubscribe;
+  }, [cleanUrl, sharedSecret]);
 
   const loadMedia = useCallback(async () => {
     if (!cleanUrl) {
-      setResult({ blobUrl: null, blob: null, load: async () => {} });
-      return;
-    }
-
-    if (streamUrl && streamUrl.startsWith('orbita-media:')) {
-      setResult({ blobUrl: streamUrl, blob: null, load: async () => {} });
-      return;
-    }
-
-    try {
-      const media = await mediaManager.getMedia(cleanUrl, sharedSecret || '', hintFileName, chatId, messageId);
-      setResult({ blobUrl: media.blobUrl, blob: null, load: loadMedia });
-    } catch {
-      setResult({ blobUrl: null, blob: null, load: loadMedia });
-    }
-  }, [cleanUrl, streamUrl, sharedSecret, hintFileName, chatId, messageId]);
-
-  useEffect(() => {
-    if (!cleanUrl) {
-      setResult({ blobUrl: null, blob: null, load: async () => {} });
+      setResult({ blobUrl: null, blob: null, load: async () => {}, isLoading: false, progress: 0 });
       return;
     }
 
     if (cachedUrl) {
-      setResult({ blobUrl: cachedUrl, blob: null, load: loadMedia });
+      setResult({ blobUrl: cachedUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
+      return;
+    }
+
+    setIsLoading(true);
+    setProgress(0.06);
+
+    try {
+      const media = await mediaManager.getMedia(cleanUrl, sharedSecret || '', hintFileName, chatId, messageId);
+      setResult({ blobUrl: media.blobUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
+    } catch {
+      setResult({ blobUrl: null, blob: null, load: loadMedia, isLoading: false, progress: 0 });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [cleanUrl, cachedUrl, sharedSecret, hintFileName, chatId, messageId]);
+
+  useEffect(() => {
+    if (!cleanUrl) {
+      setResult({ blobUrl: null, blob: null, load: async () => {}, isLoading: false, progress: 0 });
+      return;
+    }
+
+    if (cachedUrl) {
+      setResult({ blobUrl: cachedUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
       return;
     }
 
     if (!autoLoad) {
-      setResult((prev) => ({ ...prev, load: loadMedia }));
+      setResult((prev) => ({ ...prev, load: loadMedia, isLoading, progress }));
       return;
     }
 
     if (streamUrl && streamUrl.startsWith('orbita-media:')) {
-      setResult({ blobUrl: streamUrl, blob: null, load: async () => {} });
+      setResult({ blobUrl: streamUrl, blob: null, load: async () => {}, isLoading: false, progress: 1 });
       return;
     }
 
     loadMedia();
-  }, [cleanUrl, cachedUrl, autoLoad, streamUrl, loadMedia]);
+  }, [cleanUrl, cachedUrl, autoLoad, streamUrl, loadMedia, isLoading, progress]);
 
-  return result;
+  return {
+    ...result,
+    isLoading: isLoading || result.isLoading,
+    progress: progress || result.progress,
+  };
 }
