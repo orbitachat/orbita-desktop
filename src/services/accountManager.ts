@@ -56,66 +56,15 @@ const storageRemove = async (key: string): Promise<void> => {
   } catch {}
 };
 
-export const setupAccountStorageInterceptors = () => {
+const syncActiveAccountScope = (accountId: 'account_1' | 'account_2') => {
   if (typeof window === 'undefined') return;
-  const orb = (window as any).orbita;
-  if (!orb || (orb as any).__accountScoped) return;
-
-  const rawGet = orb.storageGetMessages?.bind(orb);
-  const rawAdd = orb.storageAddMessage?.bind(orb);
-  const rawDeleteMsgs = orb.storageDeleteMessages?.bind(orb);
-  const rawDeleteMsg = orb.storageDeleteMessage?.bind(orb);
-
-  const getScope = () => useAccountStore.getState().activeAccountId || 'account_1';
-
-  if (rawGet) {
-    orb.storageGetMessages = (chatId: string, limit?: number, offset?: number) => {
-      const scope = getScope();
-      const scopedChatId = chatId.startsWith('account_1:::') || chatId.startsWith('account_2:::')
-        ? chatId
-        : `${scope}:::${chatId}`;
-      return rawGet(scopedChatId, limit, offset);
-    };
-  }
-
-  if (rawAdd) {
-    orb.storageAddMessage = (chatId: string, messageId: string, messageData: any) => {
-      const scope = getScope();
-      const scopedChatId = chatId.startsWith('account_1:::') || chatId.startsWith('account_2:::')
-        ? chatId
-        : `${scope}:::${chatId}`;
-      const scopedMsgId = messageId.startsWith('account_1:::') || messageId.startsWith('account_2:::')
-        ? messageId
-        : `${scope}:::${messageId}`;
-      return rawAdd(scopedChatId, scopedMsgId, messageData);
-    };
-  }
-
-  if (rawDeleteMsgs) {
-    orb.storageDeleteMessages = (chatId: string) => {
-      const scope = getScope();
-      const scopedChatId = chatId.startsWith('account_1:::') || chatId.startsWith('account_2:::')
-        ? chatId
-        : `${scope}:::${chatId}`;
-      return rawDeleteMsgs(scopedChatId);
-    };
-  }
-
-  if (rawDeleteMsg) {
-    orb.storageDeleteMessage = (messageId: string) => {
-      const scope = getScope();
-      const scopedMsgId = messageId.startsWith('account_1:::') || messageId.startsWith('account_2:::')
-        ? messageId
-        : `${scope}:::${messageId}`;
-      return rawDeleteMsg(scopedMsgId);
-    };
-  }
-
-  (orb as any).__accountScoped = true;
+  try {
+    (window as any).orbita?.setActiveAccountScope?.(accountId);
+  } catch {}
 };
 
 if (typeof window !== 'undefined') {
-  setupAccountStorageInterceptors();
+  syncActiveAccountScope('account_1');
 }
 
 interface AccountStoreState {
@@ -139,7 +88,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
   isSwitching: false,
 
   init: async () => {
-    setupAccountStorageInterceptors();
+    syncActiveAccountScope('account_1');
     if (isInitialized) return;
     isInitialized = true;
 
@@ -308,6 +257,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         activeAccountId: targetId,
         isSwitching: false,
       });
+      syncActiveAccountScope(targetId);
     } catch {
       set({ isSwitching: false });
     }
@@ -387,6 +337,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         accounts: updatedAccounts,
         isSwitching: false,
       });
+      syncActiveAccountScope('account_2');
     } catch {
       set({ isSwitching: false });
     }
@@ -434,6 +385,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         accounts: updatedAccounts,
         isSwitching: false,
       });
+      syncActiveAccountScope('account_1');
     } catch {
       set({ isSwitching: false });
     }
@@ -492,6 +444,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       activeAccountId: 'account_2',
       accounts: updatedAccounts,
     });
+    syncActiveAccountScope('account_2');
   },
 
   deleteCurrentAccount: async () => {
@@ -546,6 +499,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         activeAccountId: 'account_1',
         accounts: newAccounts,
       });
+      syncActiveAccountScope('account_1');
 
       const promotedClient = useChatStore.getState().myCode || useAuthStore.getState().userId;
       if (promotedClient) {
@@ -593,6 +547,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         activeAccountId: 'account_1',
         accounts: newAccounts,
       });
+      syncActiveAccountScope('account_1');
 
       const restoredClient = useChatStore.getState().myCode || useAuthStore.getState().userId;
       if (restoredClient) {
@@ -633,5 +588,6 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       activeAccountId: 'account_1',
       accounts: [],
     });
+    syncActiveAccountScope('account_1');
   },
 }));

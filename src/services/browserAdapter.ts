@@ -32,6 +32,18 @@ class BrowserOrbitaAdapter {
     }
 
     console.log('[BrowserAdapter] Installing Web Browser adapter for window.orbita');
+    let currentActiveAccountId = 'account_1';
+    const getScopedChatId = (chatId: string) => {
+      if (!chatId) return chatId;
+      if (chatId.startsWith('account_1:::') || chatId.startsWith('account_2:::')) return chatId;
+      return `${currentActiveAccountId}:::${chatId}`;
+    };
+    const getScopedMsgId = (messageId: string) => {
+      if (!messageId) return messageId;
+      if (messageId.startsWith('account_1:::') || messageId.startsWith('account_2:::')) return messageId;
+      return `${currentActiveAccountId}:::${messageId}`;
+    };
+
     (window as any).orbita = {
       pickFile: this.pickFile.bind(this),
       uploadToCloudinary: this.uploadToCloudinary.bind(this),
@@ -95,11 +107,15 @@ class BrowserOrbitaAdapter {
       mediaSetLimit: async () => ({ deleted: 0 }),
       mediaGetBatch: async () => [],
       mediaDeleteByChatId: async () => ({ deleted: 0 }),
+      setActiveAccountScope: (accountId: string) => {
+        currentActiveAccountId = accountId || 'account_1';
+      },
       storageGetMessages: async (chatId: string) => {
         try {
-          let raw = localStorage.getItem(`orbita_msgs_${chatId}`);
-          if (!raw && chatId.startsWith('account_1:::')) {
-            raw = localStorage.getItem(`orbita_msgs_${chatId.slice('account_1:::'.length)}`);
+          const scopedChatId = getScopedChatId(chatId);
+          let raw = localStorage.getItem(`orbita_msgs_${scopedChatId}`);
+          if (!raw && scopedChatId.startsWith('account_1:::')) {
+            raw = localStorage.getItem(`orbita_msgs_${scopedChatId.slice('account_1:::'.length)}`);
           }
           return raw ? JSON.parse(raw) : [];
         } catch {
@@ -108,10 +124,12 @@ class BrowserOrbitaAdapter {
       },
       storageAddMessage: async (chatId: string, messageId: string, messageData: any) => {
         try {
-          const key = `orbita_msgs_${chatId}`;
+          const scopedChatId = getScopedChatId(chatId);
+          const scopedMsgId = getScopedMsgId(messageId);
+          const key = `orbita_msgs_${scopedChatId}`;
           const raw = localStorage.getItem(key);
           const arr = raw ? JSON.parse(raw) : [];
-          const idx = arr.findIndex((m: any) => m.id === messageId);
+          const idx = arr.findIndex((m: any) => m.id === scopedMsgId || m.id === messageId);
           if (idx >= 0) {
             arr[idx] = messageData;
           } else {
@@ -122,9 +140,10 @@ class BrowserOrbitaAdapter {
       },
       storageDeleteMessages: async (chatId: string) => {
         try {
-          localStorage.removeItem(`orbita_msgs_${chatId}`);
-          if (chatId.startsWith('account_1:::')) {
-            localStorage.removeItem(`orbita_msgs_${chatId.slice('account_1:::'.length)}`);
+          const scopedChatId = getScopedChatId(chatId);
+          localStorage.removeItem(`orbita_msgs_${scopedChatId}`);
+          if (scopedChatId.startsWith('account_1:::')) {
+            localStorage.removeItem(`orbita_msgs_${scopedChatId.slice('account_1:::'.length)}`);
           }
         } catch {}
       },
@@ -171,7 +190,6 @@ class BrowserOrbitaAdapter {
         finish(virtualPaths);
       };
 
-      // If user cancels without choosing a file
       const onFocus = () => {
         setTimeout(() => {
           if (!settled && (!input.files || input.files.length === 0)) {

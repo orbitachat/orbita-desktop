@@ -1,7 +1,20 @@
-// electron/preload.ts
 console.log('[Preload] Script started');
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+let currentActiveAccountId = 'account_1';
+
+const getScopedChatId = (chatId: string) => {
+  if (!chatId) return chatId;
+  if (chatId.startsWith('account_1:::') || chatId.startsWith('account_2:::')) return chatId;
+  return `${currentActiveAccountId}:::${chatId}`;
+};
+
+const getScopedMsgId = (messageId: string) => {
+  if (!messageId) return messageId;
+  if (messageId.startsWith('account_1:::') || messageId.startsWith('account_2:::')) return messageId;
+  return `${currentActiveAccountId}:::${messageId}`;
+};
 
 contextBridge.exposeInMainWorld('orbita', {
   getPathForFile: (file: any) => {
@@ -328,14 +341,17 @@ contextBridge.exposeInMainWorld('orbita', {
   storageSet: (key: string, value: string) => ipcRenderer.invoke('storage:set', key, value),
   storageRemove: (key: string) => ipcRenderer.invoke('storage:remove', key),
   storageMigrate: () => ipcRenderer.invoke('storage:migrate'),
+  setActiveAccountScope: (accountId: string) => {
+    currentActiveAccountId = accountId || 'account_1';
+  },
   storageGetMessages: (chatId: string, limit?: number, offset?: number) =>
-    ipcRenderer.invoke('storage:get-messages', chatId, limit, offset),
+    ipcRenderer.invoke('storage:get-messages', getScopedChatId(chatId), limit, offset),
   storageAddMessage: (chatId: string, messageId: string, messageData: any) =>
-    ipcRenderer.invoke('storage:add-message', chatId, messageId, messageData),
+    ipcRenderer.invoke('storage:add-message', getScopedChatId(chatId), getScopedMsgId(messageId), messageData),
   storageDeleteMessages: (chatId: string) =>
-    ipcRenderer.invoke('storage:delete-messages', chatId),
+    ipcRenderer.invoke('storage:delete-messages', getScopedChatId(chatId)),
   storageDeleteMessage: (messageId: string) =>
-    ipcRenderer.invoke('storage:delete-message', messageId),
+    ipcRenderer.invoke('storage:delete-message', getScopedMsgId(messageId)),
 
   setProxy: (config: { host: string; port: number; username?: string; password?: string; type?: string; proxyCalls?: boolean }) =>
     ipcRenderer.invoke('orbita:setProxy', config),
@@ -345,7 +361,6 @@ contextBridge.exposeInMainWorld('orbita', {
   checkProxyPing: (host: string, port: number, timeoutMs?: number) =>
     ipcRenderer.invoke('orbita:checkProxyPing', host, port, timeoutMs),
 
-  // Native Rust Hardware-Accelerated Cryptography
   rustEncryptFile: (data: Uint8Array | ArrayBuffer, sharedSecretHex: string) =>
     ipcRenderer.invoke('orbita:rustEncryptFile', data, sharedSecretHex),
   rustDecryptFile: (data: Uint8Array | ArrayBuffer, sharedSecretHex: string) =>
