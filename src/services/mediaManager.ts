@@ -91,6 +91,8 @@ class MediaManager {
   private processing = false;
   private fetchAbortControllers = new Map<string, AbortController>();
   private progressListeners = new Map<string, Set<(loaded: number, total: number) => void>>();
+  private pendingPurgeUrls = new Set<string>();
+  private unavailableMediaUrls = new Set<string>();
 
   private cacheHits = 0;
   private cacheMisses = 0;
@@ -252,36 +254,70 @@ class MediaManager {
     }
   }
 
+  public isMediaUnavailable(url: string): boolean {
+    const clean = normalizeMediaUrl(url);
+    return this.unavailableMediaUrls.has(clean);
+  }
+
+  public markMediaUnavailable(url: string): void {
+    const clean = normalizeMediaUrl(url);
+    if (clean) this.unavailableMediaUrls.add(clean);
+  }
+
+  public async isMediaSavedLocally(url: string): Promise<boolean> {
+    const cleanUrl = normalizeMediaUrl(url);
+    if (!cleanUrl) return false;
+    for (const [key] of this.memoryCache) {
+      if (key.startsWith(cleanUrl)) return true;
+    }
+    try {
+      if (typeof window !== 'undefined' && window.orbita?.mediaGet) {
+        const diskCache = await window.orbita.mediaGet(cleanUrl);
+        return Boolean(diskCache && diskCache.data);
+      } else {
+        const idb = await idbMediaStorage.get(cleanUrl);
+        return Boolean(idb && idb.data);
+      }
+    } catch {
+      return false;
+    }
+  }
+
   public async purgeServerMedia(urls: string[] | string): Promise<void> {
     const list = Array.isArray(urls) ? urls : [urls];
     for (const rawUrl of list) {
       if (!rawUrl || typeof rawUrl !== 'string') continue;
       const cleanUrl = normalizeMediaUrl(rawUrl);
       if (!cleanUrl || !cleanUrl.includes('cloudinary.com')) continue;
-      try {
-        const match = cleanUrl.match(/\/v\d+\/([^\.\?]+)/) || cleanUrl.match(/\/([^\/\?]+)\.[a-zA-Z0-9]+$/);
-        const publicId = match ? match[1] : null;
-        if (publicId) {
-          if (typeof window !== 'undefined' && window.orbita?.destroyCloudinaryMedia) {
-            window.orbita.destroyCloudinaryMedia(publicId).catch(() => {});
-          } else {
-            const workerUrl = getVercelBaseUrl();
-            const rTypes = ['image', 'video', 'raw'];
-            for (const rt of rTypes) {
-              fetch(`${workerUrl}/cloudinary/destroy`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ public_id: publicId, resourceType: rt }),
-              }).catch(() => {});
-            }
-          }
-        }
-      } catch {}
+      const isSaved = await this.isMediaSavedLocally(cleanUrl);
+      if (!isSaved) {
+        this.pendingPurgeUrls.add(cleanUrl);
+        continue;
+      }
+      await this.executeServerDelete(cleanUrl);
     }
   }
 
-  private async requestServerMediaDelete(url: string): Promise<void> {
-    await this.purgeServerMedia(url);
+  public async executeServerDelete(cleanUrl: string): Promise<void> {
+    try {
+      const match = cleanUrl.match(/\/v\d+\/([^\.\?]+)/) || cleanUrl.match(/\/([^\/\?]+)\.[a-zA-Z0-9]+$/);
+      const publicId = match ? match[1] : null;
+      if (publicId) {
+        if (typeof window !== 'undefined' && window.orbita?.destroyCloudinaryMedia) {
+          window.orbita.destroyCloudinaryMedia(publicId).catch(() => {});
+        } else {
+          const workerUrl = getVercelBaseUrl();
+          const rTypes = ['image', 'video', 'raw'];
+          for (const rt of rTypes) {
+            fetch(`${workerUrl}/cloudinary/destroy`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ public_id: publicId, resourceType: rt }),
+            }).catch(() => {});
+          }
+        }
+      }
+    } catch {}
   }
 
   private async fetchAndDecrypt(
@@ -346,6 +382,7 @@ class MediaManager {
     } else {
       const response = await fetch(url, { signal: this.getAbortSignal(cacheKey) });
       if (!response.ok) {
+        this.markMediaUnavailable(url);
         throw new Error(`Media fetch failed with status ${response.status}`);
       }
       let encryptedBuffer: ArrayBuffer;
@@ -380,6 +417,7 @@ class MediaManager {
         try {
           decryptedData = await this.decryptFile(encryptedBuffer, sharedSecret);
         } catch {
+          this.markMediaUnavailable(url);
           throw new Error('Media decryption failed');
         }
       } else {
@@ -391,14 +429,16 @@ class MediaManager {
       const b64 = this.arrayBufferToBase64(decryptedData);
       if (window.orbita?.mediaSave) {
         try {
-          window.orbita.mediaSave(url, b64, mime, chatId || '', messageId || '').catch(() => {});
+          await window.orbita.mediaSave(url, b64, mime, chatId || '', messageId || '');
         } catch (_) {}
       } else {
-        idbMediaStorage.save(url, b64, mime, chatId, messageId).catch(() => {});
+        await idbMediaStorage.save(url, b64, mime, chatId, messageId);
       }
 
-      if (sharedSecret && sharedSecret.trim()) {
-        this.requestServerMediaDelete(url).catch(() => {});
+      const cleanUrl = normalizeMediaUrl(url);
+      if (this.pendingPurgeUrls.has(cleanUrl) || (sharedSecret && sharedSecret.trim())) {
+        this.pendingPurgeUrls.delete(cleanUrl);
+        this.executeServerDelete(cleanUrl).catch(() => {});
       }
     }
 

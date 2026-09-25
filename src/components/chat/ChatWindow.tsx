@@ -1196,7 +1196,7 @@ const EncryptedMedia = memo(({
   blurPreview?: string;
 }) => {
   const autoLoad = useChatStore((state) => state.shouldAutoLoadMedia(type === 'image' ? 'photo' : 'video', fileSize, isOwn));
-  const { blobUrl, load, isLoading, progress } = useDecryptedMedia(url, sharedSecret, undefined, undefined, chatId, messageId, autoLoad);
+  const { blobUrl, load, isLoading, progress, isUnavailable } = useDecryptedMedia(url, sharedSecret, undefined, undefined, chatId, messageId, autoLoad);
   const bubbleRadius = useChatStore.getState().bubbleRadius;
 
   const isGif = useMemo(() => {
@@ -1249,13 +1249,13 @@ const EncryptedMedia = memo(({
     >
       {!blobUrl && (
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center z-10 select-none cursor-pointer"
+          className={`absolute inset-0 flex flex-col items-center justify-center z-10 select-none ${isUnavailable ? 'pointer-events-none' : 'cursor-pointer'}`}
           onClick={(e) => {
             e.stopPropagation();
-            if (!isLoading) load();
+            if (!isLoading && !isUnavailable) load();
           }}
         >
-          {blurPreview && (
+          {blurPreview ? (
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
@@ -1266,32 +1266,42 @@ const EncryptedMedia = memo(({
                 transform: 'scale(1.15)',
               }}
             />
-          )}
-          <div className="relative z-10 flex flex-col items-center gap-1.5 pointer-events-auto">
-            <AudioCoverWithPlay
-              cover={null}
-              size={48}
-              state={isLoading ? 'downloading' : 'download'}
-              progress={isLoading ? progress : undefined}
-              onClick={() => { if (!isLoading) load(); }}
-              ariaLabel={isLoading ? 'Cancel download' : 'Download media'}
+          ) : (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: 'radial-gradient(circle at 30% 30%, rgba(139, 92, 246, 0.22), transparent 70%), radial-gradient(circle at 70% 70%, rgba(59, 130, 246, 0.18), transparent 70%), rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(20px)',
+              }}
             />
-            {fileSize && fileSize > 0 && !isLoading && (
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: '#ffffff',
-                  backgroundColor: 'rgba(0, 0, 0, 0.55)',
-                  padding: '1px 7px',
-                  borderRadius: '10px',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                {(fileSize / (1024 * 1024)).toFixed(1)} MB
-              </span>
-            )}
-          </div>
+          )}
+          {!isUnavailable && (
+            <div className="relative z-10 flex flex-col items-center gap-1.5 pointer-events-auto">
+              <AudioCoverWithPlay
+                cover={null}
+                size={48}
+                state={isLoading ? 'downloading' : 'download'}
+                progress={isLoading ? progress : undefined}
+                onClick={() => { if (!isLoading) load(); }}
+                ariaLabel={isLoading ? 'Cancel download' : 'Download media'}
+              />
+              {fileSize && fileSize > 0 && !isLoading && (
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#ffffff',
+                    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                    padding: '1px 7px',
+                    borderRadius: '10px',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  {(fileSize / (1024 * 1024)).toFixed(1)} MB
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -6750,6 +6760,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             width: uploaded.width,
             height: uploaded.height,
             duration: uploaded.duration,
+            blurPreview: uploaded.blurPreview,
+            thumbnail: uploaded.thumbnail,
           };
           const plaintext = JSON.stringify(messageData);
           const { ciphertext, index, dhPublicKey: fileDhPublicKey, prevChainCount: filePrevChainCount } = await ratchet.encrypt(plaintext);

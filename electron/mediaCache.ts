@@ -26,33 +26,35 @@ async function initDB(): Promise<Database> {
   db = new Database(dbPath);
 
   return new Promise<Database>((resolve, reject) => {
-    db!.run(`
-      CREATE TABLE IF NOT EXISTS media_cache (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cache_key TEXT UNIQUE NOT NULL,
-        local_path TEXT NOT NULL,
-        original_url TEXT NOT NULL,
-        mime_type TEXT,
-        file_size INTEGER,
-        created_at INTEGER NOT NULL,
-        last_accessed INTEGER NOT NULL,
-        download_status TEXT DEFAULT 'downloaded',
-        chat_id TEXT,
-        message_id TEXT
-      )
-    `, (err) => {
-      if (err) reject(err);
-      else {
-        db!.run(`
-          CREATE INDEX IF NOT EXISTS idx_last_accessed ON media_cache(last_accessed);
-          CREATE INDEX IF NOT EXISTS idx_cache_key ON media_cache(cache_key);
-          CREATE INDEX IF NOT EXISTS idx_mime_type ON media_cache(mime_type);
-          CREATE INDEX IF NOT EXISTS idx_chat_id ON media_cache(chat_id);
-        `, (err2) => {
-          if (err2) reject(err2);
-          else {
-            // Проверяем наличие колонок chat_id и message_id с помощью db.all
-            db!.all("PRAGMA table_info(media_cache)", (err, rows: any[]) => {
+    db!.serialize(() => {
+      db!.run('PRAGMA journal_mode = WAL');
+      db!.run('PRAGMA synchronous = NORMAL');
+      db!.run(`
+        CREATE TABLE IF NOT EXISTS media_cache (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cache_key TEXT UNIQUE NOT NULL,
+          local_path TEXT NOT NULL,
+          original_url TEXT NOT NULL,
+          mime_type TEXT,
+          file_size INTEGER,
+          created_at INTEGER NOT NULL,
+          last_accessed INTEGER NOT NULL,
+          download_status TEXT DEFAULT 'downloaded',
+          chat_id TEXT,
+          message_id TEXT
+        )
+      `, (err) => {
+        if (err) reject(err);
+        else {
+          db!.run(`
+            CREATE INDEX IF NOT EXISTS idx_last_accessed ON media_cache(last_accessed);
+            CREATE INDEX IF NOT EXISTS idx_cache_key ON media_cache(cache_key);
+            CREATE INDEX IF NOT EXISTS idx_mime_type ON media_cache(mime_type);
+            CREATE INDEX IF NOT EXISTS idx_chat_id ON media_cache(chat_id);
+          `, (err2) => {
+            if (err2) reject(err2);
+            else {
+              db!.all("PRAGMA table_info(media_cache)", (err, rows: any[]) => {
               if (err) reject(err);
               else {
                 const columnNames = rows.map(r => r.name);
@@ -77,9 +79,9 @@ async function initDB(): Promise<Database> {
                 runNext();
               }
             });
-          }
-        });
-      }
+          });
+        }
+      });
     });
   });
 }

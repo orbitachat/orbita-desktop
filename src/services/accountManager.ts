@@ -116,22 +116,60 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     let account1 = registry.accounts.find((a) => a.id === 'account_1');
     const account2 = registry.accounts.find((a) => a.id === 'account_2');
 
+    const account1AuthRaw = await storageGet(`${AUTH_STORAGE_PREFIX}account_1`);
+    if (account1AuthRaw) {
+      try {
+        const parsed = JSON.parse(account1AuthRaw);
+        if (parsed?.userId && !auth.userId) auth.setUserId(parsed.userId);
+        if (parsed?.nickname && !auth.nickname) auth.setNickname(parsed.nickname);
+        if (parsed?.avatarUrl && !auth.avatarUrl) auth.setAvatarUrl(parsed.avatarUrl);
+        if (parsed?.masterSeed && !auth.masterSeed) auth.setMasterSeed(parsed.masterSeed);
+        if (parsed?.recoveryKey && !auth.recoveryKey) auth.setRecoveryKey(parsed.recoveryKey);
+        if (parsed?.step && auth.step === 'welcome') auth.setStep(parsed.step);
+      } catch {}
+    }
+
+    const account1ChatRaw = await storageGet(`${CHAT_STORAGE_PREFIX}account_1`);
+    if (account1ChatRaw) {
+      try {
+        const parsed = JSON.parse(account1ChatRaw);
+        if (parsed?.myCode && !chat.myCode) chat.setMyCode(parsed.myCode);
+        const hasChats = (chat.chats && chat.chats.length > 0) || (chat.messagesByChatId && Object.keys(chat.messagesByChatId).length > 0);
+        if (!hasChats && parsed) {
+          chat.importChatState(parsed);
+        }
+      } catch {}
+    }
+
+    if (account1?.myCode && !useChatStore.getState().myCode) {
+      useChatStore.getState().setMyCode(account1.myCode);
+    }
+    if (account1?.userId && !useAuthStore.getState().userId) {
+      useAuthStore.getState().setUserId(account1.userId);
+    }
+    if (account1?.nickname && !useAuthStore.getState().nickname) {
+      useAuthStore.getState().setNickname(account1.nickname);
+    }
+
+    const currentAuth = useAuthStore.getState();
+    const currentChat = useChatStore.getState();
+
     if (!account1) {
       account1 = {
         id: 'account_1',
-        nickname: auth.nickname || '',
-        avatarUrl: auth.avatarUrl || null,
-        myCode: chat.myCode || null,
-        userId: auth.userId || '',
-        isRegistered: Boolean(auth.nickname && auth.step === 'main'),
+        nickname: currentAuth.nickname || '',
+        avatarUrl: currentAuth.avatarUrl || null,
+        myCode: currentChat.myCode || null,
+        userId: currentAuth.userId || '',
+        isRegistered: Boolean(currentAuth.nickname && currentAuth.step === 'main'),
       };
       registry.accounts = [account1, ...(account2 ? [account2] : [])];
-    } else if (auth.nickname && auth.step === 'main') {
-      account1.nickname = auth.nickname;
-      account1.avatarUrl = auth.avatarUrl;
-      account1.myCode = chat.myCode || account1.myCode;
-      account1.userId = auth.userId || account1.userId;
-      account1.isRegistered = true;
+    } else {
+      if (currentAuth.nickname) account1.nickname = currentAuth.nickname;
+      if (currentAuth.avatarUrl !== undefined) account1.avatarUrl = currentAuth.avatarUrl;
+      if (currentChat.myCode) account1.myCode = currentChat.myCode;
+      if (currentAuth.userId) account1.userId = currentAuth.userId;
+      if (currentAuth.nickname && currentAuth.step === 'main') account1.isRegistered = true;
     }
 
     const currentActiveId = (registry.activeAccountId === 'account_2' && account2) ? 'account_2' : 'account_1';
@@ -139,34 +177,12 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     await storageSet(REGISTRY_STORAGE_KEY, JSON.stringify(registry));
 
     if (currentActiveId === 'account_1') {
-      const hasChats = (chat.chats && chat.chats.length > 0) || (chat.messagesByChatId && Object.keys(chat.messagesByChatId).length > 0);
-      if (!hasChats) {
-        const account1ChatRaw = await storageGet(`${CHAT_STORAGE_PREFIX}account_1`);
-        if (account1ChatRaw) {
-          try {
-            const parsed = JSON.parse(account1ChatRaw);
-            if (parsed && ((parsed.chats && parsed.chats.length > 0) || (parsed.messagesByChatId && Object.keys(parsed.messagesByChatId).length > 0))) {
-              chat.importChatState(parsed);
-            }
-          } catch {}
-        }
+      if (currentAuth.nickname || currentAuth.userId) {
+        await storageSet(`${AUTH_STORAGE_PREFIX}account_1`, JSON.stringify(currentAuth.exportAuthState()));
       }
-
-      const hasAuth = Boolean(auth.userId || auth.nickname);
-      if (!hasAuth) {
-        const account1AuthRaw = await storageGet(`${AUTH_STORAGE_PREFIX}account_1`);
-        if (account1AuthRaw) {
-          try {
-            const parsed = JSON.parse(account1AuthRaw);
-            if (parsed && (parsed.userId || parsed.nickname)) {
-              auth.importAuthState(parsed);
-            }
-          } catch {}
-        }
+      if (currentChat.myCode || (currentChat.chats && currentChat.chats.length > 0)) {
+        await storageSet(`${CHAT_STORAGE_PREFIX}account_1`, JSON.stringify(currentChat.exportChatState()));
       }
-
-      await storageSet(`${AUTH_STORAGE_PREFIX}account_1`, JSON.stringify(useAuthStore.getState().exportAuthState()));
-      await storageSet(`${CHAT_STORAGE_PREFIX}account_1`, JSON.stringify(useChatStore.getState().exportChatState()));
     } else {
       const account2AuthRaw = await storageGet(`${AUTH_STORAGE_PREFIX}account_2`);
       const account2ChatRaw = await storageGet(`${CHAT_STORAGE_PREFIX}account_2`);
@@ -229,10 +245,6 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
 
     await storageSet(`${AUTH_STORAGE_PREFIX}${activeAccountId}`, JSON.stringify(auth.exportAuthState()));
     await storageSet(`${CHAT_STORAGE_PREFIX}${activeAccountId}`, JSON.stringify(chat.exportChatState()));
-    if (activeAccountId === 'account_1') {
-      await storageSet('orbita-auth-storage', JSON.stringify({ state: auth.exportAuthState(), version: 1 }));
-      await storageSet('orbita-chat-storage', JSON.stringify({ state: chat.exportChatState(), version: 0 }));
-    }
   },
 
   switchAccount: async (targetId: 'account_1' | 'account_2') => {
@@ -250,11 +262,6 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
 
       await storageSet(`${AUTH_STORAGE_PREFIX}${activeAccountId}`, JSON.stringify(currentAuthData));
       await storageSet(`${CHAT_STORAGE_PREFIX}${activeAccountId}`, JSON.stringify(currentChatData));
-
-      if (activeAccountId === 'account_1') {
-        await storageSet('orbita-auth-storage', JSON.stringify({ state: currentAuthData, version: 1 }));
-        await storageSet('orbita-chat-storage', JSON.stringify({ state: currentChatData, version: 0 }));
-      }
 
       const activeClientId = chat.myCode || auth.userId;
       if (activeClientId) {

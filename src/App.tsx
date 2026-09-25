@@ -111,7 +111,7 @@ const AuthFlowOverlay: React.FC<{ isElectron: boolean; isOpen: boolean }> = ({ i
 
 function App() {
   const isElectron = isElectronApp();
-  const [isHydrated, setIsHydrated] = useState(() => useAuthStore.persist.hasHydrated());
+  const [isHydrated, setIsHydrated] = useState(() => useAuthStore.persist.hasHydrated() && useChatStore.persist.hasHydrated());
 
   useEffect(() => {
     document.documentElement.style.setProperty('--titlebar-height', isElectron ? '30px' : '0px');
@@ -119,10 +119,18 @@ function App() {
 
   useEffect(() => {
     if (isHydrated) return;
-    const unsub = useAuthStore.persist.onFinishHydration(() => {
-      setIsHydrated(true);
-    });
-    return unsub;
+    const checkHydration = () => {
+      if (useAuthStore.persist.hasHydrated() && useChatStore.persist.hasHydrated()) {
+        setIsHydrated(true);
+      }
+    };
+    checkHydration();
+    const unsubAuth = useAuthStore.persist.onFinishHydration(checkHydration);
+    const unsubChat = useChatStore.persist.onFinishHydration(checkHydration);
+    return () => {
+      unsubAuth();
+      unsubChat();
+    };
   }, [isHydrated]);
 
   const step = useAuthStore((state) => state.step);

@@ -138,6 +138,23 @@ class BrowserOrbitaAdapter {
           localStorage.setItem(key, JSON.stringify(arr.slice(-1000)));
         } catch {}
       },
+      storageAddMessagesBatch: async (chatId: string, messages: Array<{ id: string; messageData: any }>) => {
+        try {
+          const scopedChatId = getScopedChatId(chatId);
+          const key = `orbita_msgs_${scopedChatId}`;
+          const raw = localStorage.getItem(key);
+          const arr = raw ? JSON.parse(raw) : [];
+          for (const item of messages) {
+            const idx = arr.findIndex((m: any) => m.id === item.id);
+            if (idx >= 0) {
+              arr[idx] = item.messageData;
+            } else {
+              arr.push(item.messageData);
+            }
+          }
+          localStorage.setItem(key, JSON.stringify(arr.slice(-1000)));
+        } catch {}
+      },
       storageDeleteMessages: async (chatId: string) => {
         try {
           const scopedChatId = getScopedChatId(chatId);

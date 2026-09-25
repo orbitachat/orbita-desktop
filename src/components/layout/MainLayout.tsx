@@ -827,7 +827,13 @@ export const MainLayout = () => {
 
   useEffect(() => {
     if (_hasHydrated && !myCode && step === 'main') {
-      setMyCode(generateRandomCode());
+      const activeId = useAccountStore.getState().activeAccountId;
+      const activeAcc = useAccountStore.getState().accounts.find((a) => a.id === activeId);
+      if (activeAcc?.myCode) {
+        setMyCode(activeAcc.myCode);
+      } else {
+        setMyCode(generateRandomCode());
+      }
     }
   }, [_hasHydrated, myCode, step, setMyCode]);
 
@@ -2800,6 +2806,7 @@ export const MainLayout = () => {
           audioMetadata: parsedData?.audioMetadata || data.audioMetadata || undefined,
           fileSize: parsedData?.fileSize || data.fileSize || parsedData?.size || data.size || undefined,
           linkPreview: parsedData?.linkPreview || data.linkPreview || undefined,
+          blurPreview: parsedData?.blurPreview || data.blurPreview || parsedData?.thumbnail || data.thumbnail || undefined,
         };
 
         addMessage(chatId, msgPayload);
@@ -3047,6 +3054,7 @@ export const MainLayout = () => {
         audioMetadata: post.audioMetadata || undefined,
         linkPreview: post.linkPreview || undefined,
         reactions: post.reactions || undefined,
+        blurPreview: post.blurPreview || post.thumbnail || undefined,
       };
 
       const currentMsgs = useChatStore.getState().messagesByChatId[channelId] || [];
@@ -3606,6 +3614,7 @@ export const MainLayout = () => {
               linkPreview: messageData.linkPreview || undefined,
               width: messageData.width || undefined,
               height: messageData.height || undefined,
+              blurPreview: messageData.blurPreview || messageData.thumbnail || undefined,
             },
             data.ciphertext,
             data.index

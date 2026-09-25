@@ -22,6 +22,11 @@ export function initStorage(): Promise<void> {
     db = new Database(dbPath);
 
     db.serialize(() => {
+      db!.run('PRAGMA journal_mode = WAL');
+      db!.run('PRAGMA synchronous = NORMAL');
+      db!.run('PRAGMA temp_store = MEMORY');
+      db!.run('PRAGMA cache_size = -64000');
+
       db!.run(`
         CREATE TABLE IF NOT EXISTS ${KV_TABLE} (
           key TEXT PRIMARY KEY,
@@ -44,6 +49,10 @@ export function initStorage(): Promise<void> {
 
       db!.run(`
         CREATE INDEX IF NOT EXISTS idx_messages_created_at ON ${MESSAGES_TABLE}(created_at)
+      `);
+
+      db!.run(`
+        CREATE INDEX IF NOT EXISTS idx_messages_chat_created ON ${MESSAGES_TABLE}(chat_id, created_at ASC)
       `);
 
       resolve();
@@ -157,15 +166,40 @@ export function storageAddMessage(chatId: string, messageId: string, messageData
     const serialized = JSON.stringify(messageData);
     const encrypted = encryptLocal(Buffer.from(serialized, 'utf8'));
     const base64 = encrypted.toString('base64');
-    const now = Date.now();
+    const time = Number(messageData?.time) || Date.now();
     getDb().run(
       `INSERT OR REPLACE INTO ${MESSAGES_TABLE} (id, chat_id, message_data, created_at) VALUES (?, ?, ?, ?)`,
-      [messageId, chatId, base64, now],
+      [messageId, chatId, base64, time],
       (err) => {
         if (err) reject(err);
         else resolve();
       }
     );
+  });
+}
+
+export function storageAddMessagesBatch(chatId: string, messages: Array<{ id: string; messageData: any }>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!messages || messages.length === 0) return resolve();
+    const database = getDb();
+    database.serialize(() => {
+      database.run('BEGIN IMMEDIATE');
+      const stmt = database.prepare(`INSERT OR REPLACE INTO ${MESSAGES_TABLE} (id, chat_id, message_data, created_at) VALUES (?, ?, ?, ?)`);
+      for (const item of messages) {
+        try {
+          const serialized = JSON.stringify(item.messageData);
+          const encrypted = encryptLocal(Buffer.from(serialized, 'utf8'));
+          const base64 = encrypted.toString('base64');
+          const time = Number(item.messageData?.time) || Date.now();
+          stmt.run([item.id, chatId, base64, time]);
+        } catch (_) {}
+      }
+      stmt.finalize();
+      database.run('COMMIT', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
   });
 }
 
@@ -230,6 +264,10 @@ export function setupStorageIPC(): void {
 
   ipcMain.handle('storage:add-message', async (_, chatId: string, messageId: string, messageData: any) => {
     await storageAddMessage(chatId, messageId, messageData);
+  });
+
+  ipcMain.handle('storage:add-messages-batch', async (_, chatId: string, messages: Array<{ id: string; messageData: any }>) => {
+    await storageAddMessagesBatch(chatId, messages);
   });
 
   ipcMain.handle('storage:delete-messages', async (_, chatId: string) => {

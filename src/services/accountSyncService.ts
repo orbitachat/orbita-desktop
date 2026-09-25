@@ -81,6 +81,10 @@ class AccountSyncService {
       return auth.masterSeed;
     }
 
+    if (auth.step === 'main' && auth.userId) {
+      return auth.masterSeed || '';
+    }
+
     const newSeed = generateMasterSeedHex();
     const derived = deriveAccountKeys(newSeed);
     useAuthStore.getState().setMasterSeed(newSeed);

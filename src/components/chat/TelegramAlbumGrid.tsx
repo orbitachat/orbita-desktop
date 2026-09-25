@@ -30,7 +30,7 @@ const AlbumTile = memo(({
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const autoLoad = useChatStore((state) => state.shouldAutoLoadMedia(item.type === 'video' ? 'video' : 'photo', item.size, isOwn));
-  const { blobUrl, load, isLoading, progress } = useDecryptedMedia(item.url, item.key || sharedSecret, item.name, item.mime, undefined, undefined, autoLoad);
+  const { blobUrl, load, isLoading, progress, isUnavailable } = useDecryptedMedia(item.url, item.key || sharedSecret, item.name, item.mime, undefined, undefined, autoLoad);
   const isVideo = item.type === 'video';
 
   const formatDuration = (sec?: number) => {
@@ -57,7 +57,7 @@ const AlbumTile = memo(({
         position: 'relative',
       }}
     >
-      {blurSrc && (
+      {blurSrc ? (
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -66,6 +66,14 @@ const AlbumTile = memo(({
             backgroundPosition: 'center',
             filter: 'blur(10px)',
             transform: 'scale(1.12)',
+          }}
+        />
+      ) : (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at 30% 30%, rgba(139, 92, 246, 0.22), transparent 70%), radial-gradient(circle at 70% 70%, rgba(59, 130, 246, 0.18), transparent 70%), rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(20px)',
           }}
         />
       )}
@@ -96,37 +104,39 @@ const AlbumTile = memo(({
 
       {(!blobUrl || isUploading) && (
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center z-[2] select-none cursor-pointer"
+          className={`absolute inset-0 flex flex-col items-center justify-center z-[2] select-none ${isUnavailable ? 'pointer-events-none' : 'cursor-pointer'}`}
           onClick={(e) => {
             e.stopPropagation();
-            if (!isDownloading && !isUploading) load();
+            if (!isDownloading && !isUploading && !isUnavailable) load();
           }}
         >
-          <div className="relative z-10 flex flex-col items-center gap-1">
-            <AudioCoverWithPlay
-              cover={null}
-              size={44}
-              state={isUploading ? 'uploading' : (isDownloading ? 'downloading' : 'download')}
-              progress={isUploading ? uploadProgress : progress}
-              onClick={() => { if (!isDownloading && !isUploading) load(); }}
-              ariaLabel={isDownloading ? 'Cancel download' : (!blobUrl ? 'Download' : 'Open')}
-            />
-            {item.size && item.size > 0 && !isDownloading && !isUploading && (
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 600,
-                  color: '#ffffff',
-                  backgroundColor: 'rgba(0, 0, 0, 0.55)',
-                  padding: '1px 6px',
-                  borderRadius: '10px',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                {(item.size / (1024 * 1024)).toFixed(1)} MB
-              </span>
-            )}
-          </div>
+          {!isUnavailable && (
+            <div className="relative z-10 flex flex-col items-center gap-1">
+              <AudioCoverWithPlay
+                cover={null}
+                size={44}
+                state={isUploading ? 'uploading' : (isDownloading ? 'downloading' : 'download')}
+                progress={isUploading ? uploadProgress : progress}
+                onClick={() => { if (!isDownloading && !isUploading) load(); }}
+                ariaLabel={isDownloading ? 'Cancel download' : (!blobUrl ? 'Download' : 'Open')}
+              />
+              {item.size && item.size > 0 && !isDownloading && !isUploading && (
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: '#ffffff',
+                    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  {(item.size / (1024 * 1024)).toFixed(1)} MB
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 

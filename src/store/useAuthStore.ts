@@ -73,7 +73,7 @@ const ipcStorage: StateStorage = {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      userId: getInitialUserId(),
+      userId: '',
       nickname: '',
       avatarUrl: null,
       step: 'welcome',

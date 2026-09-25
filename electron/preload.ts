@@ -348,6 +348,8 @@ contextBridge.exposeInMainWorld('orbita', {
     ipcRenderer.invoke('storage:get-messages', getScopedChatId(chatId), limit, offset),
   storageAddMessage: (chatId: string, messageId: string, messageData: any) =>
     ipcRenderer.invoke('storage:add-message', getScopedChatId(chatId), getScopedMsgId(messageId), messageData),
+  storageAddMessagesBatch: (chatId: string, messages: Array<{ id: string; messageData: any }>) =>
+    ipcRenderer.invoke('storage:add-messages-batch', getScopedChatId(chatId), messages),
   storageDeleteMessages: (chatId: string) =>
     ipcRenderer.invoke('storage:delete-messages', getScopedChatId(chatId)),
   storageDeleteMessage: (messageId: string) =>

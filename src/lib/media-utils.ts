@@ -108,7 +108,7 @@ export function useDecryptedMedia(
   chatId?: string,
   messageId?: string,
   autoLoad: boolean = true
-): { blobUrl: string | null; blob: Blob | null; load: () => Promise<void>; isLoading: boolean; progress: number } {
+): { blobUrl: string | null; blob: Blob | null; load: () => Promise<void>; isLoading: boolean; progress: number; isUnavailable: boolean } {
   const cleanUrl = useMemo(() => {
     if (!url || typeof url !== 'string') return null;
     const trimmed = url.replace(/^\[(?:Photo|GIF|Sticker|Video|Audio|File)\]\s*/i, '').trim();
@@ -132,6 +132,9 @@ export function useDecryptedMedia(
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
+  const [isUnavailable, setIsUnavailable] = useState<boolean>(() => {
+    return cleanUrl ? mediaManager.isMediaUnavailable(cleanUrl) : false;
+  });
 
   const initialBlobUrl = useMemo(() => {
     if (cachedUrl) return cachedUrl;
@@ -167,6 +170,7 @@ export function useDecryptedMedia(
     }
 
     if (cachedUrl) {
+      setIsUnavailable(false);
       setResult({ blobUrl: cachedUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
       return;
     }
@@ -176,8 +180,10 @@ export function useDecryptedMedia(
 
     try {
       const media = await mediaManager.getMedia(cleanUrl, sharedSecret || '', hintFileName, chatId, messageId);
+      setIsUnavailable(false);
       setResult({ blobUrl: media.blobUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
     } catch {
+      setIsUnavailable(true);
       setResult({ blobUrl: null, blob: null, load: loadMedia, isLoading: false, progress: 0 });
     } finally {
       setIsLoading(false);
@@ -212,5 +218,6 @@ export function useDecryptedMedia(
     ...result,
     isLoading: isLoading || result.isLoading,
     progress: progress || result.progress,
+    isUnavailable: isUnavailable || (cleanUrl ? mediaManager.isMediaUnavailable(cleanUrl) : false),
   };
 }
