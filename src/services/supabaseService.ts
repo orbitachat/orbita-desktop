@@ -199,12 +199,14 @@ class SupabaseService {
 
     const relays = relayRouter.getNodes();
     await Promise.all(
-      relays.map((relay) =>
-        fetch(`${relay.url}/relay/purge-server-message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, messageIds: cleanIds }),
-        }).catch(() => {})
+      relays.flatMap((relay) =>
+        cleanIds.map((mid) =>
+          fetch(`${relay.url}/relay/delete-message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId, messageId: mid }),
+          }).catch(() => {})
+        )
       )
     );
 
