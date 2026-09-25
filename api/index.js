@@ -855,6 +855,32 @@ module.exports = async function handler(req, res) {
       return sendJson(res, { status: 'ok' });
     }
 
+    if (pathname === '/relay/purge-server-message' && req.method === 'POST') {
+      const supabase = getSupabaseClient();
+      const { chatId, messageIds, messageId } = body;
+      const ids = Array.isArray(messageIds) ? messageIds : (messageId ? [messageId] : []);
+      if (supabase && ids.length > 0) {
+        try {
+          for (const mid of ids) {
+            const uuid = toUuid(mid);
+            if (uuid) {
+              await supabase.from('messages').delete().eq('id', uuid);
+              await supabase.from('non_messages').delete().eq('id', uuid);
+            }
+            await supabase.from('messages').delete().eq('id', mid);
+            await supabase.from('non_messages').delete().eq('id', mid);
+            if (chatId) {
+              await supabase.from('non_messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${mid}%`);
+              await supabase.from('messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${mid}%`);
+            }
+          }
+        } catch (err) {
+          console.error('[relay/purge-server-message] error:', err);
+        }
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
     if (pathname === '/relay/profile' && req.method === 'GET') {
       const supabase = getSupabaseClient();
       if (!supabase) return sendError(res, 'Database not configured', 500);

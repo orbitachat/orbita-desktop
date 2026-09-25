@@ -822,6 +822,40 @@ export default {
         return jsonResponse({ status: 'ok' });
       }
 
+      if (pathname === '/relay/purge-server-message' && request.method === 'POST') {
+        const supabase = getSupabaseClient(env);
+        if (!supabase) return errorResponse('Database not configured on server', 500);
+
+        const body = (await request.json()) as {
+          chatId?: string;
+          messageIds?: string[];
+          messageId?: string;
+        };
+
+        const ids = Array.isArray(body.messageIds) ? body.messageIds : (body.messageId ? [body.messageId] : []);
+        if (ids.length > 0) {
+          try {
+            for (const mid of ids) {
+              const uuid = await toUuid(mid);
+              if (uuid) {
+                await supabase.from('messages').delete().eq('id', uuid);
+                await supabase.from('non_messages').delete().eq('id', uuid);
+              }
+              await supabase.from('messages').delete().eq('id', mid);
+              await supabase.from('non_messages').delete().eq('id', mid);
+              if (body.chatId) {
+                await supabase.from('non_messages').delete().eq('chat_id', body.chatId).ilike('ciphertext', `%${mid}%`);
+                await supabase.from('messages').delete().eq('chat_id', body.chatId).ilike('ciphertext', `%${mid}%`);
+              }
+            }
+          } catch (e) {
+            console.warn('[Worker] purge-server-message error:', e);
+          }
+        }
+
+        return jsonResponse({ status: 'ok' });
+      }
+
       if (pathname === '/relay/profile' && request.method === 'GET') {
         const supabase = getSupabaseClient(env);
         if (!supabase) return errorResponse('Database not configured on server', 500);

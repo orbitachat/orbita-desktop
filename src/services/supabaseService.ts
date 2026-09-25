@@ -182,14 +182,50 @@ class SupabaseService {
   }
 
   async markNonMessageDelivered(messageId: string): Promise<void> {
-    if (!this.client) return;
+    if (!this.client || !messageId) return;
     await this.client
       .from('non_messages')
-      .update({ delivered: true })
+      .delete()
       .eq('id', messageId)
       .then(({ error }) => {
         if (error) console.error('[Supabase] markNonMessageDelivered error:', error);
       });
+  }
+
+  async purgeServerMessages(chatId: string, messageIds: string[]): Promise<void> {
+    if (!messageIds || messageIds.length === 0) return;
+    const cleanIds = messageIds.filter(Boolean);
+    if (cleanIds.length === 0) return;
+
+    const relays = relayRouter.getNodes();
+    await Promise.all(
+      relays.map((relay) =>
+        fetch(`${relay.url}/relay/purge-server-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, messageIds: cleanIds }),
+        }).catch(() => {})
+      )
+    );
+
+    if (this.client) {
+      for (const id of cleanIds) {
+        try {
+          await this.client.from('messages').delete().eq('id', id);
+        } catch {}
+        try {
+          await this.client.from('non_messages').delete().eq('id', id);
+        } catch {}
+        if (chatId) {
+          try {
+            await this.client.from('non_messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${id}%`);
+          } catch {}
+          try {
+            await this.client.from('messages').delete().eq('chat_id', chatId).ilike('ciphertext', `%${id}%`);
+          } catch {}
+        }
+      }
+    }
   }
 
   async deleteMessage(

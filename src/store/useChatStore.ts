@@ -1200,7 +1200,7 @@ export const useChatStore = create<ChatState>()(
       updateMessageStatus: (chatId, messageId, status) => {
         const state = get();
         const messages = state.messagesByChatId[chatId] || [];
-        const updated = messages.map(m => m.id === messageId ? { ...m, status } : m);
+        const updated = messages.map(m => m.id === messageId ? { ...m, status, read: status === 'read' ? true : m.read } : m);
         set({
           messagesByChatId: {
             ...state.messagesByChatId,
@@ -1210,6 +1210,21 @@ export const useChatStore = create<ChatState>()(
         const updatedMsg = updated.find(m => m.id === messageId);
         if (updatedMsg && typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
           (window as any).orbita.storageAddMessage(chatId, messageId, updatedMsg).catch(() => {});
+        }
+        if (status === 'read') {
+          supabaseService.purgeServerMessages(chatId, [messageId]);
+          if (updatedMsg) {
+            const urls: string[] = [];
+            if (updatedMsg.mediaUrl) urls.push(updatedMsg.mediaUrl);
+            if (updatedMsg.mediaItems && Array.isArray(updatedMsg.mediaItems)) {
+              for (const item of updatedMsg.mediaItems) {
+                if (item?.url) urls.push(item.url);
+              }
+            }
+            if (urls.length > 0) {
+              mediaManager.purgeServerMedia(urls);
+            }
+          }
         }
         flushStorageSet();
       },

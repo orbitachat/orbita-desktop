@@ -252,24 +252,36 @@ class MediaManager {
     }
   }
 
-  private async requestServerMediaDelete(url: string): Promise<void> {
-    if (!url || typeof url !== 'string') return;
-    try {
-      const match = url.match(/\/v\d+\/([^\.\?]+)/) || url.match(/\/([^\/\?]+)\.[a-zA-Z0-9]+$/);
-      const publicId = match ? match[1] : null;
-      if (publicId) {
-        if (window.orbita?.destroyCloudinaryMedia) {
-          window.orbita.destroyCloudinaryMedia(publicId).catch(() => {});
-        } else {
-          const workerUrl = getVercelBaseUrl();
-          fetch(`${workerUrl}/cloudinary/destroy`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ public_id: publicId, url }),
-          }).catch(() => {});
+  public async purgeServerMedia(urls: string[] | string): Promise<void> {
+    const list = Array.isArray(urls) ? urls : [urls];
+    for (const rawUrl of list) {
+      if (!rawUrl || typeof rawUrl !== 'string') continue;
+      const cleanUrl = normalizeMediaUrl(rawUrl);
+      if (!cleanUrl || !cleanUrl.includes('cloudinary.com')) continue;
+      try {
+        const match = cleanUrl.match(/\/v\d+\/([^\.\?]+)/) || cleanUrl.match(/\/([^\/\?]+)\.[a-zA-Z0-9]+$/);
+        const publicId = match ? match[1] : null;
+        if (publicId) {
+          if (typeof window !== 'undefined' && window.orbita?.destroyCloudinaryMedia) {
+            window.orbita.destroyCloudinaryMedia(publicId).catch(() => {});
+          } else {
+            const workerUrl = getVercelBaseUrl();
+            const rTypes = ['image', 'video', 'raw'];
+            for (const rt of rTypes) {
+              fetch(`${workerUrl}/cloudinary/destroy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ public_id: publicId, resourceType: rt }),
+              }).catch(() => {});
+            }
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
+  }
+
+  private async requestServerMediaDelete(url: string): Promise<void> {
+    await this.purgeServerMedia(url);
   }
 
   private async fetchAndDecrypt(

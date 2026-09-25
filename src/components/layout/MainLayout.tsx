@@ -38,6 +38,7 @@ import { useCallStore } from '../../store/useCallStore';
 import { callSoundService } from '../../services/callSoundService';
 import { ResizableSidebar } from './ResizableSidebar';
 import { supabaseService, type OfflineMessageRecord } from '../../services/supabaseService';
+import { mediaManager } from '../../services/mediaManager';
 import { gatewayManager } from '../../services/gatewayManager';
 import { Avatar } from '../common/Avatar';
 import { NotesAvatar } from '../common/NotesAvatar';
@@ -1575,6 +1576,18 @@ export const MainLayout = () => {
           sendEncryptedReadReceipt(item.chatId, [item.msgId], Date.now());
         }
 
+        if (readReceiptsToSend.length > 0) {
+          const byChat = new Map<string, string[]>();
+          for (const item of readReceiptsToSend) {
+            const list = byChat.get(item.chatId) || [];
+            list.push(item.msgId);
+            byChat.set(item.chatId, list);
+          }
+          for (const [cId, ids] of byChat.entries()) {
+            supabaseService.purgeServerMessages(cId, ids);
+          }
+        }
+
         if (deliveredIds.length > 0) {
           Promise.allSettled(
             deliveredIds.map((id) => supabaseService.markMessageDelivered(id))
@@ -2619,11 +2632,23 @@ export const MainLayout = () => {
         );
         if (isSelf) return;
         const currentMsgs = useChatStore.getState().messagesByChatId[chatId] || messages;
+        const readIds: string[] = [];
+        const readMediaUrls: string[] = [];
+        const readMsgObjects: Message[] = [];
         const updatedMessages = currentMsgs.map((msg) => {
           const isOut = msg.isOutgoing || isMessageOutgoing(msg, myC, nickname, chat, myUid);
           if (!isOut) return msg;
           if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
-            return { ...msg, read: true, status: 'read' as const };
+            const readMsg = { ...msg, read: true, status: 'read' as const };
+            if (readMsg.id) readIds.push(readMsg.id);
+            readMsgObjects.push(readMsg);
+            if (readMsg.mediaUrl) readMediaUrls.push(readMsg.mediaUrl);
+            if (readMsg.mediaItems && Array.isArray(readMsg.mediaItems)) {
+              for (const item of readMsg.mediaItems) {
+                if (item?.url) readMediaUrls.push(item.url);
+              }
+            }
+            return readMsg;
           }
           return msg;
         });
@@ -2633,6 +2658,19 @@ export const MainLayout = () => {
             [chatId]: updatedMessages,
           }
         }));
+        if (readIds.length > 0) {
+          supabaseService.purgeServerMessages(chatId, readIds);
+        }
+        if (readMediaUrls.length > 0) {
+          mediaManager.purgeServerMedia(readMediaUrls);
+        }
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          for (const rm of readMsgObjects) {
+            if (rm.id) {
+              (window as any).orbita.storageAddMessage(chatId, rm.id, rm).catch(() => {});
+            }
+          }
+        }
         return;
       }
 
@@ -3348,10 +3386,22 @@ export const MainLayout = () => {
 
       if (data.type === 'read') {
         const currentMessages = useChatStore.getState().messagesByChatId[chatId] || [];
+        const readIds: string[] = [];
+        const readMediaUrls: string[] = [];
+        const readMsgObjects: Message[] = [];
         const updatedMessages = currentMessages.map((msg) => {
           const isTarget = (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing);
           if (isTarget) {
-            return { ...msg, read: true, status: 'read' as const, readAt: data.timestamp || Date.now() };
+            const readMsg = { ...msg, read: true, status: 'read' as const, readAt: data.timestamp || Date.now() };
+            if (readMsg.id) readIds.push(readMsg.id);
+            readMsgObjects.push(readMsg);
+            if (readMsg.mediaUrl) readMediaUrls.push(readMsg.mediaUrl);
+            if (readMsg.mediaItems && Array.isArray(readMsg.mediaItems)) {
+              for (const item of readMsg.mediaItems) {
+                if (item?.url) readMediaUrls.push(item.url);
+              }
+            }
+            return readMsg;
           }
           return msg;
         });
@@ -3361,6 +3411,19 @@ export const MainLayout = () => {
             [chatId]: updatedMessages,
           }
         }));
+        if (readIds.length > 0) {
+          supabaseService.purgeServerMessages(chatId, readIds);
+        }
+        if (readMediaUrls.length > 0) {
+          mediaManager.purgeServerMedia(readMediaUrls);
+        }
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          for (const rm of readMsgObjects) {
+            if (rm.id) {
+              (window as any).orbita.storageAddMessage(chatId, rm.id, rm).catch(() => {});
+            }
+          }
+        }
         return;
       }
 

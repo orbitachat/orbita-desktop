@@ -3726,6 +3726,27 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             [activeChatId]: updatedMessages,
           },
         }));
+
+        if (readIds.length > 0) {
+          supabaseService.purgeServerMessages(activeChatId, readIds);
+          const readMediaUrls: string[] = [];
+          for (const m of updatedMessages) {
+            if (m.id && readIds.includes(m.id)) {
+              if (m.mediaUrl) readMediaUrls.push(m.mediaUrl);
+              if (m.mediaItems && Array.isArray(m.mediaItems)) {
+                for (const item of m.mediaItems) {
+                  if (item?.url) readMediaUrls.push(item.url);
+                }
+              }
+              if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+                (window as any).orbita.storageAddMessage(activeChatId, m.id, m).catch(() => {});
+              }
+            }
+          }
+          if (readMediaUrls.length > 0) {
+            mediaManager.purgeServerMedia(readMediaUrls);
+          }
+        }
       }
     };
 
@@ -3790,6 +3811,27 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               [activeChatId]: updatedMessages,
             },
           }));
+
+          if (readIds.length > 0) {
+            supabaseService.purgeServerMessages(activeChatId, readIds);
+            const readMediaUrls: string[] = [];
+            for (const m of updatedMessages) {
+              if (m.id && readIds.includes(m.id)) {
+                if (m.mediaUrl) readMediaUrls.push(m.mediaUrl);
+                if (m.mediaItems && Array.isArray(m.mediaItems)) {
+                  for (const item of m.mediaItems) {
+                    if (item?.url) readMediaUrls.push(item.url);
+                  }
+                }
+                if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+                  (window as any).orbita.storageAddMessage(activeChatId, m.id, m).catch(() => {});
+                }
+              }
+            }
+            if (readMediaUrls.length > 0) {
+              mediaManager.purgeServerMedia(readMediaUrls);
+            }
+          }
         }
       },
       { root: container, threshold: 0.2 }
@@ -5093,11 +5135,23 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         );
         if (isSelf) return;
         const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+        const readIds: string[] = [];
+        const readMediaUrls: string[] = [];
+        const readMsgObjects: Message[] = [];
         const updated = currentMsgs.map((msg) => {
           const isOut = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
           if (!isOut) return msg;
           if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
-            return { ...msg, read: true, status: 'read' as const };
+            const readMsg = { ...msg, read: true, status: 'read' as const };
+            if (readMsg.id) readIds.push(readMsg.id);
+            readMsgObjects.push(readMsg);
+            if (readMsg.mediaUrl) readMediaUrls.push(readMsg.mediaUrl);
+            if (readMsg.mediaItems && Array.isArray(readMsg.mediaItems)) {
+              for (const item of readMsg.mediaItems) {
+                if (item?.url) readMediaUrls.push(item.url);
+              }
+            }
+            return readMsg;
           }
           return msg;
         });
@@ -5107,6 +5161,19 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             [activeChatId]: updated,
           },
         }));
+        if (readIds.length > 0) {
+          supabaseService.purgeServerMessages(activeChatId, readIds);
+        }
+        if (readMediaUrls.length > 0) {
+          mediaManager.purgeServerMedia(readMediaUrls);
+        }
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          for (const rm of readMsgObjects) {
+            if (rm.id) {
+              (window as any).orbita.storageAddMessage(activeChatId, rm.id, rm).catch(() => {});
+            }
+          }
+        }
       }
     });
 
@@ -5219,11 +5286,23 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         );
         if (isSelf) return;
         const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+        const readIds: string[] = [];
+        const readMediaUrls: string[] = [];
+        const readMsgObjects: Message[] = [];
         const updated = currentMsgs.map((msg) => {
           const isOut = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
           if (!isOut) return msg;
           if ((data.messageId && msg.id === data.messageId) || (data.readIds && data.readIds.includes(msg.id)) || (data.time && msg.time <= data.time)) {
-            return { ...msg, read: true, status: 'read' as const };
+            const readMsg = { ...msg, read: true, status: 'read' as const };
+            if (readMsg.id) readIds.push(readMsg.id);
+            readMsgObjects.push(readMsg);
+            if (readMsg.mediaUrl) readMediaUrls.push(readMsg.mediaUrl);
+            if (readMsg.mediaItems && Array.isArray(readMsg.mediaItems)) {
+              for (const item of readMsg.mediaItems) {
+                if (item?.url) readMediaUrls.push(item.url);
+              }
+            }
+            return readMsg;
           }
           return msg;
         });
@@ -5233,6 +5312,19 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             [activeChatId]: updated,
           },
         }));
+        if (readIds.length > 0) {
+          supabaseService.purgeServerMessages(activeChatId, readIds);
+        }
+        if (readMediaUrls.length > 0) {
+          mediaManager.purgeServerMedia(readMediaUrls);
+        }
+        if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
+          for (const rm of readMsgObjects) {
+            if (rm.id) {
+              (window as any).orbita.storageAddMessage(activeChatId, rm.id, rm).catch(() => {});
+            }
+          }
+        }
         return;
       }
 
