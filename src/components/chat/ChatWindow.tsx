@@ -7304,13 +7304,14 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         return content;
       }
       return (
-        <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%' }}>
           <div
             style={{
               width: 34,
               height: 34,
               flexShrink: 0,
-              marginBottom: 2,
+              marginRight: 20,
+              marginBottom: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -7479,7 +7480,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         return (
           <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
             {wrapWithGroupAvatar(
-              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%' }}>
                 <div
                   data-message="true"
                   data-message-id={msg.id}
@@ -7562,7 +7563,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       return (
         <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
           {wrapWithGroupAvatar(
-            <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%' }}>
               <div
                 data-message="true"
                 data-message-id={msg.id}
@@ -7639,7 +7640,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     return (
       <div style={{ ...highlightWrapperStyle }} data-datelabel={getDateLabel(msg.time)}>
         {wrapWithGroupAvatar(
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%' }}>
           <div
             data-message="true"
             data-message-id={msg.id}
@@ -7658,8 +7659,8 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           >
             {media.type === 'sticker' && (
               <div
-                className="relative w-fit flex flex-col items-end group select-none"
-                style={{ padding: '2px', overflowAnchor: 'none' }}
+                className={`relative w-fit flex flex-col ${isOwn ? 'items-end' : 'items-start'} group select-none`}
+                style={{ padding: '0px', overflowAnchor: 'none' }}
                 onClick={(e) => handleMessageClick(e, msg.id!)}
                 onContextMenu={(e) => handleContextMenu(e, index, isOwn)}
               >

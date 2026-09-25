@@ -178,8 +178,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
       >
         {isEmojiNoBubble ? (
           <div
-            className="max-w-[min(440px,75%)] min-w-[50px] w-fit relative flex flex-col items-end"
-            style={{ padding: '2px 4px' }}
+            className={`max-w-[min(440px,75%)] min-w-[50px] w-fit relative flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}
+            style={{ padding: '0px' }}
           >
             <span
               className="select-none"
