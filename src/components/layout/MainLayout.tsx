@@ -88,6 +88,10 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = 
     return t('common.no_messages');
   }
 
+  if (lastMsg.mediaType === 'system' || lastMsg.sender === 'system' || (lastMsg as any).systemType) {
+    return <span className="truncate">{lastMsg.text}</span>;
+  }
+
   const senderMember = chat.members?.find((m) =>
     (m.userId && m.userId === lastMsg.senderId) ||
     ((m as any).userCode && (m as any).userCode === lastMsg.senderId) ||
@@ -97,12 +101,10 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = 
     ? t('chatWindow.you', 'Вы')
     : (senderMember?.nickname || lastMsg.sender || '');
 
-  const senderPrefix = (chat.type === 'group' && lastMsg.mediaType !== 'system' && !lastMsg.text?.startsWith('[Call]') && senderName)
-    ? `${senderName}: `
-    : '';
+  const hasSenderPrefix = chat.type === 'group' && !lastMsg.text?.startsWith('[Call]') && !!senderName;
 
   const renderWithPrefix = (content: React.ReactNode, isAccent = false) => {
-    if (!senderPrefix) {
+    if (!hasSenderPrefix) {
       return isAccent ? (
         <span className="truncate" style={accentStyle}>{content}</span>
       ) : (
@@ -111,7 +113,8 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = 
     }
     return (
       <span className="truncate">
-        <span>{senderPrefix}</span>
+        <span style={accentStyle}>{senderName}</span>
+        <span>: </span>
         {isAccent ? <span style={accentStyle}>{content}</span> : content}
       </span>
     );
@@ -554,11 +557,7 @@ const ChatListItem = React.memo(({
                 getLastMsgDisplay(chat, lastMsg, t, isOwn)
               )}
             </div>
-            {chat.type === 'group' && chat.role === 'owner' && (
-              <span className="text-[9px] uppercase font-bold flex-shrink-0 ml-1.5 px-1 py-0.5 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)]">
-                {t('groupSettings.owner')}
-              </span>
-            )}
+
             {(isPinned || (chat.unreadCount ?? 0) > 0) && (
               <div className="ml-1.5 flex items-center gap-1.5 flex-shrink-0">
                 {isPinned && (

@@ -223,7 +223,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
           </div>
         ) : (
           <div
-            className={`flex flex-col min-w-[50px] ${
+            className={`flex flex-col min-w-fit ${
               hasLinkPreview
                 ? 'max-w-[min(540px,94%)] sm:max-w-[min(500px,85%)] w-full'
                 : 'max-w-[min(460px,88%)] sm:max-w-[min(440px,75%)] w-fit'
@@ -234,6 +234,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               style={{
                 padding: '6.5px 12px 6.5px 11px',
                 borderRadius: bubbleRadius,
+                minWidth: 'fit-content',
                 background: isOwn
                   ? 'var(--chat-bubble-own-bg, #2c6bed)'
                   : 'var(--chat-bubble-incoming-bg, var(--surface-container))',
@@ -244,7 +245,16 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               }}
             >
             {!isOwn && isGroup && msg.sender && !isPrevSameSender && (
-              <div className="flex items-center mb-1 select-none message-sender-name" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+              <div
+                className="flex items-center mb-1 select-none message-sender-name"
+                style={{
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  minWidth: 'max-content',
+                  width: 'fit-content',
+                  maxWidth: '100%',
+                }}
+              >
                 <span
                   className="truncate font-semibold select-none message-sender-name"
                   style={{
@@ -253,6 +263,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                     lineHeight: '1.2',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
+                    minWidth: 'max-content',
+                    maxWidth: '100%',
                   }}
                 >
                   {activeChat?.members?.find((m) => (m.userId && m.userId === msg.senderId) || ((m as any).userCode && (m as any).userCode === msg.senderId) || m.nickname === msg.sender)?.nickname || msg.sender}

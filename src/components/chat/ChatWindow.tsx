@@ -7310,7 +7310,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               width: 34,
               height: 34,
               flexShrink: 0,
-              marginRight: 20,
+              marginRight: 10,
               marginBottom: 0,
               display: 'flex',
               alignItems: 'center',
