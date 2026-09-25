@@ -983,6 +983,23 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     return () => ro.disconnect();
   }, [updateProfileThumb]);
 
+  const titleBlockRef = useRef<HTMLDivElement>(null);
+  const [titleShiftX, setTitleShiftX] = useState(120);
+
+  useEffect(() => {
+    const el = titleBlockRef.current;
+    if (!el) return;
+    const updateShift = () => {
+      const parentW = profileScrollRef.current?.clientWidth || el.parentElement?.clientWidth || 420;
+      const textW = el.offsetWidth || 120;
+      const shift = Math.max(0, (parentW - textW) / 2 - 20);
+      setTitleShiftX(shift);
+    };
+    updateShift();
+    window.addEventListener('resize', updateShift);
+    return () => window.removeEventListener('resize', updateShift);
+  }, [chat?.name]);
+
   const subTabScrollRef = useRef<HTMLDivElement>(null);
   const [subTabThumb, setSubTabThumb] = useState<{ top: number; height: number } | null>(null);
   const [isSubTabActive, setIsSubTabActive] = useState(false);
@@ -1966,9 +1983,9 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           justifyContent: 'center',
           alignItems: 'center',
           width: '100%',
-          opacity: Math.max(0, 1 - (scrollOffset / 55)),
-          transform: `translateY(-${scrollOffset * 0.8}px) scale(${Math.max(0.65, 1 - (scrollOffset / 140))})`,
-          transformOrigin: 'center center',
+          opacity: Math.max(0, 1 - (scrollOffset / 75)),
+          transform: `translateY(-${scrollOffset * 0.4}px) scale(${Math.max(0.45, 1 - (scrollOffset / 100))})`,
+          transformOrigin: 'top center',
           pointerEvents: scrollOffset > 50 ? 'none' : 'auto',
           transition: 'none',
         }}
@@ -2022,15 +2039,15 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           flexDirection: 'column',
           alignItems: 'center',
           width: '100%',
-          opacity: Math.max(0, 1 - (scrollOffset / 55)),
-          transform: `translate(-${scrollOffset * 1.5}px, -${scrollOffset * 0.6}px) scale(${Math.max(0.8, 1 - (scrollOffset / 180))})`,
-          transformOrigin: 'center center',
-          pointerEvents: scrollOffset > 50 ? 'none' : 'auto',
+          opacity: scrollOffset < 75 ? 1 : Math.max(0, 1 - (scrollOffset - 75) / 25),
+          transform: `translateX(-${Math.min(1, Math.max(0, scrollOffset / 75)) * titleShiftX}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 75)) * 0.18})`,
+          transformOrigin: 'left center',
+          pointerEvents: scrollOffset > 85 ? 'none' : 'auto',
           transition: 'none',
         }}
       >
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2px', padding: '0 20px', width: '100%', boxSizing: 'border-box' }}>
-          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div ref={titleBlockRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               {chat.type === 'bot' && (
                 <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
@@ -3465,9 +3482,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     minWidth: 0,
                     flex: 1,
                     paddingRight: '12px',
-                    opacity: Math.min(1, Math.max(0, (scrollOffset - 35) / 35)),
-                    transform: `translate(${Math.max(0, 16 - ((scrollOffset - 35) / 35) * 16)}px, ${Math.max(0, 8 - ((scrollOffset - 35) / 35) * 8)}px)`,
-                    pointerEvents: scrollOffset > 35 ? 'auto' : 'none',
+                    opacity: scrollOffset <= 75 ? 0 : Math.min(1, (scrollOffset - 75) / 25),
+                    pointerEvents: scrollOffset > 85 ? 'auto' : 'none',
                     transition: 'none',
                   }}
                 >
@@ -3489,6 +3505,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     {chat.type === 'bot' && (
                       <VerifiedBadge size={14} className="flex-shrink-0" />
                     )}
+                    <DeveloperBadge
+                      userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
+                      nickname={chat.name}
+                      size={18}
+                    />
                   </div>
                   {statusText && (
                     <span
