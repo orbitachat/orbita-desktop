@@ -1983,10 +1983,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           justifyContent: 'center',
           alignItems: 'center',
           width: '100%',
-          opacity: Math.max(0, 1 - (scrollOffset / 105)),
-          transform: `translateY(-${scrollOffset * 0.4}px) scale(${Math.max(0.3, 1 - (scrollOffset / 120))})`,
+          opacity: Math.max(0, 1 - (scrollOffset / 55)),
+          transform: `translateY(-${scrollOffset * 0.6}px) scale(${Math.max(0.4, 1 - (scrollOffset / 70))})`,
           transformOrigin: 'top center',
-          pointerEvents: scrollOffset > 80 ? 'none' : 'auto',
+          pointerEvents: scrollOffset > 45 ? 'none' : 'auto',
           transition: 'none',
         }}
       >
@@ -2039,10 +2039,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           flexDirection: 'column',
           alignItems: 'center',
           width: '100%',
-          opacity: scrollOffset > 112 ? 0 : 1,
-          transform: `translateX(-${Math.min(1, Math.max(0, scrollOffset / 112)) * titleShiftX}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 112)) * 0.18})`,
+          opacity: scrollOffset >= 60 ? 0 : 1,
+          transform: `translateX(-${Math.min(1, Math.max(0, scrollOffset / 60)) * titleShiftX}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 60)) * 0.18})`,
           transformOrigin: 'left center',
-          pointerEvents: scrollOffset > 112 ? 'none' : 'auto',
+          pointerEvents: scrollOffset >= 60 ? 'none' : 'auto',
           transition: 'none',
         }}
       >
@@ -3466,7 +3466,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 zIndex: 30,
                 backgroundColor: subTab !== null
                   ? 'transparent'
-                  : `color-mix(in srgb, var(--settings-bg, var(--bg-secondary)) ${Math.min(100, Math.round((Math.max(0, scrollOffset - 20) / 60) * 100))}%, transparent)`,
+                  : `color-mix(in srgb, var(--settings-bg, var(--bg-secondary)) ${Math.min(100, Math.round((Math.max(0, scrollOffset - 45) / 18) * 100))}%, transparent)`,
                 borderBottom: 'none',
                 pointerEvents: 'none',
                 boxSizing: 'border-box',
@@ -3482,8 +3482,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     minWidth: 0,
                     flex: 1,
                     paddingRight: '12px',
-                    opacity: scrollOffset >= 112 ? 1 : 0,
-                    pointerEvents: scrollOffset >= 112 ? 'auto' : 'none',
+                    opacity: scrollOffset >= 60 ? 1 : 0,
+                    pointerEvents: scrollOffset >= 60 ? 'auto' : 'none',
                     transition: 'none',
                   }}
                 >
