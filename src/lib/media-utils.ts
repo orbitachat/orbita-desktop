@@ -106,7 +106,8 @@ export function useDecryptedMedia(
   hintFileName?: string,
   _forcedMime?: string,
   chatId?: string,
-  messageId?: string
+  messageId?: string,
+  autoLoad: boolean = true
 ): { blobUrl: string | null; blob: Blob | null; load: () => Promise<void> } {
   const cleanUrl = useMemo(() => {
     if (!url || typeof url !== 'string') return null;
@@ -123,10 +124,23 @@ export function useDecryptedMedia(
     return getOrbitaMediaUrl(cleanUrl, sharedSecret, chatId, messageId, hintFileName, _forcedMime);
   }, [cleanUrl, sharedSecret, chatId, messageId, hintFileName, _forcedMime]);
 
+  const cachedUrl = useMemo(() => {
+    if (!cleanUrl) return null;
+    if (cleanUrl.startsWith('blob:') || cleanUrl.startsWith('data:')) return cleanUrl;
+    return mediaManager.getCachedMedia(cleanUrl, sharedSecret || '')?.blobUrl || null;
+  }, [cleanUrl, sharedSecret]);
+
+  const initialBlobUrl = useMemo(() => {
+    if (cachedUrl) return cachedUrl;
+    if (!autoLoad) return null;
+    if (streamUrl && (streamUrl.startsWith('orbita-media:') || streamUrl.startsWith('blob:') || streamUrl.startsWith('data:'))) {
+      return streamUrl;
+    }
+    return null;
+  }, [cachedUrl, autoLoad, streamUrl]);
+
   const [result, setResult] = useState<{ blobUrl: string | null; blob: Blob | null; load: () => Promise<void> }>(() => ({
-    blobUrl: streamUrl && (streamUrl.startsWith('orbita-media:') || streamUrl.startsWith('blob:') || streamUrl.startsWith('data:'))
-      ? streamUrl
-      : (cleanUrl ? mediaManager.getCachedMedia(cleanUrl, sharedSecret || '')?.blobUrl || null : null),
+    blobUrl: initialBlobUrl,
     blob: null,
     load: async () => {},
   }));
@@ -156,13 +170,23 @@ export function useDecryptedMedia(
       return;
     }
 
+    if (cachedUrl) {
+      setResult({ blobUrl: cachedUrl, blob: null, load: loadMedia });
+      return;
+    }
+
+    if (!autoLoad) {
+      setResult((prev) => ({ ...prev, load: loadMedia }));
+      return;
+    }
+
     if (streamUrl && streamUrl.startsWith('orbita-media:')) {
       setResult({ blobUrl: streamUrl, blob: null, load: async () => {} });
       return;
     }
 
     loadMedia();
-  }, [cleanUrl, streamUrl, loadMedia]);
+  }, [cleanUrl, cachedUrl, autoLoad, streamUrl, loadMedia]);
 
   return result;
 }

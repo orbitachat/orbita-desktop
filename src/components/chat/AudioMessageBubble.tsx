@@ -1,10 +1,8 @@
 import { useEffect, useState, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Music } from 'lucide-react';
-import { Message } from '../../store/useChatStore';
+import { Message, useChatStore } from '../../store/useChatStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
 import { useAudioStore } from '../../store/useAudioStore';
-import { useChatStore } from '../../store/useChatStore';
 import { AudioCoverWithPlay } from '../audio/AudioCoverWithPlay';
 
 const orbitFs = (px: number) => `calc(${px}px * var(--text-scale, 1))`;
@@ -55,7 +53,8 @@ export const AudioMessageBubble = memo(({
     msg.mediaName,
     msg.mime,
     msg.id,
-    msg.id
+    msg.id,
+    autoLoadMedia
   );
 
   useEffect(() => {
@@ -184,12 +183,19 @@ export const AudioMessageBubble = memo(({
     timeDisplay = formatTime(duration);
   }
 
-  const buttonState = !blobUrl ? 'download' : (showPause ? 'pause' : 'play');
-
-  const isUploading = Boolean(msg.uploading || (isOwn && (msg.status === 'sending' || msg.status === 'pending')));
-  const itemTotalSize = msg.audioMetadata?.size || (msg as any).size || 0;
+  const isUploading = Boolean(
+    msg.uploading && (msg.status === 'sending' || msg.status === 'pending')
+  );
+  const itemTotalSize = msg.audioMetadata?.size || (msg as any).size || msg.fileSize || 0;
   const sizeMbStr = itemTotalSize > 0 ? (itemTotalSize / (1024 * 1024)).toFixed(1) : '0.0';
   const uploadedMbStr = (msg.uploadedMb || 0).toFixed(1);
+  const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, ((msg.uploadedMb || 0) * 1024 * 1024) / itemTotalSize)) : 0.08;
+
+  const coverState = isUploading
+    ? 'uploading'
+    : (!blobUrl
+      ? (isLoading ? 'downloading' : 'download')
+      : (showPause ? 'pause' : 'play'));
 
   return (
     <div
@@ -211,36 +217,16 @@ export const AudioMessageBubble = memo(({
       onContextMenu={onContextMenu}
     >
       <div className="flex items-start gap-2">
-        {isUploading ? (
-          <div
-            className="relative flex-shrink-0 cursor-pointer overflow-hidden rounded-full flex items-center justify-center select-none"
-            style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancelUpload?.();
-            }}
-          >
-            {cover ? (
-              <img src={cover} alt="" className="w-full h-full object-cover select-none pointer-events-none" />
-            ) : (
-              <div className="w-full h-full bg-[var(--surface-container-soft,rgba(255,255,255,0.1))] flex items-center justify-center">
-                <Music size={22} className="text-[var(--text-dim)]" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black/45 flex items-center justify-center transition-colors hover:bg-black/60">
-              <X size={20} strokeWidth={2.4} className="text-white" />
-            </div>
-          </div>
-        ) : (
-          <AudioCoverWithPlay
-            cover={cover}
-            isPlayingTrack={showPause}
-            size={48}
-            onClick={!blobUrl ? handleDownload : handlePlay}
-            state={buttonState}
-            isOwn={isOwn}
-          />
-        )}
+        <AudioCoverWithPlay
+          cover={cover}
+          isPlayingTrack={showPause}
+          size={48}
+          onClick={!blobUrl ? handleDownload : handlePlay}
+          onCancel={onCancelUpload}
+          state={coverState}
+          progress={isUploading ? uploadProgress : (isLoading ? 0.35 : undefined)}
+          isOwn={isOwn}
+        />
         <div className="flex flex-col min-w-0 flex-1 gap-1 overflow-hidden" style={{ maxWidth: '100%' }}>
           <div
             className="font-semibold truncate"
@@ -257,7 +243,7 @@ export const AudioMessageBubble = memo(({
             {artist ? `${artist} – ${title}` : title}
           </div>
           <div style={{ fontSize: orbitFs(11), color: isOwn ? 'rgba(255, 255, 255, 0.8)' : 'var(--text-dim)' }}>
-            {isUploading ? `${uploadedMbStr} / ${sizeMbStr} MB` : timeDisplay}
+            {isUploading ? `${uploadedMbStr} / ${sizeMbStr} MB` : (isLoading ? t('chatWindow.loading') : timeDisplay)}
           </div>
         </div>
       </div>

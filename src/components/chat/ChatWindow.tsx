@@ -1301,7 +1301,9 @@ const EncryptedMedia = memo(({
 const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size: initialSize, timeNode, isOwn = false, customRadius }: { url: string; fileName?: string; sharedSecret: string | undefined; chatId?: string; messageId?: string; size?: number | null; timeNode?: React.ReactNode; isOwn?: boolean; customRadius?: string }) => {
   const { t } = useTranslation();
   const bubbleRadius = useChatStore((state) => state.bubbleRadius);
-  const { blobUrl, blob } = useDecryptedMedia(url, sharedSecret, fileName, undefined, chatId, messageId);
+  const autoLoadMedia = useChatStore((state) => state.autoLoadMedia);
+  const { blobUrl, blob, load } = useDecryptedMedia(url, sharedSecret, fileName, undefined, chatId, messageId, autoLoadMedia);
+  const [isLoading, setIsLoading] = useState(false);
   const displayName = fileName || t('chatWindow.file');
   const ext = fileName?.split('.').pop()?.toUpperCase() || 'FILE';
 
@@ -1380,7 +1382,18 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size
 
   const handleOpenFile = useCallback(async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!blobUrl) return;
+    if (!blobUrl) {
+      if (isLoading) return;
+      setIsLoading(true);
+      try {
+        await load();
+      } catch (err) {
+        console.error('Failed to load file:', err);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
     try {
       const response = await fetch(blobUrl);
       const fileBlob = await response.blob();
@@ -1405,7 +1418,7 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size
       a.click();
       document.body.removeChild(a);
     }
-  }, [blobUrl, displayName]);
+  }, [blobUrl, displayName, isLoading, load]);
 
   return (
     <div
@@ -1431,7 +1444,7 @@ const FileMessage = memo(({ url, fileName, sharedSecret, chatId, messageId, size
           isPlayingTrack={false}
           size={48}
           onClick={handleOpenFile}
-          state={!blobUrl ? 'download' : 'file'}
+          state={!blobUrl ? (isLoading ? 'downloading' : 'download') : 'file'}
           isOwn={isOwn}
         />
         <div className="flex flex-col min-w-0 flex-1 gap-1 overflow-hidden" style={{ maxWidth: '100%' }}>
@@ -4129,26 +4142,31 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     if (existingMessageId) {
       useChatStore.setState((state) => {
         const currentMsgs = state.messagesByChatId[activeChatId] || [];
+        const updated = currentMsgs.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                text,
+                status: 'sent' as const,
+                uploading: false,
+                mediaUrl: mediaPayload?.url || m.mediaUrl,
+                mediaKey: mediaPayload?.key || m.mediaKey,
+                mediaName: mediaPayload?.name || m.mediaName,
+                mime: mediaPayload?.mime || m.mime,
+                duration: mediaPayload?.duration || m.duration,
+                waveform: mediaPayload?.waveform || m.waveform,
+                audioMetadata: mediaPayload?.audioMetadata || m.audioMetadata,
+              }
+            : m
+        );
+        const target = updated.find((m) => m.id === messageId);
+        if (target) {
+          (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+        }
         return {
           messagesByChatId: {
             ...state.messagesByChatId,
-            [activeChatId]: currentMsgs.map((m) =>
-              m.id === messageId
-                ? {
-                    ...m,
-                    text,
-                    status: 'sent' as const,
-                    uploading: false,
-                    mediaUrl: mediaPayload?.url || m.mediaUrl,
-                    mediaKey: mediaPayload?.key || m.mediaKey,
-                    mediaName: mediaPayload?.name || m.mediaName,
-                    mime: mediaPayload?.mime || m.mime,
-                    duration: mediaPayload?.duration || m.duration,
-                    waveform: mediaPayload?.waveform || m.waveform,
-                    audioMetadata: mediaPayload?.audioMetadata || m.audioMetadata,
-                  }
-                : m
-            ),
+            [activeChatId]: updated,
           },
         };
       });
@@ -4745,18 +4763,33 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     try {
       (window as any).orbita?.storageGetMessages?.(activeChatId).then((cached: any[]) => {
         if (Array.isArray(cached) && cached.length > 0) {
+          const sanitizedCached = cached.map((m) => {
+            if (m && (m.uploading || m.status === 'sending' || m.status === 'pending')) {
+              const hasRemoteUrl = Boolean(m.mediaUrl && !m.mediaUrl.startsWith('blob:') && (m.mediaUrl.startsWith('http') || m.mediaUrl.startsWith('orbita-media:')));
+              const hasRemoteItems = Boolean(m.mediaItems && m.mediaItems.length > 0 && m.mediaItems.every((it: any) => it.url && !it.url.startsWith('blob:') && (it.url.startsWith('http') || it.url.startsWith('orbita-media:'))));
+              if (hasRemoteUrl || hasRemoteItems || !m.isOutgoing) {
+                const fixed = { ...m, uploading: false, status: 'sent' as const };
+                (window as any).orbita?.storageAddMessage?.(activeChatId, m.id, fixed).catch(() => {});
+                return fixed;
+              }
+              const fixed = { ...m, uploading: false };
+              (window as any).orbita?.storageAddMessage?.(activeChatId, m.id, fixed).catch(() => {});
+              return fixed;
+            }
+            return m;
+          });
           useChatStore.setState((state) => {
             const nowMsgs = state.messagesByChatId[activeChatId] || [];
             if (nowMsgs.length === 0) {
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: cached,
+                  [activeChatId]: sanitizedCached,
                 },
               };
             }
             const map = new Map<string, any>();
-            cached.forEach((m) => { if (m?.id) map.set(m.id, m); });
+            sanitizedCached.forEach((m) => { if (m?.id) map.set(m.id, m); });
             nowMsgs.forEach((m) => { if (m?.id) map.set(m.id, m); });
             if (map.size > nowMsgs.length) {
               const merged = Array.from(map.values()).sort((a, b) => (a.time || 0) - (b.time || 0));
@@ -6215,12 +6248,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (isChannel) {
             useChatStore.setState((state) => {
               const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              const updated = currentMsgs.map((m) =>
+                m.id === messageId ? { ...m, status: 'sent' as const, uploading: false, mediaItems: uploadedItems } : m
+              );
+              const target = updated.find((m) => m.id === messageId);
+              if (target) {
+                (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+              }
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: currentMsgs.map((m) =>
-                    m.id === messageId ? { ...m, status: 'sent', uploading: false, mediaItems: uploadedItems } : m
-                  ),
+                  [activeChatId]: updated,
                 },
               };
             });
@@ -6267,12 +6305,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (isBotChat) {
             useChatStore.setState((state) => {
               const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              const updated = currentMsgs.map((m) =>
+                m.id === messageId ? { ...m, status: 'sent' as const, uploading: false, mediaItems: uploadedItems } : m
+              );
+              const target = updated.find((m) => m.id === messageId);
+              if (target) {
+                (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+              }
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: currentMsgs.map((m) =>
-                    m.id === messageId ? { ...m, status: 'sent', uploading: false, mediaItems: uploadedItems } : m
-                  ),
+                  [activeChatId]: updated,
                 },
               };
             });
@@ -6312,21 +6355,26 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
           useChatStore.setState((state) => {
             const currentMsgs = state.messagesByChatId[activeChatId] || [];
+            const updated = currentMsgs.map((m) =>
+              m.id === messageId
+                ? {
+                    ...m,
+                    status: 'sent' as const,
+                    uploading: false,
+                    encryptedText: ciphertext,
+                    index,
+                    mediaItems: uploadedItems,
+                  }
+                : m
+            );
+            const target = updated.find((m) => m.id === messageId);
+            if (target) {
+              (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+            }
             return {
               messagesByChatId: {
                 ...state.messagesByChatId,
-                [activeChatId]: currentMsgs.map((m) =>
-                  m.id === messageId
-                    ? {
-                        ...m,
-                        status: 'sent',
-                        uploading: false,
-                        encryptedText: ciphertext,
-                        index,
-                        mediaItems: uploadedItems,
-                      }
-                    : m
-                ),
+                [activeChatId]: updated,
               },
             };
           });
@@ -6428,27 +6476,32 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (isChannel) {
             useChatStore.setState((state) => {
               const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              const updated = currentMsgs.map((m) =>
+                m.id === messageId
+                  ? {
+                      ...m,
+                      status: 'sent' as const,
+                      uploading: false,
+                      mediaUrl: uploaded.url,
+                      mediaKey: uploaded.key,
+                      mime: uploaded.mime,
+                      audioMetadata: uploaded.audioMetadata,
+                      width: uploaded.width,
+                      height: uploaded.height,
+                      duration: uploaded.duration,
+                      blurPreview: uploaded.blurPreview,
+                      thumbnail: uploaded.thumbnail,
+                    }
+                  : m
+              );
+              const target = updated.find((m) => m.id === messageId);
+              if (target) {
+                (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+              }
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: currentMsgs.map((m) =>
-                    m.id === messageId
-                      ? {
-                          ...m,
-                          status: 'sent',
-                          uploading: false,
-                          mediaUrl: uploaded.url,
-                          mediaKey: uploaded.key,
-                          mime: uploaded.mime,
-                          audioMetadata: uploaded.audioMetadata,
-                          width: uploaded.width,
-                          height: uploaded.height,
-                          duration: uploaded.duration,
-                          blurPreview: uploaded.blurPreview,
-                          thumbnail: uploaded.thumbnail,
-                        }
-                      : m
-                  ),
+                  [activeChatId]: updated,
                 },
               };
             });
@@ -6492,27 +6545,32 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (isBotChat) {
             useChatStore.setState((state) => {
               const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              const updated = currentMsgs.map((m) =>
+                m.id === messageId
+                  ? {
+                      ...m,
+                      status: 'sent' as const,
+                      uploading: false,
+                      mediaUrl: uploaded.url,
+                      mediaKey: uploaded.key,
+                      mime: uploaded.mime,
+                      audioMetadata: uploaded.audioMetadata,
+                      width: uploaded.width,
+                      height: uploaded.height,
+                      duration: uploaded.duration,
+                      blurPreview: uploaded.blurPreview,
+                      thumbnail: uploaded.thumbnail,
+                    }
+                  : m
+              );
+              const target = updated.find((m) => m.id === messageId);
+              if (target) {
+                (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+              }
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: currentMsgs.map((m) =>
-                    m.id === messageId
-                      ? {
-                          ...m,
-                          status: 'sent',
-                          uploading: false,
-                          mediaUrl: uploaded.url,
-                          mediaKey: uploaded.key,
-                          mime: uploaded.mime,
-                          audioMetadata: uploaded.audioMetadata,
-                          width: uploaded.width,
-                          height: uploaded.height,
-                          duration: uploaded.duration,
-                          blurPreview: uploaded.blurPreview,
-                          thumbnail: uploaded.thumbnail,
-                        }
-                      : m
-                  ),
+                  [activeChatId]: updated,
                 },
               };
             });
@@ -6554,32 +6612,37 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
           useChatStore.setState((state) => {
             const currentMsgs = state.messagesByChatId[activeChatId] || [];
+            const updated = currentMsgs.map((m) =>
+              m.id === messageId
+                ? {
+                    ...m,
+                    status: 'sent' as const,
+                    uploading: false,
+                    encryptedText: ciphertext,
+                    index,
+                    mediaType: uploaded.type,
+                    mediaUrl: uploaded.url,
+                    mediaName: uploaded.name,
+                    mediaKey: uploaded.key,
+                    mime: uploaded.mime,
+                    fileSize: fileSizeBytes || uploaded.size,
+                    audioMetadata: uploaded.audioMetadata,
+                    width: uploaded.width,
+                    height: uploaded.height,
+                    duration: uploaded.duration,
+                    blurPreview: uploaded.blurPreview,
+                    thumbnail: uploaded.thumbnail,
+                  }
+                : m
+            );
+            const target = updated.find((m) => m.id === messageId);
+            if (target) {
+              (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+            }
             return {
               messagesByChatId: {
                 ...state.messagesByChatId,
-                [activeChatId]: currentMsgs.map((m) =>
-                  m.id === messageId
-                    ? {
-                        ...m,
-                        status: 'sent',
-                        uploading: false,
-                        encryptedText: ciphertext,
-                        index,
-                        mediaType: uploaded.type,
-                        mediaUrl: uploaded.url,
-                        mediaName: uploaded.name,
-                        mediaKey: uploaded.key,
-                        mime: uploaded.mime,
-                        fileSize: fileSizeBytes || uploaded.size,
-                        audioMetadata: uploaded.audioMetadata,
-                        width: uploaded.width,
-                        height: uploaded.height,
-                        duration: uploaded.duration,
-                        blurPreview: uploaded.blurPreview,
-                        thumbnail: uploaded.thumbnail,
-                      }
-                    : m
-                ),
+                [activeChatId]: updated,
               },
             };
           });

@@ -1947,6 +1947,25 @@ export const useChatStore = create<ChatState>()(
               online: false,
             }));
         }
+        if (state && state.messagesByChatId) {
+          const cleaned: Record<string, Message[]> = {};
+          for (const [cId, msgs] of Object.entries(state.messagesByChatId)) {
+            if (Array.isArray(msgs)) {
+              cleaned[cId] = msgs.map((m) => {
+                if (m.uploading || m.status === 'sending' || m.status === 'pending') {
+                  const hasRemoteUrl = Boolean(m.mediaUrl && !m.mediaUrl.startsWith('blob:') && (m.mediaUrl.startsWith('http') || m.mediaUrl.startsWith('orbita-media:')));
+                  const hasRemoteItems = Boolean(m.mediaItems && m.mediaItems.length > 0 && m.mediaItems.every((it) => it.url && !it.url.startsWith('blob:') && it.url.startsWith('http')));
+                  if (hasRemoteUrl || hasRemoteItems || !m.isOutgoing) {
+                    return { ...m, uploading: false, status: 'sent' as const };
+                  }
+                  return { ...m, uploading: false };
+                }
+                return m;
+              });
+            }
+          }
+          state.messagesByChatId = cleaned;
+        }
         if (state && typeof window !== 'undefined' && (window as any).orbita) {
           if (typeof state.screenProtectionEnabled === 'boolean' && (window as any).orbita.setScreenProtection) {
             (window as any).orbita.setScreenProtection(state.screenProtectionEnabled).catch(() => {});
