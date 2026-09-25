@@ -1983,10 +1983,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           justifyContent: 'center',
           alignItems: 'center',
           width: '100%',
-          opacity: Math.max(0, 1 - (scrollOffset / 75)),
-          transform: `translateY(-${scrollOffset * 0.4}px) scale(${Math.max(0.45, 1 - (scrollOffset / 100))})`,
+          opacity: Math.max(0, 1 - (scrollOffset / 105)),
+          transform: `translateY(-${scrollOffset * 0.4}px) scale(${Math.max(0.3, 1 - (scrollOffset / 120))})`,
           transformOrigin: 'top center',
-          pointerEvents: scrollOffset > 50 ? 'none' : 'auto',
+          pointerEvents: scrollOffset > 80 ? 'none' : 'auto',
           transition: 'none',
         }}
       >
@@ -2039,10 +2039,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           flexDirection: 'column',
           alignItems: 'center',
           width: '100%',
-          opacity: scrollOffset < 75 ? 1 : Math.max(0, 1 - (scrollOffset - 75) / 25),
-          transform: `translateX(-${Math.min(1, Math.max(0, scrollOffset / 75)) * titleShiftX}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 75)) * 0.18})`,
+          opacity: scrollOffset > 112 ? 0 : 1,
+          transform: `translateX(-${Math.min(1, Math.max(0, scrollOffset / 112)) * titleShiftX}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 112)) * 0.18})`,
           transformOrigin: 'left center',
-          pointerEvents: scrollOffset > 85 ? 'none' : 'auto',
+          pointerEvents: scrollOffset > 112 ? 'none' : 'auto',
           transition: 'none',
         }}
       >
@@ -3482,8 +3482,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     minWidth: 0,
                     flex: 1,
                     paddingRight: '12px',
-                    opacity: scrollOffset <= 75 ? 0 : Math.min(1, (scrollOffset - 75) / 25),
-                    pointerEvents: scrollOffset > 85 ? 'auto' : 'none',
+                    opacity: scrollOffset >= 112 ? 1 : 0,
+                    pointerEvents: scrollOffset >= 112 ? 'auto' : 'none',
                     transition: 'none',
                   }}
                 >
