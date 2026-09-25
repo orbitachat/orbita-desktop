@@ -134,35 +134,61 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       account1.isRegistered = true;
     }
 
-    registry.activeAccountId = 'account_1';
+    const currentActiveId = (registry.activeAccountId === 'account_2' && account2) ? 'account_2' : 'account_1';
+    registry.activeAccountId = currentActiveId;
     await storageSet(REGISTRY_STORAGE_KEY, JSON.stringify(registry));
 
-    const account1AuthRaw = await storageGet(`${AUTH_STORAGE_PREFIX}account_1`);
-    const account1ChatRaw = await storageGet(`${CHAT_STORAGE_PREFIX}account_1`);
+    if (currentActiveId === 'account_1') {
+      const hasChats = (chat.chats && chat.chats.length > 0) || (chat.messagesByChatId && Object.keys(chat.messagesByChatId).length > 0);
+      if (!hasChats) {
+        const account1ChatRaw = await storageGet(`${CHAT_STORAGE_PREFIX}account_1`);
+        if (account1ChatRaw) {
+          try {
+            const parsed = JSON.parse(account1ChatRaw);
+            if (parsed && ((parsed.chats && parsed.chats.length > 0) || (parsed.messagesByChatId && Object.keys(parsed.messagesByChatId).length > 0))) {
+              chat.importChatState(parsed);
+            }
+          } catch {}
+        }
+      }
 
-    if (account1AuthRaw) {
-      try {
-        const parsed = JSON.parse(account1AuthRaw);
-        auth.importAuthState(parsed);
-      } catch {}
-    } else {
-      await storageSet(`${AUTH_STORAGE_PREFIX}account_1`, JSON.stringify(auth.exportAuthState()));
-    }
+      const hasAuth = Boolean(auth.userId || auth.nickname);
+      if (!hasAuth) {
+        const account1AuthRaw = await storageGet(`${AUTH_STORAGE_PREFIX}account_1`);
+        if (account1AuthRaw) {
+          try {
+            const parsed = JSON.parse(account1AuthRaw);
+            if (parsed && (parsed.userId || parsed.nickname)) {
+              auth.importAuthState(parsed);
+            }
+          } catch {}
+        }
+      }
 
-    if (account1ChatRaw) {
-      try {
-        const parsed = JSON.parse(account1ChatRaw);
-        chat.importChatState(parsed);
-      } catch {}
+      await storageSet(`${AUTH_STORAGE_PREFIX}account_1`, JSON.stringify(useAuthStore.getState().exportAuthState()));
+      await storageSet(`${CHAT_STORAGE_PREFIX}account_1`, JSON.stringify(useChatStore.getState().exportChatState()));
     } else {
-      await storageSet(`${CHAT_STORAGE_PREFIX}account_1`, JSON.stringify(chat.exportChatState()));
+      const account2AuthRaw = await storageGet(`${AUTH_STORAGE_PREFIX}account_2`);
+      const account2ChatRaw = await storageGet(`${CHAT_STORAGE_PREFIX}account_2`);
+
+      if (account2AuthRaw) {
+        try {
+          auth.importAuthState(JSON.parse(account2AuthRaw));
+        } catch {}
+      }
+      if (account2ChatRaw) {
+        try {
+          chat.importChatState(JSON.parse(account2ChatRaw));
+        } catch {}
+      }
     }
 
     set({
-      activeAccountId: 'account_1',
+      activeAccountId: currentActiveId,
       accounts: registry.accounts,
       isSwitching: false,
     });
+    syncActiveAccountScope(currentActiveId);
   },
 
   syncCurrentAccountMeta: async () => {

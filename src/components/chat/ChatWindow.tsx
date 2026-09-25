@@ -4755,10 +4755,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 },
               };
             }
-            if (cached.length > nowMsgs.length) {
-              const map = new Map<string, any>();
-              cached.forEach((m) => { if (m?.id) map.set(m.id, m); });
-              nowMsgs.forEach((m) => { if (m?.id) map.set(m.id, m); });
+            const map = new Map<string, any>();
+            cached.forEach((m) => { if (m?.id) map.set(m.id, m); });
+            nowMsgs.forEach((m) => { if (m?.id) map.set(m.id, m); });
+            if (map.size > nowMsgs.length) {
               const merged = Array.from(map.values()).sort((a, b) => (a.time || 0) - (b.time || 0));
               return {
                 messagesByChatId: {

@@ -302,8 +302,7 @@ export function clampTextScale(value: number): number {
 }
 
 let setItemTimer: any = null;
-let pendingStorageKey: string | null = null;
-let pendingStorageVal: string | null = null;
+const pendingStorageMap = new Map<string, string>();
 let lastSavedValues: Record<string, string> = {};
 
 const flushStorageSet = () => {
@@ -311,13 +310,13 @@ const flushStorageSet = () => {
     clearTimeout(setItemTimer);
     setItemTimer = null;
   }
-  if (pendingStorageKey && pendingStorageVal !== null) {
-    const key = pendingStorageKey;
-    const val = pendingStorageVal;
-    pendingStorageKey = null;
-    pendingStorageVal = null;
-    if (typeof window !== 'undefined' && (window as any).orbita?.storageSet) {
-      (window as any).orbita.storageSet(key, val).catch(() => {});
+  if (pendingStorageMap.size > 0) {
+    const entries = Array.from(pendingStorageMap.entries());
+    pendingStorageMap.clear();
+    for (const [key, val] of entries) {
+      if (typeof window !== 'undefined' && (window as any).orbita?.storageSet) {
+        (window as any).orbita.storageSet(key, val).catch(() => {});
+      }
     }
   }
 };
@@ -330,8 +329,8 @@ if (typeof window !== 'undefined') {
 const ipcStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
-    if (pendingStorageKey === name && pendingStorageVal !== null) {
-      return pendingStorageVal;
+    if (pendingStorageMap.has(name)) {
+      return pendingStorageMap.get(name)!;
     }
     let val = null;
     if ((window as any).orbita?.storageGet) {
@@ -356,8 +355,11 @@ const ipcStorage: StateStorage = {
     }
     lastSavedValues[name] = value;
 
-    pendingStorageKey = name;
-    pendingStorageVal = value;
+    try {
+      localStorage.setItem(name, value);
+    } catch {}
+
+    pendingStorageMap.set(name, value);
     if (setItemTimer) clearTimeout(setItemTimer);
     setItemTimer = setTimeout(() => {
       flushStorageSet();
@@ -366,11 +368,9 @@ const ipcStorage: StateStorage = {
   },
   removeItem: async (name: string): Promise<void> => {
     if (typeof window === 'undefined') return;
-    if (pendingStorageKey === name) {
-      pendingStorageKey = null;
-      pendingStorageVal = null;
-    }
-    if (setItemTimer) {
+    pendingStorageMap.delete(name);
+    delete lastSavedValues[name];
+    if (setItemTimer && pendingStorageMap.size === 0) {
       clearTimeout(setItemTimer);
       setItemTimer = null;
     }

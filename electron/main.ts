@@ -1292,8 +1292,11 @@ function deleteKvValue(key: string): Promise<void> {
 
 function getMessages(chatId: string, limit?: number, offset?: number): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    let sql = `SELECT id, message_data FROM ${MSG_TABLE} WHERE chat_id = ? ORDER BY created_at ASC`;
-    const params: any[] = [chatId];
+    const rawId = chatId.replace(/^(account_[12]):::/, '');
+    const scoped1 = `account_1:::${rawId}`;
+    const scoped2 = `account_2:::${rawId}`;
+    let sql = `SELECT id, message_data FROM ${MSG_TABLE} WHERE chat_id IN (?, ?, ?, ?) ORDER BY created_at ASC`;
+    const params: any[] = [chatId, rawId, scoped1, scoped2];
     if (limit !== undefined) {
       sql += ' LIMIT ?';
       params.push(limit);
@@ -1304,17 +1307,17 @@ function getMessages(chatId: string, limit?: number, offset?: number): Promise<a
     }
     getDb().all(sql, params, (err, rows: any[]) => {
       if (err) return reject(err);
-      const items = rows
-        .map((r) => {
-          const dec = decryptData(Buffer.from(r.message_data, 'base64'));
-          if (!dec) return null;
-          try {
-            return JSON.parse(dec.toString('utf8'));
-          } catch {
-            return null;
-          }
-        })
-        .filter((m) => m !== null);
+      const seenIds = new Set<string>();
+      const items: any[] = [];
+      for (const r of rows) {
+        if (seenIds.has(r.id)) continue;
+        seenIds.add(r.id);
+        const dec = decryptData(Buffer.from(r.message_data, 'base64'));
+        if (!dec) continue;
+        try {
+          items.push(JSON.parse(dec.toString('utf8')));
+        } catch {}
+      }
       resolve(items);
     });
   });
@@ -1338,7 +1341,10 @@ function addMessage(chatId: string, messageId: string, messageData: any): Promis
 
 function deleteMessagesByChat(chatId: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    getDb().run(`DELETE FROM ${MSG_TABLE} WHERE chat_id = ?`, [chatId], (err) => {
+    const rawId = chatId.replace(/^(account_[12]):::/, '');
+    const scoped1 = `account_1:::${rawId}`;
+    const scoped2 = `account_2:::${rawId}`;
+    getDb().run(`DELETE FROM ${MSG_TABLE} WHERE chat_id IN (?, ?, ?, ?)`, [chatId, rawId, scoped1, scoped2], (err) => {
       if (err) reject(err);
       else resolve();
     });
@@ -1347,7 +1353,10 @@ function deleteMessagesByChat(chatId: string): Promise<void> {
 
 function deleteMessageById(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    getDb().run(`DELETE FROM ${MSG_TABLE} WHERE id = ?`, [id], (err) => {
+    const rawId = id.replace(/^(account_[12]):::/, '');
+    const scoped1 = `account_1:::${rawId}`;
+    const scoped2 = `account_2:::${rawId}`;
+    getDb().run(`DELETE FROM ${MSG_TABLE} WHERE id IN (?, ?, ?, ?)`, [id, rawId, scoped1, scoped2], (err) => {
       if (err) reject(err);
       else resolve();
     });
