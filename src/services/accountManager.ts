@@ -71,6 +71,7 @@ interface AccountStoreState {
   activeAccountId: 'account_1' | 'account_2';
   accounts: AccountMeta[];
   isSwitching: boolean;
+  isAddingSecondAccount: boolean;
   init: () => Promise<void>;
   switchAccount: (targetId: 'account_1' | 'account_2') => Promise<void>;
   prepareAddSecondAccount: () => Promise<void>;
@@ -86,6 +87,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
   activeAccountId: 'account_1',
   accounts: [],
   isSwitching: false,
+  isAddingSecondAccount: false,
 
   init: async () => {
     syncActiveAccountScope('account_1');
@@ -256,6 +258,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       set({
         activeAccountId: targetId,
         isSwitching: false,
+        isAddingSecondAccount: false,
       });
       syncActiveAccountScope(targetId);
     } catch {
@@ -267,7 +270,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     const { accounts, isSwitching } = get();
     if (isSwitching) return;
 
-    set({ isSwitching: true });
+    set({ isSwitching: true, isAddingSecondAccount: true });
 
     try {
       const auth = useAuthStore.getState();
@@ -301,20 +304,6 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       });
 
       const newUserId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-      auth.importAuthState({
-        userId: newUserId,
-        nickname: '',
-        avatarUrl: null,
-        step: 'welcome',
-        recoveryKey: null,
-        masterSeed: null,
-        configVersion: 0,
-        lastSyncTime: null,
-        syncStatus: 'idle',
-        backupEnabled: false,
-        backupFolder: null,
-        lastBackupTime: null,
-      });
 
       const updatedAccounts = accounts.filter((a) => a.id !== 'account_2');
       updatedAccounts.push({
@@ -336,10 +325,26 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         activeAccountId: 'account_2',
         accounts: updatedAccounts,
         isSwitching: false,
+        isAddingSecondAccount: true,
       });
       syncActiveAccountScope('account_2');
+
+      auth.importAuthState({
+        userId: newUserId,
+        nickname: '',
+        avatarUrl: null,
+        step: 'welcome',
+        recoveryKey: null,
+        masterSeed: null,
+        configVersion: 0,
+        lastSyncTime: null,
+        syncStatus: 'idle',
+        backupEnabled: false,
+        backupFolder: null,
+        lastBackupTime: null,
+      });
     } catch {
-      set({ isSwitching: false });
+      set({ isSwitching: false, isAddingSecondAccount: false });
     }
   },
 
@@ -384,10 +389,16 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         activeAccountId: 'account_1',
         accounts: updatedAccounts,
         isSwitching: false,
+        isAddingSecondAccount: false,
       });
       syncActiveAccountScope('account_1');
+
+      const restoredClient = useChatStore.getState().myCode || useAuthStore.getState().userId;
+      if (restoredClient) {
+        ablyService.connect(restoredClient).catch(() => {});
+      }
     } catch {
-      set({ isSwitching: false });
+      set({ isSwitching: false, isAddingSecondAccount: false });
     }
   },
 
@@ -443,6 +454,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     set({
       activeAccountId: 'account_2',
       accounts: updatedAccounts,
+      isAddingSecondAccount: false,
     });
     syncActiveAccountScope('account_2');
   },
@@ -498,6 +510,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       set({
         activeAccountId: 'account_1',
         accounts: newAccounts,
+        isAddingSecondAccount: false,
       });
       syncActiveAccountScope('account_1');
 
@@ -546,6 +559,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       set({
         activeAccountId: 'account_1',
         accounts: newAccounts,
+        isAddingSecondAccount: false,
       });
       syncActiveAccountScope('account_1');
 
@@ -587,6 +601,7 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     set({
       activeAccountId: 'account_1',
       accounts: [],
+      isAddingSecondAccount: false,
     });
     syncActiveAccountScope('account_1');
   },

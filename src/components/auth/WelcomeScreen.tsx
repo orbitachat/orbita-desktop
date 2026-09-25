@@ -19,8 +19,9 @@ export const WelcomeScreen: React.FC = () => {
   const setNicknameStore = useAuthStore((state) => state.setNickname);
   const currentTheme = useChatStore((state) => state.currentTheme);
   const activeAccountId = useAccountStore((state) => state.activeAccountId);
+  const isAddingSecondAccount = useAccountStore((state) => state.isAddingSecondAccount);
   const cancelAddSecondAccount = useAccountStore((state) => state.cancelAddSecondAccount);
-  const isSecondAccount = activeAccountId === 'account_2';
+  const isSecondAccount = activeAccountId === 'account_2' || isAddingSecondAccount;
 
   const [activeStep, setActiveStep] = useState<StepType>('menu');
   const [direction, setDirection] = useState<number>(1);
@@ -228,10 +229,7 @@ export const WelcomeScreen: React.FC = () => {
   const logoColor = isLight ? '#5c54e5' : '#BCC0C3';
 
   return (
-    <motion.div
-      initial={isSecondAccount ? { x: 48, opacity: 0 } : false}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+    <div
       style={{
         width: '100%',
         height: '100%',
@@ -1121,6 +1119,6 @@ export const WelcomeScreen: React.FC = () => {
           {`Orbita Desktop v${packageJson.version} x64`}
         </span>
       </div>
-    </motion.div>
+    </div>
   );
 };

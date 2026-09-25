@@ -4895,33 +4895,23 @@ export const MainLayout = () => {
           onClose={() => setIsMainMenuOpen(false)}
           onOpenProfile={() => {
             setIsMainMenuOpen(false);
-            setTimeout(() => {
-              setIsMyProfileOpen(true);
-            }, 180);
+            setIsMyProfileOpen(true);
           }}
           onOpenCreateGroup={() => {
             setIsMainMenuOpen(false);
-            setTimeout(() => {
-              setConnectModalConfig({ isOpen: true, type: 'group' });
-            }, 180);
+            setConnectModalConfig({ isOpen: true, type: 'group' });
           }}
           onOpenCreateChannel={() => {
             setIsMainMenuOpen(false);
-            setTimeout(() => {
-              setConnectModalConfig({ isOpen: true, type: 'channel' });
-            }, 180);
+            setConnectModalConfig({ isOpen: true, type: 'channel' });
           }}
           onOpenCreateChat={() => {
             setIsMainMenuOpen(false);
-            setTimeout(() => {
-              setConnectModalConfig({ isOpen: true, type: 'friend' });
-            }, 180);
+            setConnectModalConfig({ isOpen: true, type: 'friend' });
           }}
           onOpenCalls={() => {
             setIsMainMenuOpen(false);
-            setTimeout(() => {
-              setShowCallsModal(true);
-            }, 180);
+            setShowCallsModal(true);
           }}
           onOpenSavedMessages={() => {
             setIsMainMenuOpen(false);
@@ -4929,9 +4919,7 @@ export const MainLayout = () => {
           }}
           onOpenSettings={() => {
             setIsMainMenuOpen(false);
-            setTimeout(() => {
-              handleOpenSettings();
-            }, 180);
+            handleOpenSettings();
           }}
         />
 

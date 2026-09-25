@@ -59,6 +59,9 @@ function App() {
 
   const step = useAuthStore((state) => state.step);
   const activeAccountId = useAccountStore((state) => state.activeAccountId);
+  const isAddingSecondAccount = useAccountStore((state) => state.isAddingSecondAccount);
+  const accounts = useAccountStore((state) => state.accounts);
+  const hasRegisteredAccount = accounts.some((a) => a.isRegistered && a.id === 'account_1') || (isHydrated && step === 'main');
 
   useEffect(() => {
     if (isHydrated) {
@@ -324,24 +327,48 @@ function App() {
           </div>
         }>
           <div className="h-full w-full overflow-hidden relative">
-            {step !== 'main' ? (
+            {hasRegisteredAccount ? (
               <>
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={step}
-                    variants={pageVariants}
-                    initial={false}
-                    animate="animate"
-                    exit="exit"
-                    style={{ height: '100%', position: 'relative', zIndex: 1 }}
-                  >
-                    {step === 'welcome' && <WelcomeScreen />}
-                    {step === 'nickname' && <NicknameScreen />}
-                  </motion.div>
+                <MainLayout key={activeAccountId} />
+                <AnimatePresence>
+                  {(step !== 'main' || isAddingSecondAccount) && (
+                    <motion.div
+                      key="auth-flow-layer"
+                      initial={{ x: '100%' }}
+                      animate={{ x: 0 }}
+                      exit={{ x: '100%' }}
+                      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      style={{
+                        position: 'fixed',
+                        top: isElectron ? '30px' : '0px',
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 500,
+                        backgroundColor: 'var(--bg-primary, #14111d)',
+                        willChange: 'transform',
+                      }}
+                    >
+                      {step === 'welcome' && <WelcomeScreen />}
+                      {step === 'nickname' && <NicknameScreen />}
+                    </motion.div>
+                  )}
                 </AnimatePresence>
               </>
             ) : (
-              <MainLayout key={activeAccountId} />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={step}
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  style={{ height: '100%', position: 'relative', zIndex: 1 }}
+                >
+                  {step === 'welcome' && <WelcomeScreen />}
+                  {step === 'nickname' && <NicknameScreen />}
+                </motion.div>
+              </AnimatePresence>
             )}
           </div>
         </ErrorBoundary>
