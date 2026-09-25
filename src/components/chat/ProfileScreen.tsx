@@ -1983,10 +1983,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           justifyContent: 'center',
           alignItems: 'center',
           width: '100%',
-          opacity: Math.max(0, 1 - (scrollOffset / 55)),
-          transform: `translateY(-${scrollOffset * 0.6}px) scale(${Math.max(0.4, 1 - (scrollOffset / 70))})`,
+          opacity: Math.max(0, 1 - (scrollOffset / 85)),
+          transform: `translateY(-${scrollOffset * 0.4}px) scale(${Math.max(0.35, 1 - (scrollOffset / 105))})`,
           transformOrigin: 'top center',
-          pointerEvents: scrollOffset > 45 ? 'none' : 'auto',
+          pointerEvents: scrollOffset > 60 ? 'none' : 'auto',
           transition: 'none',
         }}
       >
@@ -2033,55 +2033,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          width: '100%',
-          opacity: scrollOffset >= 60 ? 0 : 1,
-          transform: `translateX(-${Math.min(1, Math.max(0, scrollOffset / 60)) * titleShiftX}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 60)) * 0.18})`,
-          transformOrigin: 'left center',
-          pointerEvents: scrollOffset >= 60 ? 'none' : 'auto',
-          transition: 'none',
-        }}
-      >
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2px', padding: '0 20px', width: '100%', boxSizing: 'border-box' }}>
-          <div ref={titleBlockRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-            <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              {chat.type === 'bot' && (
-                <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
-              )}
-              {chatId === 'notes' ? t('connectModal.notes') : chat.name}
-              {chat.type === 'bot' && (
-                <VerifiedBadge size={18} className="flex-shrink-0" />
-              )}
-            </h3>
-            <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
-              <DeveloperBadge
-                userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
-                size={34}
-                onClick={triggerDevToast}
-              />
-            </div>
-          </div>
-        </div>
-        {statusText && (
-          <p
-            style={{
-              fontSize: '13px',
-              color: (!isChannel && chatId !== 'notes' && chat.online) ? 'var(--accent-color)' : 'var(--text-dim)',
-              fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 600 : 400,
-              textShadow: (!isChannel && chatId !== 'notes' && chat.online) ? '0 0 1.5px color-mix(in srgb, var(--accent-color) 30%, transparent)' : 'none',
-              margin: '0 0 16px',
-              padding: '0 20px',
-              textAlign: 'center',
-            }}
-          >
-            {statusText}
-          </p>
-        )}
-      </div>
+      <div style={{ height: statusText ? 52 : 32, marginBottom: 16, width: '100%', flexShrink: 0 }} />
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px', padding: '0 12px', width: '100%', boxSizing: 'border-box', flexWrap: 'wrap' }}>
         <button
@@ -3466,7 +3418,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 zIndex: 30,
                 backgroundColor: subTab !== null
                   ? 'transparent'
-                  : `color-mix(in srgb, var(--settings-bg, var(--bg-secondary)) ${Math.min(100, Math.round((Math.max(0, scrollOffset - 45) / 18) * 100))}%, transparent)`,
+                  : `color-mix(in srgb, var(--settings-bg, var(--bg-secondary)) ${Math.min(100, Math.round((Math.max(0, scrollOffset - 90) / 22) * 100))}%, transparent)`,
                 borderBottom: 'none',
                 pointerEvents: 'none',
                 boxSizing: 'border-box',
@@ -3475,27 +3427,31 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             >
               {subTab === null ? (
                 <div
+                  ref={titleBlockRef}
                   style={{
+                    position: 'absolute',
+                    left: 20,
+                    top: 10,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     minWidth: 0,
-                    flex: 1,
-                    paddingRight: '12px',
-                    opacity: scrollOffset >= 60 ? 1 : 0,
-                    pointerEvents: scrollOffset >= 60 ? 'auto' : 'none',
+                    maxWidth: 'calc(100% - 90px)',
+                    transform: `translate(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * titleShiftX)}px, ${Math.max(0, 112 - scrollOffset)}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 112)) * 0.18})`,
+                    transformOrigin: 'left top',
+                    pointerEvents: scrollOffset >= 110 ? 'auto' : 'none',
                     transition: 'none',
                   }}
                 >
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                     {chat.type === 'bot' && (
-                      <BotIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" />
+                      <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
                     )}
                     <span
                       className="truncate"
                       style={{
-                        fontSize: '15px',
-                        fontWeight: 600,
+                        fontSize: '20px',
+                        fontWeight: 700,
                         color: 'var(--text-main)',
                         lineHeight: 1.2,
                       }}
@@ -3503,23 +3459,24 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       {chatId === 'notes' ? t('connectModal.notes') : chat.name}
                     </span>
                     {chat.type === 'bot' && (
-                      <VerifiedBadge size={14} className="flex-shrink-0" />
+                      <VerifiedBadge size={18} className="flex-shrink-0" />
                     )}
                     <DeveloperBadge
                       userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
                       nickname={chat.name}
-                      size={18}
+                      size={24}
+                      onClick={triggerDevToast}
                     />
                   </div>
                   {statusText && (
                     <span
                       className="truncate"
                       style={{
-                        fontSize: '12px',
+                        fontSize: '13px',
                         color: (!isChannel && chatId !== 'notes' && chat.online) ? 'var(--accent-color)' : 'var(--text-dim)',
-                        fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 500 : 400,
+                        fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 600 : 400,
                         lineHeight: 1.2,
-                        marginTop: '2px',
+                        marginTop: '3px',
                       }}
                     >
                       {statusText}
