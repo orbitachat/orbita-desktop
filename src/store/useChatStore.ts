@@ -541,6 +541,8 @@ interface ChatState {
   setScreenCaptureProtection: (enabled: boolean) => void;
   setMinimizeToTray: (enabled: boolean) => void;
   resetChats: () => void;
+  exportChatState: () => any;
+  importChatState: (data: any) => void;
   createGroupChat: (name: string, ttl: number) => void;
   joinGroupByCode: (inviteCode: string, callback: (success: boolean, error?: string) => void) => void;
   setIsHandshaking: (val: boolean) => void;
@@ -808,7 +810,12 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      setMyCode: (code) => set({ myCode: code }),
+      setMyCode: (code) => {
+        set({ myCode: code });
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => m.useAccountStore.getState().syncCurrentAccountMeta()).catch(() => {});
+        }
+      },
       setCodeRotationSpeed: (speed) => set({ codeRotationSpeed: speed }),
       setNextCodeRotationTime: (time) => set({ nextCodeRotationTime: time }),
       setActiveChat: (id) => {
@@ -1590,6 +1597,34 @@ export const useChatStore = create<ChatState>()(
           mediaCacheLimit: 2.5 * 1024 * 1024 * 1024,
           cacheCleanupAge: 7 * 24 * 60 * 60 * 1000,
           autoLoadMedia: false,
+        });
+      },
+      exportChatState: () => ({
+        usersById: get().usersById,
+        chats: get().chats,
+        pinnedChatIds: get().pinnedChatIds,
+        deletedChatIds: get().deletedChatIds,
+        deletedChatSessions: get().deletedChatSessions,
+        messagesByChatId: get().messagesByChatId,
+        myCode: get().myCode,
+        codeRotationSpeed: get().codeRotationSpeed,
+        nextCodeRotationTime: get().nextCodeRotationTime,
+        incomingFriendRequests: get().incomingFriendRequests,
+      }),
+      importChatState: (data: any) => {
+        set({
+          usersById: data?.usersById || {},
+          chats: data?.chats || [],
+          pinnedChatIds: data?.pinnedChatIds || [],
+          deletedChatIds: data?.deletedChatIds || [],
+          deletedChatSessions: data?.deletedChatSessions || {},
+          messagesByChatId: data?.messagesByChatId || {},
+          myCode: data?.myCode || null,
+          codeRotationSpeed: data?.codeRotationSpeed || 600,
+          nextCodeRotationTime: data?.nextCodeRotationTime || null,
+          incomingFriendRequests: data?.incomingFriendRequests || [],
+          activeChatId: null,
+          activeProfileChatId: null,
         });
       },
       setIsHandshaking: (val) => set({ isHandshaking: val }),

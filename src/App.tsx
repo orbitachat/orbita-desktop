@@ -21,6 +21,7 @@ import { gatewayManager } from './services/gatewayManager';
 import { requestNotificationPermission } from './utils/notification';
 import { initAutoBackupListener } from './services/accountBackupService';
 import { accountSyncService } from './services/accountSyncService';
+import { useAccountStore } from './services/accountManager';
 import { appVisibility } from './utils/appVisibility';
 
 appVisibility.init();
@@ -57,6 +58,13 @@ function App() {
   }, [isHydrated]);
 
   const step = useAuthStore((state) => state.step);
+  const activeAccountId = useAccountStore((state) => state.activeAccountId);
+
+  useEffect(() => {
+    if (isHydrated) {
+      useAccountStore.getState().init().catch(() => {});
+    }
+  }, [isHydrated]);
 
   useEffect(() => {
     initAutoBackupListener();
@@ -333,7 +341,7 @@ function App() {
                 </AnimatePresence>
               </>
             ) : (
-              <MainLayout />
+              <MainLayout key={activeAccountId} />
             )}
           </div>
         </ErrorBoundary>

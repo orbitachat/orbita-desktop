@@ -154,6 +154,8 @@
     "welcome": {
       "title": "Orbita Desktop",
       "subtitle": "Your freedom in every word",
+      "back_to_primary": "Back to primary account",
+      "cancel_add_account": "Cancel adding account",
       "register": "Sign Up",
       "restore_by_id": "Restore by Unique ID",
       "restore_by_backup": "Restore from local backup",
@@ -1050,6 +1052,10 @@
     "mainMenu": {
       "open_menu": "Open menu",
       "my_profile": "My profile",
+      "add_account": "Add Account",
+      "show_accounts": "Show accounts",
+      "hide_accounts": "Hide accounts",
+      "switch_account": "Switch account",
       "create_group": "New Group",
       "create_channel": "New Channel",
       "create_chat": "Add Friend",

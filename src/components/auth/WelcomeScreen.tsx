@@ -8,6 +8,7 @@ import { generateRandomCode } from '../../lib/codes';
 import { isValidMasterSeedHex } from '../../lib/zkAccountCrypto';
 import { accountSyncService } from '../../services/accountSyncService';
 import { restoreAccountBackup } from '../../services/accountBackupService';
+import { useAccountStore } from '../../services/accountManager';
 import packageJson from '../../../package.json';
 
 type StepType = 'menu' | 'register' | 'restore_id' | 'restore_backup_file' | 'restore_backup_phrase';
@@ -17,6 +18,9 @@ export const WelcomeScreen: React.FC = () => {
   const setStep = useAuthStore((state) => state.setStep);
   const setNicknameStore = useAuthStore((state) => state.setNickname);
   const currentTheme = useChatStore((state) => state.currentTheme);
+  const activeAccountId = useAccountStore((state) => state.activeAccountId);
+  const cancelAddSecondAccount = useAccountStore((state) => state.cancelAddSecondAccount);
+  const isSecondAccount = activeAccountId === 'account_2';
 
   const [activeStep, setActiveStep] = useState<StepType>('menu');
   const [direction, setDirection] = useState<number>(1);
@@ -240,6 +244,44 @@ export const WelcomeScreen: React.FC = () => {
         boxSizing: 'border-box',
       }}
     >
+      {activeStep === 'menu' && isSecondAccount && (
+        <button
+          type="button"
+          onClick={cancelAddSecondAccount}
+          aria-label={t('welcome.back_to_primary', 'Вернуться к основному аккаунту')}
+          style={{
+            position: 'absolute',
+            top: '24px',
+            left: '24px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-dim, rgba(255, 255, 255, 0.6))',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            borderRadius: '16px',
+            outline: 'none',
+            zIndex: 50,
+            transition: 'color 0.15s ease, background-color 0.15s ease',
+            fontSize: '13px',
+            fontWeight: 500,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'var(--text-main, #ffffff)';
+            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--text-dim, rgba(255, 255, 255, 0.6))';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          <ArrowLeft size={18} />
+          <span>{t('welcome.back_to_primary', 'Вернуться к основному аккаунту')}</span>
+        </button>
+      )}
+
       {activeStep !== 'menu' && (
         <button
           type="button"

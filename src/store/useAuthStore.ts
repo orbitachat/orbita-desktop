@@ -29,6 +29,8 @@ interface AuthState {
   setSyncStatus: (status: CloudSyncStatus, lastSyncTime?: number | null) => void;
   setBackupConfig: (config: { enabled?: boolean; folder?: string | null; lastBackupTime?: number | null }) => void;
   deleteAccount: () => void;
+  exportAuthState: () => any;
+  importAuthState: (data: any) => void;
 }
 
 const getInitialUserId = (): string => {
@@ -84,12 +86,27 @@ export const useAuthStore = create<AuthState>()(
       backupFolder: null,
       lastBackupTime: null,
       setUserId: (userId) => set({ userId }),
-      setStep: (step) => set({ step }),
+      setStep: (step) => {
+        set({ step });
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => {
+            const accStore = m.useAccountStore.getState();
+            if (accStore.activeAccountId === 'account_2' && step === 'main') {
+              accStore.completeSecondAccountRegistration();
+            } else {
+              accStore.syncCurrentAccountMeta();
+            }
+          }).catch(() => {});
+        }
+      },
       setNickname: (nickname) => {
         set({ nickname });
         const uid = get().userId;
         if (uid) {
           useChatStore.getState().setUserProfile(uid, { nickname });
+        }
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => m.useAccountStore.getState().syncCurrentAccountMeta()).catch(() => {});
         }
       },
       setAvatarUrl: (avatarUrl) => {
@@ -97,6 +114,9 @@ export const useAuthStore = create<AuthState>()(
         const uid = get().userId;
         if (uid) {
           useChatStore.getState().setUserProfile(uid, { avatarUrl });
+        }
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => m.useAccountStore.getState().syncCurrentAccountMeta()).catch(() => {});
         }
       },
       setRecoveryKey: (recoveryKey) => set({ recoveryKey }),
@@ -114,27 +134,59 @@ export const useAuthStore = create<AuthState>()(
           lastBackupTime: config.lastBackupTime !== undefined ? config.lastBackupTime : prev.lastBackupTime,
         })),
       deleteAccount: () => {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.removeItem('orbita-auth-storage');
-        localStorage.removeItem('orbita-chat-storage');
-        if (typeof window !== 'undefined' && (window as any).orbita?.storageRemove) {
-          (window as any).orbita.storageRemove('orbita-auth-storage').catch(() => {});
-          (window as any).orbita.storageRemove('orbita-chat-storage').catch(() => {});
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => {
+            m.useAccountStore.getState().deleteCurrentAccount();
+          }).catch(() => {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.removeItem('orbita-auth-storage');
+            localStorage.removeItem('orbita-chat-storage');
+            useChatStore.getState().resetChats();
+            set({
+              userId: getInitialUserId(),
+              nickname: '',
+              avatarUrl: null,
+              step: 'welcome',
+              recoveryKey: null,
+              masterSeed: null,
+              configVersion: 0,
+              lastSyncTime: null,
+              syncStatus: 'idle',
+              backupEnabled: false,
+              backupFolder: null,
+              lastBackupTime: null,
+            });
+          });
         }
-        useChatStore.getState().resetChats();
+      },
+      exportAuthState: () => ({
+        userId: get().userId,
+        nickname: get().nickname,
+        avatarUrl: get().avatarUrl,
+        step: get().step,
+        recoveryKey: get().recoveryKey,
+        masterSeed: get().masterSeed,
+        configVersion: get().configVersion,
+        lastSyncTime: get().lastSyncTime,
+        syncStatus: get().syncStatus,
+        backupEnabled: get().backupEnabled,
+        backupFolder: get().backupFolder,
+        lastBackupTime: get().lastBackupTime,
+      }),
+      importAuthState: (data: any) => {
         set({
-          userId: getInitialUserId(),
-          nickname: '',
-          avatarUrl: null,
-          step: 'welcome',
-          recoveryKey: null,
-          masterSeed: null,
-          configVersion: 0,
-          lastSyncTime: null,
-          syncStatus: 'idle',
-          backupEnabled: false,
-          backupFolder: null,
-          lastBackupTime: null,
+          userId: data?.userId || getInitialUserId(),
+          nickname: data?.nickname || '',
+          avatarUrl: data?.avatarUrl || null,
+          step: data?.step || 'welcome',
+          recoveryKey: data?.recoveryKey || null,
+          masterSeed: data?.masterSeed || null,
+          configVersion: data?.configVersion || 0,
+          lastSyncTime: data?.lastSyncTime || null,
+          syncStatus: data?.syncStatus || 'idle',
+          backupEnabled: data?.backupEnabled || false,
+          backupFolder: data?.backupFolder || null,
+          lastBackupTime: data?.lastBackupTime || null,
         });
       },
     }),

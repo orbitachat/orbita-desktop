@@ -155,6 +155,8 @@
     "welcome": {
       "title": "Orbita Desktop",
       "subtitle": "Ваша свобода в каждом слове",
+      "back_to_primary": "Вернуться к основному аккаунту",
+      "cancel_add_account": "Отменить добавление",
       "register": "Зарегистрироваться",
       "restore_by_id": "Восстановить по уникальному ID",
       "restore_by_backup": "Восстановить из локального бэкапа",
@@ -1060,6 +1062,10 @@
     "mainMenu": {
       "open_menu": "Открыть меню",
       "my_profile": "Мой профиль",
+      "add_account": "Добавить аккаунт",
+      "show_accounts": "Показать аккаунты",
+      "hide_accounts": "Скрыть аккаунты",
+      "switch_account": "Переключить аккаунт",
       "create_group": "Создать группу",
       "create_channel": "Создать канал",
       "create_chat": "Добавить друга",

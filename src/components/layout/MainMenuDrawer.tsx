@@ -9,10 +9,13 @@ import {
   Bookmark,
   Settings,
   Moon,
+  ChevronDown,
+  Plus,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
+import { useAccountStore } from '../../services/accountManager';
 import { Avatar } from '../common/Avatar';
 import { PillToggle } from '../common/PillToggle';
 import { themePalettes } from '../../theme';
@@ -47,6 +50,15 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
 
   const currentTheme = useChatStore((s) => s.currentTheme);
   const setTheme = useChatStore((s) => s.setTheme);
+  const myCode = useChatStore((s) => s.myCode);
+
+  const [isAccountsOpen, setIsAccountsOpen] = React.useState(false);
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
+  const accounts = useAccountStore((s) => s.accounts);
+  const switchAccount = useAccountStore((s) => s.switchAccount);
+  const prepareAddSecondAccount = useAccountStore((s) => s.prepareAddSecondAccount);
+
+  const otherAccount = accounts.find((a) => a.id !== activeAccountId && a.isRegistered);
 
   const isNightMode = !themePalettes[currentTheme]?.isLight;
 
@@ -108,23 +120,139 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
             }}
           >
             <div
-              onClick={onOpenProfile}
-              className="px-5 pt-5 pb-3 flex flex-col gap-3 cursor-pointer transition-colors hover:bg-[var(--surface-container-soft)]"
+              className="px-5 pt-5 pb-3 flex flex-col gap-3 transition-colors hover:bg-[var(--surface-container-soft)]"
               style={{
                 backgroundColor: 'transparent',
               }}
             >
-              <Avatar
-                src={avatarUrl}
-                alt={nickname || '?'}
-                className="w-12 h-12 rounded-full"
-              />
-              <div className="flex flex-col min-w-0">
-                <span className="font-bold text-[16px] text-[var(--text-main)] truncate">
-                  {nickname || 'User'}
-                </span>
+              <div
+                onClick={onOpenProfile}
+                className="cursor-pointer inline-block"
+              >
+                <Avatar
+                  src={avatarUrl}
+                  alt={nickname || '?'}
+                  className="w-12 h-12 rounded-full"
+                />
+              </div>
+              <div className="flex items-center justify-between min-w-0">
+                <div
+                  onClick={onOpenProfile}
+                  className="flex flex-col min-w-0 cursor-pointer flex-1"
+                >
+                  <span className="font-bold text-[16px] text-[var(--text-main)] truncate">
+                    {nickname || 'User'}
+                  </span>
+                  <span className="text-[12px] text-[var(--text-dim)] truncate">
+                    {myCode ? `#${myCode}` : 'Orbita'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAccountsOpen((prev) => !prev);
+                  }}
+                  aria-label={isAccountsOpen ? t('mainMenu.hide_accounts', 'Скрыть аккаунты') : t('mainMenu.show_accounts', 'Показать аккаунты')}
+                  className="p-1 rounded-full hover:bg-[var(--surface-container-strong)] transition-colors text-[var(--text-dim)] hover:text-[var(--text-main)] flex items-center justify-center shrink-0"
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <ChevronDown
+                    size={20}
+                    style={{
+                      transform: isAccountsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease',
+                    }}
+                  />
+                </button>
               </div>
             </div>
+
+            <AnimatePresence>
+              {isAccountsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="overflow-hidden flex flex-col"
+                  style={{
+                    borderBottom: '1px solid var(--border-color)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                  }}
+                >
+                  {otherAccount ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        switchAccount(otherAccount.id);
+                      }}
+                      aria-label={t('mainMenu.switch_account', 'Переключить аккаунт')}
+                      className="w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer text-[var(--text-main)]"
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        outline: 'none',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-container-strong)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <Avatar
+                        src={otherAccount.avatarUrl}
+                        alt={otherAccount.nickname || '?'}
+                        className="w-8 h-8 rounded-full"
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-[14px] text-[var(--text-main)] truncate">
+                          {otherAccount.nickname || 'User'}
+                        </span>
+                        {otherAccount.myCode && (
+                          <span className="text-[11px] text-[var(--text-dim)] truncate">
+                            #{otherAccount.myCode}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        prepareAddSecondAccount();
+                      }}
+                      aria-label={t('mainMenu.add_account', 'Добавить аккаунт')}
+                      className="w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors cursor-pointer text-[var(--text-main)]"
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        outline: 'none',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-container-strong)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          backgroundColor: 'var(--accent-color, #7c3aed)',
+                          color: '#ffffff',
+                        }}
+                      >
+                        <Plus size={16} />
+                      </div>
+                      <span className="font-medium text-[14px] text-[var(--text-main)] truncate">
+                        {t('mainMenu.add_account', 'Добавить аккаунт')}
+                      </span>
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div
               style={{
