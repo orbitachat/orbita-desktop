@@ -984,21 +984,29 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   }, [updateProfileThumb]);
 
   const titleBlockRef = useRef<HTMLDivElement>(null);
+  const titleRowRef = useRef<HTMLDivElement>(null);
+  const statusSpanRef = useRef<HTMLSpanElement>(null);
   const [titleShiftX, setTitleShiftX] = useState(120);
+  const [rowCenterOffset, setRowCenterOffset] = useState(0);
+  const [statusCenterOffset, setStatusCenterOffset] = useState(0);
 
   useEffect(() => {
     const el = titleBlockRef.current;
     if (!el) return;
     const updateShift = () => {
       const parentW = profileScrollRef.current?.clientWidth || el.parentElement?.clientWidth || 420;
-      const textW = el.offsetWidth || 120;
-      const shift = Math.max(0, (parentW - textW) / 2 - 20);
+      const rowW = titleRowRef.current?.offsetWidth || 0;
+      const statusW = statusSpanRef.current?.offsetWidth || 0;
+      const blockW = Math.max(rowW, statusW, el.offsetWidth) || 140;
+      const shift = Math.max(0, (parentW - blockW) / 2 - 20);
       setTitleShiftX(shift);
+      setRowCenterOffset(Math.max(0, (statusW - rowW) / 2));
+      setStatusCenterOffset(Math.max(0, (rowW - statusW) / 2));
     };
     updateShift();
     window.addEventListener('resize', updateShift);
     return () => window.removeEventListener('resize', updateShift);
-  }, [chat?.name]);
+  }, [chat?.name, chat?.members?.length, chat?.onlineCount, chat?.online]);
 
   const subTabScrollRef = useRef<HTMLDivElement>(null);
   const [subTabThumb, setSubTabThumb] = useState<{ top: number; height: number } | null>(null);
@@ -3443,7 +3451,17 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     transition: 'none',
                   }}
                 >
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                  <div
+                    ref={titleRowRef}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      minWidth: 0,
+                      transform: `translateX(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * rowCenterOffset)}px)`,
+                      transition: 'none',
+                    }}
+                  >
                     {chat.type === 'bot' && (
                       <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
                     )}
@@ -3470,6 +3488,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   </div>
                   {statusText && (
                     <span
+                      ref={statusSpanRef}
                       className="truncate"
                       style={{
                         fontSize: '13px',
@@ -3477,6 +3496,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                         fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 600 : 400,
                         lineHeight: 1.2,
                         marginTop: '3px',
+                        transform: `translateX(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * statusCenterOffset)}px)`,
+                        transition: 'none',
                       }}
                     >
                       {statusText}
