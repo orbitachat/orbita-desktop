@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, memo, useMemo, useEffect } from 'react';
+import { useState, useRef, useCallback, memo, useMemo, useEffect, useLayoutEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { channelService } from '../../services/channelService';
@@ -986,27 +986,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const titleBlockRef = useRef<HTMLDivElement>(null);
   const titleRowRef = useRef<HTMLDivElement>(null);
   const statusSpanRef = useRef<HTMLSpanElement>(null);
-  const [titleShiftX, setTitleShiftX] = useState(120);
-  const [rowCenterOffset, setRowCenterOffset] = useState(0);
-  const [statusCenterOffset, setStatusCenterOffset] = useState(0);
-
-  useEffect(() => {
-    const el = titleBlockRef.current;
-    if (!el) return;
-    const updateShift = () => {
-      const parentW = profileScrollRef.current?.clientWidth || el.parentElement?.clientWidth || 420;
-      const rowW = titleRowRef.current?.offsetWidth || 0;
-      const statusW = statusSpanRef.current?.offsetWidth || 0;
-      const blockW = Math.max(rowW, statusW, el.offsetWidth) || 140;
-      const shift = Math.max(0, (parentW - blockW) / 2 - 20);
-      setTitleShiftX(shift);
-      setRowCenterOffset(Math.max(0, (statusW - rowW) / 2));
-      setStatusCenterOffset(Math.max(0, (rowW - statusW) / 2));
-    };
-    updateShift();
-    window.addEventListener('resize', updateShift);
-    return () => window.removeEventListener('resize', updateShift);
-  }, [chat?.name, chat?.members?.length, chat?.onlineCount, chat?.online]);
+  const [rowShiftX, setRowShiftX] = useState(80);
+  const [statusShiftX, setStatusShiftX] = useState(110);
 
   const subTabScrollRef = useRef<HTMLDivElement>(null);
   const [subTabThumb, setSubTabThumb] = useState<{ top: number; height: number } | null>(null);
@@ -1783,6 +1764,30 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         : chat.online
           ? t('userStatus.online')
           : formatLastSeen(chat.lastSeen, t);
+
+  useLayoutEffect(() => {
+    const updateAlign = () => {
+      const parentW = profileScrollRef.current?.clientWidth || 420;
+      const modalCenterX = Math.max(0, parentW / 2 - 20);
+      const rowEl = titleRowRef.current;
+      const statusEl = statusSpanRef.current;
+      const rowW = rowEl ? Math.ceil(rowEl.scrollWidth || rowEl.offsetWidth) : 0;
+      const statusW = statusEl ? Math.ceil(statusEl.scrollWidth || statusEl.offsetWidth) : 0;
+      if (rowW > 0) {
+        setRowShiftX(Math.max(0, Math.round(modalCenterX - rowW / 2)));
+      }
+      if (statusW > 0) {
+        setStatusShiftX(Math.max(0, Math.round(modalCenterX - statusW / 2)));
+      }
+    };
+    updateAlign();
+    const timer = setTimeout(updateAlign, 50);
+    window.addEventListener('resize', updateAlign);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateAlign);
+    };
+  }, [chat?.name, chat?.members?.length, chat?.onlineCount, chat?.online, statusText]);
 
   const filteredMessages = (messagesList: Message[]) => {
     if (!searchQuery.trim()) return messagesList;
@@ -3443,9 +3448,11 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
+                    alignItems: 'flex-start',
                     minWidth: 0,
-                    maxWidth: 'calc(100% - 90px)',
-                    transform: `translate(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * titleShiftX)}px, ${Math.max(0, 112 - scrollOffset)}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 112)) * 0.18})`,
+                    width: 'calc(100% - 40px)',
+                    maxWidth: scrollOffset >= 110 ? 'calc(100% - 90px)' : 'calc(100% - 40px)',
+                    transform: `translateY(${Math.max(0, 112 - scrollOffset)}px) scale(${1 - Math.min(1, Math.max(0, scrollOffset / 112)) * 0.18})`,
                     transformOrigin: 'left top',
                     pointerEvents: scrollOffset >= 110 ? 'auto' : 'none',
                     transition: 'none',
@@ -3457,8 +3464,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
+                      width: 'fit-content',
+                      maxWidth: '100%',
                       minWidth: 0,
-                      transform: `translateX(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * rowCenterOffset)}px)`,
+                      transform: `translateX(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * rowShiftX)}px)`,
                       transition: 'none',
                     }}
                   >
@@ -3491,12 +3500,15 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       ref={statusSpanRef}
                       className="truncate"
                       style={{
+                        display: 'inline-block',
+                        width: 'fit-content',
+                        maxWidth: '100%',
                         fontSize: '13px',
                         color: (!isChannel && chatId !== 'notes' && chat.online) ? 'var(--accent-color)' : 'var(--text-dim)',
                         fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 600 : 400,
                         lineHeight: 1.2,
                         marginTop: '3px',
-                        transform: `translateX(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * statusCenterOffset)}px)`,
+                        transform: `translateX(${Math.round((1 - Math.min(1, Math.max(0, scrollOffset / 112))) * statusShiftX)}px)`,
                         transition: 'none',
                       }}
                     >
