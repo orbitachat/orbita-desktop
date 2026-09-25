@@ -932,12 +932,14 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const profileScrollRef = useRef<HTMLDivElement>(null);
   const [profileThumb, setProfileThumb] = useState<{ top: number; height: number } | null>(null);
   const [isProfileActive, setIsProfileActive] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const profileActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateProfileThumb = useCallback(() => {
     const el = profileScrollRef.current;
     if (!el) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
+    setScrollOffset(scrollTop);
     if (scrollHeight <= clientHeight + 8) {
       setProfileThumb(null);
       return;
@@ -1948,7 +1950,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
   const renderMainContent = () => (
     <div
       style={{
-        padding: '20px 0 24px',
+        padding: '16px 0 24px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -1959,82 +1961,96 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       }}
     >
       <div
-        style={{ width: 96, height: 96, marginBottom: 10, marginTop: 0, cursor: chat.avatarUrl ? 'pointer' : 'default' }}
-        onClick={() => {
-          if (chat.avatarUrl) {
-            const avatarItems = [{
-              id: 'avatar',
-              url: chat.avatarUrl,
-              directUrl: chat.avatarUrl,
-              type: 'photo' as const,
-              name: `${chat.name || 'Avatar'}.jpg`,
-              sender: chat.name,
-              time: Date.now(),
-            }];
-            const orbita = (window as any).orbita;
-            if (orbita?.openMediaWindow) {
-              orbita.openMediaWindow({
-                items: avatarItems,
-                initialIndex: 0,
-                sharedSecret: chat.sharedSecret,
-                chatId: chat.id,
-              });
-              return;
-            }
-            setViewerState({
-              isOpen: true,
-              items: avatarItems,
-              initialIndex: 0,
-            });
-          }
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '100%',
+          opacity: Math.max(0, 1 - (scrollOffset / 55)),
+          transform: `scale(${Math.max(0.7, 1 - (scrollOffset / 120))}) translateY(${Math.min(0, -scrollOffset * 0.25)}px)`,
+          transformOrigin: 'top center',
+          pointerEvents: scrollOffset > 50 ? 'none' : 'auto',
+          transition: 'opacity 0.08s linear',
         }}
       >
-        {chatId === 'notes' ? (
-          <NotesAvatar className="w-24 h-24" />
-        ) : (
-          <Avatar
-            src={chat.avatarUrl}
-            alt={chat.name}
-            className="w-24 h-24 rounded-full"
-          />
-        )}
-      </div>
-
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2px', padding: '0 20px', width: '100%', boxSizing: 'border-box' }}>
-        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-          <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            {chat.type === 'bot' && (
-              <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
-            )}
-            {chatId === 'notes' ? t('connectModal.notes') : chat.name}
-            {chat.type === 'bot' && (
-              <VerifiedBadge size={18} className="flex-shrink-0" />
-            )}
-          </h3>
-          <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
-            <DeveloperBadge
-              userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
-              size={34}
-              onClick={triggerDevToast}
-            />
-          </div>
-        </div>
-      </div>
-      {statusText && (
-        <p
-          style={{
-            fontSize: '13px',
-            color: (!isChannel && chatId !== 'notes' && chat.online) ? 'var(--accent-color)' : 'var(--text-dim)',
-            fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 600 : 400,
-            textShadow: (!isChannel && chatId !== 'notes' && chat.online) ? '0 0 1.5px color-mix(in srgb, var(--accent-color) 30%, transparent)' : 'none',
-            margin: '0 0 20px',
-            padding: '0 20px',
-            textAlign: 'center',
+        <div
+          style={{ width: 96, height: 96, marginBottom: 10, marginTop: 0, cursor: chat.avatarUrl ? 'pointer' : 'default' }}
+          onClick={() => {
+            if (chat.avatarUrl) {
+              const avatarItems = [{
+                id: 'avatar',
+                url: chat.avatarUrl,
+                directUrl: chat.avatarUrl,
+                type: 'photo' as const,
+                name: `${chat.name || 'Avatar'}.jpg`,
+                sender: chat.name,
+                time: Date.now(),
+              }];
+              const orbita = (window as any).orbita;
+              if (orbita?.openMediaWindow) {
+                orbita.openMediaWindow({
+                  items: avatarItems,
+                  initialIndex: 0,
+                  sharedSecret: chat.sharedSecret,
+                  chatId: chat.id,
+                });
+                return;
+              }
+              setViewerState({
+                isOpen: true,
+                items: avatarItems,
+                initialIndex: 0,
+              });
+            }
           }}
         >
-          {statusText}
-        </p>
-      )}
+          {chatId === 'notes' ? (
+            <NotesAvatar className="w-24 h-24" />
+          ) : (
+            <Avatar
+              src={chat.avatarUrl}
+              alt={chat.name}
+              className="w-24 h-24 rounded-full"
+            />
+          )}
+        </div>
+
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 2px', padding: '0 20px', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              {chat.type === 'bot' && (
+                <BotIcon size={20} className="flex-shrink-0 text-[var(--accent-color)]" />
+              )}
+              {chatId === 'notes' ? t('connectModal.notes') : chat.name}
+              {chat.type === 'bot' && (
+                <VerifiedBadge size={18} className="flex-shrink-0" />
+              )}
+            </h3>
+            <div style={{ position: 'absolute', left: 'calc(100% + 5px)', top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center' }}>
+              <DeveloperBadge
+                userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chatId !== 'notes' ? chatId : undefined)}
+                size={34}
+                onClick={triggerDevToast}
+              />
+            </div>
+          </div>
+        </div>
+        {statusText && (
+          <p
+            style={{
+              fontSize: '13px',
+              color: (!isChannel && chatId !== 'notes' && chat.online) ? 'var(--accent-color)' : 'var(--text-dim)',
+              fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 600 : 400,
+              textShadow: (!isChannel && chatId !== 'notes' && chat.online) ? '0 0 1.5px color-mix(in srgb, var(--accent-color) 30%, transparent)' : 'none',
+              margin: '0 0 16px',
+              padding: '0 20px',
+              textAlign: 'center',
+            }}
+          >
+            {statusText}
+          </p>
+        )}
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px', padding: '0 12px', width: '100%', boxSizing: 'border-box', flexWrap: 'wrap' }}>
         <button
@@ -3405,76 +3421,152 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             <div
               style={{
                 position: 'absolute',
-                top: 12,
-                right: 12,
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 52,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
+                justifyContent: 'space-between',
+                padding: '0 12px 0 20px',
                 zIndex: 30,
+                backgroundColor: subTab !== null
+                  ? 'transparent'
+                  : `color-mix(in srgb, var(--settings-bg, var(--bg-secondary)) ${Math.min(100, Math.round((Math.max(0, scrollOffset - 20) / 60) * 100))}%, transparent)`,
+                borderBottom: subTab !== null
+                  ? 'none'
+                  : `1px solid rgba(255, 255, 255, ${Math.min(0.08, (Math.max(0, scrollOffset - 30) / 50) * 0.08)})`,
+                pointerEvents: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.1s linear',
               }}
             >
-              {(isChannelOwner || isGroupAdmin) && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingChannel(true)}
-                  aria-label={isGroup ? t('groupSettings.edit_group', 'Редактировать группу') : t('channel.edit_channel', 'Редактировать канал')}
+              {subTab === null ? (
+                <div
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    cursor: 'pointer',
-                    padding: '6px',
-                    borderRadius: '50%',
                     display: 'flex',
-                    alignItems: 'center',
+                    flexDirection: 'column',
                     justifyContent: 'center',
-                    outline: 'none',
-                    transition: 'color 150ms, background 150ms',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
-                    e.currentTarget.style.color = 'var(--text-main)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = 'var(--text-dim)';
+                    minWidth: 0,
+                    flex: 1,
+                    paddingRight: '12px',
+                    opacity: Math.min(1, Math.max(0, (scrollOffset - 35) / 45)),
+                    transform: `translateY(${Math.max(0, 10 - ((scrollOffset - 35) / 45) * 10)}px)`,
+                    pointerEvents: scrollOffset > 35 ? 'auto' : 'none',
+                    transition: 'opacity 0.12s ease-out, transform 0.12s ease-out',
                   }}
                 >
-                  <Pencil size={18} />
-                </button>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                    {chat.type === 'bot' && (
+                      <BotIcon size={16} className="flex-shrink-0 text-[var(--accent-color)]" />
+                    )}
+                    <span
+                      className="truncate"
+                      style={{
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        color: 'var(--text-main)',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {chatId === 'notes' ? t('connectModal.notes') : chat.name}
+                    </span>
+                    {chat.type === 'bot' && (
+                      <VerifiedBadge size={14} className="flex-shrink-0" />
+                    )}
+                  </div>
+                  {statusText && (
+                    <span
+                      className="truncate"
+                      style={{
+                        fontSize: '12px',
+                        color: (!isChannel && chatId !== 'notes' && chat.online) ? 'var(--accent-color)' : 'var(--text-dim)',
+                        fontWeight: (!isChannel && chatId !== 'notes' && chat.online) ? 500 : 400,
+                        lineHeight: 1.2,
+                        marginTop: '2px',
+                      }}
+                    >
+                      {statusText}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div style={{ flex: 1 }} />
               )}
 
-              {!isMobileView && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label={t('common.close', 'Закрыть')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    cursor: 'pointer',
-                    padding: '6px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'color 150ms, background 150ms',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
-                    e.currentTarget.style.color = 'var(--text-main)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = 'var(--text-dim)';
-                  }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-                    <path fill="currentColor" d="M6.225 4.811a1 1 0 0 0-1.414 1.414L10.586 12L4.81 17.775a1 1 0 1 0 1.414 1.414L12 13.414l5.775 5.775a1 1 0 0 0 1.414-1.414L13.414 12l5.775-5.775a1 1 0 0 0-1.414-1.414L12 10.586z" />
-                  </svg>
-                </button>
-              )}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  flexShrink: 0,
+                  marginLeft: 'auto',
+                  pointerEvents: 'auto',
+                }}
+              >
+                {(isChannelOwner || isGroupAdmin) && subTab === null && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingChannel(true)}
+                    aria-label={isGroup ? t('groupSettings.edit_group', 'Редактировать группу') : t('channel.edit_channel', 'Редактировать канал')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      outline: 'none',
+                      transition: 'color 150ms, background 150ms',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-dim)';
+                    }}
+                  >
+                    <Pencil size={18} />
+                  </button>
+                )}
+
+                {!isMobileView && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label={t('common.close', 'Закрыть')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'color 150ms, background 150ms',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                      e.currentTarget.style.color = 'var(--text-main)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-dim)';
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+                      <path fill="currentColor" d="M6.225 4.811a1 1 0 0 0-1.414 1.414L10.586 12L4.81 17.775a1 1 0 1 0 1.414 1.414L12 13.414l5.775 5.775a1 1 0 0 0 1.414-1.414L13.414 12l5.775-5.775a1 1 0 0 0-1.414-1.414L12 10.586z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
