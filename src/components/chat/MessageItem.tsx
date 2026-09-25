@@ -226,8 +226,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
             className="flex flex-col"
             style={{
               width: 'fit-content',
-              minWidth: 'fit-content',
-              maxWidth: hasLinkPreview ? 'min(480px, 85%)' : 'min(440px, 75%)',
+              minWidth: 50,
+              maxWidth: hasLinkPreview ? 'min(480px, 85vw)' : 'min(440px, 75vw)',
             }}
           >
             <div
@@ -251,21 +251,22 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 style={{
                   userSelect: 'none',
                   WebkitUserSelect: 'none',
-                  minWidth: 'max-content',
                   width: 'fit-content',
                   maxWidth: '100%',
                 }}
               >
                 <span
-                  className="truncate font-semibold select-none message-sender-name"
+                  className="font-semibold select-none message-sender-name"
                   style={{
                     color: themeColor || 'var(--accent-color, #7C3AED)',
                     fontSize: '12.5px',
                     lineHeight: '1.2',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
-                    minWidth: 'max-content',
-                    maxWidth: '100%',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: 380,
                   }}
                 >
                   {activeChat?.members?.find((m) => (m.userId && m.userId === msg.senderId) || ((m as any).userCode && (m as any).userCode === msg.senderId) || m.nickname === msg.sender)?.nickname || msg.sender}
