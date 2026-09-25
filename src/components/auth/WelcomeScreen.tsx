@@ -21,7 +21,8 @@ export const WelcomeScreen: React.FC = () => {
   const activeAccountId = useAccountStore((state) => state.activeAccountId);
   const isAddingSecondAccount = useAccountStore((state) => state.isAddingSecondAccount);
   const cancelAddSecondAccount = useAccountStore((state) => state.cancelAddSecondAccount);
-  const isSecondAccount = activeAccountId === 'account_2' || isAddingSecondAccount;
+  const [wasSecondAccount] = useState(() => activeAccountId === 'account_2' || isAddingSecondAccount);
+  const isSecondAccount = wasSecondAccount || activeAccountId === 'account_2' || isAddingSecondAccount;
 
   const [activeStep, setActiveStep] = useState<StepType>('menu');
   const [direction, setDirection] = useState<number>(1);

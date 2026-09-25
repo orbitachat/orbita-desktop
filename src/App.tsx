@@ -1,4 +1,4 @@
-import { useState, useEffect, Component, ReactNode } from 'react';
+import { useState, useEffect, useRef, Component, ReactNode } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import md3Theme, { applyThemeToRoot, themePalettes } from './theme';
@@ -39,6 +39,40 @@ const pageVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1, transition: { duration: 0.15 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
+};
+
+const AuthFlowOverlay: React.FC<{ isElectron: boolean }> = ({ isElectron }) => {
+  const step = useAuthStore((s) => s.step);
+  const lastStepRef = useRef(step);
+
+  if (step !== 'main') {
+    lastStepRef.current = step;
+  }
+
+  const renderedStep = step !== 'main' ? step : lastStepRef.current;
+
+  return (
+    <motion.div
+      key="auth-flow-layer"
+      initial={{ x: '100%' }}
+      animate={{ x: 0 }}
+      exit={{ x: '100%' }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        position: 'fixed',
+        top: isElectron ? '30px' : '0px',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 500,
+        backgroundColor: 'var(--bg-primary, #14111d)',
+        willChange: 'transform',
+      }}
+    >
+      {renderedStep === 'welcome' && <WelcomeScreen />}
+      {renderedStep === 'nickname' && <NicknameScreen />}
+    </motion.div>
+  );
 };
 
 function App() {
@@ -332,26 +366,7 @@ function App() {
                 <MainLayout key={activeAccountId} />
                 <AnimatePresence>
                   {(step !== 'main' || isAddingSecondAccount) && (
-                    <motion.div
-                      key="auth-flow-layer"
-                      initial={{ x: '100%' }}
-                      animate={{ x: 0 }}
-                      exit={{ x: '100%' }}
-                      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                      style={{
-                        position: 'fixed',
-                        top: isElectron ? '30px' : '0px',
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 500,
-                        backgroundColor: 'var(--bg-primary, #14111d)',
-                        willChange: 'transform',
-                      }}
-                    >
-                      {step === 'welcome' && <WelcomeScreen />}
-                      {step === 'nickname' && <NicknameScreen />}
-                    </motion.div>
+                    <AuthFlowOverlay isElectron={isElectron} />
                   )}
                 </AnimatePresence>
               </>
