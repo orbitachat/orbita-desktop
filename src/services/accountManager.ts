@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { ablyService } from './ablyService';
+import { generateRandomCode } from '../lib/codes';
+import { generateMasterSeedHex, deriveAccountKeys } from '../lib/zkAccountCrypto';
 
 export interface AccountMeta {
   id: 'account_1' | 'account_2';
@@ -76,6 +78,8 @@ interface AccountStoreState {
   switchAccount: (targetId: 'account_1' | 'account_2') => Promise<void>;
   prepareAddSecondAccount: () => Promise<void>;
   cancelAddSecondAccount: () => Promise<void>;
+  prepareSecondAccountForRestore: () => Promise<void>;
+  finalizeSecondAccountRestore: () => Promise<void>;
   completeSecondAccountRegistration: (data?: { nickname: string; avatarUrl?: string | null; myCode?: string | null }) => Promise<void>;
   deleteCurrentAccount: () => Promise<void>;
   syncCurrentAccountMeta: () => Promise<void>;
@@ -267,153 +271,48 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
   },
 
   prepareAddSecondAccount: async () => {
-    const { accounts, isSwitching } = get();
+    const { isSwitching } = get();
     if (isSwitching) return;
-
-    set({ isSwitching: true, isAddingSecondAccount: true });
-
-    try {
-      const auth = useAuthStore.getState();
-      const chat = useChatStore.getState();
-
-      const currentAuthData = auth.exportAuthState();
-      const currentChatData = chat.exportChatState();
-
-      await storageSet(`${AUTH_STORAGE_PREFIX}account_1`, JSON.stringify(currentAuthData));
-      await storageSet(`${CHAT_STORAGE_PREFIX}account_1`, JSON.stringify(currentChatData));
-      await storageSet('orbita-auth-storage', JSON.stringify({ state: currentAuthData, version: 1 }));
-      await storageSet('orbita-chat-storage', JSON.stringify({ state: currentChatData, version: 0 }));
-
-      const activeClientId = chat.myCode || auth.userId;
-      if (activeClientId) {
-        ablyService.setOffline(activeClientId);
-      }
-      ablyService.disconnect();
-
-      useChatStore.setState({
-        chats: [],
-        messagesByChatId: {},
-        usersById: {},
-        pinnedChatIds: [],
-        deletedChatIds: [],
-        deletedChatSessions: {},
-        incomingFriendRequests: [],
-        activeChatId: null,
-        activeProfileChatId: null,
-        myCode: '',
-      });
-
-      const newUserId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-
-      const updatedAccounts = accounts.filter((a) => a.id !== 'account_2');
-      updatedAccounts.push({
-        id: 'account_2',
-        nickname: '',
-        avatarUrl: null,
-        myCode: null,
-        userId: newUserId,
-        isRegistered: false,
-      });
-
-      const registry: AccountRegistryData = {
-        activeAccountId: 'account_2',
-        accounts: updatedAccounts,
-      };
-      await storageSet(REGISTRY_STORAGE_KEY, JSON.stringify(registry));
-
-      set({
-        activeAccountId: 'account_2',
-        accounts: updatedAccounts,
-        isSwitching: false,
-        isAddingSecondAccount: true,
-      });
-      syncActiveAccountScope('account_2');
-
-      auth.importAuthState({
-        userId: newUserId,
-        nickname: '',
-        avatarUrl: null,
-        step: 'welcome',
-        recoveryKey: null,
-        masterSeed: null,
-        configVersion: 0,
-        lastSyncTime: null,
-        syncStatus: 'idle',
-        backupEnabled: false,
-        backupFolder: null,
-        lastBackupTime: null,
-      });
-    } catch {
-      set({ isSwitching: false, isAddingSecondAccount: false });
-    }
+    set({ isAddingSecondAccount: true });
   },
 
   cancelAddSecondAccount: async () => {
-    const { isSwitching, accounts } = get();
-    if (isSwitching) return;
-
-    set({ isSwitching: true });
-
-    try {
-      await storageRemove(`${AUTH_STORAGE_PREFIX}account_2`);
-      await storageRemove(`${CHAT_STORAGE_PREFIX}account_2`);
-
-      const auth = useAuthStore.getState();
-      const chat = useChatStore.getState();
-
-      const account1AuthRaw = await storageGet(`${AUTH_STORAGE_PREFIX}account_1`) || await storageGet('orbita-auth-storage');
-      const account1ChatRaw = await storageGet(`${CHAT_STORAGE_PREFIX}account_1`) || await storageGet('orbita-chat-storage');
-
-      if (account1AuthRaw) {
-        try {
-          const parsed = JSON.parse(account1AuthRaw);
-          auth.importAuthState(parsed.state || parsed);
-        } catch {}
-      }
-
-      if (account1ChatRaw) {
-        try {
-          const parsed = JSON.parse(account1ChatRaw);
-          chat.importChatState(parsed.state || parsed);
-        } catch {}
-      }
-
-      const updatedAccounts = accounts.filter((a) => a.id !== 'account_2');
-      const registry: AccountRegistryData = {
-        activeAccountId: 'account_1',
-        accounts: updatedAccounts,
-      };
-      await storageSet(REGISTRY_STORAGE_KEY, JSON.stringify(registry));
-
-      set({
-        activeAccountId: 'account_1',
-        accounts: updatedAccounts,
-        isSwitching: false,
-        isAddingSecondAccount: false,
-      });
-      syncActiveAccountScope('account_1');
-
-      const restoredClient = useChatStore.getState().myCode || useAuthStore.getState().userId;
-      if (restoredClient) {
-        ablyService.connect(restoredClient).catch(() => {});
-      }
-    } catch {
-      set({ isSwitching: false, isAddingSecondAccount: false });
-    }
+    set({ isAddingSecondAccount: false, isSwitching: false });
   },
 
-  completeSecondAccountRegistration: async (data) => {
+  prepareSecondAccountForRestore: async () => {
+    const auth = useAuthStore.getState();
+    const chat = useChatStore.getState();
+    const currentAuthData = auth.exportAuthState();
+    const currentChatData = chat.exportChatState();
+    await storageSet(`${AUTH_STORAGE_PREFIX}account_1`, JSON.stringify(currentAuthData));
+    await storageSet(`${CHAT_STORAGE_PREFIX}account_1`, JSON.stringify(currentChatData));
+    const activeClientId = chat.myCode || auth.userId;
+    if (activeClientId) {
+      ablyService.setOffline(activeClientId);
+    }
+    ablyService.disconnect();
+    useChatStore.setState({
+      chats: [],
+      messagesByChatId: {},
+      usersById: {},
+      pinnedChatIds: [],
+      deletedChatIds: [],
+      deletedChatSessions: {},
+      incomingFriendRequests: [],
+      activeChatId: null,
+      activeProfileChatId: null,
+      myCode: '',
+    });
+    syncActiveAccountScope('account_2');
+  },
+
+  finalizeSecondAccountRestore: async () => {
     const { accounts } = get();
     const auth = useAuthStore.getState();
     const chat = useChatStore.getState();
 
-    const nick = data?.nickname || auth.nickname || 'User';
-    const avatar = data?.avatarUrl !== undefined ? data.avatarUrl : auth.avatarUrl;
-    const code = data?.myCode || chat.myCode;
-    const uid = auth.userId;
-
-    let updatedAccounts = accounts.filter((a) => a.id !== 'account_2');
-    let account1 = updatedAccounts.find((a) => a.id === 'account_1');
+    let account1 = accounts.find((a) => a.id === 'account_1');
     if (!account1) {
       const raw1 = await storageGet(`${AUTH_STORAGE_PREFIX}account_1`);
       if (raw1) {
@@ -427,21 +326,20 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
             userId: parsed.userId || '',
             isRegistered: true,
           };
-          updatedAccounts = [account1, ...updatedAccounts];
         } catch {}
       }
     }
 
     const account2: AccountMeta = {
       id: 'account_2',
-      nickname: nick,
-      avatarUrl: avatar,
-      myCode: code,
-      userId: uid,
+      nickname: auth.nickname || 'User',
+      avatarUrl: auth.avatarUrl || null,
+      myCode: chat.myCode || null,
+      userId: auth.userId || '',
       isRegistered: true,
     };
-    updatedAccounts = [...updatedAccounts.filter((a) => a.id !== 'account_2'), account2];
 
+    const updatedAccounts = [account1!, account2];
     const registry: AccountRegistryData = {
       activeAccountId: 'account_2',
       accounts: updatedAccounts,
@@ -455,8 +353,105 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
       activeAccountId: 'account_2',
       accounts: updatedAccounts,
       isAddingSecondAccount: false,
+      isSwitching: false,
     });
     syncActiveAccountScope('account_2');
+
+    const client = chat.myCode || auth.userId;
+    if (client) {
+      ablyService.connect(client).catch(() => {});
+    }
+  },
+
+  completeSecondAccountRegistration: async (data) => {
+    const { accounts } = get();
+    const auth = useAuthStore.getState();
+    const chat = useChatStore.getState();
+
+    const currentAuthData = auth.exportAuthState();
+    const currentChatData = chat.exportChatState();
+
+    await storageSet(`${AUTH_STORAGE_PREFIX}account_1`, JSON.stringify(currentAuthData));
+    await storageSet(`${CHAT_STORAGE_PREFIX}account_1`, JSON.stringify(currentChatData));
+
+    const activeClientId = chat.myCode || auth.userId;
+    if (activeClientId) {
+      ablyService.setOffline(activeClientId);
+    }
+    ablyService.disconnect();
+
+    const newSeed = generateMasterSeedHex();
+    const derived = deriveAccountKeys(newSeed);
+    const newCode = data?.myCode || generateRandomCode();
+    const newUserId = derived.userId;
+    const nick = data?.nickname || 'User';
+    const avatar = data?.avatarUrl || null;
+
+    useChatStore.setState({
+      chats: [],
+      messagesByChatId: {},
+      usersById: {},
+      pinnedChatIds: [],
+      deletedChatIds: [],
+      deletedChatSessions: {},
+      incomingFriendRequests: [],
+      activeChatId: null,
+      activeProfileChatId: null,
+      myCode: newCode,
+    });
+
+    auth.importAuthState({
+      userId: newUserId,
+      nickname: nick,
+      avatarUrl: avatar,
+      step: 'main',
+      recoveryKey: null,
+      masterSeed: newSeed,
+      configVersion: 0,
+      lastSyncTime: null,
+      syncStatus: 'idle',
+      backupEnabled: false,
+      backupFolder: null,
+      lastBackupTime: null,
+    });
+
+    const account1: AccountMeta = accounts.find((a) => a.id === 'account_1') || {
+      id: 'account_1',
+      nickname: currentAuthData.nickname || 'User',
+      avatarUrl: currentAuthData.avatarUrl || null,
+      myCode: currentChatData.myCode || null,
+      userId: currentAuthData.userId || '',
+      isRegistered: true,
+    };
+
+    const account2: AccountMeta = {
+      id: 'account_2',
+      nickname: nick,
+      avatarUrl: avatar,
+      myCode: newCode,
+      userId: newUserId,
+      isRegistered: true,
+    };
+
+    const updatedAccounts = [account1, account2];
+    const registry: AccountRegistryData = {
+      activeAccountId: 'account_2',
+      accounts: updatedAccounts,
+    };
+
+    await storageSet(REGISTRY_STORAGE_KEY, JSON.stringify(registry));
+    await storageSet(`${AUTH_STORAGE_PREFIX}account_2`, JSON.stringify(useAuthStore.getState().exportAuthState()));
+    await storageSet(`${CHAT_STORAGE_PREFIX}account_2`, JSON.stringify(useChatStore.getState().exportChatState()));
+
+    set({
+      activeAccountId: 'account_2',
+      accounts: updatedAccounts,
+      isAddingSecondAccount: false,
+      isSwitching: false,
+    });
+    syncActiveAccountScope('account_2');
+
+    ablyService.connect(newCode).catch(() => {});
   },
 
   deleteCurrentAccount: async () => {

@@ -41,23 +41,51 @@ const pageVariants = {
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
-const AuthFlowOverlay: React.FC<{ isElectron: boolean }> = ({ isElectron }) => {
+const AuthFlowOverlay: React.FC<{ isElectron: boolean; isOpen: boolean }> = ({ isElectron, isOpen }) => {
   const step = useAuthStore((s) => s.step);
+  const isAddingSecondAccount = useAccountStore((s) => s.isAddingSecondAccount);
   const lastStepRef = useRef(step);
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isSlidIn, setIsSlidIn] = useState(false);
 
   if (step !== 'main') {
     lastStepRef.current = step;
   }
 
   const renderedStep = step !== 'main' ? step : lastStepRef.current;
+  const showWelcome = isAddingSecondAccount || renderedStep === 'welcome';
+  const showNickname = !isAddingSecondAccount && renderedStep === 'nickname';
+
+  useEffect(() => {
+    let raf1: number | null = null;
+    let raf2: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    if (isOpen) {
+      setShouldRender(true);
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          setIsSlidIn(true);
+        });
+      });
+    } else {
+      setIsSlidIn(false);
+      timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 260);
+    }
+
+    return () => {
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+      if (timer) clearTimeout(timer);
+    };
+  }, [isOpen]);
+
+  if (!shouldRender && !isOpen) return null;
 
   return (
-    <motion.div
-      key="auth-flow-layer"
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+    <div
       style={{
         position: 'fixed',
         top: isElectron ? '30px' : '0px',
@@ -66,12 +94,18 @@ const AuthFlowOverlay: React.FC<{ isElectron: boolean }> = ({ isElectron }) => {
         bottom: 0,
         zIndex: 500,
         backgroundColor: 'var(--bg-primary, #14111d)',
+        transform: isSlidIn ? 'translate3d(0, 0, 0)' : 'translate3d(100%, 0, 0)',
+        transition: 'transform 0.24s cubic-bezier(0.2, 0, 0, 1)',
         willChange: 'transform',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
+        contain: 'paint layout style',
+        overflow: 'hidden',
       }}
     >
-      {renderedStep === 'welcome' && <WelcomeScreen />}
-      {renderedStep === 'nickname' && <NicknameScreen />}
-    </motion.div>
+      {showWelcome && <WelcomeScreen />}
+      {showNickname && <NicknameScreen />}
+    </div>
   );
 };
 
@@ -95,6 +129,7 @@ function App() {
   const activeAccountId = useAccountStore((state) => state.activeAccountId);
   const isAddingSecondAccount = useAccountStore((state) => state.isAddingSecondAccount);
   const accounts = useAccountStore((state) => state.accounts);
+  const registeredAccountId = accounts.find((a) => a.id === activeAccountId && a.isRegistered)?.id || 'account_1';
   const hasRegisteredAccount = accounts.some((a) => a.isRegistered && a.id === 'account_1') || (isHydrated && step === 'main');
 
   useEffect(() => {
@@ -363,12 +398,8 @@ function App() {
           <div className="h-full w-full overflow-hidden relative">
             {hasRegisteredAccount ? (
               <>
-                <MainLayout key={activeAccountId} />
-                <AnimatePresence>
-                  {(step !== 'main' || isAddingSecondAccount) && (
-                    <AuthFlowOverlay isElectron={isElectron} />
-                  )}
-                </AnimatePresence>
+                <MainLayout key={registeredAccountId} />
+                <AuthFlowOverlay isElectron={isElectron} isOpen={step !== 'main' || isAddingSecondAccount} />
               </>
             ) : (
               <AnimatePresence mode="wait">

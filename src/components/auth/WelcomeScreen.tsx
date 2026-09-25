@@ -81,12 +81,25 @@ export const WelcomeScreen: React.FC = () => {
     setActiveStep(prevStep);
   }, []);
 
-  const handleRegisterSubmit = (e?: React.FormEvent) => {
+  const handleRegisterSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = nickname.trim();
     if (trimmed.length < 1) {
       setHasInputError(true);
       setErrorMessage(t('welcome.err_nickname_format', 'Некорректный формат никнейма. Попробуйте ещё раз.'));
+      return;
+    }
+
+    if (isSecondAccount) {
+      setIsLoading(true);
+      try {
+        await useAccountStore.getState().completeSecondAccountRegistration({ nickname: trimmed });
+      } catch {
+        setIsLoading(false);
+        setErrorMessage(t('welcome.err_nickname_format', 'Некорректный формат никнейма. Попробуйте ещё раз.'));
+        return;
+      }
+      setIsLoading(false);
       return;
     }
 
@@ -114,13 +127,20 @@ export const WelcomeScreen: React.FC = () => {
     setErrorMessage(null);
 
     try {
+      if (isSecondAccount) {
+        await useAccountStore.getState().prepareSecondAccountForRestore();
+      }
       const result = await accountSyncService.restoreAccountFromCloud(cleanMasterKey);
       if (result.restored) {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('orbita:sync-now'));
         }
       }
-      setStep('main');
+      if (isSecondAccount) {
+        await useAccountStore.getState().finalizeSecondAccountRestore();
+      } else {
+        setStep('main');
+      }
     } catch (err: any) {
       setHasInputError(true);
       if (err?.message === 'INVALID_KEY_OR_CORRUPT') {
@@ -189,11 +209,18 @@ export const WelcomeScreen: React.FC = () => {
     setErrorMessage(null);
 
     try {
+      if (isSecondAccount) {
+        await useAccountStore.getState().prepareSecondAccountForRestore();
+      }
       await restoreAccountBackup(fileBytes, phrase);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('orbita:sync-now'));
       }
-      setStep('main');
+      if (isSecondAccount) {
+        await useAccountStore.getState().finalizeSecondAccountRestore();
+      } else {
+        setStep('main');
+      }
     } catch (err: any) {
       setHasInputError(true);
       if (err?.message === 'INVALID_MNEMONIC') {
@@ -244,6 +271,9 @@ export const WelcomeScreen: React.FC = () => {
         position: 'relative',
         padding: '24px 20px',
         boxSizing: 'border-box',
+        contain: 'paint layout',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
       }}
     >
       {activeStep === 'menu' && isSecondAccount && (
