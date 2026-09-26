@@ -5549,9 +5549,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       channel.unbind('client-group-call-started', handleGroupCallStarted);
       channel.unbind('group-call-ended', handleGroupCallEnded);
       channel.unbind('client-group-call-ended', handleGroupCallEnded);
-      try {
-        pusher.unsubscribe(channelName);
-      } catch {}
     };
   }, [activeChatId, activeChat?.type, myNickname]);
 

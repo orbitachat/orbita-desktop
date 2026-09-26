@@ -154,7 +154,7 @@ export async function saveMediaToCache(originalUrl: string, data: Buffer, mimeTy
   const localPath = path.join(cachePath, localFilename);
 
   const encrypted = encryptLocal(data);
-  fs.writeFileSync(localPath, encrypted);
+  await fs.promises.writeFile(localPath, encrypted);
   const size = encrypted.length;
 
   const db = await initDB();
@@ -197,7 +197,7 @@ export async function getMediaFromCache(originalUrl: string): Promise<{ data: Bu
     return { data: null, mime: null };
   }
 
-  const encrypted = fs.readFileSync(filePath);
+  const encrypted = await fs.promises.readFile(filePath);
   const decrypted = decryptLocal(encrypted);
   if (!decrypted) return { data: null, mime: null };
 

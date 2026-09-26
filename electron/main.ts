@@ -74,7 +74,6 @@ if (process.platform === 'win32') {
 
 app.commandLine.appendSwitch('disk-cache-size', '67108864');
 app.commandLine.appendSwitch('media-cache-size', '33554432');
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096 --expose-gc');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
@@ -521,7 +520,7 @@ async function saveMediaToCache(
   const localPath = path.join(dir, filename);
   const encrypted = encryptData(data);
 
-  fs.writeFileSync(localPath, encrypted);
+  await fs.promises.writeFile(localPath, encrypted);
   const fileSize = encrypted.length;
   const db = await initMediaDb();
 
@@ -1994,7 +1993,7 @@ ipcMain.handle('orbita:writeTempFile', async (_event, data: any, extension?: str
     } else {
       return null;
     }
-    fs.writeFileSync(tempPath, buf);
+    await fs.promises.writeFile(tempPath, buf);
     return tempPath;
   } catch (err) {
     console.error('Failed to write temp file:', err);
@@ -4052,20 +4051,6 @@ app.whenReady().then(async () => {
 
   ipcMain.once('orbita:app-ready', finishStartup);
   setTimeout(finishStartup, 8000);
-
-
-  setInterval(() => {
-    if (global.gc) {
-      try {
-        global.gc();
-      } catch { }
-    }
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      try {
-        mainWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
-      } catch { }
-    }
-  }, 30000);
 });
 
 app.on('window-all-closed', () => {

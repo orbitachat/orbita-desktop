@@ -61,9 +61,11 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   autoplay = true,
   onClick,
 }) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<AnimationItem | null>(null);
   const [animData, setAnimData] = useState<any>(() => tgsCache.get(src) || null);
+  const [isReady, setIsReady] = useState(false);
   const hasPlayedRef = useRef(false);
   const isIntersectingRef = useRef(false);
   const isPlayingRef = useRef(false);
@@ -107,15 +109,20 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
     try {
       anim = lottie.loadAnimation({
         container,
-        renderer: 'svg',
+        renderer: 'canvas',
         loop,
         autoplay: false,
         animationData: animData,
         rendererSettings: {
           preserveAspectRatio: 'xMidYMid meet',
+          clearCanvas: true,
+          progressiveLoad: true,
         },
       });
       anim.setSubframe(false);
+      anim.addEventListener('DOMLoaded', () => {
+        setIsReady(true);
+      });
       anim.addEventListener('complete', () => {
         isPlayingRef.current = false;
       });
@@ -141,11 +148,12 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       }
       animRef.current = null;
       isPlayingRef.current = false;
+      setIsReady(false);
     };
   }, [animData, loop, autoplay]);
 
   useEffect(() => {
-    const el = containerRef.current;
+    const el = wrapperRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
@@ -218,7 +226,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
 
   return (
     <div
-      ref={containerRef}
+      ref={wrapperRef}
       className={className}
       onClick={handleClick}
       style={{
@@ -228,10 +236,22 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
+        overflow: 'hidden',
         ...style,
       }}
     >
-      {!animData && (
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          inset: 0,
+          opacity: isReady ? 1 : 0,
+          pointerEvents: 'none',
+        }}
+      />
+      {!isReady && (
         <img
           src={thumbUrl}
           alt=""
