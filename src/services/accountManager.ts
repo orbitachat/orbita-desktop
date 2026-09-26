@@ -298,6 +298,9 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
         isAddingSecondAccount: false,
       });
       syncActiveAccountScope(targetId);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('orbita:account-switched', { detail: { targetId } }));
+      }
     } catch {
       set({ isSwitching: false });
     }

@@ -3946,7 +3946,7 @@ export const MainLayout = () => {
   }, [chats, deletedChatSessions, subscribeToChat, subscribeToGroupChat, subscribeToPublicChannel, subscribeToDeliveryUpdates]);
 
   useEffect(() => {
-    return () => {
+    const handleAccountSwitched = () => {
       const pusher = getPusher();
       activeSubscriptions.current.forEach((sub) => { try { sub.channel.unbind_all(); pusher.unsubscribe(sub.channel.name); } catch {} });
       activeSubscriptions.current.clear();
@@ -3962,6 +3962,13 @@ export const MainLayout = () => {
         try { unsubscribe(); } catch {}
       });
       ablyMessageUnsubscribes.current.clear();
+    };
+
+    window.addEventListener('orbita:account-switched', handleAccountSwitched);
+
+    return () => {
+      window.removeEventListener('orbita:account-switched', handleAccountSwitched);
+      handleAccountSwitched();
     };
   }, []);
 

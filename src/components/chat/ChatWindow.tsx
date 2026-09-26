@@ -2850,10 +2850,12 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
     } catch {}
 
-    channelService.getChannelPosts(activeChatId).then((posts) => {
+    const targetChannelId = activeChatId;
+    channelService.getChannelPosts(targetChannelId).then((posts) => {
       if (posts) {
         useChatStore.setState((state) => {
-          const currentMsgs = state.messagesByChatId[activeChatId] || [];
+          if (useChatStore.getState().activeChatId !== targetChannelId) return state;
+          const currentMsgs = state.messagesByChatId[targetChannelId] || [];
           const fetchedIds = new Set(posts.map((p) => p.id));
           const existingIds = new Set<string>();
 
@@ -2917,7 +2919,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           return {
             messagesByChatId: {
               ...state.messagesByChatId,
-              [activeChatId]: merged,
+              [targetChannelId]: merged,
             },
           };
         });
@@ -4176,8 +4178,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       }
       updateChat(activeChatId, { lastMsg: sentText || sentMedia?.name || 'Новый пост' });
 
+      const targetChannelId = activeChatId;
       channelService.publishPost(
-        activeChatId,
+        targetChannelId,
         myNickname,
         sentText,
         sentMedia ? {
@@ -4195,11 +4198,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       ).then((post) => {
         if (post) {
           useChatStore.setState((state) => {
-            const currentMsgs = state.messagesByChatId[activeChatId] || [];
+            const currentMsgs = state.messagesByChatId[targetChannelId] || [];
             return {
               messagesByChatId: {
                 ...state.messagesByChatId,
-                [activeChatId]: currentMsgs.map((m) =>
+                [targetChannelId]: currentMsgs.map((m) =>
                   m.id === optimisticId || m.id === post.id
                     ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const }
                     : m
@@ -4864,8 +4867,10 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       useChatStore.getState().syncReactionsFromSupabase(activeChatId);
     }
 
+    const targetChatId = activeChatId;
     try {
-      (window as any).orbita?.storageGetMessages?.(activeChatId).then((cached: any[]) => {
+      (window as any).orbita?.storageGetMessages?.(targetChatId).then((cached: any[]) => {
+        if (useChatStore.getState().activeChatId !== targetChatId) return;
         if (Array.isArray(cached) && cached.length > 0) {
           const sanitizedCached = cached.map((m) => {
             if (m && (m.uploading || m.status === 'sending' || m.status === 'pending')) {
@@ -4873,22 +4878,23 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               const hasRemoteItems = Boolean(m.mediaItems && m.mediaItems.length > 0 && m.mediaItems.every((it: any) => it.url && !it.url.startsWith('blob:') && (it.url.startsWith('http') || it.url.startsWith('orbita-media:'))));
               if (hasRemoteUrl || hasRemoteItems || !m.isOutgoing) {
                 const fixed = { ...m, uploading: false, status: 'sent' as const };
-                (window as any).orbita?.storageAddMessage?.(activeChatId, m.id, fixed).catch(() => {});
+                (window as any).orbita?.storageAddMessage?.(targetChatId, m.id, fixed).catch(() => {});
                 return fixed;
               }
               const fixed = { ...m, uploading: false };
-              (window as any).orbita?.storageAddMessage?.(activeChatId, m.id, fixed).catch(() => {});
+              (window as any).orbita?.storageAddMessage?.(targetChatId, m.id, fixed).catch(() => {});
               return fixed;
             }
             return m;
           });
           useChatStore.setState((state) => {
-            const nowMsgs = state.messagesByChatId[activeChatId] || [];
+            if (useChatStore.getState().activeChatId !== targetChatId) return state;
+            const nowMsgs = state.messagesByChatId[targetChatId] || [];
             if (nowMsgs.length === 0) {
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: sanitizedCached,
+                  [targetChatId]: sanitizedCached,
                 },
               };
             }
@@ -4900,7 +4906,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: merged,
+                  [targetChatId]: merged,
                 },
               };
             }
@@ -4911,20 +4917,21 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
     } catch {}
 
     if (activeChat?.type === 'group') {
-
+      const targetGroupId = activeChatId;
       const groupSecret = activeChat.sharedSecret ||
         (activeChat.inviteCode && isValidGroupCode(activeChat.inviteCode) ? deriveGroupKey(activeChat.inviteCode) : undefined) ||
         (activeChat.code && isValidGroupCode(activeChat.code) ? deriveGroupKey(activeChat.code) : undefined);
 
       if (groupSecret && !activeChat.sharedSecret) {
-        useChatStore.getState().updateChat(activeChatId, { sharedSecret: groupSecret });
+        useChatStore.getState().updateChat(targetGroupId, { sharedSecret: groupSecret });
       }
 
-      groupService.fetchGroupMessages(activeChatId).then(async (serverMsgs) => {
+      groupService.fetchGroupMessages(targetGroupId).then(async (serverMsgs) => {
+        if (useChatStore.getState().activeChatId !== targetGroupId) return;
         if (!Array.isArray(serverMsgs) || serverMsgs.length === 0) return;
-        const secret = groupSecret || (await groupService.getGroup(activeChatId))?.sharedSecret;
+        const secret = groupSecret || (await groupService.getGroup(targetGroupId))?.sharedSecret;
         if (!secret) return;
-        const current = useChatStore.getState().messagesByChatId[activeChatId] || [];
+        const current = useChatStore.getState().messagesByChatId[targetGroupId] || [];
         const existingIds = new Set(current.map((m) => m.id));
         const newMessages: Message[] = [];
         for (const row of serverMsgs) {
@@ -4977,10 +4984,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           };
           newMessages.push(msgItem);
           try {
-            (window as any).orbita?.storageAddMessage?.(activeChatId, row.id, msgItem);
+            (window as any).orbita?.storageAddMessage?.(targetGroupId, row.id, msgItem);
           } catch {}
         }
         if (newMessages.length > 0) {
+          if (useChatStore.getState().activeChatId !== targetGroupId) return;
           const el = messagesContainerRef.current;
           const wasAtBottom = el ? (el.scrollHeight - el.scrollTop - el.clientHeight <= 120) : true;
           const prevScrollTop = el?.scrollTop ?? 0;
@@ -4989,33 +4997,33 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           useChatStore.setState((state) => ({
             messagesByChatId: {
               ...state.messagesByChatId,
-              [activeChatId]: [...(state.messagesByChatId[activeChatId] || []), ...newMessages].sort((a, b) => a.time - b.time),
+              [targetGroupId]: [...(state.messagesByChatId[targetGroupId] || []), ...newMessages].sort((a, b) => a.time - b.time),
             },
           }));
 
           requestAnimationFrame(() => {
             const currentEl = messagesContainerRef.current;
             if (!currentEl) return;
-            const entry = chatScrollRegistry.get(activeChatId);
+            const entry = chatScrollRegistry.get(targetGroupId);
             if (entry && !entry.atBottom) {
-              restoreChatScroll(activeChatId, currentEl);
+              restoreChatScroll(targetGroupId, currentEl);
             } else if (wasAtBottom) {
               currentEl.scrollTop = currentEl.scrollHeight;
-              saveChatScroll(activeChatId, currentEl);
+              saveChatScroll(targetGroupId, currentEl);
             } else {
               const delta = currentEl.scrollHeight - prevScrollHeight;
               currentEl.scrollTop = prevScrollTop + delta;
-              saveChatScroll(activeChatId, currentEl);
+              saveChatScroll(targetGroupId, currentEl);
             }
           });
         }
       }).catch(() => {});
 
-      groupService.getActiveCall(activeChatId).then((call) => {
+      groupService.getActiveCall(targetGroupId).then((call) => {
         if (call && call.status === 'active') {
-          useChatStore.getState().updateChat(activeChatId, { activeCallRoom: call.roomName });
+          useChatStore.getState().updateChat(targetGroupId, { activeCallRoom: call.roomName });
         } else {
-          useChatStore.getState().updateChat(activeChatId, { activeCallRoom: null });
+          useChatStore.getState().updateChat(targetGroupId, { activeCallRoom: null });
         }
       }).catch(() => {});
     }
@@ -5025,6 +5033,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       if (data?.type === 'channel-post' && data?.post) {
         const post = data.post;
         if (post && post.id) {
+          if (activeChat?.type !== 'channel') return;
+          if (post.channelId && post.channelId !== activeChatId) return;
+          if (useChatStore.getState().activeChatId !== activeChatId) return;
           let postText = post.text || '';
           if (postText.startsWith('orb_e2e:')) {
             const channelKey = deriveChannelKey(activeChatId);
@@ -5033,6 +5044,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               postText = decrypted;
             }
           }
+          if (useChatStore.getState().activeChatId !== activeChatId) return;
           const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
           const existing = currentMsgs.find((m) => m.id === post.id);
           if (existing) {
@@ -5046,26 +5058,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
                 },
               }));
             }
-          } else {
-            useChatStore.getState().addMessage(activeChatId, {
-              id: post.id,
-              sender: post.sender || post.senderNickname || 'Channel',
-              text: postText,
-              time: post.time || Date.now(),
-              read: true,
-              status: 'sent',
-              mediaType: post.mediaType || undefined,
-              mediaUrl: post.mediaUrl || undefined,
-              mediaName: post.mediaName || undefined,
-              mime: post.mime || undefined,
-              duration: post.duration || undefined,
-              width: post.width || undefined,
-              height: post.height || undefined,
-              waveform: post.waveform || undefined,
-              audioMetadata: post.audioMetadata || undefined,
-              linkPreview: post.linkPreview || undefined,
-              reactions: post.reactions || undefined,
-            });
           }
         }
       } else if (data?.type === 'subscribers-updated' && typeof data?.subscribersCount === 'number') {
@@ -5218,6 +5210,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         return;
       }
       if (activeChat?.type === 'group' && (data.type === 'message' || data.type === 'group-message')) {
+        if (data.chatId && data.chatId !== activeChatId) return;
+        if (data.groupId && data.groupId !== activeChatId) return;
+        if (useChatStore.getState().activeChatId !== activeChatId) return;
         const isSelf = Boolean(
           (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
           (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
@@ -5232,6 +5227,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           deriveGroupKey(activeChatId);
         if (sec) {
           decryptMessage(rawCipher, sec).then((dec) => {
+            if (useChatStore.getState().activeChatId !== activeChatId) return;
             let parsed: any;
             if (dec && dec !== '[ENCRYPTED MESSAGE]') {
               try { parsed = JSON.parse(dec); } catch { parsed = { text: dec }; }
@@ -5394,6 +5390,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
     const handleChannelPost = async (post: any) => {
       if (!post || !post.id) return;
+      if (activeChat?.type !== 'channel') return;
+      if (post.channelId && post.channelId !== activeChatId) return;
+      if (useChatStore.getState().activeChatId !== activeChatId) return;
       let postText = post.text || '';
       if (postText.startsWith('orb_e2e:')) {
         const channelKey = deriveChannelKey(activeChatId);
@@ -5402,6 +5401,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           postText = decrypted;
         }
       }
+      if (useChatStore.getState().activeChatId !== activeChatId) return;
       const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
       const existing = currentMsgs.find((m) => m.id === post.id);
       if (existing) {
@@ -5417,32 +5417,6 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
         return;
       }
-      const sender = post.sender || post.senderNickname || 'Channel';
-      const isMine = Boolean(
-        (myUserId && (post.senderUserId === myUserId || post.userId === myUserId || post.senderId === myUserId)) ||
-        (myCode && (post.senderCode === myCode || post.senderId === myCode)) ||
-        (!post.senderUserId && !post.senderCode && !post.senderId && myNickname ? sender === myNickname : false)
-      );
-      useChatStore.getState().addMessage(activeChatId, {
-        id: post.id,
-        sender,
-        text: postText,
-        time: post.time || Date.now(),
-        read: true,
-        status: isMine ? 'read' : undefined,
-        isOutgoing: isMine,
-        mediaType: post.mediaType || undefined,
-        mediaUrl: post.mediaUrl || undefined,
-        mediaName: post.mediaName || undefined,
-        mime: post.mime || undefined,
-        duration: post.duration || undefined,
-        width: post.width || undefined,
-        height: post.height || undefined,
-        waveform: post.waveform || undefined,
-        audioMetadata: post.audioMetadata || undefined,
-        linkPreview: post.linkPreview || undefined,
-        reactions: post.reactions || undefined,
-      });
     };
 
     const handleChannelReaction = (data: any) => {
@@ -5575,6 +5549,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
       channel.unbind('client-group-call-started', handleGroupCallStarted);
       channel.unbind('group-call-ended', handleGroupCallEnded);
       channel.unbind('client-group-call-ended', handleGroupCallEnded);
+      try {
+        pusher.unsubscribe(channelName);
+      } catch {}
     };
   }, [activeChatId, activeChat?.type, myNickname]);
 
@@ -6400,26 +6377,27 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (!isPresent) return;
 
           if (isChannel) {
+            const targetChannelId = activeChatId;
             useChatStore.setState((state) => {
-              const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              const currentMsgs = state.messagesByChatId[targetChannelId] || [];
               const updated = currentMsgs.map((m) =>
                 m.id === messageId ? { ...m, status: 'sent' as const, uploading: false, mediaItems: uploadedItems } : m
               );
               const target = updated.find((m) => m.id === messageId);
               if (target) {
-                (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+                (window as any).orbita?.storageAddMessage?.(targetChannelId, messageId, target).catch(() => {});
               }
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: updated,
+                  [targetChannelId]: updated,
                 },
               };
             });
             for (let fIdx = 0; fIdx < uploadedItems.length; fIdx++) {
               const f = uploadedItems[fIdx];
               channelService.publishPost(
-                activeChatId,
+                targetChannelId,
                 myNickname,
                 fIdx === 0 ? chunkCaption : '',
                 {
@@ -6438,11 +6416,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               ).then((post) => {
                 if (post) {
                   useChatStore.setState((state) => {
-                    const currentMsgs = state.messagesByChatId[activeChatId] || [];
+                    const currentMsgs = state.messagesByChatId[targetChannelId] || [];
                     return {
                       messagesByChatId: {
                         ...state.messagesByChatId,
-                        [activeChatId]: currentMsgs.map((m) =>
+                        [targetChannelId]: currentMsgs.map((m) =>
                           m.id === messageId || m.id === post.id
                             ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const }
                             : m
@@ -6628,8 +6606,9 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           if (!isPresent) return;
 
           if (isChannel) {
+            const targetChannelId = activeChatId;
             useChatStore.setState((state) => {
-              const currentMsgs = state.messagesByChatId[activeChatId] || [];
+              const currentMsgs = state.messagesByChatId[targetChannelId] || [];
               const updated = currentMsgs.map((m) =>
                 m.id === messageId
                   ? {
@@ -6650,17 +6629,17 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
               );
               const target = updated.find((m) => m.id === messageId);
               if (target) {
-                (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, target).catch(() => {});
+                (window as any).orbita?.storageAddMessage?.(targetChannelId, messageId, target).catch(() => {});
               }
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
-                  [activeChatId]: updated,
+                  [targetChannelId]: updated,
                 },
               };
             });
             channelService.publishPost(
-              activeChatId,
+              targetChannelId,
               myNickname,
               postCaption,
               {
@@ -6679,11 +6658,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             ).then((post) => {
               if (post) {
                 useChatStore.setState((state) => {
-                  const currentMsgs = state.messagesByChatId[activeChatId] || [];
+                  const currentMsgs = state.messagesByChatId[targetChannelId] || [];
                   return {
                     messagesByChatId: {
                       ...state.messagesByChatId,
-                      [activeChatId]: currentMsgs.map((m) =>
+                      [targetChannelId]: currentMsgs.map((m) =>
                         m.id === messageId || m.id === post.id
                           ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const }
                           : m
