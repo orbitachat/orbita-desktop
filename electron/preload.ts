@@ -36,8 +36,8 @@ contextBridge.exposeInMainWorld('orbita', {
   readFileAsDataURL: (filePath: string) =>
     ipcRenderer.invoke('orbita:readFileAsDataURL', filePath),
 
-  writeTempFile: (base64Data: string, extension?: string) =>
-    ipcRenderer.invoke('orbita:writeTempFile', base64Data, extension),
+  writeTempFile: (data: string | Uint8Array | ArrayBuffer, extension?: string) =>
+    ipcRenderer.invoke('orbita:writeTempFile', data, extension),
 
   deleteTempFile: (filePath: string) =>
     ipcRenderer.invoke('orbita:deleteTempFile', filePath),
@@ -307,8 +307,8 @@ contextBridge.exposeInMainWorld('orbita', {
   mediaGetBatch: (requests: Array<{ url: string; sharedSecret: string; fileName?: string }>) =>
     ipcRenderer.invoke('media:get-batch', requests),
 
-  mediaSave: (originalUrl: string, dataBase64: string, mimeType: string, chatId: string, messageId: string) =>
-    ipcRenderer.invoke('media:save', originalUrl, dataBase64, mimeType, chatId, messageId),
+  mediaSave: (originalUrl: string, data: any, mimeType: string, chatId?: string, messageId?: string) =>
+    ipcRenderer.invoke('media:save', originalUrl, data, mimeType, chatId, messageId),
 
   mediaClear: (categories?: string[]) =>
     ipcRenderer.invoke('media:clear', categories),

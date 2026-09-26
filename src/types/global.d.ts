@@ -51,7 +51,7 @@ declare global {
         bytes?: number;
       }>;
       readFileAsDataURL: (filePath: string) => Promise<string | null>;
-      writeTempFile: (base64Data: string, extension?: string) => Promise<string | null>;
+      writeTempFile: (data: string | Uint8Array | ArrayBuffer, extension?: string) => Promise<string | null>;
       deleteTempFile: (filePath: string) => Promise<void>;
       readClipboardImage?: () => Promise<string | null>;
       onUploadProgress: (
@@ -102,7 +102,7 @@ declare global {
       copyImage: (dataBase64: string) => Promise<{ success: boolean; error?: string }>;
       openFile: (data: string | Uint8Array | ArrayBuffer, fileName: string) => Promise<{ success: boolean; path?: string; error?: string }>;
       mediaGet: (originalUrl: string) => Promise<{ data: string | Uint8Array | ArrayBuffer; mime: string } | null>;
-      mediaSave: (originalUrl: string, dataBase64: string, mimeType: string, chatId: string, messageId: string) => Promise<void>;
+      mediaSave: (originalUrl: string, data: string | Uint8Array | ArrayBuffer, mimeType: string, chatId?: string, messageId?: string) => Promise<void>;
       mediaClear: (categories?: string[]) => Promise<{ deleted: number }>;
       mediaStats: () => Promise<{ count: number; totalSize: number }>;
       mediaDetailedStats: () => Promise<{

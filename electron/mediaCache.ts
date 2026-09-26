@@ -387,8 +387,17 @@ export async function setupMediaCacheIPC(): Promise<void> {
     return results;
   });
 
-  ipcMain.handle('media:save', async (_, originalUrl: string, dataBase64: string, mimeType: string, chatId: string, messageId: string) => {
-    const data = Buffer.from(dataBase64, 'base64');
+  ipcMain.handle('media:save', async (_, originalUrl: string, dataInput: any, mimeType: string, chatId: string, messageId: string) => {
+    let data: Buffer;
+    if (Buffer.isBuffer(dataInput)) {
+      data = dataInput;
+    } else if (dataInput instanceof Uint8Array || dataInput instanceof ArrayBuffer) {
+      data = Buffer.from(dataInput as any);
+    } else if (typeof dataInput === 'string') {
+      data = Buffer.from(dataInput, 'base64');
+    } else {
+      return false;
+    }
     const localPath = await saveMediaToCache(originalUrl, data, mimeType, chatId, messageId);
     return !!localPath;
   });

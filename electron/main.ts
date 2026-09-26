@@ -74,7 +74,7 @@ if (process.platform === 'win32') {
 
 app.commandLine.appendSwitch('disk-cache-size', '67108864');
 app.commandLine.appendSwitch('media-cache-size', '33554432');
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --expose-gc');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096 --expose-gc');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
@@ -781,8 +781,17 @@ function registerMediaIpcHandlers() {
     return result;
   });
 
-  ipcMain.handle('media:save', async (_event, cacheKey: string, base64Data: string, mimeType: string, chatId?: string, messageId?: string) => {
-    const buf = Buffer.from(base64Data, 'base64');
+  ipcMain.handle('media:save', async (_event, cacheKey: string, dataInput: any, mimeType: string, chatId?: string, messageId?: string) => {
+    let buf: Buffer;
+    if (Buffer.isBuffer(dataInput)) {
+      buf = dataInput;
+    } else if (dataInput instanceof Uint8Array || dataInput instanceof ArrayBuffer) {
+      buf = Buffer.from(dataInput as any);
+    } else if (typeof dataInput === 'string') {
+      buf = Buffer.from(dataInput, 'base64');
+    } else {
+      return false;
+    }
     const pathSaved = await saveMediaToCache(cacheKey, buf, mimeType, chatId, messageId);
     return !!pathSaved;
   });
@@ -1689,11 +1698,15 @@ async function cloudinaryUploadWithProgress(event: Electron.IpcMainInvokeEvent, 
       fields,
       'file',
       (uploadedBytes, totalBytes) => {
-        event.sender.send('orbita:uploadProgress', {
-          publicId,
-          uploadedBytes,
-          totalBytes,
-        });
+        if (event.sender && !event.sender.isDestroyed()) {
+          try {
+            event.sender.send('orbita:uploadProgress', {
+              publicId,
+              uploadedBytes,
+              totalBytes,
+            });
+          } catch {}
+        }
       }
     );
 
@@ -1967,11 +1980,20 @@ ipcMain.handle('orbita:rustReadFileFast', async (_event, filePath: string) => {
   return null;
 });
 
-ipcMain.handle('orbita:writeTempFile', async (_event, base64Data: string, extension?: string) => {
+ipcMain.handle('orbita:writeTempFile', async (_event, data: any, extension?: string) => {
   try {
     const ext = extension ? `.${extension}` : '';
-    const tempPath = path.join(os.tmpdir(), `orbita_enc_${Date.now()}${ext}`);
-    const buf = Buffer.from(base64Data, 'base64');
+    const tempPath = path.join(os.tmpdir(), `orbita_enc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}${ext}`);
+    let buf: Buffer;
+    if (Buffer.isBuffer(data)) {
+      buf = data;
+    } else if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
+      buf = Buffer.from(data as any);
+    } else if (typeof data === 'string') {
+      buf = Buffer.from(data, 'base64');
+    } else {
+      return null;
+    }
     fs.writeFileSync(tempPath, buf);
     return tempPath;
   } catch (err) {

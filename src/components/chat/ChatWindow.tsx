@@ -6235,29 +6235,19 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
         const cleanedBuffer = stripExifMetadata(fileArrayBuffer, file.fileType || file.name);
         let fileKey: string | undefined = undefined;
-        let fileBase64: string;
-
+        let tempPath: string | null = null;
         const isPublic = isChannel || isBotChat;
+        const ext = (file.name?.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
+
         if (isPublic) {
-          const uint8 = new Uint8Array(cleanedBuffer);
-          let binary = '';
-          const chunkSz = 8192;
-          for (let j = 0; j < uint8.length; j += chunkSz) {
-            binary += String.fromCharCode.apply(null, Array.from(uint8.subarray(j, j + chunkSz)));
-          }
-          fileBase64 = btoa(binary);
+          tempPath = await window.orbita.writeTempFile(new Uint8Array(cleanedBuffer), ext);
         } else {
           fileKey = generateEphemeralKey();
           const encryptedBlob = await encryptFile(cleanedBuffer, fileKey);
-          fileBase64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
-            reader.readAsDataURL(encryptedBlob);
-          });
+          const encryptedAb = await encryptedBlob.arrayBuffer();
+          tempPath = await window.orbita.writeTempFile(new Uint8Array(encryptedAb));
         }
 
-        const ext = (file.name?.match(/\.([^.]+)$/) || [])[1]?.toLowerCase();
-        const tempPath = await window.orbita.writeTempFile(fileBase64, isPublic ? ext : undefined);
         if (!tempPath) return null;
 
         const publicId = `orbita_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
@@ -6344,9 +6334,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
 
         (async () => {
           const uploadedItems: MediaItem[] = [];
+          let lastProgTime = 0;
           for (let fIdx = 0; fIdx < chunkFiles.length; fIdx++) {
             const currentFile = chunkFiles[fIdx];
             const uploaded = await uploadSingleFile(currentFile, (uploadedBytes) => {
+              const now = Date.now();
+              if (now - lastProgTime < 150) return;
+              lastProgTime = now;
               const uploadedMb = uploadedBytes / (1024 * 1024);
               useChatStore.setState((state) => {
                 const msgs = state.messagesByChatId[activeChatId];
@@ -6584,7 +6578,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         updateChat(activeChatId, { lastMsg: postCaption || file.name || `[${itemType}]` });
 
         (async () => {
+          let lastProgTime = 0;
           const uploaded = await uploadSingleFile(file, (uploadedBytes) => {
+            const now = Date.now();
+            if (now - lastProgTime < 150) return;
+            lastProgTime = now;
             const uploadedMb = uploadedBytes / (1024 * 1024);
             useChatStore.setState((state) => {
               const msgs = state.messagesByChatId[activeChatId];
