@@ -3027,7 +3027,7 @@ export const MainLayout = () => {
         id: post.id,
         sender,
         text: postText,
-        time: post.time || Date.now(),
+        time: (typeof post.time === 'number' && post.time > 0) ? post.time : Date.now(),
         read: isViewingThisChannel,
         status: isMine ? 'read' : undefined,
         isOutgoing: isMine,
@@ -3057,22 +3057,36 @@ export const MainLayout = () => {
             Math.abs(m.time - (post.time || 0)) < 30000)
       );
 
+      const validPostTime = (typeof post.time === 'number' && post.time > 0) ? post.time : Date.now();
       if (existingMatch) {
+        if (existingMatch.id !== post.id) {
+          try {
+            (window as any).orbita?.storageDeleteMessage?.(existingMatch.id).catch(() => {});
+          } catch {}
+        }
         useChatStore.setState((state) => {
           const list = state.messagesByChatId[channelId] || [];
+          const updated = list.map((m) =>
+            m.id === existingMatch.id
+              ? {
+                  ...m,
+                  id: post.id,
+                  text: postText || m.text,
+                  time: validPostTime,
+                  status: 'read' as const,
+                }
+              : m
+          );
+          const saved = updated.find((m) => m.id === post.id);
+          if (saved) {
+            try {
+              (window as any).orbita?.storageAddMessage?.(channelId, post.id, saved).catch(() => {});
+            } catch {}
+          }
           return {
             messagesByChatId: {
               ...state.messagesByChatId,
-              [channelId]: list.map((m) =>
-                m.id === existingMatch.id
-                  ? {
-                      ...m,
-                      id: post.id,
-                      text: postText || m.text,
-                      time: post.time || m.time,
-                    }
-                  : m
-              ),
+              [channelId]: updated,
             },
           };
         });
@@ -3296,7 +3310,7 @@ export const MainLayout = () => {
             }
           });
           if (newItems.length === 0 && updatedExisting.length === currentMsgs.length && updatedExisting === currentMsgs) return state;
-          const merged = [...updatedExisting, ...newItems].sort((a, b) => a.time - b.time);
+          const merged = [...updatedExisting, ...newItems].sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
           const latest = merged[merged.length - 1];
           return {
             messagesByChatId: {

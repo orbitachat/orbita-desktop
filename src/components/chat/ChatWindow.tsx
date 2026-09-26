@@ -2891,12 +2891,13 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           posts.forEach((post) => {
             if (!existingIds.has(post.id)) {
               const isMine = (myUserId && post.senderId) ? post.senderId === myUserId : (myNickname ? post.sender === myNickname : false);
+              const safeTime = (typeof post.time === 'number' && !isNaN(post.time) && post.time > 0) ? post.time : Date.now();
               newItems.push({
                 id: post.id,
                 sender: post.sender,
                 senderId: post.senderId,
                 text: post.text,
-                time: post.time,
+                time: safeTime,
                 read: true,
                 status: isMine ? 'read' : undefined,
                 isOutgoing: isMine,
@@ -2915,7 +2916,15 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             }
           });
 
-          const merged = [...updatedExisting, ...newItems].sort((a, b) => a.time - b.time);
+          const merged = [...updatedExisting, ...newItems].sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
+          const staleOptimistics = (state.messagesByChatId[targetChannelId] || []).filter(
+            (m) => m.status === 'sending' && m.id != null && !fetchedIds.has(m.id) && (Date.now() - (m.time || 0)) > 120000
+          );
+          staleOptimistics.forEach((m) => {
+            try {
+              (window as any).orbita?.storageDeleteMessage?.(m.id).catch(() => {});
+            } catch {}
+          });
           return {
             messagesByChatId: {
               ...state.messagesByChatId,
@@ -4197,16 +4206,27 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         myUserId
       ).then((post) => {
         if (post) {
+          const validPostTime = (typeof post.time === 'number' && post.time > 0) ? post.time : Date.now();
+          try {
+            (window as any).orbita?.storageDeleteMessage?.(optimisticId).catch(() => {});
+          } catch {}
           useChatStore.setState((state) => {
             const currentMsgs = state.messagesByChatId[targetChannelId] || [];
+            const updated = currentMsgs.map((m) =>
+              m.id === optimisticId || m.id === post.id
+                ? { ...m, id: post.id, time: validPostTime, status: 'read' as const }
+                : m
+            );
+            const saved = updated.find((m) => m.id === post.id);
+            if (saved) {
+              try {
+                (window as any).orbita?.storageAddMessage?.(targetChannelId, post.id, saved).catch(() => {});
+              } catch {}
+            }
             return {
               messagesByChatId: {
                 ...state.messagesByChatId,
-                [targetChannelId]: currentMsgs.map((m) =>
-                  m.id === optimisticId || m.id === post.id
-                    ? { ...m, id: post.id, time: post.time || m.time, status: 'read' as const }
-                    : m
-                ),
+                [targetChannelId]: updated,
               },
             };
           });
@@ -4873,19 +4893,22 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         if (useChatStore.getState().activeChatId !== targetChatId) return;
         if (Array.isArray(cached) && cached.length > 0) {
           const sanitizedCached = cached.map((m) => {
-            if (m && (m.uploading || m.status === 'sending' || m.status === 'pending')) {
-              const hasRemoteUrl = Boolean(m.mediaUrl && !m.mediaUrl.startsWith('blob:') && (m.mediaUrl.startsWith('http') || m.mediaUrl.startsWith('orbita-media:')));
-              const hasRemoteItems = Boolean(m.mediaItems && m.mediaItems.length > 0 && m.mediaItems.every((it: any) => it.url && !it.url.startsWith('blob:') && (it.url.startsWith('http') || it.url.startsWith('orbita-media:'))));
-              if (hasRemoteUrl || hasRemoteItems || !m.isOutgoing) {
-                const fixed = { ...m, uploading: false, status: 'sent' as const };
+            if (!m) return m;
+            const validTime = (typeof m.time === 'number' && !isNaN(m.time) && m.time > 0) ? m.time : Date.now();
+            const timeFixed = validTime !== m.time ? { ...m, time: validTime } : m;
+            if (timeFixed.uploading || timeFixed.status === 'sending' || timeFixed.status === 'pending') {
+              const hasRemoteUrl = Boolean(timeFixed.mediaUrl && !timeFixed.mediaUrl.startsWith('blob:') && (timeFixed.mediaUrl.startsWith('http') || timeFixed.mediaUrl.startsWith('orbita-media:')));
+              const hasRemoteItems = Boolean(timeFixed.mediaItems && timeFixed.mediaItems.length > 0 && timeFixed.mediaItems.every((it: any) => it.url && !it.url.startsWith('blob:') && (it.url.startsWith('http') || it.url.startsWith('orbita-media:'))));
+              if (hasRemoteUrl || hasRemoteItems || !timeFixed.isOutgoing) {
+                const fixed = { ...timeFixed, uploading: false, status: 'sent' as const };
                 (window as any).orbita?.storageAddMessage?.(targetChatId, m.id, fixed).catch(() => {});
                 return fixed;
               }
-              const fixed = { ...m, uploading: false };
+              const fixed = { ...timeFixed, uploading: false };
               (window as any).orbita?.storageAddMessage?.(targetChatId, m.id, fixed).catch(() => {});
               return fixed;
             }
-            return m;
+            return timeFixed;
           });
           useChatStore.setState((state) => {
             if (useChatStore.getState().activeChatId !== targetChatId) return state;
@@ -4902,7 +4925,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             sanitizedCached.forEach((m) => { if (m?.id) map.set(m.id, m); });
             nowMsgs.forEach((m) => { if (m?.id) map.set(m.id, m); });
             if (map.size > nowMsgs.length) {
-              const merged = Array.from(map.values()).sort((a, b) => (a.time || 0) - (b.time || 0));
+              const merged = Array.from(map.values()).sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
               return {
                 messagesByChatId: {
                   ...state.messagesByChatId,
@@ -4997,7 +5020,7 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
           useChatStore.setState((state) => ({
             messagesByChatId: {
               ...state.messagesByChatId,
-              [targetGroupId]: [...(state.messagesByChatId[targetGroupId] || []), ...newMessages].sort((a, b) => a.time - b.time),
+              [targetGroupId]: [...(state.messagesByChatId[targetGroupId] || []), ...newMessages].sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0)),
             },
           }));
 
@@ -5402,10 +5425,11 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
         }
       }
       if (useChatStore.getState().activeChatId !== activeChatId) return;
+      const validPostTime = (typeof post.time === 'number' && post.time > 0) ? post.time : Date.now();
       const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
-      const existing = currentMsgs.find((m) => m.id === post.id);
-      if (existing) {
-        if (existing.text !== postText && !postText.startsWith('orb_e2e:')) {
+      const existingById = currentMsgs.find((m) => m.id === post.id);
+      if (existingById) {
+        if (existingById.text !== postText && !postText.startsWith('orb_e2e:')) {
           useChatStore.setState((state) => ({
             messagesByChatId: {
               ...state.messagesByChatId,
@@ -5415,6 +5439,38 @@ export const ChatWindow = ({ isMobileView = false, onBack }: ChatWindowProps) =>
             },
           }));
         }
+        return;
+      }
+      const optimisticMatch = currentMsgs.find((m) =>
+        m.isOutgoing &&
+        m.status === 'sending' &&
+        ((post.text && m.text === postText) || (post.mediaUrl && m.mediaUrl === post.mediaUrl) || (post.mediaName && m.mediaName === post.mediaName)) &&
+        Math.abs((m.time || 0) - validPostTime) < 120000
+      );
+      if (optimisticMatch) {
+        try {
+          (window as any).orbita?.storageDeleteMessage?.(optimisticMatch.id).catch(() => {});
+        } catch {}
+        useChatStore.setState((state) => {
+          const list = state.messagesByChatId[activeChatId] || [];
+          const updated = list.map((m) =>
+            m.id === optimisticMatch.id
+              ? { ...m, id: post.id, time: validPostTime, text: postText, status: 'read' as const }
+              : m
+          );
+          const saved = updated.find((m) => m.id === post.id);
+          if (saved) {
+            try {
+              (window as any).orbita?.storageAddMessage?.(activeChatId, post.id, saved).catch(() => {});
+            } catch {}
+          }
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: updated,
+            },
+          };
+        });
         return;
       }
     };
