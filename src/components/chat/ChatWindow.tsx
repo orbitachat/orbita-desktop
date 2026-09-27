@@ -4337,10 +4337,6 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
 
         const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
 
-        try {
-          (window as any).orbita?.storageAddMessage?.(activeChatId, messageId, localMessage);
-        } catch {}
-
         if (freshChat?.type === 'group') {
 
           let groupSecret = freshChat.sharedSecret;
@@ -4411,6 +4407,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             freshChat?.name && freshChat.name.length === 36 ? freshChat.name : undefined,
           ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
           if (activeChat?.type === 'private' || freshChat?.type === 'private') {
+            const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
+            const targetIdx = currentMsgs.findIndex((m) => m.id === messageId);
+            const preHandshakeIndex = targetIdx >= 0 ? targetIdx : currentMsgs.length;
             const plaintext = JSON.stringify(messageData);
             for (const recipientId of recipientTargets) {
               supabaseService.sendOfflineMessage(
@@ -4418,7 +4417,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                 myUserId || myCode || myNickname,
                 recipientId,
                 plaintext,
-                0,
+                preHandshakeIndex,
                 'PRE_HANDSHAKE',
                 messageId,
               ).catch(() => {});
@@ -4433,7 +4432,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
               senderUserId: myUserId,
               ciphertext: plaintext,
               type: 'message',
-              index: 0,
+              index: preHandshakeIndex,
               dhPublicKey: 'PRE_HANDSHAKE',
               messageId,
               chatId: activeChatId,

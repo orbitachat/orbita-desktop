@@ -386,7 +386,7 @@ export const MessageInput = memo<MessageInputProps>(({
   const handleEditorInput = () => {
     const el = editorRef.current;
     if (!el) return;
-    const raw = el.innerText.replace(/\u200B/g, '');
+    const raw = (el.textContent || '').replace(/\u200B/g, '');
     const empty = raw.trim() === '';
     if (empty !== isEditorEmpty) {
       setIsEditorEmpty(empty);
