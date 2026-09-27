@@ -49,7 +49,7 @@
       "**/*.ttf"
     ],
     "win": {
-      "icon": "public/orbita1.ico",
+      "icon": "public/icons/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -58,6 +58,12 @@
           ]
         }
       ]
+    },
+    "mac": {
+      "icon": "public/icons/icon.icns"
+    },
+    "linux": {
+      "icon": "public/icons/512x512.png"
     },
     "nsis": {
       "oneClick": false,

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/x-icon" href="/icons/icon.ico" />
   <title>Orbita Notification</title>
   <style>
     @font-face {
@@ -388,8 +389,7 @@
 
       let avatarHtml;
       if (isHidden) {
-        // Если имя/контент скрыты: показываем orbita1.png (напрямую, без круга)
-        avatarHtml = `<img src="./orbita1.png" alt="Orbita" style="width:60px;height:60px;object-fit:contain;display:block;" onerror="this.onerror=null;this.src='/orbita1.png';" />`;
+        avatarHtml = `<img src="./icons/128x128.png" alt="Orbita" style="width:60px;height:60px;object-fit:contain;display:block;" onerror="this.onerror=null;this.src='/icons/128x128.png';" />`;
       } else if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
         // Если имя НЕ скрыто и есть реальная аватарка пользователя:
         const cleanUrl = avatarUrl.split('?')[0];

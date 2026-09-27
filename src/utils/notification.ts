@@ -112,7 +112,7 @@ export function showNotification(
       try {
         const n = new Notification(finalTitle, {
           body: finalBody,
-          icon: finalAvatarUrl || '/orbita1.png',
+          icon: finalAvatarUrl || '/icons/128x128.png',
           tag: chatId || 'orbita-message',
         });
         n.addEventListener('click', () => {
@@ -165,7 +165,7 @@ export function showNotification(
   try {
     const n = new Notification(finalTitle, {
       body: finalBody,
-      icon: '/orbita1.png',
+      icon: '/icons/128x128.png',
       tag:  chatId || 'orbita-message',
     });
     n.addEventListener('click', () => {

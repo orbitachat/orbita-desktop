@@ -118,8 +118,7 @@ const MessageRowWrapper = memo(
     renderFn(index, msg) as React.ReactElement,
   (prev, next) =>
     prev.msg === next.msg &&
-    prev.index === next.index &&
-    prev.renderFn === next.renderFn
+    prev.index === next.index
 );
 MessageRowWrapper.displayName = 'MessageRowWrapper';
 
@@ -154,8 +153,7 @@ const MessageList = memo(
   },
   (prev, next) =>
     prev.messages === next.messages &&
-    prev.startIndex === next.startIndex &&
-    prev.renderFn === next.renderFn
+    prev.startIndex === next.startIndex
 );
 MessageList.displayName = 'MessageList';
 
@@ -2041,9 +2039,7 @@ interface ChatWindowProps {
 export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProps) => {
   const { t, i18n } = useTranslation();
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const activeChat = useChatStore(
-    useCallback((s) => s.chats.find((c) => c.id === activeChatId), [activeChatId])
-  );
+  const activeChat = useChatStore((s) => s.chats.find((c) => c.id === activeChatId));
   const rawMessages = useChatStore(useShallow((s) => {
     const chatId = activeChatId || '';
     return chatId ? s.messagesByChatId[chatId] || EMPTY_ARRAY : EMPTY_ARRAY;
@@ -2358,6 +2354,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
   }, [activeChat?.id, activeChat?.type, activeChat?.sharedSecret]);
 
   const chatMediaViewerItems = useMemo(() => {
+    if (!mediaViewerState.isOpen) return [];
     const list: MediaViewerItem[] = [];
     messages.forEach((msg, msgIdx) => {
       const media = parseMedia(msg);
@@ -2490,9 +2487,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
   const lastChatSwitchTimeRef = useRef(0);
 
   const unreadCount = useMemo(() => {
-    if (!messages || messages.length === 0) return 0;
+    if (!showScrollDown || !messages || messages.length === 0) return 0;
     return messages.filter((m) => !isMessageOutgoing(m, myCode, myNickname, activeChat, myUserId) && !m.read).length;
-  }, [messages, myCode, myNickname, activeChat, myUserId]);
+  }, [showScrollDown, messages, myCode, myNickname, activeChat, myUserId]);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
   const selection = useSelection();
@@ -4533,7 +4530,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       draftDebounceTimerRef.current = null;
     }
     if (activeChatId) clearDraft(activeChatId);
-    setInputText('');
+    if (inputText !== '') setInputText('');
     stopTyping();
     if (replyingTo) {
       let cleanText = replyingTo.text.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n/, '').replace(/\n/g, ' ').trim();
@@ -4552,9 +4549,6 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     setShowScrollDown(false);
 
     scrollToBottom(false);
-    requestAnimationFrame(() => {
-      scrollToBottom(false);
-    });
   };
 
   const handleSendAsTxt = async (_caption: string) => {

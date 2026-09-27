@@ -62,6 +62,11 @@ export function initStorage(): Promise<void> {
 
 export function closeStorage(): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (batchFlushTimer) {
+      clearTimeout(batchFlushTimer);
+      batchFlushTimer = null;
+    }
+    flushPendingMessages();
     if (db) {
       db.close((err) => {
         db = null;
@@ -161,21 +166,41 @@ export function storageGetMessages(chatId: string, limit?: number, offset?: numb
   });
 }
 
+let pendingMessageBatch: Array<{ chatId: string; id: string; messageData: any }> = [];
+let batchFlushTimer: NodeJS.Timeout | null = null;
+
+function scheduleBatchFlush(): void {
+  if (batchFlushTimer) return;
+  batchFlushTimer = setTimeout(() => {
+    batchFlushTimer = null;
+    flushPendingMessages();
+  }, 35);
+}
+
+function flushPendingMessages(): void {
+  if (pendingMessageBatch.length === 0) return;
+  const toWrite = pendingMessageBatch;
+  pendingMessageBatch = [];
+
+  const byChat = new Map<string, Array<{ id: string; messageData: any }>>();
+  for (const item of toWrite) {
+    let list = byChat.get(item.chatId);
+    if (!list) {
+      list = [];
+      byChat.set(item.chatId, list);
+    }
+    list.push({ id: item.id, messageData: item.messageData });
+  }
+
+  for (const [chatId, messages] of byChat.entries()) {
+    storageAddMessagesBatch(chatId, messages).catch(() => {});
+  }
+}
+
 export function storageAddMessage(chatId: string, messageId: string, messageData: any): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const serialized = JSON.stringify(messageData);
-    const encrypted = encryptLocal(Buffer.from(serialized, 'utf8'));
-    const base64 = encrypted.toString('base64');
-    const time = Number(messageData?.time) || Date.now();
-    getDb().run(
-      `INSERT OR REPLACE INTO ${MESSAGES_TABLE} (id, chat_id, message_data, created_at) VALUES (?, ?, ?, ?)`,
-      [messageId, chatId, base64, time],
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
+  pendingMessageBatch.push({ chatId, id: messageId, messageData });
+  scheduleBatchFlush();
+  return Promise.resolve();
 }
 
 export function storageAddMessagesBatch(chatId: string, messages: Array<{ id: string; messageData: any }>): Promise<void> {

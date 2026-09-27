@@ -2258,40 +2258,65 @@ ipcMain.handle('orbita:get-current-font', () => currentFontFamily);
 
 
 
-let currentAppIconName = 'orbita1';
-let currentNotifIconName = 'orbita1';
+let currentAppIconName = 'icon';
+let currentNotifIconName = 'icon';
 
-function resolveIconPath(iconName: string, ext: string): string | undefined {
-  const name = iconName || currentAppIconName || 'orbita1';
+function resolveIconFile(fileName: string): string | undefined {
   const candidates = isPackaged
     ? [
-      path.join(app.getAppPath(), 'dist', `${name}.${ext}`),
-      path.join(process.resourcesPath, 'dist', `${name}.${ext}`),
-      path.join(process.resourcesPath, `${name}.${ext}`),
+      path.join(app.getAppPath(), 'dist', 'icons', fileName),
+      path.join(process.resourcesPath, 'dist', 'icons', fileName),
+      path.join(process.resourcesPath, 'icons', fileName),
+      path.join(app.getAppPath(), 'dist', fileName),
+      path.join(process.resourcesPath, 'dist', fileName),
+      path.join(process.resourcesPath, fileName),
     ]
     : [
-      path.join(__dirname, `../public/${name}.${ext}`),
-      path.join(__dirname, `../dist/${name}.${ext}`),
+      path.join(__dirname, '../public/icons', fileName),
+      path.join(__dirname, '../dist/icons', fileName),
+      path.join(__dirname, '../public', fileName),
+      path.join(__dirname, '../dist', fileName),
     ];
 
   for (const c of candidates) {
     if (fs.existsSync(c)) {
-      console.log('[Icon] Path found:', c);
       return c;
     }
   }
 }
 
+function resolveIconPath(iconName: string, ext: string): string | undefined {
+  const name = iconName || currentAppIconName || 'icon';
+  return resolveIconFile(`${name}.${ext}`) || resolveIconFile(ext === 'ico' ? 'icon.ico' : '256x256.png');
+}
+
 function loadNativeAppIcon(iconName?: string): Electron.NativeImage | undefined {
   try {
-    const name = iconName || currentAppIconName || 'orbita1';
-    const ext = process.platform === 'win32' ? 'ico' : 'png';
-    const resolved = resolveIconPath(name, ext) || resolveIconPath(name, 'png');
-    if (resolved) {
-      const img = nativeImage.createFromPath(resolved);
-      if (img && !img.isEmpty()) {
-        console.log('[Icon] Loaded from:', resolved);
-        return img;
+    const list: string[] = [];
+    if (iconName) {
+      if (process.platform === 'win32') {
+        list.push(`${iconName}.ico`, `${iconName}.png`);
+      } else if (process.platform === 'darwin') {
+        list.push(`${iconName}.icns`, `${iconName}.png`);
+      } else {
+        list.push(`${iconName}.png`, `${iconName}.ico`);
+      }
+    }
+    if (process.platform === 'win32') {
+      list.push('icon.ico', '256x256.png', '512x512.png', '1024x1024.png', 'orbita1.ico', 'orbita1.png');
+    } else if (process.platform === 'darwin') {
+      list.push('icon.icns', '1024x1024.png', '512x512.png', 'icon.ico', 'orbita1.png');
+    } else {
+      list.push('512x512.png', '256x256.png', '1024x1024.png', 'icon.ico', 'orbita1.png');
+    }
+
+    for (const name of list) {
+      const resolved = resolveIconFile(name);
+      if (resolved) {
+        const img = nativeImage.createFromPath(resolved);
+        if (img && !img.isEmpty()) {
+          return img;
+        }
       }
     }
   } catch (err: any) {
@@ -2301,10 +2326,16 @@ function loadNativeAppIcon(iconName?: string): Electron.NativeImage | undefined 
 
 function getNotificationIconBase64(iconName?: string): string | null {
   try {
-    const resolved = resolveIconPath(iconName || currentNotifIconName || 'orbita1', 'png');
-    if (resolved) {
-      const base64 = fs.readFileSync(resolved).toString('base64');
-      return `data:image/png;base64,${base64}`;
+    const candidates = iconName
+      ? [`${iconName}.png`, '128x128.png', '256x256.png', '64x64.png']
+      : ['128x128.png', '256x256.png', '64x64.png'];
+
+    for (const name of candidates) {
+      const resolved = resolveIconFile(name);
+      if (resolved && resolved.endsWith('.png')) {
+        const base64 = fs.readFileSync(resolved).toString('base64');
+        return `data:image/png;base64,${base64}`;
+      }
     }
     return null;
   } catch (err) {
@@ -2315,10 +2346,16 @@ function getNotificationIconBase64(iconName?: string): string | null {
 
 function loadTrayIcon(): Electron.NativeImage | undefined {
   try {
-    const resolved = resolveIconPath('orbita4', 'png');
-    if (resolved) {
-      const img = nativeImage.createFromPath(resolved);
-      if (img && !img.isEmpty()) return img;
+    const trayCandidates = process.platform === 'win32'
+      ? ['icon.ico', '32x32.png', '16x16.png', '24x24.png', '256x256.png']
+      : ['32x32.png', '16x16.png', '24x24.png', 'icon.ico', '256x256.png'];
+
+    for (const name of trayCandidates) {
+      const resolved = resolveIconFile(name);
+      if (resolved) {
+        const img = nativeImage.createFromPath(resolved);
+        if (img && !img.isEmpty()) return img;
+      }
     }
   } catch (err: any) {
     console.warn('[TrayIcon] Error loading static tray icon:', err.message);
@@ -2482,8 +2519,8 @@ ipcMain.on('orbita:set-notification-icon', (_event, iconName: string) => {
 });
 
 ipcMain.handle('orbita:get-current-icons', () => ({
-  appIcon: currentAppIconName || 'orbita1',
-  notificationIcon: currentNotifIconName || 'orbita1',
+  appIcon: currentAppIconName || 'icon',
+  notificationIcon: currentNotifIconName || 'icon',
 }));
 
 ipcMain.handle('orbita:set-show-in-system-tray', (_event, show: boolean) => {
