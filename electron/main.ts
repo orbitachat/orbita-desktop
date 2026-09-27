@@ -76,6 +76,8 @@ app.commandLine.appendSwitch('disk-cache-size', '67108864');
 app.commandLine.appendSwitch('media-cache-size', '33554432');
 app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('enable-smooth-scrolling');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-accelerated-video-encode');
