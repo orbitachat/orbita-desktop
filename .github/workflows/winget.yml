@@ -1,0 +1,30 @@
+name: Publish to WinGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.22)'
+        required: true
+        type: string
+
+jobs:
+  winget:
+    runs-on: windows-latest
+    steps:
+      - name: Extract clean version
+        id: get_version
+        shell: pwsh
+        run: |
+          $ver = "${{ github.event.inputs.version || github.event.release.tag_name }}"
+          $cleanVer = $ver -replace '^v', ''
+          echo "version=$cleanVer" >> $env:GITHUB_OUTPUT
+
+      - name: Submit package to Windows Package Manager Community Repository
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: OrbitaChat.OrbitaChat
+          version: ${{ steps.get_version.outputs.version }}
+          token: ${{ secrets.WINGET_TOKEN }}

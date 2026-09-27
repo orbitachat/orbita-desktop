@@ -1,0 +1,8 @@
+{
+  "framework": null,
+  "buildCommand": "node -e \"const fs = require('fs'); fs.mkdirSync('dist', {recursive: true}); fs.writeFileSync('dist/index.html', 'OK');\"",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ]
+}

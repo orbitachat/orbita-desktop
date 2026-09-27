@@ -1,0 +1,1148 @@
+import {
+  Room,
+  LocalParticipant,
+  RemoteParticipant,
+  RoomEvent,
+  RemoteTrack,
+  LocalTrack,
+  LocalVideoTrack,
+  LocalAudioTrack,
+  Track,
+  VideoPresets,
+  BackupCodecPolicy,
+  type RoomOptions,
+  type RoomConnectOptions,
+} from 'livekit-client';
+import { EventEmitter } from 'events';
+import { useChatStore } from '../store/useChatStore';
+import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
+import type { NoiseSuppressionMode } from './neuralAudioProcessor';
+
+export type CallStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
+export interface ParticipantInfo {
+  identity: string;
+  name?: string;
+  audioEnabled: boolean;
+  videoEnabled: boolean;
+  screenShareEnabled?: boolean;
+  isSpeaking: boolean;
+  isLocal: boolean;
+}
+
+const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://orbita-qd7zok2r.livekit.cloud';
+const LOG_PREFIX = '[LiveKit]';
+const MAX_CONNECT_RETRIES = 5;
+const CONNECT_RETRY_BASE_DELAY_MS = 1000;
+
+class LiveKitService extends EventEmitter {
+  private room: Room | null = null;
+  private localParticipant: LocalParticipant | null = null;
+  private localAudioTrack: LocalTrack | null = null;
+  private localVideoTrack: LocalTrack | null = null;
+  private screenShareTrack: LocalTrack | null = null;
+  private screenShareAudioTrack: LocalTrack | null = null;
+  private participants: Map<string, ParticipantInfo> = new Map();
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private connectionAttempts = 0;
+  private readonly MAX_RECONNECT_ATTEMPTS = 5;
+  private isConnecting = false;
+  private desiredMicEnabled = false;
+  private attachedAudioElements: Map<string, HTMLMediaElement> = new Map();
+  private peerVolume = 1.0;
+  private micVolume = 1.0;
+  private isWindowHidden = false;
+  private visibilityCleanup: (() => void) | null = null;
+
+  constructor() {
+    super();
+    this.room = null;
+    this.initVisibilityWatcher();
+  }
+
+  public setPeerVolume(volume: number): void {
+    this.peerVolume = Math.max(0, Math.min(2.0, volume));
+    this.attachedAudioElements.forEach((el) => {
+      try {
+        el.volume = Math.min(1.0, this.peerVolume);
+      } catch {}
+    });
+    if (this.room) {
+      for (const p of this.room.remoteParticipants.values()) {
+        const pub = p.getTrackPublication(Track.Source.Microphone);
+        if (pub?.track) {
+          try {
+            (pub.track as any).setVolume?.(this.peerVolume);
+          } catch {}
+        }
+      }
+    }
+  }
+
+  public getPeerVolume(): number {
+    return this.peerVolume;
+  }
+
+  public setMicVolume(volume: number): void {
+    this.micVolume = Math.max(0, Math.min(2.0, volume));
+    if (this.localAudioTrack) {
+      try {
+        (this.localAudioTrack as any).setVolume?.(this.micVolume);
+      } catch {}
+    }
+  }
+
+  public getMicVolume(): number {
+    return this.micVolume;
+  }
+
+  private applyHighAudioPriority(track: any): void {
+    try {
+      const sender = track?.sender as RTCRtpSender | undefined;
+      if (sender && typeof sender.getParameters === 'function' && typeof sender.setParameters === 'function') {
+        const params = sender.getParameters();
+        if (params && params.encodings && params.encodings.length > 0) {
+          params.encodings.forEach((enc: any) => {
+            enc.priority = 'high';
+            enc.networkPriority = 'high';
+            enc.maxBitrate = 96000;
+          });
+          sender.setParameters(params).catch(() => {});
+        }
+      }
+    } catch {}
+  }
+
+  public setBackgroundVideoEnabled(enabled: boolean): void {
+    if (!this.room) return;
+    for (const participant of this.room.remoteParticipants.values()) {
+      for (const pub of participant.videoTrackPublications.values()) {
+        try {
+          pub.setEnabled(enabled);
+        } catch {}
+      }
+    }
+  }
+
+  private initVisibilityWatcher(): void {
+    if (this.visibilityCleanup) return;
+
+    const handleVisibilityChange = () => {
+      const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+      this.isWindowHidden = hidden;
+      this.setBackgroundVideoEnabled(!hidden);
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    const orbita = typeof window !== 'undefined' ? (window as any).orbita : null;
+    let removeIpc: (() => void) | undefined;
+    if (orbita?.onCallVisibilityChanged) {
+      removeIpc = orbita.onCallVisibilityChanged((visible: boolean) => {
+        this.isWindowHidden = !visible;
+        this.setBackgroundVideoEnabled(visible);
+      });
+    }
+
+    this.visibilityCleanup = () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+      if (removeIpc) {
+        removeIpc();
+      }
+      this.visibilityCleanup = null;
+    };
+  }
+
+  public get status(): CallStatus {
+    if (!this.room) return 'idle';
+    switch (this.room.state) {
+      case 'connected': return 'connected';
+      case 'connecting': return 'connecting';
+      case 'reconnecting': return 'reconnecting';
+      case 'disconnected': return 'disconnected';
+      default: return 'idle';
+    }
+  }
+
+  public get isConnected(): boolean {
+    return this.room?.state === 'connected';
+  }
+
+  public get localParticipantInfo(): ParticipantInfo | null {
+    if (!this.localParticipant) return null;
+    return this.participants.get(this.localParticipant.identity) || null;
+  }
+
+  public get remoteParticipants(): ParticipantInfo[] {
+    return Array.from(this.participants.values()).filter(p => !p.isLocal);
+  }
+
+  public get allParticipants(): ParticipantInfo[] {
+    return Array.from(this.participants.values());
+  }
+
+  public get isCurrentlyConnecting(): boolean {
+    return this.isConnecting;
+  }
+
+  public getParticipants(): ParticipantInfo[] {
+    return this.allParticipants;
+  }
+
+  public async connect(
+    roomName: string,
+    token: string,
+    url: string = LIVEKIT_URL,
+    verificationSecret?: string,
+  ): Promise<void> {
+    if (this.isConnecting) {
+      console.warn(`${LOG_PREFIX} Already connecting, skipping`);
+      return;
+    }
+    if (this.room && this.room.state === 'connected') {
+      console.warn(`${LOG_PREFIX} Already connected, skipping`);
+      return;
+    }
+
+    this.isConnecting = true;
+    this.currentRoomId++;
+    const targetRoomId = this.currentRoomId;
+    let lastError: unknown = null;
+
+    try {
+      for (let attempt = 1; attempt <= MAX_CONNECT_RETRIES; attempt++) {
+        if (this.currentRoomId !== targetRoomId) {
+          console.log(`${LOG_PREFIX} Connection aborted by disconnect`);
+          return;
+        }
+        this.emit('connectAttempt', attempt, MAX_CONNECT_RETRIES);
+        try {
+          await this.attemptConnect(roomName, token, url, verificationSecret, targetRoomId);
+          console.log(`${LOG_PREFIX} Connected successfully (attempt ${attempt})`);
+          this.emit('connectSuccess', attempt, MAX_CONNECT_RETRIES);
+          return;
+        } catch (err) {
+          if (this.currentRoomId !== targetRoomId) return;
+          lastError = err;
+          console.error(`${LOG_PREFIX} Connection attempt ${attempt}/${MAX_CONNECT_RETRIES} failed:`, err);
+          if (attempt < MAX_CONNECT_RETRIES) {
+            const delay = Math.min(CONNECT_RETRY_BASE_DELAY_MS * attempt, 3000);
+            console.log(`${LOG_PREFIX} Retrying in ${delay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+      }
+      throw lastError instanceof Error ? lastError : new Error('LiveKit connection failed after retries');
+    } finally {
+      if (this.currentRoomId === targetRoomId) {
+        this.isConnecting = false;
+      }
+    }
+  }
+
+
+  private async attemptConnect(
+    roomName: string,
+    token: string,
+    url: string,
+    _verificationSecret?: string,
+    targetRoomId?: number,
+  ): Promise<void> {
+    if (this.room) {
+      await this.cleanupRoom();
+    }
+    
+    if (targetRoomId !== undefined && this.currentRoomId !== targetRoomId) return;
+
+    const alwaysRelay = useChatStore.getState().alwaysRelayCalls;
+    const selectedMicId = useChatStore.getState().selectedMicrophoneId;
+    const selectedCamId = useChatStore.getState().selectedCameraId;
+
+    const roomOptions: RoomOptions = {
+      adaptiveStream: true,
+      dynacast: true,
+      stopLocalTrackOnUnpublish: true,
+      audioCaptureDefaults: {
+        deviceId: selectedMicId || undefined,
+        autoGainControl: true,
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
+        sampleRate: 48000,
+        sampleSize: 16,
+      },
+      videoCaptureDefaults: {
+        deviceId: selectedCamId || undefined,
+        resolution: {
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+          aspectRatio: 16 / 9,
+        },
+      },
+      publishDefaults: {
+        dtx: false,
+        red: true,
+        forceStereo: false,
+        audioPreset: {
+          maxBitrate: 48000,
+          priority: 'high',
+        },
+        videoCodec: 'h264',
+        backupCodec: {
+          codec: 'vp8',
+          encoding: {
+            maxBitrate: 1200000,
+            maxFramerate: 30,
+            priority: 'low',
+          },
+        },
+        backupCodecPolicy: BackupCodecPolicy.REGRESSION,
+        videoEncoding: {
+          maxBitrate: 1500000,
+          maxFramerate: 30,
+          priority: 'medium',
+        },
+        videoSimulcastLayers: [
+          VideoPresets.h360,
+        ],
+        degradationPreference: 'maintain-framerate',
+        screenShareEncoding: {
+          maxBitrate: 2500000,
+          maxFramerate: 30,
+          priority: 'medium',
+        },
+        simulcast: true,
+      },
+    };
+
+    this.room = new Room(roomOptions);
+
+    this.room
+      .on(RoomEvent.Connected, this.onConnected.bind(this))
+      .on(RoomEvent.Disconnected, this.onDisconnected.bind(this))
+      .on(RoomEvent.Reconnecting, this.onReconnecting.bind(this))
+      .on(RoomEvent.Reconnected, this.onReconnected.bind(this))
+      .on(RoomEvent.ParticipantConnected, this.onParticipantConnected.bind(this))
+      .on(RoomEvent.ParticipantDisconnected, this.onParticipantDisconnected.bind(this))
+      .on(RoomEvent.TrackPublished, this.onTrackPublished.bind(this))
+      .on(RoomEvent.TrackUnpublished, this.onTrackUnpublished.bind(this))
+      .on(RoomEvent.TrackSubscribed, this.onTrackSubscribed.bind(this))
+      .on(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed.bind(this))
+      .on(RoomEvent.TrackMuted, this.onTrackMuted.bind(this))
+      .on(RoomEvent.TrackUnmuted, this.onTrackUnmuted.bind(this))
+      .on(RoomEvent.ConnectionQualityChanged, this.onConnectionQualityChanged.bind(this))
+      .on(RoomEvent.LocalTrackPublished, (pub: any) => {
+        if (pub.source === Track.Source.ScreenShare) {
+          this.screenShareTrack = (pub.track as LocalTrack) || null;
+          this.emit('screenShareChanged', true, this.screenShareTrack);
+        }
+      })
+      .on(RoomEvent.LocalTrackUnpublished, (pub: any) => {
+        if (pub.source === Track.Source.ScreenShare) {
+          this.screenShareTrack = null;
+          this.emit('screenShareChanged', false, null);
+        }
+      })
+      .on(RoomEvent.EncryptionError, (err: Error) => {
+        console.error(`${LOG_PREFIX} SFrame Encryption error:`, err);
+      });
+
+    console.log(`${LOG_PREFIX} Connecting to room:`, roomName);
+    const roomConnectOptions: RoomConnectOptions = {
+      rtcConfig: {
+        iceTransportPolicy: alwaysRelay ? 'relay' : 'all',
+      },
+    };
+    await this.room.connect(url, token, roomConnectOptions);
+
+    const selectedSpeakerId = useChatStore.getState().selectedSpeakerId;
+    if (selectedSpeakerId) {
+      try {
+        await this.room.switchActiveDevice('audiooutput', selectedSpeakerId);
+      } catch {}
+    }
+
+  }
+
+  public async setE2EEKey(_secret: string): Promise<void> {}
+
+  private currentRoomId = 0;
+
+  private async cleanupRoom(): Promise<void> {
+    const roomToDisconnect = this.room;
+    this.room = null;
+
+    const oldScreenShareTrack = this.screenShareTrack;
+    this.screenShareTrack = null;
+    const oldScreenShareAudioTrack = this.screenShareAudioTrack;
+    this.screenShareAudioTrack = null;
+    
+    const oldAudioTrack = this.localAudioTrack;
+    this.localAudioTrack = null;
+    
+    const oldVideoTrack = this.localVideoTrack;
+    this.localVideoTrack = null;
+
+    if (oldScreenShareAudioTrack) {
+      try {
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(oldScreenShareAudioTrack);
+        oldScreenShareAudioTrack.stop();
+      } catch {}
+    }
+    if (oldScreenShareTrack) {
+      try {
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(oldScreenShareTrack);
+        oldScreenShareTrack.stop();
+      } catch {}
+    }
+
+    if (oldAudioTrack) {
+      try { await oldAudioTrack.stop(); } catch {}
+    }
+    if (oldVideoTrack) {
+      try { await oldVideoTrack.stop(); } catch {}
+    }
+
+    if (roomToDisconnect) {
+      roomToDisconnect.removeAllListeners();
+      try { await roomToDisconnect.disconnect(); } catch {}
+    }
+
+    this.localParticipant = null;
+    this.participants.clear();
+    this.attachedAudioElements.forEach((el) => {
+      try { el.remove(); } catch {}
+    });
+    this.attachedAudioElements.clear();
+  }
+
+  public async disconnect(): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.connectionAttempts = 0;
+    this.desiredMicEnabled = false;
+
+    this.currentRoomId++;
+    const roomIdToDisconnect = this.currentRoomId;
+    this.isConnecting = false;
+
+    await this.cleanupRoom();
+
+    if (this.currentRoomId === roomIdToDisconnect) {
+      this.emit('disconnected');
+    }
+  }
+
+  public async enableMicrophone(): Promise<boolean> {
+    this.desiredMicEnabled = true;
+
+    if (!this.localParticipant) {
+      return false;
+    }
+
+    const granted = await useDevicePermissionStore.getState().requestPermission('microphone');
+    if (!granted) {
+      this.desiredMicEnabled = false;
+      this.emit('micChanged', false);
+      return false;
+    }
+
+    try {
+      const selectedMicId = useChatStore.getState().selectedMicrophoneId;
+      await this.localParticipant.setMicrophoneEnabled(true, {
+        deviceId: selectedMicId || undefined,
+        autoGainControl: true,
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
+        sampleRate: 48000,
+        sampleSize: 16,
+      }, {
+        dtx: false,
+        forceStereo: false,
+        audioPreset: {
+          maxBitrate: 48000,
+          priority: 'high',
+        },
+      });
+      const pub = this.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (pub?.track) {
+        this.localAudioTrack = pub.track as LocalTrack;
+        try {
+          (this.localAudioTrack as any).setVolume?.(this.micVolume);
+        } catch {}
+        this.applyHighAudioPriority(pub.track);
+      }
+      this.emit('micChanged', true);
+      return true;
+    } catch (err) {
+      this.desiredMicEnabled = false;
+      this.emit('micChanged', false);
+      return false;
+    }
+  }
+
+  public async disableMicrophone(): Promise<void> {
+    this.desiredMicEnabled = false;
+
+    if (!this.localParticipant) {
+      return;
+    }
+
+    try {
+      await this.localParticipant.setMicrophoneEnabled(false);
+    } catch {}
+    this.emit('micChanged', false);
+  }
+
+  public async toggleMicrophone(): Promise<boolean> {
+    if (this.desiredMicEnabled) {
+      await this.disableMicrophone();
+      return false;
+    } else {
+      return await this.enableMicrophone();
+    }
+  }
+
+  public async updateAudioConstraints(): Promise<void> {
+    const selectedMicId = useChatStore.getState().selectedMicrophoneId;
+
+    if (this.desiredMicEnabled && this.localParticipant) {
+      try {
+        await this.localParticipant.setMicrophoneEnabled(true, {
+          deviceId: selectedMicId || undefined,
+          autoGainControl: true,
+          echoCancellation: true,
+          noiseSuppression: true,
+          channelCount: 2,
+          sampleRate: 48000,
+          sampleSize: 16,
+        }, {
+          dtx: true,
+          forceStereo: true,
+          audioPreset: {
+            maxBitrate: 96000,
+            priority: 'high',
+          },
+        });
+        const pub = this.localParticipant.getTrackPublication(Track.Source.Microphone);
+        if (pub?.track) {
+          this.localAudioTrack = pub.track as LocalTrack;
+          try {
+            (this.localAudioTrack as any).setVolume?.(this.micVolume);
+          } catch {}
+          this.applyHighAudioPriority(pub.track);
+        }
+      } catch {}
+      return;
+    }
+
+    if (this.localAudioTrack && this.localAudioTrack.mediaStreamTrack) {
+      try {
+        await this.localAudioTrack.mediaStreamTrack.applyConstraints({
+          noiseSuppression: true,
+          echoCancellation: true,
+          autoGainControl: true,
+          channelCount: 2,
+          sampleRate: 48000,
+          sampleSize: 16,
+        });
+      } catch {}
+    }
+  }
+
+  public async setNoiseSuppressionMode(mode: NoiseSuppressionMode): Promise<void> {
+    useChatStore.getState().setNoiseSuppressionMode(mode);
+    await this.updateAudioConstraints();
+  }
+
+  public async switchDevice(kind: 'audioinput' | 'audiooutput' | 'videoinput', deviceId: string): Promise<void> {
+    if (kind === 'audioinput') {
+      useChatStore.getState().setSelectedMicrophoneId(deviceId);
+      if (this.room) {
+        try {
+          await this.room.switchActiveDevice('audioinput', deviceId);
+        } catch {}
+      }
+      if (this.desiredMicEnabled && this.localParticipant) {
+        await this.disableMicrophone();
+        await this.enableMicrophone();
+      }
+    } else if (kind === 'audiooutput') {
+      useChatStore.getState().setSelectedSpeakerId(deviceId);
+      if (this.room) {
+        try {
+          await this.room.switchActiveDevice('audiooutput', deviceId);
+        } catch {}
+      }
+      this.attachedAudioElements.forEach((el) => {
+        try {
+          if (typeof (el as any).setSinkId === 'function') {
+            (el as any).setSinkId(deviceId);
+          }
+        } catch {}
+      });
+    } else if (kind === 'videoinput') {
+      useChatStore.getState().setSelectedCameraId(deviceId);
+      if (this.room) {
+        try {
+          await this.room.switchActiveDevice('videoinput', deviceId);
+        } catch {}
+      }
+    }
+  }
+
+  private async restoreMicStateAfterReconnect(): Promise<void> {
+    if (!this.desiredMicEnabled) return;
+    try {
+      if (!this.localParticipant) {
+        console.warn(`${LOG_PREFIX} Cannot restore mic: no local participant after reconnect`);
+        return;
+      }
+      const stillPublished = this.localAudioTrack && this.localParticipant
+        .getTrackPublication(Track.Source.Microphone)?.track === this.localAudioTrack;
+
+      if (stillPublished) {
+        this.localAudioTrack!.mediaStreamTrack.enabled = true;
+        this.emit('micChanged', true);
+        console.log(`${LOG_PREFIX} Mic track survived reconnect, re-enabled`);
+        return;
+      }
+
+      console.log(`${LOG_PREFIX} Mic track lost during reconnect, re-publishing...`);
+      this.localAudioTrack = null;
+      await this.enableMicrophone();
+    } catch (err) {
+      console.error(`${LOG_PREFIX} Failed to restore mic state after reconnect:`, err);
+    }
+  }
+
+  public async enableCamera(): Promise<boolean> {
+    if (!this.localParticipant) {
+      return false;
+    }
+    const granted = await useDevicePermissionStore.getState().requestPermission('camera');
+    if (!granted) {
+      this.localVideoTrack = null;
+      this.updateParticipants();
+      this.emit('cameraChanged', false, null);
+      return false;
+    }
+    try {
+      const selectedCamId = useChatStore.getState().selectedCameraId;
+      await this.localParticipant.setCameraEnabled(true, {
+        deviceId: selectedCamId || undefined,
+        resolution: {
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+          aspectRatio: 16 / 9,
+        },
+      }, {
+        videoCodec: 'h264',
+        backupCodec: {
+          codec: 'vp8',
+          encoding: {
+            maxBitrate: 1200000,
+            maxFramerate: 30,
+            priority: 'low',
+          },
+        },
+        backupCodecPolicy: BackupCodecPolicy.REGRESSION,
+        videoEncoding: {
+          maxBitrate: 1500000,
+          maxFramerate: 30,
+          priority: 'medium',
+        },
+        videoSimulcastLayers: [
+          VideoPresets.h360,
+        ],
+        degradationPreference: 'maintain-framerate',
+        simulcast: true,
+      });
+      const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);
+      if (pub?.track) {
+        this.localVideoTrack = pub.track as LocalTrack;
+      }
+      this.updateParticipants();
+      this.emit('cameraChanged', true, this.localVideoTrack);
+      return true;
+    } catch (err) {
+      this.localVideoTrack = null;
+      this.updateParticipants();
+      this.emit('cameraChanged', false, null);
+      return false;
+    }
+  }
+
+  public async disableCamera(): Promise<void> {
+    if (!this.localParticipant) {
+      return;
+    }
+    try {
+      await this.localParticipant.setCameraEnabled(false);
+    } catch {}
+    this.localVideoTrack = null;
+    this.updateParticipants();
+    this.emit('cameraChanged', false, null);
+  }
+
+  public async toggleCamera(): Promise<boolean> {
+    const isCurrentlyEnabled = !!(
+      this.localVideoTrack &&
+      this.localVideoTrack.mediaStreamTrack &&
+      this.localVideoTrack.mediaStreamTrack.enabled &&
+      !this.localVideoTrack.isMuted
+    );
+    if (isCurrentlyEnabled) {
+      await this.disableCamera();
+      return false;
+    } else {
+      return await this.enableCamera();
+    }
+  }
+
+  public getLocalVideoTrack(): LocalTrack | null {
+    if (!this.localParticipant) return null;
+    const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);
+    return (pub?.track as LocalTrack) || this.localVideoTrack;
+  }
+
+  public getRemoteVideoTrack(identity?: string): RemoteTrack | null {
+    if (!this.room) return null;
+    if (identity) {
+      const p = this.room.getParticipantByIdentity(identity)
+        || Array.from(this.room.remoteParticipants.values()).find((part) => part.identity === identity || part.name === identity);
+      if (p) {
+        const pub = p.getTrackPublication(Track.Source.Camera)
+          || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.Camera);
+        return (pub?.track as RemoteTrack) || null;
+      }
+    }
+    for (const p of this.room.remoteParticipants.values()) {
+      const pub = p.getTrackPublication(Track.Source.Camera)
+        || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.Camera);
+      if (pub?.track) return pub.track as RemoteTrack;
+    }
+    return null;
+  }
+
+  public async startScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: number; audio?: boolean }): Promise<boolean> {
+    if (!this.localParticipant) {
+      return false;
+    }
+    const is720 = options?.quality === '720p';
+    const width = is720 ? 1280 : 1920;
+    const height = is720 ? 720 : 1080;
+    const frameRate = options?.fps === 60 ? 60 : 30;
+    const is60Fps = frameRate === 60;
+    const maxBitrate = is720 ? (is60Fps ? 3000000 : 2000000) : (is60Fps ? 4800000 : 3500000);
+    const includeAudio = !!options?.audio;
+
+    try {
+      if (options?.sourceId) {
+        const constraints: any = {
+          audio: includeAudio
+            ? {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                },
+              }
+            : false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: options.sourceId,
+              maxWidth: width,
+              maxHeight: height,
+              maxFrameRate: frameRate,
+            },
+          },
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const vTrack = stream.getVideoTracks()[0];
+        if (!vTrack) throw new Error('No video track');
+
+        if ('contentHint' in vTrack) {
+          vTrack.contentHint = is60Fps ? 'motion' : 'detail';
+        }
+
+        const localVTrack = new LocalVideoTrack(vTrack, undefined, false);
+        localVTrack.source = Track.Source.ScreenShare;
+        await this.localParticipant.publishTrack(localVTrack, {
+          source: Track.Source.ScreenShare,
+          name: 'screen_share',
+          simulcast: true,
+          videoEncoding: {
+            maxBitrate,
+            maxFramerate: frameRate,
+            priority: 'high',
+          },
+          degradationPreference: is60Fps ? 'maintain-framerate' : 'maintain-resolution',
+        });
+        this.screenShareTrack = localVTrack;
+
+        vTrack.onended = () => {
+          void this.stopScreenShare();
+        };
+
+        if (includeAudio && stream.getAudioTracks().length > 0) {
+          const aTrack = stream.getAudioTracks()[0];
+          const localATrack = new LocalAudioTrack(aTrack, undefined, false);
+          await this.localParticipant.publishTrack(localATrack, {
+            source: Track.Source.ScreenShareAudio,
+            name: 'screen_share_audio',
+            forceStereo: true,
+            dtx: true,
+            audioPreset: {
+              maxBitrate: 96000,
+              priority: 'high',
+            },
+          });
+          this.screenShareAudioTrack = localATrack;
+        }
+
+        this.emit('screenShareChanged', true, this.screenShareTrack);
+        return true;
+      }
+
+      await this.localParticipant.setScreenShareEnabled(true, {
+        audio: includeAudio,
+        contentHint: is60Fps ? 'motion' : 'detail',
+        resolution: {
+          width,
+          height,
+          frameRate,
+        },
+      }, {
+        simulcast: true,
+        screenShareEncoding: {
+          maxBitrate,
+          maxFramerate: frameRate,
+        },
+        degradationPreference: is60Fps ? 'maintain-framerate' : 'maintain-resolution',
+      });
+      const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+      if (pub?.track) {
+        if ('contentHint' in pub.track.mediaStreamTrack) {
+          pub.track.mediaStreamTrack.contentHint = is60Fps ? 'motion' : 'detail';
+        }
+        this.screenShareTrack = pub.track as LocalTrack;
+        pub.track.mediaStreamTrack.onended = () => {
+          void this.stopScreenShare();
+        };
+      }
+      this.emit('screenShareChanged', true, this.screenShareTrack);
+      return true;
+    } catch (err) {
+      this.screenShareTrack = null;
+      this.screenShareAudioTrack = null;
+      this.emit('screenShareChanged', false, null);
+      return false;
+    }
+  }
+
+  public async stopScreenShare(): Promise<void> {
+    if (this.screenShareAudioTrack) {
+      try {
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(this.screenShareAudioTrack);
+        this.screenShareAudioTrack.stop();
+      } catch {}
+      this.screenShareAudioTrack = null;
+    }
+    if (this.screenShareTrack) {
+      try {
+        if (this.localParticipant) await this.localParticipant.unpublishTrack(this.screenShareTrack);
+        this.screenShareTrack.stop();
+      } catch {}
+      this.screenShareTrack = null;
+    }
+    if (this.localParticipant) {
+      try {
+        await this.localParticipant.setScreenShareEnabled(false);
+      } catch {}
+    }
+    this.screenShareTrack = null;
+    this.screenShareAudioTrack = null;
+    this.emit('screenShareChanged', false, null);
+  }
+
+  public async toggleScreenShare(options?: { sourceId?: string; quality?: '720p' | '1080p'; fps?: number; audio?: boolean }): Promise<boolean> {
+    if (this.isScreenSharing()) {
+      await this.stopScreenShare();
+      return false;
+    } else {
+      return await this.startScreenShare(options);
+    }
+  }
+
+  public isScreenSharing(): boolean {
+    if (!this.localParticipant) return false;
+    return !!(this.localParticipant.isScreenShareEnabled || this.screenShareTrack);
+  }
+
+  public getScreenShareTrack(): LocalTrack | null {
+    if (!this.localParticipant) return null;
+    const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+    return (pub?.track as LocalTrack) || this.screenShareTrack;
+  }
+
+  public getRemoteScreenShareTrack(identity?: string): RemoteTrack | null {
+    if (!this.room) return null;
+    if (identity) {
+      const p = this.room.getParticipantByIdentity(identity)
+        || Array.from(this.room.remoteParticipants.values()).find((part) => part.identity === identity || part.name === identity);
+      if (p) {
+        const pub = p.getTrackPublication(Track.Source.ScreenShare)
+          || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.ScreenShare);
+        return (pub?.track as RemoteTrack) || null;
+      }
+    }
+    for (const p of this.room.remoteParticipants.values()) {
+      const pub = p.getTrackPublication(Track.Source.ScreenShare)
+        || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.ScreenShare);
+      if (pub?.track) return pub.track as RemoteTrack;
+    }
+    return null;
+  }
+
+  private onConnected(): void {
+    this.connectionAttempts = 0;
+    this.localParticipant = this.room!.localParticipant;
+    this.updateParticipants();
+    if (this.room) {
+      for (const p of this.room.remoteParticipants.values()) {
+        for (const pub of p.trackPublications.values()) {
+          if (pub.track && pub.track.kind === Track.Kind.Audio) {
+            const key = `${p.identity}:${pub.track.sid}`;
+            if (!this.attachedAudioElements.has(key)) {
+              try {
+                const el = (pub.track as RemoteTrack).attach();
+                el.id = `livekit-audio-${p.identity}`;
+                el.autoplay = true;
+                el.volume = Math.min(1.0, this.peerVolume);
+                el.style.display = 'none';
+                document.body.appendChild(el);
+                this.attachedAudioElements.set(key, el);
+                try {
+                  const pl = el.play();
+                  if (pl && typeof pl.catch === 'function') pl.catch(() => {});
+                } catch {}
+                try {
+                  (pub.track as any).setVolume?.(this.peerVolume);
+                } catch {}
+              } catch {}
+            }
+          }
+        }
+      }
+    }
+    this.emit('connected');
+    console.log(`${LOG_PREFIX} Connected to room`);
+  }
+
+  private onDisconnected(): void {
+    this.localParticipant = null;
+    this.participants.clear();
+    this.emit('disconnected');
+    console.log(`${LOG_PREFIX} Disconnected from room`);
+  }
+
+  private onReconnecting(): void {
+    this.emit('reconnecting');
+    console.log(`${LOG_PREFIX} Reconnecting...`);
+  }
+
+  private onReconnected(): void {
+    this.emit('reconnected');
+    console.log(`${LOG_PREFIX} Reconnected`);
+    this.updateParticipants();
+    void this.restoreMicStateAfterReconnect();
+  }
+
+  private onParticipantConnected(participant: RemoteParticipant): void {
+    this.updateParticipants();
+    this.emit('participantJoined', this.participants.get(participant.identity));
+    console.log(`${LOG_PREFIX} Participant joined:`, participant.identity);
+  }
+
+  private onParticipantDisconnected(participant: RemoteParticipant): void {
+    this.participants.delete(participant.identity);
+    this.emit('participantLeft', participant.identity);
+    console.log(`${LOG_PREFIX} Participant left:`, participant.identity);
+  }
+
+  private onTrackPublished(_publication: any, _participant: RemoteParticipant): void {
+    this.updateParticipants();
+  }
+
+  private onTrackUnpublished(_publication: any, _participant: RemoteParticipant): void {
+    this.updateParticipants();
+  }
+
+  private onTrackSubscribed(track: RemoteTrack, _publication: any, participant: RemoteParticipant): void {
+    if (track.kind === Track.Kind.Audio) {
+      const key = `${participant.identity}:${track.sid}`;
+      try {
+        const el = track.attach();
+        el.id = `livekit-audio-${participant.identity}`;
+        el.autoplay = true;
+        el.volume = Math.min(1.0, this.peerVolume);
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        this.attachedAudioElements.set(key, el);
+        try {
+          const p = el.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch {}
+        try {
+          (track as any).setVolume?.(this.peerVolume);
+        } catch {}
+      } catch {}
+    }
+    if (track.kind === Track.Kind.Video && this.isWindowHidden && _publication) {
+      try {
+        _publication.setEnabled(false);
+      } catch {}
+    }
+    if (track.source === Track.Source.ScreenShare) {
+      this.emit('remoteScreenShareChanged', true, track, participant.identity);
+    }
+    this.updateParticipants();
+    this.emit('trackSubscribed', track, participant.identity);
+  }
+
+  private onTrackUnsubscribed(track: RemoteTrack, _publication: any, participant: RemoteParticipant): void {
+    if (track.kind === Track.Kind.Audio) {
+      const key = `${participant.identity}:${track.sid}`;
+      const el = this.attachedAudioElements.get(key);
+      if (el) {
+        try { track.detach(el as HTMLAudioElement); } catch {}
+        try { el.remove(); } catch {}
+        this.attachedAudioElements.delete(key);
+      } else {
+        try { track.detach().forEach((detachedEl) => detachedEl.remove()); } catch {}
+      }
+    }
+    if (track.source === Track.Source.ScreenShare) {
+      this.emit('remoteScreenShareChanged', false, null, participant.identity);
+    }
+    this.updateParticipants();
+    this.emit('trackUnsubscribed', track, participant.identity);
+  }
+
+  private onTrackMuted(_publication: any, _participant: any): void {
+    this.updateParticipants();
+    this.emit('trackMuted');
+  }
+
+  private onTrackUnmuted(_publication: any, _participant: any): void {
+    this.updateParticipants();
+    this.emit('trackUnmuted');
+  }
+
+  private onConnectionQualityChanged(quality: any, participant: any): void {
+    this.emit('connectionQuality', quality, participant.identity);
+  }
+
+  private updateParticipants(): void {
+    if (!this.room) return;
+    this.participants.clear();
+
+    if (this.localParticipant) {
+      const isVideoOn = !!(
+        this.localVideoTrack &&
+        this.localVideoTrack.mediaStreamTrack &&
+        this.localVideoTrack.mediaStreamTrack.enabled &&
+        !this.localVideoTrack.isMuted
+      );
+      const isScreenOn = this.isScreenSharing();
+      const info: ParticipantInfo = {
+        identity: this.localParticipant.identity,
+        name: this.localParticipant.name || this.localParticipant.identity,
+        audioEnabled: this.localAudioTrack?.mediaStreamTrack.enabled ?? false,
+        videoEnabled: isVideoOn,
+        screenShareEnabled: isScreenOn,
+        isSpeaking: false,
+        isLocal: true,
+      };
+      this.participants.set(this.localParticipant.identity, info);
+    }
+
+    for (const [identity, participant] of this.room.remoteParticipants) {
+      const audioPub = participant.getTrackPublication(Track.Source.Microphone)
+        || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
+      const audioEnabled = audioPub?.track?.mediaStreamTrack.enabled ?? false;
+      const videoPub = participant.getTrackPublication(Track.Source.Camera)
+        || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Camera);
+      const videoEnabled = !!(
+        videoPub &&
+        videoPub.track &&
+        videoPub.track.mediaStreamTrack &&
+        videoPub.track.mediaStreamTrack.enabled &&
+        !videoPub.isMuted
+      );
+      const screenPub = participant.getTrackPublication(Track.Source.ScreenShare)
+        || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.ScreenShare);
+      const screenShareEnabled = !!(
+        screenPub &&
+        screenPub.track &&
+        screenPub.track.mediaStreamTrack &&
+        screenPub.track.mediaStreamTrack.enabled &&
+        !screenPub.isMuted
+      );
+      const parsedName = participant.name && participant.name !== identity
+        ? participant.name
+        : (identity.includes('_') ? identity.split('_')[0] : identity);
+      const info: ParticipantInfo = {
+        identity,
+        name: parsedName,
+        audioEnabled,
+        videoEnabled,
+        screenShareEnabled,
+        isSpeaking: participant.isSpeaking,
+        isLocal: false,
+      };
+      this.participants.set(identity, info);
+    }
+    this.emit('participantsChanged', this.allParticipants);
+  }
+
+  public getParticipant(identity: string): ParticipantInfo | undefined {
+    return this.participants.get(identity);
+  }
+
+  public enableAutoReconnect(): void {
+    this.on('disconnected', () => {
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      if (this.connectionAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+        this.reconnectTimer = setTimeout(() => {
+          this.connectionAttempts++;
+          console.log(`${LOG_PREFIX} Auto-reconnect attempt ${this.connectionAttempts}`);
+          this.emit('reconnectAttempt', this.connectionAttempts);
+        }, 2000 * this.connectionAttempts);
+      } else {
+        console.error(`${LOG_PREFIX} Max reconnect attempts reached`);
+        this.emit('reconnectFailed');
+      }
+    });
+  }
+
+  public cancelAutoReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+}
+
+export const liveKitService = new LiveKitService();
+export default liveKitService;

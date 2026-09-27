@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "../dist-electron",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": false,
+    "strict": false,
+    "noEmit": false,
+    "types": ["node"]
+  },
+  "include": ["main.ts", "preload.ts"],
+  "exclude": ["node_modules"]
+}

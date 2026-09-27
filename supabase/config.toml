@@ -1,0 +1,2 @@
+[functions.gateway]
+verify_jwt = false
