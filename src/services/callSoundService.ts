@@ -16,10 +16,10 @@ class CallSoundService {
 
   private getPath(type: CallSoundType): string {
     const map: Record<CallSoundType, string> = {
-      incoming: 'sounds/2.wav',
-      outgoing: 'sounds/1.wav',
-      connect:  'sounds/4.wav',
-      end:      'sounds/3.wav',
+      incoming: 'sounds/call_ringing.mp3',
+      outgoing: 'sounds/call_calling.mp3',
+      connect:  'sounds/connect.mp3',
+      end:      'sounds/disconnect.mp3',
     };
     return map[type];
   }

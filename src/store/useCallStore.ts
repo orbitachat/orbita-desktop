@@ -924,6 +924,7 @@ export const useCallStore = create<CallStore>((set, get) => {
         return;
       }
       if (state.isEnding || !state.activeCall) return;
+      callSoundService.play('end');
       set({ isEnding: true });
       const activeCall = state.activeCall;
       const { chatId, direction, startTime, roomName } = activeCall;
@@ -1080,7 +1081,6 @@ export const useCallStore = create<CallStore>((set, get) => {
         }
         set({ activeCall: { ...state.activeCall, endedStatus: 'missed' }, callState: 'ended' });
       }
-      callSoundService.play('end');
       get().endCall(false);
     },
 
@@ -1104,7 +1104,6 @@ export const useCallStore = create<CallStore>((set, get) => {
         const newStatus = state.callState === 'connected' ? 'completed' : 'failed';
         set({ activeCall: { ...state.activeCall, endedStatus: newStatus }, callState: 'ended', statusMessage: '' });
       }
-      callSoundService.play('end');
       get().endCall(false);
     },
 

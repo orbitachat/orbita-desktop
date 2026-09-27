@@ -359,12 +359,12 @@
       // Воспроизводим звук с учетом заданной громкости
       if (soundEnabled) {
         try {
-          const audio = new Audio('./sounds/incoming_notification.mp3');
+          const audio = new Audio('./sounds/notification.mp3');
           const vol = typeof volume === 'number' ? Math.max(0, Math.min(1, volume / 100)) : 1.0;
           audio.volume = vol;
           audio.play().catch(() => {
             try {
-              const fallbackAudio = new Audio('/sounds/incoming_notification.mp3');
+              const fallbackAudio = new Audio('/sounds/notification.mp3');
               fallbackAudio.volume = vol;
               fallbackAudio.play().catch(() => {});
             } catch (_) {}

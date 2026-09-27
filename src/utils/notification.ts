@@ -47,17 +47,24 @@ export function showNotification(
 ): void {
   const state = useChatStore.getState();
 
-  // ===== ПРОВЕРКА: уведомления включены? =====
-  if (!state.notificationsEnabled) {
-    console.log('[Notification] Уведомления отключены в настройках, пропускаем.');
-    return;
-  }
-
   if (chatId) {
     const targetChat = state.chats.find(c => c.id === chatId);
-    if (targetChat && (targetChat.muted || targetChat.notificationsEnabled === false)) {
+    if (targetChat && targetChat.muted) {
       return;
     }
+    if (targetChat && targetChat.notificationsEnabled === false) {
+      if (state.notificationSoundEnabled) {
+        playNotificationSound();
+      }
+      return;
+    }
+  }
+
+  if (!state.notificationsEnabled) {
+    if (state.notificationSoundEnabled) {
+      playNotificationSound();
+    }
+    return;
   }
 
   const {
@@ -199,9 +206,26 @@ export async function playNotificationSound() {
     }
 
     if (!notificationAudioBuffer) {
-      const response = await fetch('./sounds/incoming_notification.mp3');
-      const arrayBuffer = await response.arrayBuffer();
-      notificationAudioBuffer = await notificationAudioContext.decodeAudioData(arrayBuffer);
+      const candidates = ['./sounds/notification.mp3', '/sounds/notification.mp3', 'sounds/notification.mp3'];
+      for (const candidate of candidates) {
+        try {
+          const response = await fetch(candidate);
+          if (!response.ok) continue;
+          const arrayBuffer = await response.arrayBuffer();
+          notificationAudioBuffer = await notificationAudioContext.decodeAudioData(arrayBuffer);
+          break;
+        } catch {}
+      }
+    }
+
+    if (!notificationAudioBuffer) {
+      try {
+        const audio = new Audio('./sounds/notification.mp3');
+        const vol = typeof state.notificationVolume === 'number' ? Math.max(0, Math.min(1, state.notificationVolume / 100)) : 1.0;
+        audio.volume = vol;
+        audio.play().catch(() => {});
+      } catch {}
+      return;
     }
 
     const vol = typeof state.notificationVolume === 'number' ? Math.max(0, Math.min(1, state.notificationVolume / 100)) : 1.0;
