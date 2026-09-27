@@ -4413,14 +4413,44 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           if (activeChat?.type === 'private' || freshChat?.type === 'private') {
             const plaintext = JSON.stringify(messageData);
             for (const recipientId of recipientTargets) {
-              supabaseService.saveNonMessage(
+              supabaseService.sendOfflineMessage(
                 activeChatId,
-                myCode || myNickname,
+                myUserId || myCode || myNickname,
                 recipientId,
                 plaintext,
+                0,
+                'PRE_HANDSHAKE',
                 messageId,
               ).catch(() => {});
             }
+
+            const preHandshakePayload = {
+              ...(mediaPayload ? { mediaType: mediaPayload.type, mediaUrl: mediaPayload.url, mediaName: mediaPayload.name, mime: mediaPayload.mime } : {}),
+              sender: myNickname,
+              avatarUrl: myAvatarUrl || null,
+              senderCode: myCode,
+              senderId: myUserId || myCode,
+              senderUserId: myUserId,
+              ciphertext: plaintext,
+              type: 'message',
+              index: 0,
+              dhPublicKey: 'PRE_HANDSHAKE',
+              messageId,
+              chatId: activeChatId,
+            };
+            try {
+              ablyService.sendMessage(activeChatId, preHandshakePayload).catch(() => {});
+            } catch {}
+            try {
+              const channel = pusher.subscribe(`private-chat-${activeChatId}`);
+              const doSendPusher = () => {
+                try {
+                  channel.trigger('client-message', preHandshakePayload);
+                } catch {}
+              };
+              if (channel.subscribed) doSendPusher(); else channel.bind('pusher:subscription_succeeded', doSendPusher);
+            } catch {}
+
             useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
           }
           return;

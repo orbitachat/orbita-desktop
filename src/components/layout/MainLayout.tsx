@@ -1440,32 +1440,45 @@ export const MainLayout = () => {
             }
           }
 
-          const activeRatchetState = ratchetStateUpdates.get(record.chat_id) || chat?.ratchetState;
-          if (!chat || !chat.sharedSecret || !activeRatchetState) {
-            processedMessageIds.current.add(record.id);
-            deliveredIds.push(record.id);
+          if (!chat) {
             continue;
           }
 
-          const ratchet = DoubleRatchet.fromState(activeRatchetState);
-          const decrypted = await ratchet.decrypt(
-            record.ciphertext,
-            record.message_index,
-            record.dh_public_key,
-            record.prev_chain_count ?? undefined,
-          );
-          if (decrypted === null) {
-            continue;
-          }
-          ratchetStateUpdates.set(record.chat_id, ratchet.getState());
+          let messageData: any = null;
 
-          let messageData;
-          try {
-            messageData = JSON.parse(decrypted);
-          } catch {
-            processedMessageIds.current.add(record.id);
-            deliveredIds.push(record.id);
-            continue;
+          if (record.dh_public_key === 'PRE_HANDSHAKE' || (!record.dh_public_key && record.ciphertext?.startsWith('{'))) {
+            try {
+              messageData = JSON.parse(record.ciphertext);
+            } catch {
+              processedMessageIds.current.add(record.id);
+              deliveredIds.push(record.id);
+              continue;
+            }
+          } else {
+            const activeRatchetState = ratchetStateUpdates.get(record.chat_id) || chat?.ratchetState;
+            if (!chat || !chat.sharedSecret || !activeRatchetState) {
+              continue;
+            }
+
+            const ratchet = DoubleRatchet.fromState(activeRatchetState);
+            const decrypted = await ratchet.decrypt(
+              record.ciphertext,
+              record.message_index,
+              record.dh_public_key,
+              record.prev_chain_count ?? undefined,
+            );
+            if (decrypted === null) {
+              continue;
+            }
+            ratchetStateUpdates.set(record.chat_id, ratchet.getState());
+
+            try {
+              messageData = JSON.parse(decrypted);
+            } catch {
+              processedMessageIds.current.add(record.id);
+              deliveredIds.push(record.id);
+              continue;
+            }
           }
 
           if (messageData?.type === 'delete-message' || messageData?.type === 'delete') {
@@ -3528,29 +3541,35 @@ export const MainLayout = () => {
           if (!currentChat) {
             currentChat = useChatStore.getState().restoreDeletedChat(chatId) || undefined;
           }
-          if (!currentChat || !currentChat.ratchetState) {
-            console.warn('[subscribeToChat] Chat or ratchetState not ready for chatId:', chatId);
-            return;
-          }
-          const ratchet = DoubleRatchet.fromState(currentChat.ratchetState);
-          const decrypted = await ratchet.decrypt(
-            data.ciphertext,
-            data.index,
-            data.dhPublicKey ?? '',
-            data.prevChainCount,
-          );
-          if (decrypted === null) {
-            console.warn('[subscribeToChat] Cannot decrypt message index (stale or duplicate):', data.index);
-            return;
-          }
-          updateChat(chatId, { ratchetState: ratchet.getState() });
+          let messageData: any = null;
+          if (data.dhPublicKey === 'PRE_HANDSHAKE' || (!data.dhPublicKey && data.ciphertext?.startsWith('{'))) {
+            try {
+              messageData = JSON.parse(data.ciphertext);
+            } catch {
+              return;
+            }
+          } else {
+            if (!currentChat || !currentChat.ratchetState) {
+              processedMessageIds.current.delete(messageKey);
+              return;
+            }
+            const ratchet = DoubleRatchet.fromState(currentChat.ratchetState);
+            const decrypted = await ratchet.decrypt(
+              data.ciphertext,
+              data.index,
+              data.dhPublicKey ?? '',
+              data.prevChainCount,
+            );
+            if (decrypted === null) {
+              return;
+            }
+            updateChat(chatId, { ratchetState: ratchet.getState() });
 
-          let messageData;
-          try {
-            messageData = JSON.parse(decrypted);
-          } catch {
-            console.warn('[subscribeToChat] Invalid JSON in message');
-            return;
+            try {
+              messageData = JSON.parse(decrypted);
+            } catch {
+              return;
+            }
           }
 
           if (messageData?.type === 'receipt' || messageData?.type === 'read' || messageData?.receiptType === 'read') {
