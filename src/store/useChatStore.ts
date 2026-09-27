@@ -363,7 +363,7 @@ const ipcStorage: StateStorage = {
     if (setItemTimer) clearTimeout(setItemTimer);
     setItemTimer = setTimeout(() => {
       flushStorageSet();
-    }, 300);
+    }, 1000);
     return Promise.resolve();
   },
   removeItem: async (name: string): Promise<void> => {
@@ -1170,7 +1170,6 @@ export const useChatStore = create<ChatState>()(
             }
           }
         }
-        flushStorageSet();
       },
       deleteMessage: (chatId, messageId) => {
         const state = get();
@@ -1194,7 +1193,6 @@ export const useChatStore = create<ChatState>()(
         if (typeof window !== 'undefined' && (window as any).orbita?.storageDeleteMessage) {
           (window as any).orbita.storageDeleteMessage(messageId).catch(() => {});
         }
-        flushStorageSet();
       },
       updateMessageStatus: (chatId, messageId, status) => {
         const state = get();
@@ -1225,7 +1223,6 @@ export const useChatStore = create<ChatState>()(
             }
           }
         }
-        flushStorageSet();
       },
       editMessage: (chatId, messageId, newText, encryptedText?, index?) => {
         const state = get();
@@ -1248,7 +1245,6 @@ export const useChatStore = create<ChatState>()(
         if (editedMsg && typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
           (window as any).orbita.storageAddMessage(chatId, messageId, editedMsg).catch(() => {});
         }
-        flushStorageSet();
       },
       toggleReaction: (chatId, messageIndexOrId, emoji, user) => {
         get().setReaction(chatId, messageIndexOrId, emoji, user, 'toggle');
@@ -1324,7 +1320,6 @@ export const useChatStore = create<ChatState>()(
         if (updatedMsg && typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
           (window as any).orbita.storageAddMessage(chatId, updatedMsg.id, updatedMsg).catch(() => {});
         }
-        flushStorageSet();
 
         return resultingAction;
       },
@@ -1390,7 +1385,6 @@ export const useChatStore = create<ChatState>()(
                 }
               }
             }
-            flushStorageSet();
           }
 
           const chat = state.chats.find((c) => c.id === chatId);

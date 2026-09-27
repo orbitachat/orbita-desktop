@@ -2039,7 +2039,19 @@ interface ChatWindowProps {
 export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProps) => {
   const { t, i18n } = useTranslation();
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const activeChat = useChatStore((s) => s.chats.find((c) => c.id === activeChatId));
+  const activeChat = useChatStore(
+    useShallow((s) => {
+      const chat = s.chats.find((c) => c.id === activeChatId);
+      if (!chat) return undefined;
+      return {
+        ...chat,
+        lastMsg: '',
+        updatedAt: 0,
+        unreadCount: 0,
+        ratchetState: undefined,
+      };
+    })
+  );
   const rawMessages = useChatStore(useShallow((s) => {
     const chatId = activeChatId || '';
     return chatId ? s.messagesByChatId[chatId] || EMPTY_ARRAY : EMPTY_ARRAY;
@@ -4306,12 +4318,6 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     } else {
       addMessage(activeChatId, localMessage);
     }
-    setInputText('');
-    setReplyingTo(null);
-
-    requestAnimationFrame(() => {
-      scrollToBottom(false);
-    });
 
     sendQueueRef.current = sendQueueRef.current.then(async () => {
       try {
