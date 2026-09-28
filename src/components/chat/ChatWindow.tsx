@@ -2513,6 +2513,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
   const savedSelectionRangeRef = useRef<Range | null>(null);
   const readMessageIdsRef = useRef<Set<string>>(new Set());
   const prevMessagesLengthRef = useRef(messages.length);
+  const messagesRef = useRef<Message[]>(messages);
+  messagesRef.current = messages;
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -4557,6 +4559,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     setShowScrollDown(false);
 
     scrollToBottom(false);
+    requestAnimationFrame(() => {
+      scrollToBottom(false);
+    });
   }, [inputText, activeChatId, clearDraft, stopTyping, replyingTo, triggerMessage, scrollToBottom]);
 
   const handleSendAsTxt = async (_caption: string) => {
@@ -7323,8 +7328,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       return false;
     };
 
-    const prevMsg = index > 0 ? messages[index - 1] : null;
-    const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+    const currentMessages = messagesRef.current;
+    const prevMsg = index > 0 ? currentMessages[index - 1] : null;
+    const nextMsg = index < currentMessages.length - 1 ? currentMessages[index + 1] : null;
 
     const prevIsOwn = prevMsg ? isMessageOutgoing(prevMsg, myCode, myNickname, activeChat, myUserId) : false;
     const isPrevSameSenderGroup = !!(

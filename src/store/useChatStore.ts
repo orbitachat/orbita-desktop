@@ -1099,7 +1099,9 @@ export const useChatStore = create<ChatState>()(
           ),
         });
         if (typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
-          (window as any).orbita.storageAddMessage(chatId, enrichedMessage.id, enrichedMessage).catch(() => {});
+          setTimeout(() => {
+            (window as any).orbita?.storageAddMessage?.(chatId, enrichedMessage.id, enrichedMessage)?.catch?.(() => {});
+          }, 0);
         }
       },
       addMessagesBatch: (items) => {
@@ -1217,7 +1219,9 @@ export const useChatStore = create<ChatState>()(
         });
         const updatedMsg = updated.find(m => m.id === messageId);
         if (updatedMsg && typeof window !== 'undefined' && (window as any).orbita?.storageAddMessage) {
-          (window as any).orbita.storageAddMessage(chatId, messageId, updatedMsg).catch(() => {});
+          setTimeout(() => {
+            (window as any).orbita?.storageAddMessage?.(chatId, messageId, updatedMsg)?.catch?.(() => {});
+          }, 0);
         }
         if (status === 'read') {
           supabaseService.purgeServerMessages(chatId, [messageId]);

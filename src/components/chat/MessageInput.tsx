@@ -418,13 +418,11 @@ export const MessageInput = memo<MessageInputProps>(({
     let textToSend = currentText;
     if (editorRef.current) {
       textToSend = htmlToMarkdown(editorRef.current);
-    }
-    if (!textToSend.trim()) return;
-    if (editorRef.current) {
       editorRef.current.innerHTML = '';
       setIsEditorEmpty(true);
     }
     setCurrentText('');
+    if (!textToSend.trim()) return;
     if (editingIndex !== null) {
       onEditMessage(textToSend);
     } else {
