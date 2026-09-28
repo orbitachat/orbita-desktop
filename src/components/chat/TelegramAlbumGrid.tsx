@@ -249,18 +249,31 @@ export const TelegramAlbumGrid = memo(({
   const cleanCaption = msg.text ? msg.text.replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*(https?:\/\/[^\s]+)?/i, '').trim() : '';
   const hasCaption = Boolean(cleanCaption);
 
-  const { photoBorderRadius, innerTL, innerTR } = useMemo(() => {
+  const { photoBorderRadius, innerTL, innerTR, innerBL, innerBR } = useMemo(() => {
     let tl = 16;
     let tr = 16;
+    let br = 16;
+    let bl = 16;
     if (customRadius) {
       const parts = customRadius.trim().split(/\s+/);
-      const parseVal = (v?: string) => {
-        if (!v) return 16;
+      const parseVal = (v?: string, fallback = 16) => {
+        if (!v) return fallback;
         const n = parseFloat(v);
-        return isNaN(n) ? 16 : n;
+        return isNaN(n) ? fallback : n;
       };
       tl = parseVal(parts[0]);
       tr = parseVal(parts[1] || parts[0]);
+      br = parseVal(parts[2] || parts[0]);
+      bl = parseVal(parts[3] || parts[1] || parts[0]);
+    }
+    if (!hasCaption) {
+      return {
+        photoBorderRadius: customRadius || '16px',
+        innerTL: tl,
+        innerTR: tr,
+        innerBL: bl,
+        innerBR: br,
+      };
     }
     const cTL = Math.max(0, tl - 2);
     const cTR = Math.max(0, tr - 2);
@@ -268,8 +281,10 @@ export const TelegramAlbumGrid = memo(({
       photoBorderRadius: `${cTL}px ${cTR}px 4px 4px`,
       innerTL: cTL,
       innerTR: cTR,
+      innerBL: 4,
+      innerBR: 4,
     };
-  }, [customRadius]);
+  }, [customRadius, hasCaption]);
 
   const containerWidth = useMemo(() => {
     if (items.length === 1 && items[0].width && items[0].height && items[0].height > 0) {
@@ -290,6 +305,7 @@ export const TelegramAlbumGrid = memo(({
       style={{
         width: containerWidth,
         maxWidth: `${maxWidth}px`,
+        borderRadius: photoBorderRadius,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         boxSizing: 'border-box',
@@ -336,9 +352,10 @@ export const TelegramAlbumGrid = memo(({
               {rowIndices.map((itemIdx, colIdx) => {
                 const item = items[itemIdx];
                 const isTopRow = rIdx === 0;
+                const isBottomRow = rIdx === rows.length - 1;
                 const isFirstCol = colIdx === 0;
                 const isLastCol = colIdx === rowCount - 1;
-                const tileRadius = `${isTopRow && isFirstCol ? innerTL : 0}px ${isTopRow && isLastCol ? innerTR : 0}px 0 0`;
+                const tileRadius = `${isTopRow && isFirstCol ? innerTL : 0}px ${isTopRow && isLastCol ? innerTR : 0}px ${isBottomRow && isLastCol ? innerBR : 0}px ${isBottomRow && isFirstCol ? innerBL : 0}px`;
                 return (
                   <div
                     key={itemIdx}

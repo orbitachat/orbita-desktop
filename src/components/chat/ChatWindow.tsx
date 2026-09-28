@@ -6133,7 +6133,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
   const getMediaDimensionsForFile = useCallback(async (
     filePath: string,
     fileType: AttachedFile['fileType']
-  ): Promise<{ width?: number; height?: number; duration?: number; blurPreview?: string }> => {
+  ): Promise<{ width?: number; height?: number; duration?: number; blurPreview?: string; preview?: string }> => {
     if (fileType === 'photo') {
       const dataUrl = await window.orbita.readFileAsDataURL(filePath);
       if (!dataUrl) return {};
@@ -6158,15 +6158,110 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         img.src = dataUrl;
       });
     } else if (fileType === 'video') {
-      const dataUrl = await window.orbita.readFileAsDataURL(filePath);
-      if (!dataUrl) return {};
+      let videoSrc = '';
+      if (typeof window !== 'undefined' && (window as any).orbita?.rustReadFileFast) {
+        try {
+          const binary = await (window as any).orbita.rustReadFileFast(filePath);
+          if (binary) {
+            const blob = new Blob([binary], { type: 'video/mp4' });
+            videoSrc = URL.createObjectURL(blob);
+          }
+        } catch {}
+      }
+      if (!videoSrc) {
+        const dataUrl = await window.orbita?.readFileAsDataURL?.(filePath);
+        if (!dataUrl) return {};
+        videoSrc = dataUrl;
+      }
+
       return new Promise((resolve) => {
         const video = document.createElement('video');
-        video.onloadedmetadata = () => {
-          resolve({ width: video.videoWidth, height: video.videoHeight, duration: video.duration });
+        video.preload = 'auto';
+        video.muted = true;
+        video.playsInline = true;
+
+        let hasResolved = false;
+        const cleanup = () => {
+          if (videoSrc.startsWith('blob:')) {
+            URL.revokeObjectURL(videoSrc);
+          }
         };
-        video.onerror = () => resolve({});
-        video.src = dataUrl;
+
+        const timeout = setTimeout(() => {
+          if (!hasResolved) {
+            hasResolved = true;
+            cleanup();
+            resolve({
+              width: video.videoWidth || undefined,
+              height: video.videoHeight || undefined,
+              duration: isFinite(video.duration) ? video.duration : undefined,
+            });
+          }
+        }, 4000);
+
+        const captureFrame = () => {
+          if (hasResolved) return;
+          hasResolved = true;
+          clearTimeout(timeout);
+
+          let preview: string | undefined;
+          let blurPreview: string | undefined;
+
+          try {
+            const vw = video.videoWidth || 640;
+            const vh = video.videoHeight || 360;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.min(vw, 1280);
+            canvas.height = Math.round(canvas.width * (vh / vw));
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              preview = canvas.toDataURL('image/jpeg', 0.85);
+
+              const smallCanvas = document.createElement('canvas');
+              const scale = Math.min(24 / canvas.width, 24 / canvas.height, 1);
+              smallCanvas.width = Math.max(1, Math.round(canvas.width * scale));
+              smallCanvas.height = Math.max(1, Math.round(canvas.height * scale));
+              const sCtx = smallCanvas.getContext('2d');
+              if (sCtx) {
+                sCtx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
+                blurPreview = smallCanvas.toDataURL('image/jpeg', 0.4);
+              }
+            }
+          } catch {}
+
+          cleanup();
+          resolve({
+            width: video.videoWidth || undefined,
+            height: video.videoHeight || undefined,
+            duration: isFinite(video.duration) ? video.duration : undefined,
+            preview,
+            blurPreview,
+          });
+        };
+
+        video.onloadeddata = () => {
+          try {
+            video.currentTime = Math.min(0.1, (video.duration || 1) / 2);
+          } catch {
+            captureFrame();
+          }
+        };
+
+        video.onseeked = () => {
+          captureFrame();
+        };
+
+        video.onerror = () => {
+          if (!hasResolved) {
+            hasResolved = true;
+            clearTimeout(timeout);
+            cleanup();
+            resolve({});
+          }
+        };
+
+        video.src = videoSrc;
         video.load();
       });
     }
@@ -6195,14 +6290,19 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         let preview: string | null = null;
         let sizeMb = 0;
         try {
-          const dataUrl = await window.orbita.readFileAsDataURL(filePath);
-          if (dataUrl) {
-            preview = dataUrl;
-            const binary = atob(dataUrl.split(',')[1] || '');
-            const fileArrayBuffer = new ArrayBuffer(binary.length);
-            const view = new Uint8Array(fileArrayBuffer);
-            for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
-            sizeMb = fileArrayBuffer.byteLength / (1024 * 1024);
+          if (fileType !== 'video') {
+            const dataUrl = await window.orbita.readFileAsDataURL(filePath);
+            if (dataUrl) {
+              preview = dataUrl;
+              const binary = atob(dataUrl.split(',')[1] || '');
+              const fileArrayBuffer = new ArrayBuffer(binary.length);
+              const view = new Uint8Array(fileArrayBuffer);
+              for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+              sizeMb = fileArrayBuffer.byteLength / (1024 * 1024);
+            }
+          } else {
+            const sizeBytes = await window.orbita.getFileSize(filePath);
+            sizeMb = sizeBytes ? sizeBytes / (1024 * 1024) : 0;
           }
         } catch { }
 
@@ -6233,9 +6333,11 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           dimensions = await getMediaDimensionsForFile(filePath, fileType);
         }
 
+        const fileDims = dimensions as any;
         newFiles.push({
           filePath,
-          preview,
+          preview: fileType === 'video' ? (fileDims.preview || null) : preview,
+          blurPreview: fileDims.blurPreview,
           name: fileName,
           sizeMb,
           fileType,
@@ -6244,7 +6346,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           error: null,
           uploadedUrl: null,
           audioMetadata,
-          duration: audioMetadata?.duration,
+          duration: audioMetadata?.duration || fileDims.duration,
           ...dimensions,
         });
       }
@@ -7200,14 +7302,17 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           Boolean(item.url && (item.url.includes('tenor.com') || item.url.includes('giphy.com'))) ||
           (msg.text && /^\[GIF\]/i.test(msg.text.trim()))
         );
+        const effectiveSecret = item.key || msg.mediaKey || sharedSecret;
+        const directUrl = getOrbitaMediaUrl(item.url, effectiveSecret, activeChatId || undefined, msg.id, item.name, item.mime) || undefined;
         return {
           id: `${msg.id || 'msg'}_${idx}_${item.url}`,
           url: item.url,
+          directUrl,
           type: isGif ? 'gif' : ((item.type === 'video' || item.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '')) ? 'video' : 'photo'),
           name: item.name,
           mime: item.mime,
           key: item.key || msg.mediaKey,
-          sharedSecret: item.key || msg.mediaKey || sharedSecret,
+          sharedSecret: effectiveSecret,
           duration: item.duration,
           sender: msg.sender,
           time: msg.time,
@@ -7602,6 +7707,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       if (effectiveMediaItems && effectiveMediaItems.length > 0) {
         const isPhotoGroup = effectiveMediaItems.some((it) => it.type === 'photo' || it.type === 'video' || it.type === 'gif');
         const isAudioGroup = effectiveMediaItems.every((it) => it.type === 'audio' || it.mime?.startsWith('audio/'));
+        const cleanCaption = msg.text ? msg.text.replace(/^\[(?:Photo|GIF|Sticker|Video)\]\s*(https?:\/\/[^\s]+)?/i, '').trim() : '';
+        const hasCaption = Boolean(cleanCaption);
 
         let groupBubbleWidth = 'min(440px, 85vw)';
         if (isPhotoGroup && effectiveMediaItems.length === 1) {
@@ -7644,7 +7751,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                     className="relative"
                     style={bubbleStyle(isOwn, {
                       borderRadius: customRadius,
-                      padding: isPhotoGroup ? '2px 2px 4px 2px' : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
+                      padding: isPhotoGroup ? (hasCaption ? '2px 2px 4px 2px' : '0px') : (isAudioGroup ? '0px' : '1px 1px 4px 1px'),
+                      background: (isPhotoGroup && !hasCaption) ? 'transparent' : undefined,
+                      border: (isPhotoGroup && !hasCaption) ? 'none' : undefined,
                       overflow: 'hidden',
                       width: isPhotoGroup ? groupBubbleWidth : 'fit-content',
                       maxWidth: 'min(440px, 75%)',

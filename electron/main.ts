@@ -1001,7 +1001,7 @@ function registerOrbitaMediaProtocol() {
         await saveMediaToCache(mediaUrl, rawBuf, mime, chatId, messageId);
         item = { data: rawBuf, mime };
       } else {
-        if (secret && item.data && (item.mime === 'application/octet-stream' || item.mime === null)) {
+        if (secret && item.data) {
           const dec = decryptMediaBuffer(item.data, secret);
           if (dec !== item.data) {
             const mime = detectMimeFromBuffer(dec, mediaUrl, hintFileName, hintMime);

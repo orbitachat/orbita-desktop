@@ -243,16 +243,28 @@ export const FileAttachmentModal = ({
               {showVisualMediaPreview ? (
                 isSingleMedia ? (
                   <div className="relative w-full max-h-[280px] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-muted,rgba(0,0,0,0.3))]">
-                    {firstFile.preview ? (
+                    {firstFile.preview || firstFile.blurPreview ? (
                       firstFile.fileType === 'video' ? (
-                        <video
-                          src={firstFile.preview}
-                          className="w-full h-full max-h-[280px] object-contain"
-                          controls={false}
-                        />
+                        <div className="relative w-full h-full max-h-[280px] flex items-center justify-center">
+                          <img
+                            src={firstFile.preview || firstFile.blurPreview || undefined}
+                            alt={firstFile.name}
+                            className="w-full h-full max-h-[280px] object-contain rounded-lg"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+                            <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white shadow-lg">
+                              <Play size={22} className="ml-1" fill="white" />
+                            </div>
+                          </div>
+                          {firstFile.duration ? (
+                            <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[12px] font-medium pointer-events-none">
+                              {formatDuration(firstFile.duration)}
+                            </div>
+                          ) : null}
+                        </div>
                       ) : (
                         <img
-                          src={firstFile.preview}
+                          src={firstFile.preview || firstFile.blurPreview || undefined}
                           alt={firstFile.name}
                           className="w-full h-full max-h-[280px] object-contain rounded-lg"
                         />
@@ -297,20 +309,12 @@ export const FileAttachmentModal = ({
                           className="relative rounded-lg overflow-hidden group bg-[var(--surface-muted,rgba(0,0,0,0.3))]"
                           style={{ height: tileHeight }}
                         >
-                          {file.preview ? (
-                            file.fileType === 'video' ? (
-                              <video
-                                src={file.preview}
-                                className="w-full h-full object-cover rounded-lg"
-                                controls={false}
-                              />
-                            ) : (
-                              <img
-                                src={file.preview}
-                                alt={file.name}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                            )
+                          {file.preview || file.blurPreview ? (
+                            <img
+                              src={file.preview || file.blurPreview || undefined}
+                              alt={file.name}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <MD3CircularSpinner size="small" color="var(--accent-color)" />

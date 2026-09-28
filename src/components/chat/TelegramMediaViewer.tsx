@@ -376,6 +376,12 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
 
   const currentItem: MediaViewerItem | undefined = items[currentIndex];
 
+  const effectiveSecret = currentItem?.key || currentItem?.sharedSecret || sharedSecret;
+  const cachedDecrypted = useMemo(() => {
+    if (!currentItem?.url) return null;
+    return mediaManager.getCachedMedia(currentItem.url, effectiveSecret || '');
+  }, [currentItem?.url, effectiveSecret]);
+
   const isDirect = Boolean(
     currentItem?.directUrl ||
     (currentItem?.url && (
@@ -384,13 +390,12 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
       currentItem.url.startsWith('orbita-media:')
     ))
   );
-  const directSrc = currentItem?.directUrl || (isDirect ? currentItem?.url : null);
-  const effectiveSecret = currentItem?.key || currentItem?.sharedSecret || sharedSecret;
+  const directSrc = cachedDecrypted?.blobUrl || currentItem?.directUrl || (isDirect ? currentItem?.url : null);
   const { blobUrl, blob } = useDecryptedMedia(
     directSrc ? null : (currentItem?.url || null),
     effectiveSecret,
     currentItem?.name,
-    undefined,
+    currentItem?.mime,
     currentItem?.chatId,
     currentItem?.messageId
   );
