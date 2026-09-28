@@ -163,7 +163,7 @@ const orbitFs = (px: number) => `calc(${px}px * var(--text-scale, 1))`;
 
 const EMPTY_ARRAY: Message[] = [];
 
-const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music' | 'voice' | 'file' | 'call' | 'sticker' | null; url: string | null; fileName?: string; mime?: string; size?: number } => {
+const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music' | 'voice' | 'file' | 'call' | 'sticker' | 'gif' | null; url: string | null; fileName?: string; mime?: string; size?: number } => {
   if (msg.mediaType === 'call') {
     return { type: 'call', url: null, fileName: msg.mediaName };
   }
@@ -193,7 +193,7 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
     if (msg.mediaType === 'audio') return { type: 'music', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'audio/mpeg' };
     if (msg.mediaType === 'file') return { type: 'file', url: msg.mediaUrl || null, fileName: msg.mediaName, mime: msg.mime || 'application/octet-stream', size: msg.fileSize || (msg as any).size || (msg as any).file_size };
     if (msg.mediaType === ('sticker' as any)) return { type: 'sticker', url: resolveStickerUrl(msg.mediaUrl || null), fileName: msg.mediaName, mime: msg.mime || (msg.mediaUrl?.endsWith('.tgs') ? 'application/x-tgsticker' : 'image/webp') };
-    if (msg.mediaType === 'gif') return { type: 'video', url: msg.mediaUrl || null, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
+    if (msg.mediaType === 'gif') return { type: 'gif', url: msg.mediaUrl || null, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
   }
 
   const text = msg.text || '';
@@ -203,7 +203,7 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
   if (stickerMatchGeneric) return { type: 'sticker', url: resolveStickerUrl(msg.mediaUrl || null), fileName: msg.mediaName, mime: msg.mime || 'image/webp' };
 
   const gifMatch = text.match(/^\[GIF\]\s*(.+)$/i);
-  if (gifMatch) return { type: 'video', url: gifMatch[1].trim(), fileName: msg.mediaName || 'animation.mp4', mime: 'video/mp4' };
+  if (gifMatch) return { type: 'gif', url: gifMatch[1].trim(), fileName: msg.mediaName || 'animation.mp4', mime: 'video/mp4' };
 
   const isGifMsg =
     (msg.mime === 'image/gif' && !msg.text?.startsWith('[Photo]')) ||
@@ -212,7 +212,7 @@ const parseMedia = (msg: Message): { type: 'image' | 'video' | 'audio' | 'music'
 
   if (isGifMsg) {
     const url = msg.mediaUrl || msg.text?.match(/https?:\/\/[^\s]+/)?.[0] || null;
-    return { type: 'video', url, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
+    return { type: 'gif', url, fileName: msg.mediaName || 'animation.mp4', mime: msg.mime || 'video/mp4' };
   }
 
   const imageMatch = text.match(/^\[Photo\]\s*(\S+.*)$/i);
@@ -2368,7 +2368,6 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
   }, [activeChat?.id, activeChat?.type, activeChat?.sharedSecret]);
 
   const chatMediaViewerItems = useMemo(() => {
-    if (!mediaViewerState.isOpen) return [];
     const list: MediaViewerItem[] = [];
     messages.forEach((msg, msgIdx) => {
       const media = parseMedia(msg);
@@ -2376,15 +2375,16 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         const isAlbum = msg.mediaItems.length > 1;
         const albumGroupId = msg.id || `album_${msgIdx}`;
         msg.mediaItems.forEach((mi, miIdx) => {
-          if (mi.type === 'photo' || mi.type === 'video') {
+          if (mi.type === 'photo' || mi.type === 'video' || mi.type === 'gif') {
             const effectiveSecret = mi.key || msg.mediaKey || sharedSecret;
             const directUrl = getOrbitaMediaUrl(mi.url, effectiveSecret, activeChatId || undefined, msg.id, mi.name || msg.mediaName) || undefined;
+            const isMiGif = mi.type === 'gif' || mi.mime === 'image/gif' || /\.gif(\?.*)?$/i.test(mi.name || mi.url || '');
             list.push({
               id: `${msg.id || msgIdx}_${miIdx}`,
               url: mi.url,
               directUrl,
               chatId: activeChatId || undefined,
-              type: mi.type === 'video' ? 'video' : 'photo',
+              type: isMiGif ? 'gif' : (mi.type === 'video' ? 'video' : 'photo'),
               name: mi.name || msg.mediaName,
               sender: msg.sender,
               time: msg.time,
@@ -2401,8 +2401,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             });
           }
         });
-      } else if (media.type === 'image' || media.type === 'video') {
+      } else if (media.type === 'image' || media.type === 'video' || media.type === 'gif') {
         const isGif = Boolean(
+          media.type === 'gif' ||
           msg.mediaType === 'gif' ||
           (media.url && (/\.gif(\?.*)?$/i.test(media.url) || media.url.toLowerCase().includes('.gif'))) ||
           (msg.mediaUrl && (
@@ -2456,15 +2457,20 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         index = items.findIndex((it) => it.messageId === messageId);
       }
     }
+    const targetMsg = messages.find((m) => m.id === messageId);
+    const targetMedia = targetMsg ? parseMedia(targetMsg) : null;
+    const isTargetGif = targetMedia?.type === 'gif' || /\.gif(\?.*)?$/i.test(url) || Boolean(url && (url.includes('tenor.com') || url.includes('giphy.com')));
+    const isTargetVideo = !isTargetGif && (targetMedia?.type === 'video' || /\.(mp4|mov|avi|webm|mkv|m4v)(\?.*)?$/i.test(url) || Boolean(targetMsg?.mime?.startsWith('video/')));
+    const fallbackType = isTargetGif ? ('gif' as const) : (isTargetVideo ? ('video' as const) : ('photo' as const));
     const finalItems = customItems || (index === -1 && items.length === 0 ? [{
       id: messageId || url,
       url,
-      directUrl: getOrbitaMediaUrl(url, messages.find(m => m.id === messageId)?.mediaKey || sharedSecret, activeChatId || undefined, messageId) || undefined,
+      directUrl: getOrbitaMediaUrl(url, targetMsg?.mediaKey || sharedSecret, activeChatId || undefined, messageId) || undefined,
       chatId: activeChatId || undefined,
-      type: 'photo' as const,
+      type: fallbackType,
       time: Date.now(),
-      key: messages.find(m => m.id === messageId)?.mediaKey,
-      sharedSecret: messages.find(m => m.id === messageId)?.mediaKey || sharedSecret,
+      key: targetMsg?.mediaKey,
+      sharedSecret: targetMsg?.mediaKey || sharedSecret,
     }] : items);
     const initialIndex = index !== -1 ? index : 0;
 
@@ -3340,6 +3346,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       let preview: string | null = null;
       let dimensions: { width?: number; height?: number } = {};
       let blurPreview: string | undefined = undefined;
+      let videoDuration: number | undefined = undefined;
 
       if (fileType === 'photo') {
         preview = `data:${file.type || 'image/jpeg'};base64,${base64}`;
@@ -3363,7 +3370,45 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           }
         } catch { }
       } else if (fileType === 'video') {
-        preview = `data:${file.type || 'video/mp4'};base64,${base64}`;
+        try {
+          const vUrl = URL.createObjectURL(file);
+          const v = document.createElement('video');
+          v.preload = 'metadata';
+          v.muted = true;
+          v.playsInline = true;
+          v.src = vUrl;
+          await new Promise<void>((res) => {
+            v.onloadedmetadata = () => {
+              if (v.duration && isFinite(v.duration)) {
+                videoDuration = Math.round(v.duration);
+              }
+              if (v.videoWidth && v.videoHeight) {
+                dimensions = { width: v.videoWidth, height: v.videoHeight };
+              }
+              v.currentTime = Math.min(0.5, (v.duration || 1) / 2);
+            };
+            v.onseeked = () => {
+              try {
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.min(640, v.videoWidth || 320);
+                canvas.height = Math.round(canvas.width * ((v.videoHeight || 180) / (v.videoWidth || 320)));
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+                  const frameData = canvas.toDataURL('image/jpeg', 0.7);
+                  preview = frameData;
+                  blurPreview = frameData;
+                }
+              } catch {}
+              res();
+            };
+            v.onerror = () => res();
+            setTimeout(res, 1500);
+          });
+          URL.revokeObjectURL(vUrl);
+        } catch {
+          preview = `data:${file.type || 'video/mp4'};base64,${base64}`;
+        }
       }
 
       let audioMetadata: AudioMetadata | undefined = undefined;
@@ -3447,7 +3492,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         audioMetadata,
         width: dimensions.width,
         height: dimensions.height,
-        duration: audioMetadata?.duration,
+        duration: videoDuration || audioMetadata?.duration,
         blurPreview,
       });
     }
@@ -7146,19 +7191,29 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
 
     if (hasPhotoOrVideo) {
       const itemsToRender = mediaItems.slice(0, 10);
-      const viewerItems: MediaViewerItem[] = itemsToRender.map((item, idx) => ({
-        id: `${msg.id || 'msg'}_${idx}_${item.url}`,
-        url: item.url,
-        type: (item.type === 'video' || item.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '')) ? 'video' : 'photo',
-        fileName: item.name,
-        mime: item.mime,
-        key: item.key || msg.mediaKey,
-        sharedSecret: item.key || msg.mediaKey || sharedSecret,
-        duration: item.duration,
-        sender: msg.sender,
-        time: msg.time,
-        messageId: msg.id,
-      }));
+      const viewerItems: MediaViewerItem[] = itemsToRender.map((item, idx) => {
+        const isGif = Boolean(
+          item.type === 'gif' ||
+          msg.mediaType === 'gif' ||
+          item.mime === 'image/gif' ||
+          /\.gif(\?.*)?$/i.test(item.name || item.url || '') ||
+          Boolean(item.url && (item.url.includes('tenor.com') || item.url.includes('giphy.com'))) ||
+          (msg.text && /^\[GIF\]/i.test(msg.text.trim()))
+        );
+        return {
+          id: `${msg.id || 'msg'}_${idx}_${item.url}`,
+          url: item.url,
+          type: isGif ? 'gif' : ((item.type === 'video' || item.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '')) ? 'video' : 'photo'),
+          name: item.name,
+          mime: item.mime,
+          key: item.key || msg.mediaKey,
+          sharedSecret: item.key || msg.mediaKey || sharedSecret,
+          duration: item.duration,
+          sender: msg.sender,
+          time: msg.time,
+          messageId: msg.id,
+        };
+      });
 
       return (
         <TelegramAlbumGrid
@@ -7171,7 +7226,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           onMediaClick={(tileIdx) => {
             const clicked = viewerItems[tileIdx];
             if (clicked) {
-              openMediaViewer(clicked.url, msg.id);
+              openMediaViewer(clicked.url, msg.id, viewerItems, tileIdx);
             }
           }}
           maxWidth={440}
@@ -7525,11 +7580,11 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       }
 
       const mediaItems = msg.mediaItems;
-      const isSingleImageOrVideo = (media.type === 'image' || media.type === 'video') && Boolean(media.url || msg.mediaUrl);
+      const isSingleImageOrVideo = (media.type === 'image' || media.type === 'video' || media.type === 'gif') && Boolean(media.url || msg.mediaUrl || msg.uploading);
       const effectiveMediaItems = (mediaItems && mediaItems.length > 0)
         ? mediaItems
         : (isSingleImageOrVideo ? [{
-            type: (media.type === 'video' || msg.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(media.fileName || msg.mediaName || '')) ? ('video' as const) : ('photo' as const),
+            type: media.type === 'gif' ? ('gif' as const) : ((media.type === 'video' || msg.mime?.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(media.fileName || msg.mediaName || '')) ? ('video' as const) : ('photo' as const)),
             url: media.url || msg.mediaUrl || '',
             name: media.fileName || msg.mediaName || '',
             mime: msg.mime,
@@ -7539,10 +7594,13 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             height: msg.height,
             blurPreview: msg.blurPreview,
             thumbnail: msg.thumbnail || msg.blurPreview,
+            uploading: msg.uploading,
+            uploadedMb: msg.uploadedMb,
+            size: msg.fileSize,
           }] : null);
 
       if (effectiveMediaItems && effectiveMediaItems.length > 0) {
-        const isPhotoGroup = effectiveMediaItems.some((it) => it.type === 'photo' || it.type === 'video');
+        const isPhotoGroup = effectiveMediaItems.some((it) => it.type === 'photo' || it.type === 'video' || it.type === 'gif');
         const isAudioGroup = effectiveMediaItems.every((it) => it.type === 'audio' || it.mime?.startsWith('audio/'));
 
         let groupBubbleWidth = 'min(440px, 85vw)';

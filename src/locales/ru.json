@@ -11,6 +11,12 @@
       "open_link_title": "Вы уверены, что хотите открыть эту ссылку в браузере?",
       "cannot_be_undone": "Это действие нельзя будет отменить."
     },
+    "mediaViewer": {
+      "video": "Видео",
+      "photo": "Фотография",
+      "gif": "GIF",
+      "counter": "{{type}} {{current}} из {{total}}"
+    },
     "security": {
       "group_title": "Безопасность",
       "set_password": "Поставить пароль",

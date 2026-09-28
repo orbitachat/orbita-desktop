@@ -21,17 +21,33 @@ const AlbumTile = memo(({
   onClick,
   style,
   isOwn = false,
+  msg,
 }: {
   item: MediaItem;
   sharedSecret: string | undefined;
   onClick: () => void;
   style: React.CSSProperties;
   isOwn?: boolean;
+  msg: Message;
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
-  const autoLoad = useChatStore((state) => state.shouldAutoLoadMedia(item.type === 'video' ? 'video' : 'photo', item.size, isOwn));
+  const isGif = Boolean(
+    item.type === 'gif' ||
+    msg.mediaType === 'gif' ||
+    item.mime === 'image/gif' ||
+    /\.gif(\?.*)?$/i.test(item.name || item.url || '') ||
+    Boolean(item.url && (item.url.includes('tenor.com') || item.url.includes('giphy.com'))) ||
+    (msg.text && /^\[GIF\]/i.test(msg.text.trim()))
+  );
+  const isVideo = !isGif && Boolean(
+    item.type === 'video' ||
+    item.mime?.startsWith('video/') ||
+    /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(item.name || '') ||
+    (item.url && /\.(mp4|mov|avi|webm|mkv|m4v)(\?.*)?$/i.test(item.url))
+  );
+
+  const autoLoad = isGif || useChatStore((state) => state.shouldAutoLoadMedia(isVideo ? 'video' : 'photo', item.size, isOwn));
   const { blobUrl, load, isLoading, progress, isUnavailable } = useDecryptedMedia(item.url, item.key || sharedSecret, item.name, item.mime, undefined, undefined, autoLoad);
-  const isVideo = item.type === 'video';
 
   const formatDuration = (sec?: number) => {
     if (!sec || isNaN(sec)) return '';
@@ -40,13 +56,14 @@ const AlbumTile = memo(({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const isUploading = Boolean(item.uploading);
+  const isUploading = Boolean(item.uploading || (isOwn && (msg.uploading || msg.status === 'sending' || msg.status === 'pending')));
   const isDownloading = isLoading;
   const blurSrc = item.blurPreview || item.thumbnail || (item.url?.startsWith('data:') ? item.url : null);
   const mediaSrc = blobUrl || (item.url?.startsWith('data:') || item.url?.startsWith('blob:') ? item.url : undefined);
 
-  const itemTotalSize = item.size || (item.audioMetadata?.size || 0);
-  const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, ((item.uploadedMb || 0) * 1024 * 1024) / itemTotalSize)) : 0.08;
+  const itemTotalSize = item.size || msg.fileSize || (item.audioMetadata?.size || 0);
+  const currentUploaded = item.uploadedMb || msg.uploadedMb || 0;
+  const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, (currentUploaded * 1024 * 1024) / itemTotalSize)) : 0.08;
 
   return (
     <div
@@ -79,16 +96,42 @@ const AlbumTile = memo(({
       )}
 
       {mediaSrc && (
-        isVideo ? (
-          <video
-            src={mediaSrc}
-            className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
-            style={{ opacity: isLoaded ? 1 : 0 }}
-            onLoadedData={() => setIsLoaded(true)}
-            muted
-            playsInline
-            preload="metadata"
-          />
+        (isVideo || isGif) ? (
+          isGif ? (
+            item.mime === 'image/gif' || /\.gif(\?.*)?$/i.test(item.name || item.url || '') ? (
+              <img
+                src={mediaSrc}
+                alt={item.name || ''}
+                className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
+                style={{ opacity: isLoaded ? 1 : 0 }}
+                onLoad={() => setIsLoaded(true)}
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <video
+                src={mediaSrc}
+                className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
+                style={{ opacity: isLoaded ? 1 : 0 }}
+                onLoadedData={() => setIsLoaded(true)}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+              />
+            )
+          ) : (
+            <video
+              src={mediaSrc}
+              className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
+              style={{ opacity: isLoaded ? 1 : 0 }}
+              onLoadedData={() => setIsLoaded(true)}
+              muted
+              playsInline
+              preload="metadata"
+            />
+          )
         ) : (
           <img
             src={mediaSrc}
@@ -100,6 +143,15 @@ const AlbumTile = memo(({
             decoding="async"
           />
         )
+      )}
+
+      {isGif && (
+        <div
+          className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/60 text-white text-[11px] font-semibold tracking-wider uppercase backdrop-blur-sm z-[3] pointer-events-none select-none"
+          style={{ lineHeight: 1 }}
+        >
+          GIF
+        </div>
       )}
 
       {(!blobUrl || isUploading) && (
@@ -140,7 +192,7 @@ const AlbumTile = memo(({
         </div>
       )}
 
-      {isVideo && isLoaded && (
+      {isVideo && isLoaded && !isGif && !isUploading && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20 z-[2]">
           <div className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white">
             <Play size={18} fill="white" className="ml-0.5" />
@@ -304,6 +356,7 @@ export const TelegramAlbumGrid = memo(({
                       onClick={() => onMediaClick(itemIdx)}
                       style={{ width: '100%', height: '100%', borderRadius: tileRadius }}
                       isOwn={isOwn}
+                      msg={msg}
                     />
                   </div>
                 );
@@ -311,9 +364,21 @@ export const TelegramAlbumGrid = memo(({
             </div>
           );
         })}
+        {!hasCaption && timeNode && (
+          <div
+            className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-end z-[4] pointer-events-none select-none"
+            style={{
+              lineHeight: 1,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+            }}
+          >
+            {timeNode}
+          </div>
+        )}
       </div>
 
-      {hasCaption ? (
+      {hasCaption && (
         <div
           className="flex items-end justify-between gap-3 px-2 pt-1 pb-0.5 select-none"
           style={{
@@ -328,30 +393,6 @@ export const TelegramAlbumGrid = memo(({
             style={{
               marginRight: isOwn ? '1px' : '3px',
               marginBottom: '-2px',
-            }}
-          >
-            {timeNode}
-          </div>
-        </div>
-      ) : (
-        <div
-          className="flex items-center justify-end select-none"
-          style={{
-            backgroundColor: 'inherit',
-            paddingTop: '2px',
-            paddingBottom: '0px',
-            paddingLeft: '4px',
-            paddingRight: '1px',
-          }}
-        >
-          <div
-            className="flex items-center justify-end gap-1 select-none message-time-badge"
-            style={{
-              lineHeight: 1,
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-              marginRight: isOwn ? '1px' : '3px',
-              marginBottom: '-1px',
             }}
           >
             {timeNode}

@@ -11,6 +11,12 @@
       "open_link_title": "Are you sure you want to open this link in your browser?",
       "cannot_be_undone": "This action cannot be undone."
     },
+    "mediaViewer": {
+      "video": "Video",
+      "photo": "Photo",
+      "gif": "GIF",
+      "counter": "{{type}} {{current}} of {{total}}"
+    },
     "security": {
       "group_title": "Security",
       "set_password": "Set password",

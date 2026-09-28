@@ -396,8 +396,19 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
   );
   const displaySrc = directSrc || blobUrl;
 
-  const isVideo = currentItem?.type === 'video' || currentItem?.type === 'videos';
-  const isGif = currentItem?.type === 'gif';
+  const isGif = currentItem?.type === 'gif' || Boolean(
+    (currentItem?.mime === 'image/gif') ||
+    (currentItem?.name && /\.gif(\?.*)?$/i.test(currentItem.name)) ||
+    (currentItem?.url && (/\.gif(\?.*)?$/i.test(currentItem.url) || currentItem.url.includes('tenor.com') || currentItem.url.includes('giphy.com'))) ||
+    (currentItem?.caption && /^\[GIF\]/i.test(currentItem.caption.trim()))
+  );
+  const isVideo = !isGif && Boolean(
+    currentItem?.type === 'video' ||
+    currentItem?.type === 'videos' ||
+    Boolean(currentItem?.mime && currentItem.mime.startsWith('video/')) ||
+    Boolean(currentItem?.name && /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(currentItem.name)) ||
+    Boolean(currentItem?.url && /\.(mp4|mov|avi|webm|mkv|m4v)(\?.*)?$/i.test(currentItem.url))
+  );
   const isPhoto = !isVideo && !isGif;
 
   const isAlbumItem = Boolean(currentItem?.isAlbum && currentItem?.albumGroupId);
@@ -456,7 +467,10 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
         onClose();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (currentIndex > 0) {
+        if (isVideo && videoRef.current && !e.shiftKey) {
+          videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5);
+          setCurrentTime(videoRef.current.currentTime);
+        } else if (currentIndex > 0) {
           setCurrentIndex((idx) => idx - 1);
           setRotation(0);
           setZoomScale(1);
@@ -464,7 +478,10 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
         }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (currentIndex < items.length - 1) {
+        if (isVideo && videoRef.current && !e.shiftKey) {
+          videoRef.current.currentTime = Math.min(duration || 10000, videoRef.current.currentTime + 5);
+          setCurrentTime(videoRef.current.currentTime);
+        } else if (currentIndex < items.length - 1) {
           setCurrentIndex((idx) => idx + 1);
           setRotation(0);
           setZoomScale(1);
@@ -484,7 +501,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentIndex, items.length, isVideo, onClose, resetIdleTimer]);
+  }, [isOpen, currentIndex, items.length, isVideo, duration, onClose, resetIdleTimer]);
 
   // Click outside to close options menu
   useEffect(() => {
@@ -716,7 +733,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
 
   if (!isOpen) return null;
 
-  const typeLabel = isVideo ? t('mediaViewer.video', 'Видео') : isGif ? 'GIF' : t('mediaViewer.photo', 'Фотография');
+  const typeLabel = isVideo ? t('mediaViewer.video', 'Видео') : isGif ? t('mediaViewer.gif', 'GIF') : t('mediaViewer.photo', 'Фотография');
   const dateStr = currentItem?.time ? formatTelegramDate(currentItem.time, i18n.language) : '';
   const senderStr = currentItem?.sender || '';
 
@@ -1002,6 +1019,19 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 autoPlay
                 playsInline
                 onClick={handleTogglePlay}
+                onTimeUpdate={() => {
+                  if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+                }}
+                onLoadedMetadata={() => {
+                  if (videoRef.current && videoRef.current.duration && isFinite(videoRef.current.duration)) {
+                    setDuration(videoRef.current.duration);
+                    setCurrentTime(videoRef.current.currentTime);
+                    videoRef.current.playbackRate = playbackRate;
+                  }
+                }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onEnded={() => setIsPlaying(false)}
                 style={{
                   maxWidth: 'calc(100vw - 140px)',
                   maxHeight: 'calc(100vh - 160px)',
@@ -1013,10 +1043,10 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 }}
               />
 
-              {/* Center Play/Pause Overlay */}
               {(!isPlaying || isVideoControlsHovered) && (
                 <button
                   onClick={handleTogglePlay}
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
                   style={{
                     position: 'absolute',
                     top: '50%',
@@ -1062,10 +1092,10 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Top Row: Volume, Progress Bar, Center Play/Pause, Fullscreen, Speed */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
                   <button
                     onClick={handleToggleMute}
+                    aria-label={isMuted ? 'Unmute' : 'Mute'}
                     style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
                   >
                     {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
@@ -1078,6 +1108,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                     step={0.1}
                     value={currentTime}
                     onChange={handleSeek}
+                    aria-label="Seek"
                     style={{
                       flex: 1,
                       height: 4,
@@ -1088,6 +1119,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
 
                   <button
                     onClick={handleTogglePlay}
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
                     style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
                   >
                     {isPlaying ? <Pause size={17} fill="white" /> : <Play size={17} fill="white" />}
@@ -1095,6 +1127,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
 
                   <button
                     onClick={handleToggleFullscreen}
+                    aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                     style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
                   >
                     {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -1102,6 +1135,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
 
                   <button
                     onClick={handleCycleSpeed}
+                    aria-label="Playback speed"
                     style={{
                       background: 'rgba(255,255,255,0.12)',
                       border: 'none',
@@ -1117,7 +1151,6 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                   </button>
                 </div>
 
-                {/* Bottom Row: Current time (left) and Remaining time (right) */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.7)', fontVariantNumeric: 'tabular-nums', padding: '0 2px' }}>
                   <span>{formatVideoTime(currentTime)}</span>
                   <span>-{formatVideoTime(Math.max(0, duration - currentTime))}</span>
@@ -1130,7 +1163,8 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               displaySrc.toLowerCase().includes('.webm') ||
               displaySrc.startsWith('data:video/') ||
               (currentItem?.name && /\.(mp4|webm)$/i.test(currentItem.name)) ||
-              (currentItem?.mime && currentItem.mime.startsWith('video/'))
+              (currentItem?.mime && currentItem.mime.startsWith('video/')) ||
+              (currentItem?.url && (currentItem.url.includes('tenor.com') || currentItem.url.includes('giphy.com')))
             ) ? (
               <video
                 src={displaySrc}
@@ -1138,6 +1172,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 loop
                 muted
                 playsInline
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   maxWidth: 'calc(100vw - 140px)',
                   maxHeight: 'calc(100vh - 140px)',
@@ -1151,6 +1186,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
               <img
                 src={displaySrc}
                 alt=""
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   maxWidth: 'calc(100vw - 140px)',
                   maxHeight: 'calc(100vh - 140px)',
