@@ -584,6 +584,24 @@ const ChatListItem = React.memo(({
       </div>
     </div>
   );
+}, (prev, next) => {
+  return (
+    prev.chat.id === next.chat.id &&
+    prev.chat.name === next.chat.name &&
+    prev.chat.avatarUrl === next.chat.avatarUrl &&
+    prev.chat.unreadCount === next.chat.unreadCount &&
+    prev.chat.updatedAt === next.chat.updatedAt &&
+    prev.chat.lastMsg === next.chat.lastMsg &&
+    prev.chat.online === next.chat.online &&
+    prev.chat.muted === next.chat.muted &&
+    prev.isActive === next.isActive &&
+    prev.isPinned === next.isPinned &&
+    prev.nickname === next.nickname &&
+    prev.myCode === next.myCode &&
+    prev.isLightTheme === next.isLightTheme &&
+    prev.onSelect === next.onSelect &&
+    prev.onContextMenu === next.onContextMenu
+  );
 });
 
 const ArchiveListItem = React.memo(({
@@ -691,6 +709,18 @@ const ArchiveListItem = React.memo(({
       </div>
     </div>
   );
+}, (prev, next) => {
+  if (prev.isLightTheme !== next.isLightTheme) return false;
+  if (prev.onOpenArchive !== next.onOpenArchive) return false;
+  if (prev.archivedChats.length !== next.archivedChats.length) return false;
+  for (let i = 0; i < prev.archivedChats.length; i++) {
+    const a = prev.archivedChats[i];
+    const b = next.archivedChats[i];
+    if (a.id !== b.id || a.unreadCount !== b.unreadCount || a.name !== b.name) {
+      return false;
+    }
+  }
+  return true;
 });
 
 export const MainLayout = () => {
@@ -4157,7 +4187,11 @@ export const MainLayout = () => {
     setShowDeleteModal(false);
     await useAccountStore.getState().deleteCurrentAccount();
   };
-  const handleChatContextMenu = (e: React.MouseEvent, chatId: string) => { e.preventDefault(); e.stopPropagation(); setChatContextMenu({ visible: true, x: e.clientX, y: e.clientY, chatId }); };
+  const handleChatContextMenu = useCallback((e: React.MouseEvent, chatId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setChatContextMenu({ visible: true, x: e.clientX, y: e.clientY, chatId });
+  }, []);
 
   const requestClearHistory = (chatId: string) => {
     const chat = chats.find(c => c.id === chatId);
@@ -4532,7 +4566,7 @@ export const MainLayout = () => {
 
   useEffect(() => {
     updateChatThumbDom();
-  }, [visibleChats, sortedChats, updateChatThumbDom]);
+  }, [visibleChats.length, updateChatThumbDom]);
 
   useEffect(() => {
     const el = chatListScrollRef.current;
