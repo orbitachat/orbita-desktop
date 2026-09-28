@@ -511,14 +511,11 @@ class MediaManager {
   }
 
   private isPlaintextMedia(bytes: Uint8Array): boolean {
-    if (!bytes || bytes.length < 4) return false;
-    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;
-    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return true;
-    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return true;
-    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
-      const sub = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
-      if (sub === 'WEBP' || sub === 'WAVE' || sub === 'AVI ') return true;
-    }
+    if (!bytes || bytes.length < 2) return false;
+    if (bytes[0] === 0xff && bytes[1] === 0xd8) return true;
+    if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return true;
+    if (bytes.length >= 3 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return true;
+    if (bytes.length >= 4 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return true;
     if (bytes.length >= 8) {
       const box = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
       if (box === 'ftyp' || box === 'moov' || box === 'mdat' || box === 'wide' || box === 'free' || box === 'skip') {

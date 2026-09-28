@@ -394,14 +394,6 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
     return mediaManager.getCachedMedia(currentItem.url, effectiveSecret || '');
   }, [currentItem?.url, effectiveSecret]);
 
-  const isDirect = Boolean(
-    currentItem?.directUrl ||
-    (currentItem?.url && (
-      currentItem.url.startsWith('blob:') ||
-      currentItem.url.startsWith('data:') ||
-      currentItem.url.startsWith('orbita-media:')
-    ))
-  );
   const { blobUrl, blob } = useDecryptedMedia(
     currentItem?.url || null,
     effectiveSecret,
@@ -410,8 +402,7 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
     currentItem?.chatId,
     currentItem?.messageId
   );
-  const directSrc = cachedDecrypted?.blobUrl || currentItem?.directUrl || (isDirect ? currentItem?.url : null);
-  const displaySrc = fallbackBlobUrl || cachedDecrypted?.blobUrl || (blobUrl && !blobUrl.startsWith('orbita-media:') ? blobUrl : null) || directSrc || blobUrl;
+  const displaySrc = fallbackBlobUrl || cachedDecrypted?.blobUrl || currentItem?.directUrl || blobUrl || (currentItem?.url ? currentItem.url : null);
 
   const isGif = currentItem?.type === 'gif' || Boolean(
     (currentItem?.mime === 'image/gif') ||

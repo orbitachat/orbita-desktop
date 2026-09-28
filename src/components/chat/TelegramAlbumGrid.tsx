@@ -123,7 +123,6 @@ const AlbumTile = memo(({
                 className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
                 style={{ opacity: isLoaded ? 1 : 0 }}
                 onLoadedData={() => setIsLoaded(true)}
-                onError={() => load()}
                 autoPlay
                 loop
                 muted
@@ -137,7 +136,6 @@ const AlbumTile = memo(({
               className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
               style={{ opacity: isLoaded ? 1 : 0 }}
               onLoadedData={() => setIsLoaded(true)}
-              onError={() => load()}
               muted
               playsInline
               preload="metadata"

@@ -892,18 +892,14 @@ function isBufferPlaintext(buf: Buffer): boolean {
 }
 
 function detectMimeFromBuffer(buf: Buffer, fallbackUrl: string, hintFileName?: string, hintMime?: string): string {
-  const isPlaintext = isBufferPlaintext(buf);
-  if (!isPlaintext) {
-    return 'application/octet-stream';
-  }
   if (hintMime && hintMime !== 'application/octet-stream' && !hintMime.includes('undefined')) {
     if (buf.length >= 2 && buf[0] === 0x1a && buf[1] === 0x45) {
       return hintMime.startsWith('audio/') ? 'audio/webm' : 'video/webm';
     }
     return hintMime;
   }
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8) return 'image/jpeg';
   if (buf.length >= 4) {
-    if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
     if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png';
     if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return 'image/gif';
     if (buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF' && buf.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
@@ -1024,9 +1020,9 @@ function registerOrbitaMediaProtocol() {
           }
         }
 
-        if (secret && !isBufferPlaintext(rawBuf)) {
+        if (secret) {
           const dec = decryptMediaBuffer(rawBuf, secret);
-          if (isBufferPlaintext(dec)) {
+          if (dec !== rawBuf) {
             rawBuf = dec;
           }
         }
@@ -1035,9 +1031,9 @@ function registerOrbitaMediaProtocol() {
         await saveMediaToCache(mediaUrl, rawBuf, mime, chatId, messageId);
         item = { data: rawBuf, mime };
       } else {
-        if (secret && item.data && !isBufferPlaintext(item.data)) {
+        if (secret && item.data) {
           const dec = decryptMediaBuffer(item.data, secret);
-          if (isBufferPlaintext(dec)) {
+          if (dec !== item.data) {
             const mime = detectMimeFromBuffer(dec, mediaUrl, hintFileName, hintMime);
             await saveMediaToCache(mediaUrl, dec, mime, chatId, messageId);
             item = { data: dec, mime };

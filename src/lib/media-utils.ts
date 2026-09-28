@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useCallback } from 'react';
+import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { mediaManager } from '../services/mediaManager';
 
 export async function deriveFileKey(sharedSecret: string): Promise<CryptoKey> {
@@ -163,6 +163,8 @@ export function useDecryptedMedia(
     return unsubscribe;
   }, [cleanUrl, sharedSecret]);
 
+  const isExecutingRef = useRef(false);
+
   const loadMedia = useCallback(async () => {
     if (!cleanUrl) {
       setResult({ blobUrl: null, blob: null, load: async () => {}, isLoading: false, progress: 0 });
@@ -175,6 +177,8 @@ export function useDecryptedMedia(
       return;
     }
 
+    if (isExecutingRef.current) return;
+    isExecutingRef.current = true;
     setIsLoading(true);
     setProgress(0.06);
 
@@ -186,6 +190,7 @@ export function useDecryptedMedia(
       setIsUnavailable(true);
       setResult({ blobUrl: null, blob: null, load: loadMedia, isLoading: false, progress: 0 });
     } finally {
+      isExecutingRef.current = false;
       setIsLoading(false);
     }
   }, [cleanUrl, cachedUrl, sharedSecret, hintFileName, chatId, messageId]);
@@ -202,17 +207,16 @@ export function useDecryptedMedia(
     }
 
     if (!autoLoad) {
-      setResult((prev) => ({ ...prev, load: loadMedia, isLoading, progress }));
       return;
     }
 
     if (streamUrl && streamUrl.startsWith('orbita-media:')) {
-      setResult({ blobUrl: streamUrl, blob: null, load: async () => {}, isLoading: false, progress: 1 });
+      setResult({ blobUrl: streamUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
       return;
     }
 
     loadMedia();
-  }, [cleanUrl, cachedUrl, autoLoad, streamUrl, loadMedia, isLoading, progress]);
+  }, [cleanUrl, cachedUrl, autoLoad, streamUrl, loadMedia]);
 
   return {
     ...result,
