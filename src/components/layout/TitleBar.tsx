@@ -1,5 +1,5 @@
-// src/components/layout/TitleBar.tsx
 import React, { useEffect, useState } from 'react';
+import { useChatStore } from '../../store/useChatStore';
 
 export const isElectronApp = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -72,6 +72,14 @@ export const TitleBar = () => {
   const handleClose = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.blur();
     setIsHoverSuppressed(true);
+    if (useChatStore.getState().isRecordingVoice) {
+      window.dispatchEvent(new CustomEvent('orbita:request-exit-app-voice'));
+      return;
+    }
+    if (useChatStore.getState().isUploadingMedia) {
+      window.dispatchEvent(new CustomEvent('orbita:request-exit-app-upload'));
+      return;
+    }
     try { ((window as any).orbita?.closeWindow?.()); } catch {}
   };
 

@@ -462,6 +462,9 @@ interface ChatState {
   isRecordingVoice: boolean;
   setIsRecordingVoice: (recording: boolean) => void;
 
+  isUploadingMedia: boolean;
+  setIsUploadingMedia: (uploading: boolean) => void;
+
   autoUpdate: boolean;
   downloadedUpdateVersion: string | null;
   isUpdateBannerDismissed: boolean;
@@ -748,6 +751,9 @@ export const useChatStore = create<ChatState>()(
 
       isRecordingVoice: false,
       setIsRecordingVoice: (recording) => set({ isRecordingVoice: recording }),
+
+      isUploadingMedia: false,
+      setIsUploadingMedia: (uploading) => set({ isUploadingMedia: uploading }),
 
       autoUpdate: true,
       downloadedUpdateVersion: null,

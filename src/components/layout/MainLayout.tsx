@@ -825,6 +825,24 @@ export const MainLayout = () => {
   });
   const [pendingSwitchChatId, setPendingSwitchChatId] = useState<string | null>(null);
   const [showVoiceDiscardModal, setShowVoiceDiscardModal] = useState(false);
+  const [showUploadDiscardModal, setShowUploadDiscardModal] = useState(false);
+
+  useEffect(() => {
+    const handleExitVoice = () => {
+      setPendingSwitchChatId('__QUIT__');
+      setShowVoiceDiscardModal(true);
+    };
+    const handleExitUpload = () => {
+      setPendingSwitchChatId('__QUIT__');
+      setShowUploadDiscardModal(true);
+    };
+    window.addEventListener('orbita:request-exit-app-voice', handleExitVoice);
+    window.addEventListener('orbita:request-exit-app-upload', handleExitUpload);
+    return () => {
+      window.removeEventListener('orbita:request-exit-app-voice', handleExitVoice);
+      window.removeEventListener('orbita:request-exit-app-upload', handleExitUpload);
+    };
+  }, []);
 
   const activeSubscriptions = useRef<Map<string, { channel: any; handler: (data: any) => void }>>(new Map());
 
@@ -4615,6 +4633,11 @@ export const MainLayout = () => {
       setShowVoiceDiscardModal(true);
       return;
     }
+    if (useChatStore.getState().isUploadingMedia) {
+      setPendingSwitchChatId(chatId);
+      setShowUploadDiscardModal(true);
+      return;
+    }
     setActiveChat(chatId);
   }, [setActiveChat]);
 
@@ -4622,6 +4645,11 @@ export const MainLayout = () => {
     if (useChatStore.getState().isRecordingVoice) {
       setPendingSwitchChatId('__CLOSE__');
       setShowVoiceDiscardModal(true);
+      return;
+    }
+    if (useChatStore.getState().isUploadingMedia) {
+      setPendingSwitchChatId('__CLOSE__');
+      setShowUploadDiscardModal(true);
       return;
     }
     setActiveChat(null);
@@ -5411,6 +5439,32 @@ export const MainLayout = () => {
             if (pendingSwitchChatId) {
               if (pendingSwitchChatId === '__CLOSE__') {
                 setActiveChat(null);
+              } else if (pendingSwitchChatId === '__QUIT__') {
+                try { ((window as any).orbita?.closeWindow?.()); } catch {}
+              } else {
+                setActiveChat(pendingSwitchChatId);
+              }
+              setPendingSwitchChatId(null);
+            }
+          }}
+        />
+
+        <ActionConfirmModal
+          isOpen={showUploadDiscardModal}
+          type="abort_upload"
+          onClose={() => {
+            setShowUploadDiscardModal(false);
+            setPendingSwitchChatId(null);
+          }}
+          onConfirm={() => {
+            window.dispatchEvent(new CustomEvent('orbita:abort-media-upload'));
+            useChatStore.getState().setIsUploadingMedia(false);
+            setShowUploadDiscardModal(false);
+            if (pendingSwitchChatId) {
+              if (pendingSwitchChatId === '__CLOSE__') {
+                setActiveChat(null);
+              } else if (pendingSwitchChatId === '__QUIT__') {
+                try { ((window as any).orbita?.closeWindow?.()); } catch {}
               } else {
                 setActiveChat(pendingSwitchChatId);
               }

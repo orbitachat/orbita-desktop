@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Message, useChatStore } from '../../store/useChatStore';
+import { useUploadProgressStore } from '../../store/useUploadProgressStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
 import { useAudioStore } from '../../store/useAudioStore';
 import { AudioCoverWithPlay } from '../audio/AudioCoverWithPlay';
@@ -184,8 +185,10 @@ export const AudioMessageBubble = memo(({
   );
   const itemTotalSize = msg.audioMetadata?.size || (msg as any).size || msg.fileSize || 0;
   const sizeMbStr = itemTotalSize > 0 ? (itemTotalSize / (1024 * 1024)).toFixed(1) : '0.0';
-  const uploadedMbStr = (msg.uploadedMb || 0).toFixed(1);
-  const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, ((msg.uploadedMb || 0) * 1024 * 1024) / itemTotalSize)) : 0.08;
+  const liveProgress = useUploadProgressStore((s) => msg.id ? s.progressByKey[msg.id] : undefined);
+  const currentUploaded = liveProgress !== undefined ? liveProgress : (msg.uploadedMb || 0);
+  const uploadedMbStr = currentUploaded.toFixed(1);
+  const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, (currentUploaded * 1024 * 1024) / itemTotalSize)) : 0.08;
 
   const coverState = isUploading
     ? 'uploading'

@@ -1581,15 +1581,15 @@ function registerStorageIpcHandlers() {
   });
 }
 
-// -----------------------------------------------------------------------------
-// 6. Streaming HTTP Multipart Upload to Cloudinary / Worker Gateway
-// -----------------------------------------------------------------------------
+const activeUploadRequests = new Map<string, http.ClientRequest>();
+
 function uploadToCloudinaryWithProgress(
   filePath: string,
   uploadUrl: string,
   fields: Record<string, string>,
   fieldName: string,
-  onProgress: (sent: number, total: number) => void
+  onProgress: (sent: number, total: number) => void,
+  publicId?: string
 ): Promise<{ statusCode: number; body: string }> {
   return new Promise((resolve, reject) => {
     const fileBuffer = fs.readFileSync(filePath);
@@ -1652,10 +1652,21 @@ function uploadToCloudinaryWithProgress(
       res.on('data', (chunk) => {
         respBody += chunk.toString();
       });
-      res.on('end', () => resolve({ statusCode: res.statusCode || 200, body: respBody }));
+      res.on('end', () => {
+        if (publicId) activeUploadRequests.delete(publicId);
+        resolve({ statusCode: res.statusCode || 200, body: respBody });
+      });
     });
 
-    req.on('error', reject);
+    if (publicId) activeUploadRequests.set(publicId, req);
+
+    req.on('error', (err) => {
+      if (publicId) activeUploadRequests.delete(publicId);
+      reject(err);
+    });
+    req.on('close', () => {
+      if (publicId) activeUploadRequests.delete(publicId);
+    });
 
     const CHUNK_SIZE = 64 * 1024;
     let offset = 0;
@@ -1723,12 +1734,16 @@ async function cloudinaryUploadWithProgress(event: Electron.IpcMainInvokeEvent, 
   }
 
   try {
+    let lastProgressSent = 0;
     const { statusCode, body } = await uploadToCloudinaryWithProgress(
       filePath,
       uploadUrl,
       fields,
       'file',
       (uploadedBytes, totalBytes) => {
+        const now = Date.now();
+        if (uploadedBytes < totalBytes && now - lastProgressSent < 90) return;
+        lastProgressSent = now;
         if (event.sender && !event.sender.isDestroyed()) {
           try {
             event.sender.send('orbita:uploadProgress', {
@@ -1738,7 +1753,8 @@ async function cloudinaryUploadWithProgress(event: Electron.IpcMainInvokeEvent, 
             });
           } catch {}
         }
-      }
+      },
+      publicId
     );
 
     const parsed = JSON.parse(body);
@@ -1751,6 +1767,22 @@ async function cloudinaryUploadWithProgress(event: Electron.IpcMainInvokeEvent, 
     return { success: false, error: String(err) };
   }
 }
+
+ipcMain.handle('orbita:cancel-upload', async (_event, publicId?: string) => {
+  if (publicId) {
+    const req = activeUploadRequests.get(publicId);
+    if (req) {
+      req.destroy();
+      activeUploadRequests.delete(publicId);
+    }
+  } else {
+    for (const [, req] of activeUploadRequests.entries()) {
+      try { req.destroy(); } catch {}
+    }
+    activeUploadRequests.clear();
+  }
+  return { success: true };
+});
 
 // -----------------------------------------------------------------------------
 // 7. General Utility Handlers

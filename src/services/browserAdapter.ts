@@ -76,6 +76,7 @@ class BrowserOrbitaAdapter {
       minimizeWindow: async () => {},
       maximizeWindow: async () => {},
       closeWindow: async () => {},
+      cancelUpload: async () => ({ success: true }),
       isWindowMaximized: async () => false,
       toggleFullScreen: async () => {},
       onWindowStateChange: () => () => {},

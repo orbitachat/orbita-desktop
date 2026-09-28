@@ -2,6 +2,7 @@ import { memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MediaItem, Message, useChatStore } from '../../store/useChatStore';
 import { useAudioStore } from '../../store/useAudioStore';
+import { useUploadProgressStore } from '../../store/useUploadProgressStore';
 import { AudioCoverWithPlay, AudioCoverState } from '../audio/AudioCoverWithPlay';
 import { useDecryptedMedia } from '../../lib/media-utils';
 
@@ -16,6 +17,7 @@ interface GroupedAudioBubbleProps {
 
 const AudioTrackRow = memo(({
   item,
+  index,
   sharedSecret,
   isCurrentTrack,
   isPlaying,
@@ -25,6 +27,7 @@ const AudioTrackRow = memo(({
   onCancelUpload,
 }: {
   item: MediaItem;
+  index: number;
   sharedSecret: string | undefined;
   isCurrentTrack: boolean;
   isPlaying: boolean;
@@ -140,8 +143,10 @@ const AudioTrackRow = memo(({
 
   const itemTotalSize = item.size || (item.audioMetadata?.size || 0);
   const sizeMbStr = itemTotalSize > 0 ? (itemTotalSize / (1024 * 1024)).toFixed(1) : '0.0';
-  const uploadedMbStr = (item.uploadedMb || 0).toFixed(1);
-  const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, ((item.uploadedMb || 0) * 1024 * 1024) / itemTotalSize)) : 0.08;
+  const liveProgress = useUploadProgressStore((s) => msg.id ? (s.progressByKey[`${msg.id}_${index}`] ?? s.progressByKey[msg.id]) : undefined);
+  const currentUploaded = liveProgress !== undefined ? liveProgress : (item.uploadedMb || 0);
+  const uploadedMbStr = currentUploaded.toFixed(1);
+  const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, (currentUploaded * 1024 * 1024) / itemTotalSize)) : 0.08;
 
   const coverState: AudioCoverState = isUploading
     ? 'uploading'
@@ -278,6 +283,7 @@ export const GroupedAudioBubble = memo(({
             <AudioTrackRow
               key={index}
               item={item}
+              index={index}
               sharedSecret={sharedSecret}
               isCurrentTrack={isThisTrack}
               isPlaying={isGlobalPlaying}

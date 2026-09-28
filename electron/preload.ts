@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('orbita', {
   uploadToCloudinary: (filePath: string, publicId: string) =>
     ipcRenderer.invoke('orbita:upload', { filePath, publicId }),
 
+  cancelUpload: (publicId?: string) =>
+    ipcRenderer.invoke('orbita:cancel-upload', publicId),
+
   destroyCloudinaryMedia: (publicId: string, resourceType?: string) =>
     ipcRenderer.invoke('orbita:destroyCloudinaryMedia', publicId, resourceType),
 

@@ -8,6 +8,8 @@
       "pin_message_title": "Pin this message?",
       "unpin_message_title": "Unpin this message?",
       "discard_voice_title": "Are you sure you want to stop recording and delete the voice message?",
+      "abort_upload_title": "Media upload in progress. If you leave the chat, the upload will be cancelled. Leave?",
+      "abort_upload_confirm": "Leave",
       "open_link_title": "Are you sure you want to open this link in your browser?",
       "cannot_be_undone": "This action cannot be undone."
     },

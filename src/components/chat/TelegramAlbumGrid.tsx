@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { MediaItem, Message, useChatStore } from '../../store/useChatStore';
+import { useUploadProgressStore } from '../../store/useUploadProgressStore';
 import { useDecryptedMedia } from '../../lib/media-utils';
 import { AudioCoverWithPlay } from '../audio/AudioCoverWithPlay';
 import { Play } from 'lucide-react';
@@ -17,6 +18,7 @@ interface TelegramAlbumGridProps {
 
 const AlbumTile = memo(({
   item,
+  itemIdx,
   sharedSecret,
   onClick,
   style,
@@ -24,6 +26,7 @@ const AlbumTile = memo(({
   msg,
 }: {
   item: MediaItem;
+  itemIdx: number;
   sharedSecret: string | undefined;
   onClick: () => void;
   style: React.CSSProperties;
@@ -46,7 +49,8 @@ const AlbumTile = memo(({
     (item.url && /\.(mp4|mov|avi|webm|mkv|m4v)(\?.*)?$/i.test(item.url))
   );
 
-  const autoLoad = isGif || useChatStore((state) => state.shouldAutoLoadMedia(isVideo ? 'video' : 'photo', item.size, isOwn));
+  const isUploading = Boolean(item.uploading || (isOwn && (msg.uploading || msg.status === 'sending' || msg.status === 'pending')));
+  const autoLoad = !isUploading && (isGif || useChatStore((state) => state.shouldAutoLoadMedia(isVideo ? 'video' : 'photo', item.size, isOwn)));
   const effectiveSecret = item.key || (msg as any).mediaKey || sharedSecret;
   const { blobUrl, load, isLoading, progress, isUnavailable } = useDecryptedMedia(
     item.url,
@@ -65,13 +69,14 @@ const AlbumTile = memo(({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const isUploading = Boolean(item.uploading || (isOwn && (msg.uploading || msg.status === 'sending' || msg.status === 'pending')));
   const isDownloading = isLoading;
   const blurSrc = item.blurPreview || item.thumbnail || (item.url?.startsWith('data:') ? item.url : null);
   const mediaSrc = blobUrl || (item.url?.startsWith('data:') || item.url?.startsWith('blob:') ? item.url : undefined);
 
   const itemTotalSize = item.size || msg.fileSize || (item.audioMetadata?.size || 0);
-  const currentUploaded = item.uploadedMb || msg.uploadedMb || 0;
+  const progressKey = `${msg.id}_${itemIdx}`;
+  const liveProgress = useUploadProgressStore((s) => msg.id ? (s.progressByKey[progressKey] ?? s.progressByKey[msg.id]) : undefined);
+  const currentUploaded = liveProgress !== undefined ? liveProgress : (item.uploadedMb || msg.uploadedMb || 0);
   const uploadProgress = itemTotalSize > 0 ? Math.min(1, Math.max(0.04, (currentUploaded * 1024 * 1024) / itemTotalSize)) : 0.08;
 
   return (
@@ -215,7 +220,16 @@ const AlbumTile = memo(({
       )}
     </div>
   );
-});
+}, (prev, next) =>
+  prev.item === next.item &&
+  prev.itemIdx === next.itemIdx &&
+  prev.sharedSecret === next.sharedSecret &&
+  prev.isOwn === next.isOwn &&
+  prev.msg.id === next.msg.id &&
+  prev.msg.status === next.msg.status &&
+  prev.msg.uploading === next.msg.uploading &&
+  prev.style?.borderRadius === next.style?.borderRadius
+);
 
 AlbumTile.displayName = 'AlbumTile';
 
@@ -378,6 +392,7 @@ export const TelegramAlbumGrid = memo(({
                   >
                     <AlbumTile
                       item={item}
+                      itemIdx={itemIdx}
                       sharedSecret={sharedSecret}
                       onClick={() => onMediaClick(itemIdx)}
                       style={{ width: '100%', height: '100%', borderRadius: tileRadius }}

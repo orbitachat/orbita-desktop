@@ -57,6 +57,7 @@ declare global {
       onUploadProgress: (
         callback: (data: { publicId: string; uploadedBytes: number; totalBytes: number }) => void
       ) => () => void;
+      cancelUpload?: (publicId?: string) => Promise<{ success: boolean }>;
       getFileSize: (filePath: string) => Promise<number>;
       getAudioMetadata: (filePath: string) => Promise<AudioMetadata>;
       getPathForFile?: (file: any) => string;

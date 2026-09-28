@@ -12,7 +12,8 @@ export type ConfirmActionType =
   | 'delete_message'
   | 'pin_message'
   | 'unpin_message'
-  | 'discard_voice';
+  | 'discard_voice'
+  | 'abort_upload';
 
 interface ActionConfirmModalProps {
   isOpen: boolean;
@@ -51,7 +52,7 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
   if (!isOpen || !type) return null;
 
   const isDestructive =
-    type === 'clear_history' || type === 'delete_chat' || type === 'leave_channel' || type === 'delete_message' || type === 'discard_voice';
+    type === 'clear_history' || type === 'delete_chat' || type === 'leave_channel' || type === 'delete_message' || type === 'discard_voice' || type === 'abort_upload';
 
   const showHeader = (type === 'clear_history' || type === 'delete_chat' || type === 'leave_channel') && (chatName || isNotes);
 
@@ -88,6 +89,10 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
         return t('confirmModal.discard_voice_title', {
           defaultValue: 'Вы точно хотите прекратить запись и удалить голосовое сообщение?',
         });
+      case 'abort_upload':
+        return t('confirmModal.abort_upload_title', {
+          defaultValue: 'Идёт загрузка медиа. Если вы покинете чат, отправка будет отменена. Выйти?',
+        });
       default:
         return '';
     }
@@ -100,6 +105,8 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
       case 'delete_message':
       case 'discard_voice':
         return t('common.delete', { defaultValue: 'Удалить' });
+      case 'abort_upload':
+        return t('confirmModal.abort_upload_confirm', { defaultValue: 'Выйти' });
       case 'leave_channel':
         return t('channel.leave_channel', { defaultValue: 'Покинуть канал' });
       case 'pin_message':

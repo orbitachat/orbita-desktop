@@ -35,6 +35,7 @@ import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '..
 import { MessageInput } from './MessageInput';
 import { TelegramAlbumGrid } from './TelegramAlbumGrid';
 import { GroupedAudioBubble } from './GroupedAudioBubble';
+import { useUploadProgressStore } from '../../store/useUploadProgressStore';
 import { useShallow } from 'zustand/react/shallow';
 import { parseReplyChain, countEmojis, formatTimeOfDay, arrayBufferToBase64 } from '../../utils/messageUtils';
 import { useToastStore } from '../../store/useToastStore';
@@ -1913,8 +1914,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       for (const entry of entries) {
         const newHeight = entry.contentRect.height;
         if (prevHeight && Math.abs(newHeight - prevHeight) > 1) {
-          const wasAtBottom = atBottomRef.current || (el.scrollHeight - el.scrollTop - prevHeight <= 80);
-          if (wasAtBottom) {
+          const isCurrentlyAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 80;
+          if (isCurrentlyAtBottom && atBottomRef.current) {
             el.scrollTop = el.scrollHeight;
             requestAnimationFrame(() => {
               if (el) {
@@ -1933,6 +1934,37 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     ro.observe(el);
     return () => ro.disconnect();
   }, [updateChatThumb]);
+
+  const handleMessagesWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY < 0) {
+      atBottomRef.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleAbortUpload = () => {
+      try {
+        (window as any).orbita?.cancelUpload?.();
+      } catch {}
+      useUploadProgressStore.getState().clearAll();
+      useChatStore.getState().setIsUploadingMedia(false);
+      if (activeChatId) {
+        useChatStore.setState((state) => {
+          const currentMsgs = state.messagesByChatId[activeChatId];
+          if (!currentMsgs) return state;
+          return {
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [activeChatId]: currentMsgs.filter((m) => !m.uploading && m.status !== 'sending'),
+            },
+          };
+        });
+      }
+    };
+
+    window.addEventListener('orbita:abort-media-upload', handleAbortUpload);
+    return () => window.removeEventListener('orbita:abort-media-upload', handleAbortUpload);
+  }, [activeChatId]);
 
   const handleScroll = useCallback(() => {
     const el = messagesContainerRef.current;
@@ -4691,6 +4723,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     setAttachedFiles([]);
     setIsAttachmentModalOpen(false);
     setIsSendingFiles(false);
+    useChatStore.getState().setIsUploadingMedia(true);
     setInputText('');
 
     const resolveItemType = (ft: string, fileName?: string): 'photo' | 'video' | 'audio' | 'file' | 'gif' => {
@@ -4893,38 +4926,29 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
 
         (async () => {
           const uploadedItems: MediaItem[] = [];
-          let lastProgTime = 0;
           for (let fIdx = 0; fIdx < chunkFiles.length; fIdx++) {
             const currentFile = chunkFiles[fIdx];
             const uploaded = await uploadSingleFile(currentFile, (uploadedBytes) => {
-              const now = Date.now();
-              if (now - lastProgTime < 150) return;
-              lastProgTime = now;
               const uploadedMb = uploadedBytes / (1024 * 1024);
-              useChatStore.setState((state) => {
-                const msgs = state.messagesByChatId[activeChatId];
-                if (!msgs) return state;
-                return {
-                  messagesByChatId: {
-                    ...state.messagesByChatId,
-                    [activeChatId]: msgs.map((m) => {
-                      if (m.id !== messageId) return m;
-                      const updatedItems = m.mediaItems ? m.mediaItems.map((it, idx) =>
-                        idx === fIdx ? { ...it, uploadedMb } : it
-                      ) : undefined;
-                      return { ...m, mediaItems: updatedItems };
-                    }),
-                  },
-                };
-              });
+              useUploadProgressStore.getState().setProgress(`${messageId}_${fIdx}`, uploadedMb);
+              useUploadProgressStore.getState().setProgress(messageId, uploadedMb);
             });
 
-            if (!uploaded) return;
+            if (!uploaded) {
+              useUploadProgressStore.getState().clearProgress(`${messageId}_${fIdx}`);
+              useUploadProgressStore.getState().clearProgress(messageId);
+              useChatStore.getState().setIsUploadingMedia(false);
+              return;
+            }
+            useUploadProgressStore.getState().clearProgress(`${messageId}_${fIdx}`);
             uploadedItems.push({
               ...uploaded,
               uploading: false,
             });
           }
+
+          useUploadProgressStore.getState().clearProgress(messageId);
+          useChatStore.getState().setIsUploadingMedia(false);
 
           const isPresent = useChatStore.getState().messagesByChatId[activeChatId]?.some((m) => m.id === messageId);
           if (!isPresent) return;
@@ -5137,30 +5161,23 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         updateChat(activeChatId, { lastMsg: postCaption || file.name || `[${itemType}]` });
 
         (async () => {
-          let lastProgTime = 0;
           const uploaded = await uploadSingleFile(file, (uploadedBytes) => {
-            const now = Date.now();
-            if (now - lastProgTime < 150) return;
-            lastProgTime = now;
             const uploadedMb = uploadedBytes / (1024 * 1024);
-            useChatStore.setState((state) => {
-              const msgs = state.messagesByChatId[activeChatId];
-              if (!msgs) return state;
-              return {
-                messagesByChatId: {
-                  ...state.messagesByChatId,
-                  [activeChatId]: msgs.map((m) =>
-                    m.id === messageId ? { ...m, uploadedMb } : m
-                  ),
-                },
-              };
-            });
+            useUploadProgressStore.getState().setProgress(messageId, uploadedMb);
           });
 
-          if (!uploaded) return;
+          if (!uploaded) {
+            useUploadProgressStore.getState().clearProgress(messageId);
+            useChatStore.getState().setIsUploadingMedia(false);
+            return;
+          }
 
           const isPresent = useChatStore.getState().messagesByChatId[activeChatId]?.some((m) => m.id === messageId);
-          if (!isPresent) return;
+          if (!isPresent) {
+            useUploadProgressStore.getState().clearProgress(messageId);
+            useChatStore.getState().setIsUploadingMedia(false);
+            return;
+          }
 
           if (isChannel) {
             const targetChannelId = activeChatId;
@@ -5229,6 +5246,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                 });
               }
             });
+            useUploadProgressStore.getState().clearProgress(messageId);
+            useChatStore.getState().setIsUploadingMedia(false);
             return;
           }
 
@@ -5268,6 +5287,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             if (activeChatId === 'system_support') {
               supportService.handleUserMessage(fileMsg, t, uploaded.url, uploaded.type);
             }
+            useUploadProgressStore.getState().clearProgress(messageId);
+            useChatStore.getState().setIsUploadingMedia(false);
             return;
           }
 
@@ -5373,6 +5394,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             }
           } catch (err) {
             console.error('Failed to save offline message:', err);
+          } finally {
+            useUploadProgressStore.getState().clearProgress(messageId);
+            useChatStore.getState().setIsUploadingMedia(false);
           }
         })();
       }
@@ -6584,6 +6608,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         <div
           ref={messagesContainerRef}
           onScroll={handleScroll}
+          onWheel={handleMessagesWheel}
           className="chat-list-scrollbar flex-1 min-h-0 overflow-y-scroll overflow-x-hidden flex flex-col"
           style={{
             display: 'flex',
