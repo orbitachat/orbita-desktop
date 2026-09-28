@@ -355,28 +355,31 @@ class MediaManager {
       }
 
       const cachedMime = diskCache.mime || '';
-      const needsRedecrypt = !cachedMime || cachedMime === 'application/octet-stream';
+      const isPlaintext = this.isPlaintextMedia(new Uint8Array(rawBytes.slice(0, 16)));
 
-      if (!needsRedecrypt) {
+      if (isPlaintext) {
         decryptedData = rawBytes;
-        mime = cachedMime;
-      } else {
-        if (sharedSecret && sharedSecret.trim()) {
-          try {
-            decryptedData = await this.decryptFile(rawBytes, sharedSecret);
-            mime = this.detectMime(new Uint8Array(decryptedData.slice(0, 16)), fileName);
-            const b64 = this.arrayBufferToBase64(decryptedData);
-            if (!window.orbita?.mediaSave) {
-              idbMediaStorage.save(url, b64, mime, chatId, messageId).catch(() => {});
-            }
-          } catch {
-            decryptedData = rawBytes;
-            mime = 'application/octet-stream';
-          }
-        } else {
-          decryptedData = rawBytes;
-          mime = this.detectMime(new Uint8Array(rawBytes.slice(0, 16)), fileName);
+        mime = this.detectMime(new Uint8Array(rawBytes.slice(0, 16)), fileName);
+        if (mime === 'application/octet-stream' && cachedMime && cachedMime !== 'application/octet-stream') {
+          mime = cachedMime;
         }
+      } else if (sharedSecret && sharedSecret.trim()) {
+        try {
+          decryptedData = await this.decryptFile(rawBytes, sharedSecret);
+          mime = this.detectMime(new Uint8Array(decryptedData.slice(0, 16)), fileName);
+          if (window.orbita?.mediaSave) {
+            window.orbita.mediaSave(url, new Uint8Array(decryptedData), mime, chatId || '', messageId || '').catch(() => {});
+          } else {
+            const b64 = this.arrayBufferToBase64(decryptedData);
+            idbMediaStorage.save(url, b64, mime, chatId, messageId).catch(() => {});
+          }
+        } catch {
+          decryptedData = rawBytes;
+          mime = cachedMime || 'application/octet-stream';
+        }
+      } else {
+        decryptedData = rawBytes;
+        mime = cachedMime || this.detectMime(new Uint8Array(rawBytes.slice(0, 16)), fileName);
       }
     } else {
       const response = await fetch(url, { signal: this.getAbortSignal(cacheKey) });
@@ -412,7 +415,8 @@ class MediaManager {
         this.notifyProgress(cacheKey, encryptedBuffer.byteLength, encryptedBuffer.byteLength);
       }
 
-      if (sharedSecret && sharedSecret.trim()) {
+      const isAlreadyPlaintext = this.isPlaintextMedia(new Uint8Array(encryptedBuffer.slice(0, 16)));
+      if (!isAlreadyPlaintext && sharedSecret && sharedSecret.trim()) {
         try {
           decryptedData = await this.decryptFile(encryptedBuffer, sharedSecret);
         } catch {
@@ -506,6 +510,30 @@ class MediaManager {
     }
   }
 
+  private isPlaintextMedia(bytes: Uint8Array): boolean {
+    if (!bytes || bytes.length < 4) return false;
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return true;
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return true;
+    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+      const sub = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+      if (sub === 'WEBP' || sub === 'WAVE' || sub === 'AVI ') return true;
+    }
+    if (bytes.length >= 8) {
+      const box = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+      if (box === 'ftyp' || box === 'moov' || box === 'mdat' || box === 'wide' || box === 'free' || box === 'skip') {
+        return true;
+      }
+    }
+    if (bytes[0] === 0x1a && bytes[1] === 0x45) return true;
+    if (bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) return true;
+    if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return true;
+    if (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return true;
+    if (bytes[0] === 0x66 && bytes[1] === 0x4c && bytes[2] === 0x61 && bytes[3] === 0x43) return true;
+    if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return true;
+    return false;
+  }
+
   private isDangerousExecutable(bytes: Uint8Array): boolean {
     if (!bytes || bytes.length < 2) return false;
     if (bytes[0] === 0x4D && bytes[1] === 0x5A) return true;
@@ -531,7 +559,15 @@ class MediaManager {
         mime = 'image/webp';
       }
     }
-    else if (bytes[4] === 0x66 && bytes[5] === 0x74) mime = 'video/mp4';
+    else if (bytes.length >= 8 && (
+      (bytes[4] === 0x66 && bytes[5] === 0x74) ||
+      (bytes[4] === 0x6d && bytes[5] === 0x6f && bytes[6] === 0x6f && bytes[7] === 0x76) ||
+      (bytes[4] === 0x6d && bytes[5] === 0x64 && bytes[6] === 0x61 && bytes[7] === 0x74) ||
+      (bytes[4] === 0x77 && bytes[5] === 0x69 && bytes[6] === 0x64 && bytes[7] === 0x65)
+    )) {
+      const isAudio = fileName ? fileName.toLowerCase().endsWith('.m4a') : false;
+      mime = isAudio ? 'audio/mp4' : 'video/mp4';
+    }
     else if (bytes[0] === 0x1A && bytes[1] === 0x45) {
       const isVoice = Boolean(
         fileName && (

@@ -81,7 +81,7 @@ app.commandLine.appendSwitch('enable-smooth-scrolling');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-accelerated-video-encode');
-app.commandLine.appendSwitch('enable-features', 'CalculateNativeWinOcclusion,WebRtcD3D11VideoDecoder,WebRtcHardwareVideoEncoding,WebRtcD3d11DesktopCapturer');
+app.commandLine.appendSwitch('enable-features', 'CalculateNativeWinOcclusion,WebRtcD3D11VideoDecoder,WebRtcHardwareVideoEncoding,WebRtcD3d11DesktopCapturer,PlatformHEVCDecoderSupport');
 
 // Load optional native module
 let nativeModule: any = null;
@@ -867,7 +867,35 @@ function registerMediaIpcHandlers() {
   ipcMain.handle('media:delete-by-chat', async (_event, chatId: string) => ({ deleted: await deleteMediaByChat(chatId) }));
 }
 
+function isBufferPlaintext(buf: Buffer): boolean {
+  if (!buf || buf.length < 4) return false;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true;
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return true;
+  if (buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF') {
+    const sub = buf.subarray(8, 12).toString('ascii');
+    if (sub === 'WEBP' || sub === 'WAVE' || sub === 'AVI ') return true;
+  }
+  if (buf.length >= 8) {
+    const box = buf.subarray(4, 8).toString('ascii');
+    if (box === 'ftyp' || box === 'moov' || box === 'mdat' || box === 'wide' || box === 'free' || box === 'skip') {
+      return true;
+    }
+  }
+  if (buf.length >= 2 && buf[0] === 0x1a && buf[1] === 0x45) return true;
+  if (buf.length >= 4 && buf.subarray(0, 4).toString('ascii') === 'OggS') return true;
+  if (buf.length >= 3 && buf.subarray(0, 3).toString('ascii') === 'ID3') return true;
+  if (buf.length >= 2 && buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0) return true;
+  if (buf.length >= 4 && buf.subarray(0, 4).toString('ascii') === 'fLaC') return true;
+  if (buf.length >= 4 && buf.subarray(0, 4).toString('ascii') === '%PDF') return true;
+  return false;
+}
+
 function detectMimeFromBuffer(buf: Buffer, fallbackUrl: string, hintFileName?: string, hintMime?: string): string {
+  const isPlaintext = isBufferPlaintext(buf);
+  if (!isPlaintext) {
+    return 'application/octet-stream';
+  }
   if (hintMime && hintMime !== 'application/octet-stream' && !hintMime.includes('undefined')) {
     if (buf.length >= 2 && buf[0] === 0x1a && buf[1] === 0x45) {
       return hintMime.startsWith('audio/') ? 'audio/webm' : 'video/webm';
@@ -881,9 +909,12 @@ function detectMimeFromBuffer(buf: Buffer, fallbackUrl: string, hintFileName?: s
     if (buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF' && buf.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
     if (buf.length >= 12 && buf.subarray(0, 4).toString('ascii') === 'RIFF' && buf.subarray(8, 12).toString('ascii') === 'WAVE') return 'audio/wav';
     if (buf.subarray(0, 4).toString('ascii') === 'fLaC') return 'audio/flac';
-    if (buf.length >= 8 && buf.subarray(4, 8).toString('ascii') === 'ftyp') {
-      const isAudio = fallbackUrl.toLowerCase().endsWith('.m4a') || hintFileName?.toLowerCase().endsWith('.m4a');
-      return isAudio ? 'audio/mp4' : 'video/mp4';
+    if (buf.length >= 8) {
+      const box = buf.subarray(4, 8).toString('ascii');
+      if (box === 'ftyp' || box === 'moov' || box === 'mdat' || box === 'wide' || box === 'free' || box === 'skip') {
+        const isAudio = fallbackUrl.toLowerCase().endsWith('.m4a') || hintFileName?.toLowerCase().endsWith('.m4a');
+        return isAudio ? 'audio/mp4' : 'video/mp4';
+      }
     }
     if (buf.subarray(0, 4).toString('ascii') === 'OggS') return 'audio/ogg';
     if (buf.subarray(0, 3).toString('ascii') === 'ID3' || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return 'audio/mpeg';
@@ -993,25 +1024,28 @@ function registerOrbitaMediaProtocol() {
           }
         }
 
-        if (secret) {
-          rawBuf = decryptMediaBuffer(rawBuf, secret);
+        if (secret && !isBufferPlaintext(rawBuf)) {
+          const dec = decryptMediaBuffer(rawBuf, secret);
+          if (isBufferPlaintext(dec)) {
+            rawBuf = dec;
+          }
         }
 
         const mime = detectMimeFromBuffer(rawBuf, mediaUrl, hintFileName, hintMime);
         await saveMediaToCache(mediaUrl, rawBuf, mime, chatId, messageId);
         item = { data: rawBuf, mime };
       } else {
-        if (secret && item.data) {
+        if (secret && item.data && !isBufferPlaintext(item.data)) {
           const dec = decryptMediaBuffer(item.data, secret);
-          if (dec !== item.data) {
+          if (isBufferPlaintext(dec)) {
             const mime = detectMimeFromBuffer(dec, mediaUrl, hintFileName, hintMime);
             await saveMediaToCache(mediaUrl, dec, mime, chatId, messageId);
             item = { data: dec, mime };
           }
         }
-        if (item.data && (item.mime === 'audio/ogg' || item.mime === 'application/octet-stream') && item.data.length >= 2 && item.data[0] === 0x1a && item.data[1] === 0x45) {
-          const correctedMime = detectMimeFromBuffer(item.data, mediaUrl, hintFileName, hintMime || 'audio/webm');
-          if (correctedMime !== item.mime) {
+        if (item.data && isBufferPlaintext(item.data)) {
+          const correctedMime = detectMimeFromBuffer(item.data, mediaUrl, hintFileName, hintMime);
+          if (correctedMime !== 'application/octet-stream' && correctedMime !== item.mime) {
             await saveMediaToCache(mediaUrl, item.data, correctedMime, chatId, messageId);
             item.mime = correctedMime;
           }

@@ -47,7 +47,16 @@ const AlbumTile = memo(({
   );
 
   const autoLoad = isGif || useChatStore((state) => state.shouldAutoLoadMedia(isVideo ? 'video' : 'photo', item.size, isOwn));
-  const { blobUrl, load, isLoading, progress, isUnavailable } = useDecryptedMedia(item.url, item.key || sharedSecret, item.name, item.mime, undefined, undefined, autoLoad);
+  const effectiveSecret = item.key || (msg as any).mediaKey || sharedSecret;
+  const { blobUrl, load, isLoading, progress, isUnavailable } = useDecryptedMedia(
+    item.url,
+    effectiveSecret,
+    item.name,
+    item.mime,
+    (msg as any).chatId || (msg as any).chat_id,
+    msg.id,
+    autoLoad
+  );
 
   const formatDuration = (sec?: number) => {
     if (!sec || isNaN(sec)) return '';
@@ -114,6 +123,7 @@ const AlbumTile = memo(({
                 className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
                 style={{ opacity: isLoaded ? 1 : 0 }}
                 onLoadedData={() => setIsLoaded(true)}
+                onError={() => load()}
                 autoPlay
                 loop
                 muted
@@ -127,6 +137,7 @@ const AlbumTile = memo(({
               className="w-full h-full object-cover pointer-events-none relative z-[1] transition-opacity duration-200"
               style={{ opacity: isLoaded ? 1 : 0 }}
               onLoadedData={() => setIsLoaded(true)}
+              onError={() => load()}
               muted
               playsInline
               preload="metadata"

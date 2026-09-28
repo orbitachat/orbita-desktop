@@ -72,6 +72,8 @@ export interface MediaViewerItem {
   albumGroupId?: string;
   key?: string;
   sharedSecret?: string;
+  thumbnail?: string;
+  blurPreview?: string;
 }
 
 export interface TelegramMediaViewerProps {
@@ -158,7 +160,14 @@ const CarouselThumbnail = React.memo(({
       }}
       className="hover:opacity-100 hover:brightness-100"
     >
-      {displaySrc ? (
+      {item.thumbnail || item.blurPreview ? (
+        <img
+          src={item.thumbnail || item.blurPreview}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+          draggable={false}
+        />
+      ) : displaySrc ? (
         isVideoFormat ? (
           <video
             src={displaySrc}
@@ -295,10 +304,13 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
     setPrevIsOpen(false);
   }
 
+  const [fallbackBlobUrl, setFallbackBlobUrl] = useState<string | null>(null);
+
   useEffect(() => {
     setZoomScale(1);
     setPanOffset({ x: 0, y: 0 });
     setIsDragging(false);
+    setFallbackBlobUrl(null);
   }, [currentIndex]);
 
   // Ctrl + Mouse Wheel zoom
@@ -390,16 +402,16 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
       currentItem.url.startsWith('orbita-media:')
     ))
   );
-  const directSrc = cachedDecrypted?.blobUrl || currentItem?.directUrl || (isDirect ? currentItem?.url : null);
   const { blobUrl, blob } = useDecryptedMedia(
-    directSrc ? null : (currentItem?.url || null),
+    currentItem?.url || null,
     effectiveSecret,
     currentItem?.name,
     currentItem?.mime,
     currentItem?.chatId,
     currentItem?.messageId
   );
-  const displaySrc = directSrc || blobUrl;
+  const directSrc = cachedDecrypted?.blobUrl || currentItem?.directUrl || (isDirect ? currentItem?.url : null);
+  const displaySrc = fallbackBlobUrl || cachedDecrypted?.blobUrl || (blobUrl && !blobUrl.startsWith('orbita-media:') ? blobUrl : null) || directSrc || blobUrl;
 
   const isGif = currentItem?.type === 'gif' || Boolean(
     (currentItem?.mime === 'image/gif') ||
@@ -1037,6 +1049,22 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onEnded={() => setIsPlaying(false)}
+                onError={async () => {
+                  if (currentItem?.url && !fallbackBlobUrl) {
+                    try {
+                      const media = await mediaManager.getMedia(
+                        currentItem.url,
+                        effectiveSecret || '',
+                        currentItem.name,
+                        currentItem.chatId,
+                        currentItem.messageId
+                      );
+                      if (media?.blobUrl) {
+                        setFallbackBlobUrl(media.blobUrl);
+                      }
+                    } catch {}
+                  }
+                }}
                 style={{
                   maxWidth: 'calc(100vw - 140px)',
                   maxHeight: 'calc(100vh - 160px)',
