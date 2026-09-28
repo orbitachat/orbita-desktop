@@ -161,8 +161,9 @@ export const MessageReactions: React.FC<MessageReactionsProps> = React.memo(({
         display: 'flex',
         flexWrap: 'wrap',
         gap: '4px',
-        maxWidth: isSmallMessage ? '170px' : '100%',
+        maxWidth: isSmallMessage ? '170px' : '230px',
         width: 'fit-content',
+        justifyContent: isOwn ? 'flex-end' : 'flex-start',
       }}
     >
       {entries.map(([emoji, users]) => (

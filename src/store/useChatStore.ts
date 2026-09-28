@@ -243,6 +243,7 @@ export interface Chat {
   lastReadTimestamp?: number;
   isChatInitiator?: boolean;
   avatarUrl?: string;
+  isArchived?: boolean;
   muted?: boolean;
   notificationsEnabled?: boolean;
   description?: string;
@@ -539,6 +540,7 @@ interface ChatState {
   addChat: (chat: Partial<Chat> & { ratchetState?: RatchetState; id?: string }) => void;
   updateChat: (chatId: string, updates: Partial<Chat>) => void;
   togglePinChat: (chatId: string) => void;
+  toggleArchiveChat: (chatId: string) => void;
   updateLastMsg: (chatId: string, msg: string) => void;
   addMessage: (chatId: string, message: Message, encryptedText?: string, index?: number) => void;
   addMessagesBatch: (
@@ -553,7 +555,7 @@ interface ChatState {
   updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
   editMessage: (chatId: string, messageId: string, newText: string, encryptedText?: string, index?: number) => void;
   toggleReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string) => void;
-  setReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string, action?: 'add' | 'remove' | 'toggle', userAliases?: string[]) => 'add' | 'remove';
+  setReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string, action?: 'add' | 'remove' | 'toggle', userAliases?: string[]) => 'add' | 'remove' | 'limit_reached';
   syncReactionsFromSupabase: (chatId: string) => Promise<void>;
   getMessages: (chatId: string) => Message[];
   setPasscode: (code: string | null) => void;
@@ -1024,6 +1026,14 @@ export const useChatStore = create<ChatState>()(
           };
         });
       },
+      toggleArchiveChat: (chatId) => {
+        if (chatId === 'notes') return;
+        set((state) => ({
+          chats: state.chats.map((c) =>
+            c.id === chatId ? { ...c, isArchived: !c.isArchived } : c
+          ),
+        }));
+      },
       updateLastMsg: (chatId, msg) =>
         set((state) => ({
           chats: state.chats.map(c => c.id === chatId ? { ...c, lastMsg: msg } : c)
@@ -1080,6 +1090,7 @@ export const useChatStore = create<ChatState>()(
             c.id === chatId
               ? {
                   ...c,
+                  isArchived: c.muted ? c.isArchived : false,
                   lastMsg: message.text || (message.mediaItems && message.mediaItems.length > 0 ? '[MediaGroup]' : (message.mediaType ? `[${message.mediaType}]` : '')),
                   unreadCount: newUnreadCount,
                   updatedAt: message.time || Date.now(),
@@ -1294,6 +1305,15 @@ export const useChatStore = create<ChatState>()(
           } else {
             newUsers = [...usersForEmoji.filter((u) => !isTargetUser(u)), user];
             resultingAction = 'add';
+          }
+        }
+
+        if (resultingAction === 'add' && !alreadyPresent) {
+          const userReactionsCount = Object.entries(currentReactions).filter(([_, uList]) =>
+            Array.isArray(uList) && uList.some(isTargetUser)
+          ).length;
+          if (userReactionsCount >= 3) {
+            return 'limit_reached';
           }
         }
 

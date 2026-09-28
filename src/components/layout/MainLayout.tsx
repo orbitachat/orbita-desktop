@@ -3,7 +3,7 @@ import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
-import { X, Trash, WifiOff, LogOut, RotateCw } from 'lucide-react';
+import { X, Trash, WifiOff, LogOut, RotateCw, Archive, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher';
 import {
@@ -579,6 +579,113 @@ const ChatListItem = React.memo(({
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const ArchiveListItem = React.memo(({
+  archivedChats,
+  onOpenArchive,
+  t,
+  isLightTheme,
+}: {
+  archivedChats: Chat[];
+  onOpenArchive: () => void;
+  t: any;
+  isLightTheme: boolean;
+}) => {
+  const totalUnread = useMemo(() => {
+    return archivedChats.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  }, [archivedChats]);
+
+  return (
+    <div
+      onClick={onOpenArchive}
+      className="group relative cursor-pointer"
+      style={{
+        borderRadius: 0,
+        width: '100%',
+        backgroundColor: 'transparent',
+        border: 'none',
+        padding: '8px 11px 8px 14px',
+        minHeight: 48,
+        boxSizing: 'border-box',
+        transition: 'background-color 0.12s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = isLightTheme
+          ? 'rgba(0, 0, 0, 0.04)'
+          : 'rgba(255, 255, 255, 0.04)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'transparent';
+      }}
+    >
+      <div className="flex justify-between items-center min-w-0">
+        <div style={{ width: 48, height: 48, marginRight: 10, flexShrink: 0, position: 'relative' }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              backgroundColor: isLightTheme ? '#6c7a89' : 'rgba(255, 255, 255, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+            }}
+          >
+            <Archive size={22} color="#ffffff" strokeWidth={2.2} />
+          </div>
+        </div>
+        <div className="flex flex-col min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
+            <span
+              className="text-[14px] font-bold truncate whitespace-nowrap overflow-hidden text-ellipsis min-w-0"
+              style={{
+                color: isLightTheme ? '#111111' : 'rgba(255,255,255,0.85)',
+                fontFamily: 'inherit',
+              }}
+            >
+              {t('common.archive', 'Архив')}
+            </span>
+            {totalUnread > 0 && (
+              <div className="ml-auto flex items-center flex-shrink-0">
+                <span
+                  className="text-[12px] font-bold px-2 rounded-full text-white flex-shrink-0"
+                  style={{
+                    backgroundColor: 'var(--accent-color, #7C3AED)',
+                    paddingTop: '0.1rem',
+                    paddingBottom: '0.1rem',
+                    minWidth: '24px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {formatUnreadCount(totalUnread)}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="text-[13px] font-normal whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
+            {archivedChats.map((c, i) => {
+              const hasUnread = (c.unreadCount ?? 0) > 0;
+              return (
+                <React.Fragment key={c.id}>
+                  {i > 0 && <span style={{ color: 'var(--text-dim, #8e8e93)' }}>, </span>}
+                  <span
+                    style={{
+                      color: hasUnread ? (isLightTheme ? '#000000' : '#ffffff') : 'var(--text-dim, #8e8e93)',
+                      fontWeight: hasUnread ? 600 : 400,
+                    }}
+                  >
+                    {c.id === 'notes' ? t('connectModal.notes') : c.name}
+                  </span>
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -4214,8 +4321,17 @@ export const MainLayout = () => {
     setChatContextMenu(prev => ({ ...prev, visible: false }));
   };
 
+  const toggleArchiveChat = useChatStore((s) => s.toggleArchiveChat);
+  const [isViewingArchive, setIsViewingArchive] = useState(false);
+
+  const handleToggleArchiveChat = (chatId: string) => {
+    if (chatId === 'notes') return;
+    toggleArchiveChat(chatId);
+    setChatContextMenu(prev => ({ ...prev, visible: false }));
+  };
+
   const handleMuteChat = (chatId: string) => {
-    if (chatId === 'notes') return; // у заметок нет уведомлений
+    if (chatId === 'notes') return;
     const chat = chats.find(c => c.id === chatId);
     if (chat) {
       updateChat(chatId, { muted: !chat.muted });
@@ -4232,8 +4348,25 @@ export const MainLayout = () => {
     });
   }, [chats, hasNotesMessages]);
 
+  const archivedChats = useMemo(() => {
+    return filteredChats.filter(chat => chat.id !== 'notes' && !!chat.isArchived);
+  }, [filteredChats]);
+
+  const activeFilteredChats = useMemo(() => {
+    if (isViewingArchive) {
+      return archivedChats;
+    }
+    return filteredChats.filter(chat => !chat.isArchived);
+  }, [filteredChats, archivedChats, isViewingArchive]);
+
+  useEffect(() => {
+    if (isViewingArchive && archivedChats.length === 0) {
+      setIsViewingArchive(false);
+    }
+  }, [isViewingArchive, archivedChats.length]);
+
   const sortedChats = useMemo(() => {
-    return [...filteredChats].sort((a, b) => {
+    return [...activeFilteredChats].sort((a, b) => {
       if (a.id === 'notes') return -1;
       if (b.id === 'notes') return 1;
       if (pinnedChatsSet.has(a.id) && !pinnedChatsSet.has(b.id)) return -1;
@@ -4244,7 +4377,7 @@ export const MainLayout = () => {
 
       return bLastTime - aLastTime;
     });
-  }, [filteredChats, pinnedChatsSet]);
+  }, [activeFilteredChats, pinnedChatsSet]);
 
   const isSupportFound = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -4571,71 +4704,103 @@ export const MainLayout = () => {
                 }}
               >
                 <div className="flex items-center min-w-0" style={{ width: '100%' }}>
-                  {isMobileView && (
-                    <button
-                      type="button"
-                      onClick={() => setIsMainMenuOpen(true)}
-                      aria-label={t('mainMenu.open_menu', 'Открыть меню')}
-                      className="flex items-center justify-center cursor-pointer transition-all active:scale-95 text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-[var(--surface-container)] rounded-full shrink-0"
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        border: 'none',
-                        background: 'transparent',
-                        outline: 'none',
-                        marginRight: '8px',
-                        padding: 0,
-                      }}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
-                        <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 6h18M3 12h18M3 18h18"/>
-                      </svg>
-                    </button>
-                  )}
-                  <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={t('common.search', 'Поиск')}
-                      style={{
-                        width: '100%',
-                        height: '36px',
-                        borderRadius: '999px',
-                        border: 'none',
-                        outline: 'none',
-                        boxShadow: 'none',
-                        backgroundColor: 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.05)))',
-                        color: 'var(--text-main, #e0e0e0)',
-                        fontSize: '13px',
-                        paddingLeft: '14px',
-                        paddingRight: searchQuery ? '32px' : '14px',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                    {searchQuery && (
+                  {isViewingArchive ? (
+                    <div className="flex items-center w-full gap-2">
                       <button
-                        onClick={() => setSearchQuery('')}
+                        type="button"
+                        onClick={() => setIsViewingArchive(false)}
+                        aria-label={t('common.back', 'Назад')}
+                        className="flex items-center justify-center cursor-pointer transition-all active:scale-95 text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-[var(--surface-container)] rounded-full shrink-0"
                         style={{
-                          position: 'absolute',
-                          right: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
+                          width: '36px',
+                          height: '36px',
                           border: 'none',
-                          cursor: 'pointer',
-                          color: 'var(--text-dim, #9ca3af)',
-                          padding: '2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          zIndex: 1,
+                          background: 'transparent',
+                          outline: 'none',
+                          padding: 0,
                         }}
                       >
-                        <X size={18} />
+                        <ArrowLeft size={20} />
                       </button>
-                    )}
-                  </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="font-bold text-[16px] text-[var(--text-main)]">
+                          {t('common.archive', 'Архив')}
+                        </span>
+                        <span className="text-xs text-[var(--text-dim)]">
+                          {archivedChats.length}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {isMobileView && (
+                        <button
+                          type="button"
+                          onClick={() => setIsMainMenuOpen(true)}
+                          aria-label={t('mainMenu.open_menu', 'Открыть меню')}
+                          className="flex items-center justify-center cursor-pointer transition-all active:scale-95 text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-[var(--surface-container)] rounded-full shrink-0"
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            border: 'none',
+                            background: 'transparent',
+                            outline: 'none',
+                            marginRight: '8px',
+                            padding: 0,
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                            <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 6h18M3 12h18M3 18h18"/>
+                          </svg>
+                        </button>
+                      )}
+                      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder={t('common.search', 'Поиск')}
+                          style={{
+                            width: '100%',
+                            height: '36px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            outline: 'none',
+                            boxShadow: 'none',
+                            backgroundColor: 'var(--md-surface, var(--surface-container, rgba(255,255,255,0.05)))',
+                            color: 'var(--text-main, #e0e0e0)',
+                            fontSize: '13px',
+                            paddingLeft: '14px',
+                            paddingRight: searchQuery ? '32px' : '14px',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            aria-label={t('common.close', 'Закрыть')}
+                            style={{
+                              position: 'absolute',
+                              right: '8px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: 'var(--text-dim, #9ca3af)',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              zIndex: 1,
+                            }}
+                          >
+                            <X size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -4999,6 +5164,14 @@ export const MainLayout = () => {
                           </div>
                         </div>
                       )}
+                      {!isViewingArchive && !searchQuery.trim() && archivedChats.length > 0 && (
+                        <ArchiveListItem
+                          archivedChats={archivedChats}
+                          onOpenArchive={() => setIsViewingArchive(true)}
+                          t={t}
+                          isLightTheme={isLightTheme}
+                        />
+                      )}
                       {visibleChats.map((chat) => renderChat(chat))}
                     </div>
                   )}
@@ -5264,6 +5437,21 @@ export const MainLayout = () => {
                         )}
                       </span>
                       <span className="whitespace-nowrap">{isPinned ? t('common.unpin') : t('common.pin')}</span>
+                    </button>
+                  )}
+
+                  {!isNotes && (
+                    <button
+                      onClick={() => handleToggleArchiveChat(chatContextMenu.chatId)}
+                      className={baseBtnClass}
+                      style={{ color: 'var(--text-main)' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, flexShrink: 0 }}>
+                        <Archive size={16} style={{ color: iconColor }} />
+                      </span>
+                      <span className="whitespace-nowrap">
+                        {targetChat?.isArchived ? t('common.from_archive') : t('common.to_archive')}
+                      </span>
                     </button>
                   )}
 

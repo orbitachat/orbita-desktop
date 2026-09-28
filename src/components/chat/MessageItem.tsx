@@ -489,9 +489,14 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
     );
   },
   (prev, next) =>
-    prev.msg === next.msg &&
+    prev.msg.id === next.msg.id &&
+    prev.msg.status === next.msg.status &&
+    prev.msg.text === next.msg.text &&
+    prev.msg.reactions === next.msg.reactions &&
+    prev.msg.time === next.msg.time &&
     prev.isOwn === next.isOwn &&
     prev.isPinned === next.isPinned &&
+    prev.isPrevSameSender === next.isPrevSameSender &&
     prev.bubbleRadius === next.bubbleRadius &&
     prev.currentUserId === next.currentUserId &&
     prev.onButtonClick === next.onButtonClick

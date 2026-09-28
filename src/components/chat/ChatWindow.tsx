@@ -111,14 +111,16 @@ const getOptimalMessageBatchSize = (): number => {
   return 35;
 };
 
-// Memoized row wrapper: prevents unnecessary re-renders of already-visible rows
-// during scrolling.
 const MessageRowWrapper = memo(
   ({ index, msg, renderFn }: { index: number; msg: Message; renderFn: (i: number, m: Message) => React.ReactNode }) =>
     renderFn(index, msg) as React.ReactElement,
   (prev, next) =>
-    prev.msg === next.msg &&
-    prev.index === next.index
+    prev.msg.id === next.msg.id &&
+    prev.msg.status === next.msg.status &&
+    prev.msg.text === next.msg.text &&
+    prev.msg.reactions === next.msg.reactions &&
+    prev.msg.time === next.msg.time &&
+    prev.renderFn === next.renderFn
 );
 MessageRowWrapper.displayName = 'MessageRowWrapper';
 
@@ -4528,7 +4530,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     }).catch(() => {});
   };
 
-  const handleSendMessage = (overrideText?: string, linkPreview?: LinkPreviewData) => {
+  const handleSendMessage = useCallback((overrideText?: string, linkPreview?: LinkPreviewData) => {
     const textToSend = (typeof overrideText === 'string' ? overrideText : inputText).trim();
     if (!textToSend) return;
     if (draftDebounceTimerRef.current) {
@@ -4555,7 +4557,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     setShowScrollDown(false);
 
     scrollToBottom(false);
-  };
+  }, [inputText, activeChatId, clearDraft, stopTyping, replyingTo, triggerMessage, scrollToBottom]);
 
   const handleSendAsTxt = async (_caption: string) => {
     if (!activeChatId || !inputText.trim()) return;
@@ -4855,7 +4857,11 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
 
     const userAliases = [myUserId, myCode, myNickname, 'YOU'].filter(Boolean) as string[];
     const reactionUserId = myUserId || myCode || myNickname || 'YOU';
-    setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle', userAliases);
+    const result = setReaction(activeChatId, msgId, emoji, reactionUserId, 'toggle', userAliases);
+    if (result === 'limit_reached') {
+      useToastStore.getState().showToast(t('common.max_reactions_limit'));
+      return;
+    }
 
     setContextMenu(prev => (prev.visible ? { ...prev, visible: false } : prev));
 
@@ -7275,13 +7281,15 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     const isShort = !msg.text || msg.text.length < 35;
     const isOwn = isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId);
     return (
-      <MessageReactions
-        reactions={msg.reactions}
-        onToggleReaction={(emoji) => triggerReactionMessage(msg.id || index, emoji)}
-        isOwn={isOwn}
-        activeChatId={activeChatId || undefined}
-        isSmallMessage={isShort}
-      />
+      <div style={{ display: 'flex', width: '100%', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
+        <MessageReactions
+          reactions={msg.reactions}
+          onToggleReaction={(emoji) => triggerReactionMessage(msg.id || index, emoji)}
+          isOwn={isOwn}
+          activeChatId={activeChatId || undefined}
+          isSmallMessage={isShort}
+        />
+      </div>
     );
   }, [myCode, myNickname, activeChat, activeChatId, myUserId, triggerReactionMessage]);
 
