@@ -11,12 +11,6 @@
       "open_link_title": "Вы уверены, что хотите открыть эту ссылку в браузере?",
       "cannot_be_undone": "Это действие нельзя будет отменить."
     },
-    "mediaViewer": {
-      "video": "Видео",
-      "photo": "Фотография",
-      "gif": "GIF",
-      "counter": "{{type}} {{current}} из {{total}}"
-    },
     "security": {
       "group_title": "Безопасность",
       "set_password": "Поставить пароль",
@@ -409,7 +403,6 @@
       "files": "файлов",
       "waiting_first_message": "Ожидание первого сообщения от собеседника...",
       "edit_message_placeholder": "Редактировать сообщение...",
-      "send_greeting": "Отправить 👋",
       "mic_permission_error": "Ошибка доступа к микрофону",
       "upload_failed": "Ошибка загрузки аудио файла",
       "calls_not_available": "Звонки недоступны для заметок",
@@ -1321,6 +1314,7 @@
     "mediaViewer": {
       "video": "Видео",
       "photo": "Фотография",
+      "gif": "GIF",
       "rotate": "Повернуть",
       "save": "Сохранить",
       "options": "Опции",

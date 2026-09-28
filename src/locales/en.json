@@ -11,12 +11,6 @@
       "open_link_title": "Are you sure you want to open this link in your browser?",
       "cannot_be_undone": "This action cannot be undone."
     },
-    "mediaViewer": {
-      "video": "Video",
-      "photo": "Photo",
-      "gif": "GIF",
-      "counter": "{{type}} {{current}} of {{total}}"
-    },
     "security": {
       "group_title": "Security",
       "set_password": "Set password",
@@ -399,7 +393,6 @@
       "files": "files",
       "waiting_first_message": "Waiting for the first message from the other person...",
       "edit_message_placeholder": "Edit message...",
-      "send_greeting": "Send 👋",
       "mic_permission_error": "Microphone permission error",
       "upload_failed": "Failed to upload audio file",
       "calls_not_available": "Calls are not available for notes",
@@ -1311,6 +1304,7 @@
     "mediaViewer": {
       "video": "Video",
       "photo": "Photo",
+      "gif": "GIF",
       "rotate": "Rotate",
       "save": "Save",
       "options": "Options",
