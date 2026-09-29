@@ -1,4 +1,4 @@
-const { AccessToken } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 
@@ -557,6 +557,11 @@ module.exports = async function handler(req, res) {
         canPublishData: true,
       });
 
+      try {
+        const rsClient = new RoomServiceClient(ENV.LIVEKIT_URL, ENV.LIVEKIT_API_KEY, ENV.LIVEKIT_API_SECRET);
+        await rsClient.createRoom({ name: room, emptyTimeout: 300, departureTimeout: 20, maxParticipants: 2 });
+      } catch {}
+
       const token = await at.toJwt();
       return sendJson(res, { token, url: ENV.LIVEKIT_URL });
     }
@@ -581,6 +586,11 @@ module.exports = async function handler(req, res) {
         canSubscribe: true,
         canPublishData: true,
       });
+
+      try {
+        const rsClient = new RoomServiceClient(livekitUrl, apiKey, apiSecret);
+        await rsClient.createRoom({ name: room, emptyTimeout: 300, departureTimeout: 20, maxParticipants: 50 });
+      } catch {}
 
       const token = await at.toJwt();
       return sendJson(res, { token, url: livekitUrl });
