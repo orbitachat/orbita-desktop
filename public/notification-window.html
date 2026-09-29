@@ -241,11 +241,11 @@
 
     .notif-close {
       position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 28px;
-      height: 28px;
-      border-radius: 4px;
+      top: 0px;
+      right: 0px;
+      width: 44px;
+      height: 44px;
+      border-radius: 0px;
       border: none !important;
       background: transparent !important;
       color: var(--notif-subtext, #8b83a8);
@@ -255,7 +255,7 @@
       justify-content: center;
       opacity: 0.75;
       transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease;
-      z-index: 99;
+      z-index: 100;
       outline: none !important;
       box-shadow: none !important;
       pointer-events: auto !important;
@@ -267,7 +267,8 @@
       color: var(--notif-text, #ffffff);
     }
 
-    .notif-close svg {
+    .notif-close svg,
+    .notif-close * {
       width: 18px;
       height: 18px;
       stroke: currentColor;
@@ -349,26 +350,38 @@
     }
 
     function removeNotifInstant(id, animation = 'fade-out', immediate = false) {
-      const idx = activeNotifs.findIndex(n => n.id === id);
-      if (idx === -1) return;
-      const notifObj = activeNotifs[idx];
-      if (notifObj.timer) clearTimeout(notifObj.timer);
-      activeNotifs.splice(idx, 1);
+      const numId = Number(id);
+      const idx = activeNotifs.findIndex(n => Number(n.id) === numId);
+      let notifEl = null;
+
+      if (idx !== -1) {
+        const notifObj = activeNotifs[idx];
+        if (notifObj.timer) clearTimeout(notifObj.timer);
+        notifEl = notifObj.el;
+        activeNotifs.splice(idx, 1);
+      } else {
+        notifEl = document.querySelector(`.notif[data-id="${id}"]`);
+      }
+
       updateHideAllVisibility();
 
-      if (immediate) {
-        notifObj.el.remove();
-        if (activeNotifs.length === 0) {
-          ipcRenderer.send('notif-window:all-closed');
-        }
-      } else {
-        notifObj.el.classList.add(animation);
-        setTimeout(() => {
-          notifObj.el.remove();
+      if (notifEl) {
+        if (immediate) {
+          notifEl.remove();
           if (activeNotifs.length === 0) {
             ipcRenderer.send('notif-window:all-closed');
           }
-        }, 180);
+        } else {
+          notifEl.classList.add(animation);
+          setTimeout(() => {
+            if (notifEl) notifEl.remove();
+            if (activeNotifs.length === 0) {
+              ipcRenderer.send('notif-window:all-closed');
+            }
+          }, 180);
+        }
+      } else if (activeNotifs.length === 0) {
+        ipcRenderer.send('notif-window:all-closed');
       }
     }
 
@@ -539,7 +552,8 @@
       });
 
       const bodyEl = el.querySelector('.notif-body');
-      bodyEl.addEventListener('click', () => {
+      bodyEl.addEventListener('click', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.notif-close')) return;
         ipcRenderer.send('notif-window:clicked', { chatId });
         removeNotifInstant(id, 'fade-out', true);
       });
@@ -554,7 +568,6 @@
         removeNotifInstant(id, 'fade-out', true);
       };
       closeBtn.addEventListener('pointerdown', handleClose);
-      closeBtn.addEventListener('mousedown', handleClose);
       closeBtn.addEventListener('click', handleClose);
 
       const container = document.getElementById('notifs-container') || root;
@@ -593,6 +606,32 @@
       hideAllBarEl.addEventListener('pointerdown', handleHideAll);
       hideAllBarEl.addEventListener('mousedown', handleHideAll);
     }
+
+    document.addEventListener('pointerdown', (e) => {
+      const closeBtn = e.target && e.target.closest ? e.target.closest('.notif-close') : null;
+      if (closeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        const notifEl = closeBtn.closest('.notif');
+        if (notifEl && notifEl.dataset.id !== undefined) {
+          removeNotifInstant(notifEl.dataset.id, 'fade-out', true);
+        }
+      }
+    }, true);
+
+    document.addEventListener('click', (e) => {
+      const closeBtn = e.target && e.target.closest ? e.target.closest('.notif-close') : null;
+      if (closeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        const notifEl = closeBtn.closest('.notif');
+        if (notifEl && notifEl.dataset.id !== undefined) {
+          removeNotifInstant(notifEl.dataset.id, 'fade-out', true);
+        }
+      }
+    }, true);
 
     ipcRenderer.on('notif:show', (_event, payload) => {
       settings = {
