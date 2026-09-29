@@ -7,6 +7,7 @@ import {
   LocalVideoTrack,
   LocalAudioTrack,
   Track,
+  VideoPresets,
   type RoomOptions,
   type RoomConnectOptions,
 } from 'livekit-client';
@@ -163,7 +164,7 @@ export class GroupLiveKitService extends EventEmitter {
 
         const roomOptions: RoomOptions = {
           adaptiveStream: false,
-          dynacast: false,
+          dynacast: true,
           stopLocalTrackOnUnpublish: true,
           audioCaptureDefaults: {
             deviceId: selectedMicId || undefined,
@@ -177,9 +178,9 @@ export class GroupLiveKitService extends EventEmitter {
           videoCaptureDefaults: {
             deviceId: selectedCamId || undefined,
             resolution: {
-              width: 640,
-              height: 360,
-              frameRate: 15,
+              width: 1280,
+              height: 720,
+              frameRate: 30,
               aspectRatio: 16 / 9,
             },
           },
@@ -193,14 +194,15 @@ export class GroupLiveKitService extends EventEmitter {
             },
             videoCodec: 'h264',
             videoEncoding: {
-              maxBitrate: 250000,
-              maxFramerate: 15,
+              maxBitrate: 1800000,
+              maxFramerate: 30,
               priority: 'medium',
             },
+            videoSimulcastLayers: [VideoPresets.h360],
             degradationPreference: 'maintain-resolution',
             screenShareEncoding: {
-              maxBitrate: 450000,
-              maxFramerate: 12,
+              maxBitrate: 5500000,
+              maxFramerate: 60,
               priority: 'low',
             },
             simulcast: false,
@@ -598,18 +600,19 @@ export class GroupLiveKitService extends EventEmitter {
       await this.localParticipant.setCameraEnabled(true, {
         deviceId: selectedCamId || undefined,
         resolution: {
-          width: 640,
-          height: 360,
-          frameRate: 15,
+          width: 1280,
+          height: 720,
+          frameRate: 30,
           aspectRatio: 16 / 9,
         },
       }, {
         videoCodec: 'h264',
         videoEncoding: {
-          maxBitrate: 250000,
-          maxFramerate: 15,
+          maxBitrate: 2500000,
+          maxFramerate: 30,
           priority: 'medium',
         },
+        videoSimulcastLayers: [VideoPresets.h360],
         degradationPreference: 'maintain-resolution',
         simulcast: false,
       });
@@ -714,12 +717,14 @@ export class GroupLiveKitService extends EventEmitter {
     return null;
   }
 
-  public async startScreenShare(options?: { sourceId?: string; audio?: boolean }): Promise<boolean> {
+  public async startScreenShare(options?: { sourceId?: string; quality?: '480p' | '720p'; fps?: number; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) return false;
-    const width = 1280;
-    const height = 720;
-    const frameRate = 12;
-    const maxBitrate = 450000;
+    const is480 = options?.quality === '480p';
+    const width = is480 ? 854 : 1280;
+    const height = is480 ? 480 : 720;
+    const frameRate = options?.fps === 60 ? 60 : 30;
+    const is60Fps = frameRate === 60;
+    const maxBitrate = is480 ? (is60Fps ? 2200000 : 1500000) : (is60Fps ? 5500000 : 3500000);
     const includeAudio = !!options?.audio;
 
     try {

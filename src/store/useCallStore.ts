@@ -84,7 +84,7 @@ interface CallStore {
   toggleVideo: (explicitVal?: boolean) => Promise<void>;
   openScreenPicker: () => void;
   closeScreenPicker: () => void;
-  startScreenShareWithOptions: (options: { sourceId?: string; audio: boolean }) => Promise<void>;
+  startScreenShareWithOptions: (options: { sourceId?: string; quality: '480p' | '720p'; fps: number; audio: boolean }) => Promise<void>;
   stopScreenShare: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
   updateParticipants: (participants: ParticipantInfo[]) => void;
@@ -125,8 +125,8 @@ function getLivekitParticipantIdentity(nick: string): { identity: string; name: 
   };
 }
 
-async function fetchLivekitToken(room: string, identity: string, name?: string, isGroup?: boolean): Promise<{ token: string; url: string }> {
-  const endpoint = isGroup ? '/groups/token' : '/token';
+async function fetchLivekitToken(room: string, identity: string, name?: string, _isGroup?: boolean): Promise<{ token: string; url: string }> {
+  const endpoint = '/token';
   const res = await gatewayManager.fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -142,7 +142,7 @@ async function fetchLivekitToken(room: string, identity: string, name?: string, 
     throw new Error(`Invalid token response: expected { token, url }, got ${JSON.stringify(data)}`);
   }
   let url = data.url;
-  if (!url || !url.startsWith('wss://')) {
+  if (!url || url.includes('fewfregfrtgtr') || !url.startsWith('wss://')) {
     url = 'wss://orbita-qd7zok2r.livekit.cloud';
   }
   return { token: data.token, url };
