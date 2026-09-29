@@ -36,9 +36,36 @@ const GroupParticipantTile = memo(({
   const hasCamera = isLocal ? isLocalVideoActive : participant.videoEnabled;
   const hasStream = hasScreenShare || hasCamera;
 
-  const memberInfo = chatMembers?.find((m: any) => m.nickname === participant.name || m.userCode === participant.identity || m.userId === participant.identity);
-  const avatarUrl = isLocal ? useAuthStore.getState().avatarUrl : (memberInfo?.avatarUrl || null);
-  const displayName = participant.name || memberInfo?.nickname || participant.identity;
+  const memberInfo = chatMembers?.find((m: any) =>
+    (m.nickname && participant.name && m.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
+    (m.nickname && participant.identity && (
+      participant.identity.toLowerCase().startsWith(m.nickname.toLowerCase().trim() + '_') ||
+      participant.identity.toLowerCase() === m.nickname.toLowerCase().trim()
+    )) ||
+    (m.userCode && (m.userCode === participant.identity || participant.identity.includes(m.userCode))) ||
+    (m.user_code && (m.user_code === participant.identity || participant.identity.includes(m.user_code))) ||
+    (m.userId && (m.userId === participant.identity || participant.identity.includes(m.userId))) ||
+    (m.user_id && (m.user_id === participant.identity || participant.identity.includes(m.user_id)))
+  );
+  const chats = useChatStore.getState().chats || [];
+  const usersById = useChatStore.getState().usersById || {};
+  const fallbackChat = !isLocal ? chats.find((c) =>
+    (c.name && participant.name && c.name.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
+    (c.peerCode && (participant.identity.includes(c.peerCode) || c.peerCode === memberInfo?.userCode || c.peerCode === memberInfo?.user_id)) ||
+    (c.originalPeerCode && (participant.identity.includes(c.originalPeerCode) || c.originalPeerCode === memberInfo?.userCode))
+  ) : null;
+  const fallbackProfile = !isLocal ? Object.values(usersById).find((u: any) =>
+    (u.nickname && participant.name && u.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
+    (u.id && (participant.identity.includes(u.id) || u.id === memberInfo?.userId || u.id === memberInfo?.user_id))
+  ) : null;
+  const avatarUrl = isLocal ? useAuthStore.getState().avatarUrl : (
+    memberInfo?.avatarUrl ||
+    memberInfo?.avatar_url ||
+    fallbackChat?.avatarUrl ||
+    (fallbackProfile as any)?.avatarUrl ||
+    null
+  );
+  const displayName = participant.name || memberInfo?.nickname || fallbackChat?.name || (fallbackProfile as any)?.nickname || participant.identity;
   const isMuted = isLocal ? !isMicEnabled : !participant.audioEnabled;
 
   useEffect(() => {
@@ -88,12 +115,19 @@ const GroupParticipantTile = memo(({
 
   return (
     <div
-      onClick={() => onTileClick?.(participant)}
-      className="relative flex items-center justify-center w-full h-full min-h-[140px] max-h-[360px] aspect-video rounded-2xl overflow-hidden select-none transition-all cursor-pointer group"
+      onClick={() => {
+        if (hasStream) {
+          onTileClick?.(participant);
+        }
+      }}
+      className={`relative flex items-center justify-center w-full h-full min-h-[140px] max-h-[360px] aspect-video rounded-2xl overflow-hidden select-none group ${
+        hasStream ? 'cursor-pointer' : 'cursor-default'
+      }`}
       style={{
         backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 85%, black)',
         border: 'none',
-        boxShadow: participant.isSpeaking ? '0 0 0 2px #22c55e, 0 0 14px rgba(34, 197, 94, 0.45)' : undefined,
+        boxShadow: participant.isSpeaking ? '0 0 0 3px #22c55e' : undefined,
+        transition: 'none',
       }}
     >
       {hasStream ? (
@@ -184,9 +218,36 @@ const ExpandedGroupParticipantTile = memo(({
   const hasCamera = isLocal ? isLocalVideoActive : participant.videoEnabled;
   const hasStream = hasScreenShare || hasCamera;
 
-  const memberInfo = chatMembers?.find((m: any) => m.nickname === participant.name || m.userCode === participant.identity || m.userId === participant.identity);
-  const avatarUrl = isLocal ? useAuthStore.getState().avatarUrl : (memberInfo?.avatarUrl || null);
-  const displayName = participant.name || memberInfo?.nickname || participant.identity;
+  const memberInfo = chatMembers?.find((m: any) =>
+    (m.nickname && participant.name && m.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
+    (m.nickname && participant.identity && (
+      participant.identity.toLowerCase().startsWith(m.nickname.toLowerCase().trim() + '_') ||
+      participant.identity.toLowerCase() === m.nickname.toLowerCase().trim()
+    )) ||
+    (m.userCode && (m.userCode === participant.identity || participant.identity.includes(m.userCode))) ||
+    (m.user_code && (m.user_code === participant.identity || participant.identity.includes(m.user_code))) ||
+    (m.userId && (m.userId === participant.identity || participant.identity.includes(m.userId))) ||
+    (m.user_id && (m.user_id === participant.identity || participant.identity.includes(m.user_id)))
+  );
+  const chats = useChatStore.getState().chats || [];
+  const usersById = useChatStore.getState().usersById || {};
+  const fallbackChat = !isLocal ? chats.find((c) =>
+    (c.name && participant.name && c.name.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
+    (c.peerCode && (participant.identity.includes(c.peerCode) || c.peerCode === memberInfo?.userCode || c.peerCode === memberInfo?.user_id)) ||
+    (c.originalPeerCode && (participant.identity.includes(c.originalPeerCode) || c.originalPeerCode === memberInfo?.userCode))
+  ) : null;
+  const fallbackProfile = !isLocal ? Object.values(usersById).find((u: any) =>
+    (u.nickname && participant.name && u.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
+    (u.id && (participant.identity.includes(u.id) || u.id === memberInfo?.userId || u.id === memberInfo?.user_id))
+  ) : null;
+  const avatarUrl = isLocal ? useAuthStore.getState().avatarUrl : (
+    memberInfo?.avatarUrl ||
+    memberInfo?.avatar_url ||
+    fallbackChat?.avatarUrl ||
+    (fallbackProfile as any)?.avatarUrl ||
+    null
+  );
+  const displayName = participant.name || memberInfo?.nickname || fallbackChat?.name || (fallbackProfile as any)?.nickname || participant.identity;
   const isMuted = isLocal ? !isMicEnabled : !participant.audioEnabled;
 
   useEffect(() => {
@@ -388,11 +449,20 @@ export const CallWindow = () => {
   const handleOpenChat = useCallback((participant: ParticipantInfo) => {
     if (participant.isLocal) return;
     const memberInfo: any = chat?.members?.find(
-      (m: any) => m.nickname === participant.name || m.userCode === participant.identity || m.userId === participant.identity || m.user_id === participant.identity
+      (m: any) =>
+        (m.nickname && participant.name && m.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
+        (m.nickname && participant.identity && (
+          participant.identity.toLowerCase().startsWith(m.nickname.toLowerCase().trim() + '_') ||
+          participant.identity.toLowerCase() === m.nickname.toLowerCase().trim()
+        )) ||
+        (m.userCode && (m.userCode === participant.identity || participant.identity.includes(m.userCode))) ||
+        (m.user_code && (m.user_code === participant.identity || participant.identity.includes(m.user_code))) ||
+        (m.userId && (m.userId === participant.identity || participant.identity.includes(m.userId))) ||
+        (m.user_id && (m.user_id === participant.identity || participant.identity.includes(m.user_id)))
     );
-    const targetCode = memberInfo?.userCode || memberInfo?.userId || memberInfo?.user_id || participant.identity;
+    const targetCode = memberInfo?.userCode || memberInfo?.userId || memberInfo?.user_code || memberInfo?.user_id || participant.identity;
     const targetName = participant.name || memberInfo?.nickname || participant.identity;
-    const targetAvatar = memberInfo?.avatarUrl || null;
+    const targetAvatar = memberInfo?.avatarUrl || memberInfo?.avatar_url || null;
     if (!targetCode && !targetName) return;
 
     const chatStore = useChatStore.getState();
@@ -400,7 +470,7 @@ export const CallWindow = () => {
       (c) =>
         c.type === 'private' &&
         ((targetCode && (c.peerCode === targetCode || c.originalPeerCode === targetCode || c.name === targetCode)) ||
-          (targetName && c.name === targetName))
+          (targetName && c.name?.toLowerCase().trim() === targetName.toLowerCase().trim()))
     );
 
     if (existing) {
@@ -423,6 +493,9 @@ export const CallWindow = () => {
       chatStore.setActiveChat(newChatId);
     }
     useCallStore.getState().setMinimized(true);
+    try {
+      (window as any).orbita?.showWindow?.();
+    } catch {}
   }, [chat?.members]);
 
   useEffect(() => {

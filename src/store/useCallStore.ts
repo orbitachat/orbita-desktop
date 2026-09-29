@@ -1371,6 +1371,10 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
       break;
     case 'openChat':
       if (action.payload) {
+        useCallStore.getState().setMinimized(true);
+        try {
+          (window as any).orbita?.showWindow?.();
+        } catch {}
         const { chatId, peerCode, name, avatarUrl } = action.payload;
         const chatStore = useChatStore.getState();
         if (chatId && chatStore.chats.some(c => c.id === chatId)) {
@@ -1381,7 +1385,7 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
             (c) =>
               c.type === 'private' &&
               ((peerCode && (c.peerCode === peerCode || c.originalPeerCode === peerCode || c.name === peerCode)) ||
-                (name && c.name === name))
+                (name && c.name?.toLowerCase().trim() === name.toLowerCase().trim()))
           );
           if (existing) {
             chatStore.setActiveChat(existing.id);
