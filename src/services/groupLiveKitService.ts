@@ -324,6 +324,11 @@ export class GroupLiveKitService extends EventEmitter {
       el.play().catch(() => {});
     }
 
+    if (track.source === Track.Source.ScreenShare) {
+      this.emit('remoteScreenShareChanged', true, track, participant.identity);
+    } else if (track.kind === Track.Kind.Video || track.source === Track.Source.Camera) {
+      this.emit('remoteCameraChanged', true, track, participant.identity);
+    }
     this.updateParticipants();
     this.emit('trackSubscribed', track, participant.identity);
     this.emit('participantsChanged');
@@ -341,23 +346,34 @@ export class GroupLiveKitService extends EventEmitter {
         this.attachedAudioElements.delete(key);
       }
     }
+    if (track.source === Track.Source.ScreenShare) {
+      this.emit('remoteScreenShareChanged', false, null, participant.identity);
+    } else if (track.kind === Track.Kind.Video || track.source === Track.Source.Camera) {
+      this.emit('remoteCameraChanged', false, null, participant.identity);
+    }
     this.updateParticipants();
     this.emit('trackUnsubscribed', track, participant.identity);
     this.emit('participantsChanged');
   }
 
-  private onTrackMuted(_publication: any, participant: any): void {
+  private onTrackMuted(publication: any, participant: any): void {
     if (participant && this.localParticipant && participant.identity === this.localParticipant.identity) {
       if (this.desiredMicEnabled && this.localAudioTrack && !this.localAudioTrack.mediaStreamTrack.enabled) {
         this.localAudioTrack.mediaStreamTrack.enabled = true;
       }
+    }
+    if (publication?.kind === Track.Kind.Video || publication?.source === Track.Source.Camera) {
+      this.emit('remoteCameraChanged', false, null, participant?.identity);
     }
     this.updateParticipants();
     this.emit('trackMuted');
     this.emit('participantsChanged');
   }
 
-  private onTrackUnmuted(_publication: any, _participant: any): void {
+  private onTrackUnmuted(publication: any, participant: any): void {
+    if (publication?.kind === Track.Kind.Video || publication?.source === Track.Source.Camera) {
+      this.emit('remoteCameraChanged', true, publication?.track, participant?.identity);
+    }
     this.updateParticipants();
     this.emit('trackUnmuted');
     this.emit('participantsChanged');

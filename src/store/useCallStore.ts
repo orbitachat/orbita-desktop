@@ -453,24 +453,51 @@ export const useCallStore = create<CallStore>((set, get) => {
       get().updateConnectionQuality(map[quality] || 'unknown');
     });
 
-    liveKitService.on('micChanged', (enabled: boolean) => { set({ isMicEnabled: enabled }); });
-    liveKitService.on('cameraChanged', (enabled: boolean) => {
-      if (enabled) {
-        set({ isVideoEnabled: true });
-        const act = get().activeCall;
-        if (act) set({ activeCall: { ...act, isVideoEnabled: true } });
+    const lastSoundTimes: Record<string, number> = {};
+    const playMediaSound = (type: 'screen' | 'camera' | 'mic', enabled: boolean) => {
+      const state = get();
+      if (state.callState !== 'connected' || state.isEnding) return;
+      const key = `${type}_${enabled}`;
+      const now = Date.now();
+      if (lastSoundTimes[key] && now - lastSoundTimes[key] < 800) {
+        return;
       }
+      lastSoundTimes[key] = now;
+      if (type === 'mic') {
+        callSoundService.play(enabled ? 'unmute' : 'mute');
+      } else {
+        callSoundService.play(enabled ? 'stream_started' : 'stream_is_over');
+      }
+    };
+
+    liveKitService.on('micChanged', (enabled: boolean) => {
+      set({ isMicEnabled: enabled });
+      playMediaSound('mic', enabled);
+    });
+    liveKitService.on('remoteMicChanged', (enabled: boolean) => {
+      playMediaSound('mic', enabled);
+    });
+    liveKitService.on('cameraChanged', (enabled: boolean) => {
+      set({ isVideoEnabled: enabled });
+      const act = get().activeCall;
+      if (act) set({ activeCall: { ...act, isVideoEnabled: enabled } });
+      playMediaSound('camera', enabled);
+    });
+    liveKitService.on('remoteCameraChanged', (enabled: boolean) => {
+      playMediaSound('camera', enabled);
     });
     liveKitService.on('screenShareChanged', (enabled: boolean) => {
       set({ isScreenSharing: enabled });
       const act = get().activeCall;
       if (act) set({ activeCall: { ...act, isScreenSharing: enabled } });
+      playMediaSound('screen', enabled);
     });
     liveKitService.on('remoteScreenShareChanged', (active: boolean, track: any, identity?: string) => {
       set({
         remoteScreenShareTrack: active ? track : null,
         remoteScreenShareIdentity: active ? (identity || null) : null,
       });
+      playMediaSound('screen', active);
     });
     liveKitService.on('trackMuted', () => {
       get().updateParticipants(liveKitService.allParticipants);
@@ -535,17 +562,23 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (state.activeCall && state.activeCall.chatType === 'group') {
         set({ isMicEnabled: enabled });
       }
+      playMediaSound('mic', enabled);
+    });
+    groupLiveKitService.on('remoteMicChanged', (enabled: boolean) => {
+      playMediaSound('mic', enabled);
     });
 
     groupLiveKitService.on('cameraChanged', (enabled: boolean) => {
       const state = get();
       if (state.activeCall && state.activeCall.chatType === 'group') {
-        if (enabled) {
-          set({ isVideoEnabled: true });
-          const act = get().activeCall;
-          if (act) set({ activeCall: { ...act, isVideoEnabled: true } });
-        }
+        set({ isVideoEnabled: enabled });
+        const act = get().activeCall;
+        if (act) set({ activeCall: { ...act, isVideoEnabled: enabled } });
       }
+      playMediaSound('camera', enabled);
+    });
+    groupLiveKitService.on('remoteCameraChanged', (enabled: boolean) => {
+      playMediaSound('camera', enabled);
     });
 
     groupLiveKitService.on('screenShareChanged', (enabled: boolean) => {
@@ -555,6 +588,10 @@ export const useCallStore = create<CallStore>((set, get) => {
         const act = get().activeCall;
         if (act) set({ activeCall: { ...act, isScreenSharing: enabled } });
       }
+      playMediaSound('screen', enabled);
+    });
+    groupLiveKitService.on('remoteScreenShareChanged', (active: boolean) => {
+      playMediaSound('screen', active);
     });
 
     groupLiveKitService.on('trackMuted', () => {

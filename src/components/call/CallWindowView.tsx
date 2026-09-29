@@ -9,6 +9,7 @@ import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 import { liveKitService, type ParticipantInfo } from '../../services/livekitService';
 import { groupLiveKitService } from '../../services/groupLiveKitService';
 import { gatewayManager } from '../../services/gatewayManager';
+import { callSoundService } from '../../services/callSoundService';
 import { generateCallVerificationEmojis } from '../../lib/call-verification';
 import { FONT_MAP, type FontFamily } from '../../store/useChatStore';
 
@@ -606,6 +607,27 @@ export const CallWindowView = () => {
     }];
   }, [groupParticipants, callData?.myNickname, otherName, isMicEnabled, isVideoEnabled, isLocalScreenShareActive]);
 
+  const lastSoundTimesRef = useRef<Record<string, number>>({});
+  const playMediaSound = useCallback((type: 'screen' | 'camera' | 'mic', enabled: boolean) => {
+    if (!isConnected) return;
+    const key = `${type}_${enabled}`;
+    const now = Date.now();
+    if (lastSoundTimesRef.current[key] && now - lastSoundTimesRef.current[key] < 800) {
+      return;
+    }
+    lastSoundTimesRef.current[key] = now;
+    if (type === 'mic') {
+      callSoundService.play(enabled ? 'unmute' : 'mute');
+    } else {
+      callSoundService.play(enabled ? 'stream_started' : 'stream_is_over');
+    }
+  }, [isConnected]);
+
+  const playMediaSoundRef = useRef(playMediaSound);
+  useEffect(() => {
+    playMediaSoundRef.current = playMediaSound;
+  }, [playMediaSound]);
+
   const currentRoomName = activeCall?.roomName;
   const prevRoomRef = useRef<string | null>(null);
 
@@ -893,6 +915,11 @@ export const CallWindowView = () => {
           tr.attach(localVideoRef.current);
         }
       }
+      playMediaSoundRef.current('camera', enabled);
+    };
+
+    const handleRemoteCameraChanged = (enabled: boolean) => {
+      playMediaSoundRef.current('camera', enabled);
     };
 
     const handleScreenShareChanged = (enabled: boolean, track: any) => {
@@ -901,6 +928,7 @@ export const CallWindowView = () => {
         track.attach(localScreenShareRef.current);
       }
       sendAction('syncMediaState', { isScreenSharing: enabled });
+      playMediaSoundRef.current('screen', enabled);
     };
 
     const handleRemoteScreenShareChanged = (active: boolean, track: any) => {
@@ -912,6 +940,7 @@ export const CallWindowView = () => {
         const rTrack = liveKitService.getRemoteVideoTrack();
         if (rTrack && !rTrack.isMuted) rTrack.attach(bgVideoRef.current);
       }
+      playMediaSoundRef.current('screen', active);
     };
 
     const handleConnected = () => {
@@ -940,25 +969,34 @@ export const CallWindowView = () => {
       micEnabledRef.current = enabled;
       setCallData((prev) => (prev ? { ...prev, isMicEnabled: enabled } : prev));
       sendAction('toggleMic', enabled);
+      playMediaSoundRef.current('mic', enabled);
+    };
+
+    const handleRemoteMicChanged = (enabled: boolean) => {
+      playMediaSoundRef.current('mic', enabled);
     };
 
     liveKitService.on('trackSubscribed', handleTrackSubscribed);
     liveKitService.on('trackUnsubscribed', handleTrackUnsubscribed);
     liveKitService.on('cameraChanged', handleCameraChanged);
+    liveKitService.on('remoteCameraChanged', handleRemoteCameraChanged);
     liveKitService.on('screenShareChanged', handleScreenShareChanged);
     liveKitService.on('remoteScreenShareChanged', handleRemoteScreenShareChanged);
     liveKitService.on('connected', handleConnected);
     liveKitService.on('participantJoined', handleParticipantJoined);
     liveKitService.on('micChanged', handleMicChanged);
+    liveKitService.on('remoteMicChanged', handleRemoteMicChanged);
 
     groupLiveKitService.on('trackSubscribed', handleTrackSubscribed);
     groupLiveKitService.on('trackUnsubscribed', handleTrackUnsubscribed);
     groupLiveKitService.on('cameraChanged', handleCameraChanged);
+    groupLiveKitService.on('remoteCameraChanged', handleRemoteCameraChanged);
     groupLiveKitService.on('screenShareChanged', handleScreenShareChanged);
     groupLiveKitService.on('remoteScreenShareChanged', handleRemoteScreenShareChanged);
     groupLiveKitService.on('connected', handleConnected);
     groupLiveKitService.on('participantJoined', handleParticipantJoined);
     groupLiveKitService.on('micChanged', handleMicChanged);
+    groupLiveKitService.on('remoteMicChanged', handleRemoteMicChanged);
 
     if (liveKitService.isConnected || groupLiveKitService.isConnected) {
       handleConnected();
@@ -968,20 +1006,24 @@ export const CallWindowView = () => {
       liveKitService.off('trackSubscribed', handleTrackSubscribed);
       liveKitService.off('trackUnsubscribed', handleTrackUnsubscribed);
       liveKitService.off('cameraChanged', handleCameraChanged);
+      liveKitService.off('remoteCameraChanged', handleRemoteCameraChanged);
       liveKitService.off('screenShareChanged', handleScreenShareChanged);
       liveKitService.off('remoteScreenShareChanged', handleRemoteScreenShareChanged);
       liveKitService.off('connected', handleConnected);
       liveKitService.off('participantJoined', handleParticipantJoined);
       liveKitService.off('micChanged', handleMicChanged);
+      liveKitService.off('remoteMicChanged', handleRemoteMicChanged);
 
       groupLiveKitService.off('trackSubscribed', handleTrackSubscribed);
       groupLiveKitService.off('trackUnsubscribed', handleTrackUnsubscribed);
       groupLiveKitService.off('cameraChanged', handleCameraChanged);
+      groupLiveKitService.off('remoteCameraChanged', handleRemoteCameraChanged);
       groupLiveKitService.off('screenShareChanged', handleScreenShareChanged);
       groupLiveKitService.off('remoteScreenShareChanged', handleRemoteScreenShareChanged);
       groupLiveKitService.off('connected', handleConnected);
       groupLiveKitService.off('participantJoined', handleParticipantJoined);
       groupLiveKitService.off('micChanged', handleMicChanged);
+      groupLiveKitService.off('remoteMicChanged', handleRemoteMicChanged);
     };
   }, []);
 

@@ -1,6 +1,6 @@
 import { useChatStore } from '../store/useChatStore';
 
-export type CallSoundType = 'incoming' | 'outgoing' | 'connect' | 'end' | 'user_join';
+export type CallSoundType = 'incoming' | 'outgoing' | 'connect' | 'end' | 'user_join' | 'stream_started' | 'stream_is_over' | 'mute' | 'unmute';
 
 class CallSoundService {
   private ctx: AudioContext | null = null;
@@ -12,6 +12,7 @@ class CallSoundService {
   private activeGains: Set<GainNode> = new Set();
   private bufferCache: Map<string, AudioBuffer> = new Map();
   private isCurrentlyPlaying = false;
+  private isCurrentlyLooping = false;
   private currentPlayId = 0;
 
   private getPath(type: CallSoundType): string {
@@ -21,6 +22,10 @@ class CallSoundService {
       connect:  'sounds/user_join.mp3',
       end:      'sounds/disconnect.mp3',
       user_join: 'sounds/user_join.mp3',
+      stream_started: 'sounds/stream_started.mp3',
+      stream_is_over: 'sounds/stream_is_over.mp3',
+      mute:     'sounds/mute.mp3',
+      unmute:   'sounds/unmute.mp3',
     };
     return map[type];
   }
@@ -79,10 +84,14 @@ class CallSoundService {
       return;
     }
 
-    this.stop();
-    const playId = ++this.currentPlayId;
-
     const isLoop = (type === 'incoming' || type === 'outgoing');
+    if (isLoop || this.isCurrentlyLooping) {
+      this.stop();
+      if (isLoop) {
+        this.isCurrentlyLooping = true;
+      }
+    }
+    const playId = ++this.currentPlayId;
     const ctx = this.getAudioContext();
 
     if (ctx) {
@@ -172,6 +181,7 @@ class CallSoundService {
 
   stop(): void {
     this.currentPlayId++;
+    this.isCurrentlyLooping = false;
 
     for (const gain of this.activeGains) {
       try {
