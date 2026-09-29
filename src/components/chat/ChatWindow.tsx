@@ -4435,7 +4435,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           });
         }
 
-        const tempPath = await window.orbita.writeTempFile(encryptedBase64, 'ogg');
+        const tempPath = await window.orbita.writeTempFile(encryptedBase64, isPublic ? 'ogg' : undefined);
         if (!tempPath) {
           showToast(t('chatWindow.upload_failed'));
           useChatStore.getState().deleteMessage(activeChatId, optimisticMessageId);
