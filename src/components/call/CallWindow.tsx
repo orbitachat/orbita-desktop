@@ -83,7 +83,7 @@ const GroupParticipantTile = memo(({
 
   return (
     <div
-      className="relative flex items-center justify-center w-full h-full min-h-[140px] max-h-[360px] aspect-video rounded-2xl overflow-hidden shadow-lg select-none transition-all"
+      className="relative flex items-center justify-center w-full h-full min-h-[140px] max-h-[360px] aspect-video rounded-2xl overflow-hidden select-none transition-all"
       style={{
         backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 85%, black)',
         border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -925,7 +925,7 @@ export const CallWindow = () => {
 
                 <div
                   onClick={() => setExpandedShare('local')}
-                  className="absolute bottom-6 right-6 z-50 w-52 aspect-video rounded-2xl overflow-hidden shadow-2xl bg-[#09080e] border-2 border-white/20 cursor-pointer hover:scale-105 transition-all flex items-center justify-center"
+                  className="absolute bottom-6 right-6 z-50 w-52 aspect-video rounded-2xl overflow-hidden bg-[#09080e] border-2 border-white/20 cursor-pointer hover:scale-105 transition-all flex items-center justify-center"
                 >
                   <video
                     ref={attachLocalScreenShare}
@@ -967,7 +967,7 @@ export const CallWindow = () => {
 
                 <div
                   onClick={() => setExpandedShare('remote')}
-                  className="absolute bottom-6 right-6 z-50 w-52 aspect-video rounded-2xl overflow-hidden shadow-2xl bg-[#09080e] border-2 border-white/20 cursor-pointer hover:scale-105 transition-all flex items-center justify-center"
+                  className="absolute bottom-6 right-6 z-50 w-52 aspect-video rounded-2xl overflow-hidden bg-[#09080e] border-2 border-white/20 cursor-pointer hover:scale-105 transition-all flex items-center justify-center"
                 >
                   <video
                     ref={attachRemoteScreenShare}
@@ -998,7 +998,7 @@ export const CallWindow = () => {
             <div className="relative z-20 flex flex-row items-center justify-center gap-3.5 w-full px-4 transition-all duration-300 max-w-[1160px] max-h-[58vh]">
               <div
                 onClick={() => setExpandedShare('remote')}
-                className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
+                className="relative flex-1 aspect-video rounded-3xl overflow-hidden flex items-center justify-center bg-[#09080e] cursor-pointer"
               >
                 <video
                   ref={attachRemoteScreenShare}
@@ -1034,7 +1034,7 @@ export const CallWindow = () => {
 
               <div
                 onClick={() => setExpandedShare('local')}
-                className="relative flex-1 aspect-video rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center bg-[#09080e] cursor-pointer"
+                className="relative flex-1 aspect-video rounded-3xl overflow-hidden flex items-center justify-center bg-[#09080e] cursor-pointer"
               >
                 <video
                   ref={attachLocalScreenShare}
@@ -1063,7 +1063,7 @@ export const CallWindow = () => {
         ) : hasRemoteStream ? (
           <div
             onClick={() => setExpandedShare(expandedShare === 'remote' ? null : 'remote')}
-            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
+            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 flex items-center justify-center bg-black ${
               expandedShare === 'remote'
                 ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
@@ -1106,7 +1106,7 @@ export const CallWindow = () => {
         ) : hasLocalScreenShare ? (
           <div
             onClick={() => setExpandedShare(expandedShare === 'local' ? null : 'local')}
-            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 shadow-2xl flex items-center justify-center bg-black ${
+            className={`relative z-20 cursor-pointer overflow-hidden transition-all duration-300 flex items-center justify-center bg-black ${
               expandedShare === 'local'
                 ? 'fixed inset-0 z-40 rounded-none w-full h-full max-w-none max-h-none p-3 sm:p-5'
                 : 'w-[86%] max-w-[760px] aspect-video rounded-3xl max-h-[55vh]'
