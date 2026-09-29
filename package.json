@@ -87,7 +87,7 @@
     "@stablelib/random": "^1.0.2",
     "@stablelib/sha256": "^1.0.1",
     "@stablelib/x25519": "^1.0.1",
-    "@supabase/supabase-js": "^2.110.7",
+    "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/vite": "^4.2.4",
     "ably": "^2.21.0",
     "cors": "^2.8.6",
