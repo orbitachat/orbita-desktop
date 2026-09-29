@@ -225,7 +225,9 @@ function clearAllTimers() {
 async function createCallMessage(chatId: string, direction: CallDirection, duration: number, endedStatus: CallEndedStatus) {
   try {
     const chat = useChatStore.getState().chats.find((c) => c.id === chatId);
-    if (!chat) return;
+    if (!chat || chat.type === 'group' || chat.type === 'channel') return;
+    const activeCall = useCallStore.getState().activeCall;
+    if (activeCall?.chatType === 'group' || activeCall?.chatType === 'channel') return;
     const myNickname = useAuthStore.getState().nickname || 'YOU';
     const sender = direction === 'outgoing' ? myNickname : chat.name;
     const directionText = direction === 'outgoing' ? 'Исходящий' : 'Входящий';
@@ -1049,7 +1051,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       groupLiveKitService.disconnect().catch((err) => console.error(`${LOG_PREFIX} group disconnect error:`, err));
       clearAllTimers();
       activationInProgress = false;
-      if (endedStatus !== null && state.myNickname) createCallMessage(chatId, direction, duration, endedStatus);
+      if (!isGroup && endedStatus !== null && state.myNickname) createCallMessage(chatId, direction, duration, endedStatus);
       console.log(`${LOG_PREFIX} Call ended. status=${endedStatus} duration=${duration}s`);
       try { localStorage.removeItem('orbita_active_call_state'); } catch {}
       set({ activeCall: null, incomingCall: null, callState: 'idle', duration: 0, isMicEnabled: false, isVideoEnabled: false, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, statusMessage: '', isEnding: false, isMinimized: false });

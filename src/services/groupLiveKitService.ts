@@ -659,7 +659,17 @@ export class GroupLiveKitService extends EventEmitter {
   }
 
   public getLocalAudioTrack(): LocalTrack | null {
-    return this.localAudioTrack;
+    if (this.localAudioTrack) return this.localAudioTrack;
+    const lp = this.localParticipant || this.room?.localParticipant;
+    if (lp) {
+      const pub = lp.getTrackPublication(Track.Source.Microphone)
+        || Array.from(lp.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
+      if (pub?.track) {
+        this.localAudioTrack = pub.track as LocalTrack;
+        return this.localAudioTrack;
+      }
+    }
+    return null;
   }
 
   public getRemoteAudioTrack(identity?: string): RemoteTrack | null {

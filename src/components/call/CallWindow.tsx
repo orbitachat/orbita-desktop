@@ -78,20 +78,25 @@ const GroupParticipantTile = memo(({
     }
 
     let cleanupDetector: (() => void) | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const setupDetector = () => {
       cleanupDetector?.();
       cleanupDetector = null;
 
       const aTrack = isLocal
-        ? groupLiveKitService.getLocalAudioTrack()
-        : groupLiveKitService.getRemoteAudioTrack(participant.identity);
+        ? (groupLiveKitService.getLocalAudioTrack() || liveKitService.getLocalAudioTrack())
+        : (groupLiveKitService.getRemoteAudioTrack(participant.identity) || liveKitService.getRemoteAudioTrack(participant.identity));
       const msTrack = aTrack?.mediaStreamTrack;
 
       if (msTrack && msTrack.readyState !== 'ended' && msTrack.enabled) {
         cleanupDetector = attachRustVoiceDetector(msTrack, setIsSpeakingRealtime, 0.005);
       } else {
         setIsSpeakingRealtime(false);
+        if (isLocal && !isMuted) {
+          if (retryTimer) clearTimeout(retryTimer);
+          retryTimer = setTimeout(setupDetector, 200);
+        }
       }
     };
 
@@ -99,15 +104,32 @@ const GroupParticipantTile = memo(({
 
     groupLiveKitService.on('trackSubscribed', setupDetector);
     groupLiveKitService.on('trackUnsubscribed', setupDetector);
+    groupLiveKitService.on('micChanged', setupDetector);
+    groupLiveKitService.on('participantsChanged', setupDetector);
+    groupLiveKitService.on('connected', setupDetector);
+    liveKitService.on('trackSubscribed', setupDetector);
+    liveKitService.on('trackUnsubscribed', setupDetector);
+    liveKitService.on('micChanged', setupDetector);
+    liveKitService.on('participantsChanged', setupDetector);
+    liveKitService.on('connected', setupDetector);
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer);
       cleanupDetector?.();
       groupLiveKitService.off('trackSubscribed', setupDetector);
       groupLiveKitService.off('trackUnsubscribed', setupDetector);
+      groupLiveKitService.off('micChanged', setupDetector);
+      groupLiveKitService.off('participantsChanged', setupDetector);
+      groupLiveKitService.off('connected', setupDetector);
+      liveKitService.off('trackSubscribed', setupDetector);
+      liveKitService.off('trackUnsubscribed', setupDetector);
+      liveKitService.off('micChanged', setupDetector);
+      liveKitService.off('participantsChanged', setupDetector);
+      liveKitService.off('connected', setupDetector);
     };
-  }, [isLocal, participant.identity, isMuted]);
+  }, [isLocal, participant.identity, isMuted, isMicEnabled, participant.audioEnabled]);
 
-  const isSpeaking = !isMuted && (isSpeakingRealtime || participant.isSpeaking);
+  const isSpeaking = !isMuted && (isSpeakingRealtime || (!isLocal && participant.isSpeaking));
 
   useEffect(() => {
     const el = videoRef.current;

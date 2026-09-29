@@ -740,6 +740,39 @@ class LiveKitService extends EventEmitter {
     return null;
   }
 
+  public getLocalAudioTrack(): LocalTrack | null {
+    if (this.localAudioTrack) return this.localAudioTrack;
+    const lp = this.localParticipant || this.room?.localParticipant;
+    if (lp) {
+      const pub = lp.getTrackPublication(Track.Source.Microphone)
+        || Array.from(lp.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
+      if (pub?.track) {
+        this.localAudioTrack = pub.track as LocalTrack;
+        return this.localAudioTrack;
+      }
+    }
+    return null;
+  }
+
+  public getRemoteAudioTrack(identity?: string): RemoteTrack | null {
+    if (!this.room) return null;
+    if (identity) {
+      const p = this.room.getParticipantByIdentity(identity)
+        || Array.from(this.room.remoteParticipants.values()).find((part) => part.identity === identity || part.name === identity);
+      if (p) {
+        const pub = p.getTrackPublication(Track.Source.Microphone)
+          || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
+        return (pub?.track as RemoteTrack) || null;
+      }
+    }
+    for (const p of this.room.remoteParticipants.values()) {
+      const pub = p.getTrackPublication(Track.Source.Microphone)
+        || Array.from(p.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
+      if (pub?.track) return pub.track as RemoteTrack;
+    }
+    return null;
+  }
+
   public async startScreenShare(options?: { sourceId?: string; quality?: '480p' | '720p'; fps?: number; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) {
       return false;
