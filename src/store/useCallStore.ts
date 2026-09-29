@@ -325,6 +325,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
       if (connectingTimeoutTimer) { clearTimeout(connectingTimeoutTimer); connectingTimeoutTimer = null; }
       callSoundService.stop();
+      callSoundService.play('user_join');
 
       const isGroup = stateAfterCrypto.activeCall.chatType === 'group' ||
         useChatStore.getState().chats.find((c) => c.id === stateAfterCrypto.activeCall?.chatId)?.type === 'group';
@@ -437,6 +438,12 @@ export const useCallStore = create<CallStore>((set, get) => {
       console.log(`${LOG_PREFIX} participantLeft:`, identity);
       const act = get().activeCall;
       if (!act) return;
+      const isGroup = act.chatType === 'group' ||
+        useChatStore.getState().chats.find((c) => c.id === act.chatId)?.type === 'group';
+      if (!isGroup) {
+        get().handleHangup(act.roomName);
+        return;
+      }
       set({ activeCall: { ...act, participants: act.participants.filter((p) => p.identity !== identity) } });
       get().updateParticipants(liveKitService.allParticipants);
     });
@@ -498,6 +505,20 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (act && act.chatType === 'group') {
         set({ activeCall: { ...act, participants: groupLiveKitService.remoteParticipants } });
         get().updateParticipants(groupLiveKitService.allParticipants);
+      }
+    });
+
+    groupLiveKitService.on('participantJoined', () => {
+      const state = get();
+      if (state.callState === 'connected') {
+        callSoundService.play('user_join');
+      }
+    });
+
+    groupLiveKitService.on('participantLeft', () => {
+      const state = get();
+      if (state.callState === 'connected') {
+        callSoundService.play('end');
       }
     });
 
@@ -846,7 +867,7 @@ export const useCallStore = create<CallStore>((set, get) => {
         activeCall: { chatId, roomName, direction: 'incoming', callType: callType || 'audio', startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
         isMicEnabled: true, isVideoEnabled: isVideo, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, duration: 0, isEnding: false,
       });
-      callSoundService.play('connect');
+      callSoundService.stop();
 
       sendCallSignalReliable(chatId, { type: 'call-accept', sender: myNickname, text: '', roomName });
 
@@ -1017,7 +1038,7 @@ export const useCallStore = create<CallStore>((set, get) => {
       if (!state.activeCall || (roomName && state.activeCall.roomName !== roomName)) return;
       clearSignalRetryTimers();
       console.log(`${LOG_PREFIX} handleAccept: callee accepted`);
-      callSoundService.stop(); callSoundService.play('connect');
+      callSoundService.stop();
       set({ callState: 'connecting', statusMessage: i18n.t('call.connecting') });
       if (noAnswerTimer) { clearTimeout(noAnswerTimer); noAnswerTimer = null; }
 

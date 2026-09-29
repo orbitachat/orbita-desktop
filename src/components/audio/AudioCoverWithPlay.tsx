@@ -36,14 +36,15 @@ export const AudioCoverWithPlay: React.FC<AudioCoverWithPlayProps> = ({
   const dashOffset = circumference * (1 - clampedProgress);
 
   const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
     if (state === 'uploading' || state === 'downloading') {
       if (onCancel) {
+        e.stopPropagation();
         onCancel();
         return;
       }
     }
     if (onClick) {
+      e.stopPropagation();
       onClick();
     }
   };

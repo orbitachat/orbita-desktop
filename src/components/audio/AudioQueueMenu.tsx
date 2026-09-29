@@ -138,12 +138,23 @@ const AudioItem: React.FC<AudioItemProps> = ({ msg, isCurrent, isPlayingTrack, s
     timeDisplay = formatTime(effectiveDuration);
   }
 
+  const handleItemClick = () => {
+    onTrackClick({
+      ...msg,
+      audioMetadata: {
+        ...msg.audioMetadata,
+        cover: cover || msg.audioMetadata?.cover || null,
+        duration: duration || msg.audioMetadata?.duration || 0,
+      },
+    });
+  };
+
   return (
     <div
       className="audio-queue-item"
       onClick={(e) => {
         e.stopPropagation();
-        onTrackClick(msg);
+        handleItemClick();
       }}
       style={{
         display: 'flex',
@@ -158,7 +169,12 @@ const AudioItem: React.FC<AudioItemProps> = ({ msg, isCurrent, isPlayingTrack, s
         WebkitUserSelect: 'none',
       }}
     >
-      <AudioCoverWithPlay cover={cover} isPlayingTrack={isPlayingTrack} size={40} />
+      <AudioCoverWithPlay
+        cover={cover}
+        isPlayingTrack={isPlayingTrack}
+        size={40}
+        onClick={handleItemClick}
+      />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
         <div
           style={{
@@ -369,10 +385,24 @@ export const AudioQueueMenu: React.FC<AudioQueueMenuProps> = ({ position, onClos
     const title = msg.audioMetadata?.title || msg.mediaName || (isVoice ? t('chatWindow.voice_message', 'Голосовое сообщение') : t('chatWindow.audio', 'Аудио'));
     const artist = msg.audioMetadata?.artist || (isVoice ? (msg.sender || '') : '');
     const duration = msg.audioMetadata?.duration || msg.duration || 0;
-    const url = msg.mediaUrl;
-    const secret = sharedSecret || currentTrack?.sharedSecret;
+    const url = msg.mediaUrl || msg.url;
+    const secret = msg.mediaKey || msg.key || sharedSecret || currentTrack?.sharedSecret || '';
 
     if (!url) return;
+
+    const isCurrent = Boolean(
+      (currentTrack?.id && (currentTrack.id === msg.id || currentTrack.id === msg.trackId)) ||
+      (currentTrack?.url && (currentTrack.url === url || currentTrack.url === msg.mediaUrl))
+    );
+
+    if (isCurrent) {
+      if (isPlaying) {
+        useAudioStore.getState().pause();
+      } else {
+        useAudioStore.getState().play();
+      }
+      return;
+    }
 
     const track: Track = {
       id: msg.id || `track_${Date.now()}`,
@@ -382,16 +412,10 @@ export const AudioQueueMenu: React.FC<AudioQueueMenuProps> = ({ position, onClos
       duration,
       cover: msg.audioMetadata?.cover || null,
       url,
-      sharedSecret: secret || '',
+      sharedSecret: secret,
       mediaType: targetMediaType,
       message: msg,
     };
-
-    if (currentTrack?.id === track.id) {
-      if (isPlaying) useAudioStore.getState().pause();
-      else useAudioStore.getState().play();
-      return;
-    }
 
     useAudioStore.getState().addToQueue(track);
     useAudioStore.getState().play(track);
@@ -529,7 +553,10 @@ export const AudioQueueMenu: React.FC<AudioQueueMenuProps> = ({ position, onClos
         ) : (
           <>
             {visibleAudioMessages.map((msg) => {
-              const isCurrent = currentTrack?.id === msg.id;
+              const isCurrent = Boolean(
+                (currentTrack?.id && (currentTrack.id === msg.id || currentTrack.id === msg.trackId)) ||
+                (currentTrack?.url && (currentTrack.url === msg.mediaUrl || currentTrack.url === msg.url))
+              );
               const isPlayingTrack = isCurrent && isPlaying;
               return (
                 <AudioItem

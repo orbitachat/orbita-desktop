@@ -1,6 +1,6 @@
 import { useChatStore } from '../store/useChatStore';
 
-export type CallSoundType = 'incoming' | 'outgoing' | 'connect' | 'end';
+export type CallSoundType = 'incoming' | 'outgoing' | 'connect' | 'end' | 'user_join';
 
 class CallSoundService {
   private ctx: AudioContext | null = null;
@@ -18,8 +18,9 @@ class CallSoundService {
     const map: Record<CallSoundType, string> = {
       incoming: 'sounds/call_ringing.mp3',
       outgoing: 'sounds/call_calling.mp3',
-      connect:  'sounds/connect.mp3',
+      connect:  'sounds/user_join.mp3',
       end:      'sounds/disconnect.mp3',
+      user_join: 'sounds/user_join.mp3',
     };
     return map[type];
   }
@@ -42,7 +43,18 @@ class CallSoundService {
     const ctx = this.getAudioContext();
     if (!ctx) return null;
 
-    const candidates = ['./' + path, '/' + path, path];
+    const filename = path.split('/').pop() || path;
+    const candidates = [
+      './' + path,
+      '/' + path,
+      path,
+      './sounds/' + filename,
+      '/sounds/' + filename,
+      'sounds/' + filename,
+      './' + filename,
+      '/' + filename,
+      filename,
+    ];
     for (const candidate of candidates) {
       try {
         const response = await fetch(candidate);
