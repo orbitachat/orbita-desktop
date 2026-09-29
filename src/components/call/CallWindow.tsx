@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { liveKitService, type ParticipantInfo } from '../../services/livekitService';
 import { groupLiveKitService } from '../../services/groupLiveKitService';
 import { useTranslation } from 'react-i18next';
-import { MicOff, VideoOff, X, Maximize2, Minimize2 } from 'lucide-react';
+import { VideoOff, X, Maximize2, Minimize2 } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
 import { Avatar, getAvatarGradient } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
@@ -93,6 +93,7 @@ const GroupParticipantTile = memo(({
       style={{
         backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 85%, black)',
         border: 'none',
+        boxShadow: participant.isSpeaking ? '0 0 0 2px #22c55e, 0 0 14px rgba(34, 197, 94, 0.45)' : undefined,
       }}
     >
       {hasStream ? (
@@ -126,7 +127,7 @@ const GroupParticipantTile = memo(({
             />
           ) : (
             <div
-              className="absolute inset-0 w-full h-full opacity-25 pointer-events-none"
+              className="absolute inset-0 w-full h-full opacity-35 blur-xl scale-110 pointer-events-none"
               style={{ background: getAvatarGradient(displayName) }}
             />
           )}
@@ -136,10 +137,9 @@ const GroupParticipantTile = memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
-            style={{ borderRadius: '16px' }}
             role={!isLocal ? 'button' : undefined}
             aria-label={displayName}
           >
@@ -147,14 +147,17 @@ const GroupParticipantTile = memo(({
               src={avatarUrl}
               alt={displayName}
               className="w-full h-full object-cover"
-              style={{ borderRadius: '16px' }}
             />
           </div>
         </>
       )}
       <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-[85%] border-0 shadow-sm pointer-events-none">
         <span className="truncate">{displayName}</span>
-        {isMuted && <MicOff size={13} className="text-red-400 flex-shrink-0" />}
+        {isMuted && (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
+            <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
+          </svg>
+        )}
       </div>
     </div>
   );
@@ -251,7 +254,7 @@ const ExpandedGroupParticipantTile = memo(({
             />
           ) : (
             <div
-              className="absolute inset-0 w-full h-full opacity-25 pointer-events-none"
+              className="absolute inset-0 w-full h-full opacity-35 blur-2xl scale-110 pointer-events-none"
               style={{ background: getAvatarGradient(displayName) }}
             />
           )}
@@ -261,10 +264,9 @@ const ExpandedGroupParticipantTile = memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
-            style={{ borderRadius: '20px' }}
             role={!isLocal ? 'button' : undefined}
             aria-label={displayName}
           >
@@ -272,14 +274,17 @@ const ExpandedGroupParticipantTile = memo(({
               src={avatarUrl}
               alt={displayName}
               className="w-full h-full object-cover"
-              style={{ borderRadius: '20px' }}
             />
           </div>
         </div>
       )}
       <div className="absolute bottom-4 left-4 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-[85%] border-0 shadow-sm pointer-events-none">
         <span className="truncate">{displayName}</span>
-        {isMuted && <MicOff size={13} className="text-red-400 flex-shrink-0" />}
+        {isMuted && (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
+            <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
+          </svg>
+        )}
       </div>
     </div>
   );
@@ -427,6 +432,7 @@ export const CallWindow = () => {
     };
     updateList();
     groupLiveKitService.on('participantsChanged', updateList);
+    groupLiveKitService.on('activeSpeakersChanged', updateList);
     groupLiveKitService.on('trackSubscribed', updateList);
     groupLiveKitService.on('trackUnsubscribed', updateList);
     groupLiveKitService.on('trackMuted', updateList);
@@ -436,6 +442,7 @@ export const CallWindow = () => {
     groupLiveKitService.on('remoteScreenShareChanged', updateList);
     return () => {
       groupLiveKitService.off('participantsChanged', updateList);
+      groupLiveKitService.off('activeSpeakersChanged', updateList);
       groupLiveKitService.off('trackSubscribed', updateList);
       groupLiveKitService.off('trackUnsubscribed', updateList);
       groupLiveKitService.off('trackMuted', updateList);

@@ -221,6 +221,11 @@ export class GroupLiveKitService extends EventEmitter {
           .on(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed.bind(this))
           .on(RoomEvent.TrackMuted, this.onTrackMuted.bind(this))
           .on(RoomEvent.TrackUnmuted, this.onTrackUnmuted.bind(this))
+          .on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
+            this.updateParticipants();
+            this.emit('participantsChanged', this.getParticipants());
+            this.emit('activeSpeakersChanged', speakers);
+          })
           .on(RoomEvent.ConnectionQualityChanged, (q: any, p: any) => this.emit('connectionQuality', q, p.identity))
           .on(RoomEvent.LocalTrackPublished, (pub: any) => {
             if (pub.source === Track.Source.ScreenShare) {
@@ -876,7 +881,7 @@ export class GroupLiveKitService extends EventEmitter {
         audioEnabled: this.desiredMicEnabled && (this.localAudioTrack?.mediaStreamTrack.enabled ?? true),
         videoEnabled: isVideoOn,
         screenShareEnabled: isScreenOn,
-        isSpeaking: false,
+        isSpeaking: !!this.localParticipant?.isSpeaking,
         isLocal: true,
       };
       this.participants.set(this.localParticipant.identity, info);
