@@ -14,8 +14,6 @@ interface DesktopSource {
 
 export interface ScreenShareOptions {
   sourceId?: string;
-  quality: '480p' | '720p';
-  fps: 30 | 60;
   audio: boolean;
 }
 
@@ -43,8 +41,6 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
   const [sources, setSources] = useState<DesktopSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [quality, setQuality] = useState<'480p' | '720p'>('480p');
-  const [fps, setFps] = useState<30 | 60>(30);
   const [shareAudio, setShareAudio] = useState<boolean>(false);
 
   const fetchSources = useCallback(async () => {
@@ -104,8 +100,6 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
   const handleStart = () => {
     handleStartShare({
       sourceId: selectedSourceId || undefined,
-      quality,
-      fps,
       audio: shareAudio,
     });
     handleClose();
@@ -319,54 +313,6 @@ export const ScreenSharePickerModal: React.FC<ScreenSharePickerModalProps> = ({
             }}
           >
             <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-medium text-[var(--text-dim,#8a96a3)]">
-                    {t('call.quality')}:
-                  </span>
-                  <div className="flex items-center rounded-lg p-0.5 bg-[var(--surface-container,rgba(255,255,255,0.06))]">
-                    {(['480p', '720p'] as const).map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setQuality(q)}
-                        aria-label={q}
-                        className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
-                        style={{
-                          backgroundColor: quality === q ? 'var(--accent-color, #7C3AED)' : 'transparent',
-                          color: quality === q ? '#ffffff' : 'var(--text-dim, #8a96a3)',
-                        }}
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-medium text-[var(--text-dim,#8a96a3)]">
-                    {t('call.framerate')}:
-                  </span>
-                  <div className="flex items-center rounded-lg p-0.5 bg-[var(--surface-container,rgba(255,255,255,0.06))]">
-                    {([30, 60] as const).map((rate) => (
-                      <button
-                        key={rate}
-                        type="button"
-                        onClick={() => setFps(rate)}
-                        aria-label={`${rate} FPS`}
-                        className="px-2.5 py-1 text-[12px] font-medium rounded-md border-0 cursor-pointer transition-all"
-                        style={{
-                          backgroundColor: fps === rate ? 'var(--accent-color, #7C3AED)' : 'transparent',
-                          color: fps === rate ? '#ffffff' : 'var(--text-dim, #8a96a3)',
-                        }}
-                      >
-                        {rate} FPS
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
               <div
                 onClick={() => setShareAudio(!shareAudio)}
                 className="flex items-center gap-2 cursor-pointer select-none"
