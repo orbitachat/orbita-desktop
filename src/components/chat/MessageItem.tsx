@@ -157,7 +157,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
       </span>
     );
 
-    const hasReactions = !!(msg.reactions && Object.keys(msg.reactions).length > 0);
+    const msgReactions = msg.reactions;
+    const hasReactions = Boolean(msgReactions && Object.keys(msgReactions).some((k) => !k.startsWith('_') && Array.isArray(msgReactions[k]) && msgReactions[k]!.length > 0));
     const hasLinkPreview = Boolean(
       msg.linkPreview &&
       (

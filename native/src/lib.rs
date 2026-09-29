@@ -1208,3 +1208,24 @@ pub fn show_native_tray_menu(
 
     Ok(SELECTED_INDEX.load(Ordering::SeqCst))
 }
+
+#[napi]
+pub fn rust_detect_voice_activity(samples: Float32Array, threshold: Option<f64>) -> bool {
+    let thresh = threshold.unwrap_or(0.006) as f32;
+    let s = samples.as_ref();
+    if s.is_empty() {
+        return false;
+    }
+    let mut max_abs: f32 = 0.0;
+    let mut sum_sq: f32 = 0.0;
+    for &val in s {
+        let abs_val = val.abs();
+        if abs_val > max_abs {
+            max_abs = abs_val;
+        }
+        sum_sq += val * val;
+    }
+    let rms = sum_sq / (s.len() as f32);
+    let thresh_sq = thresh * thresh;
+    max_abs >= thresh || rms >= thresh_sq
+}

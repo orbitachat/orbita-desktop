@@ -143,7 +143,7 @@ export const MessageReactions: React.FC<MessageReactionsProps> = React.memo(({
   const entries = useMemo(() => {
     if (!reactions) return [];
     return Object.entries(reactions)
-      .filter(([_, users]) => Array.isArray(users) && users.length > 0)
+      .filter(([emoji, users]) => !emoji.startsWith('_') && Array.isArray(users) && users.length > 0)
       .sort(([a], [b]) => {
         const orderA = POPULAR_REACTIONS[a] ?? 100;
         const orderB = POPULAR_REACTIONS[b] ?? 100;

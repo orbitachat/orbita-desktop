@@ -12,6 +12,7 @@ import { Avatar, getAvatarGradient } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 import { generateKeyPair, generateChatId } from '../../lib/crypto';
+import { attachRustVoiceDetector } from '../../services/rustVoiceVadService';
 
 const GroupParticipantTile = memo(({
   participant,
@@ -76,87 +77,33 @@ const GroupParticipantTile = memo(({
       return;
     }
 
-    let analyser: AnalyserNode | null = null;
-    let audioContext: AudioContext | null = null;
-    let sourceNode: MediaStreamAudioSourceNode | null = null;
-    let animId: number | null = null;
-    let silenceTimer: any = null;
+    let cleanupDetector: (() => void) | null = null;
 
-    const setupAnalyser = () => {
-      if (animId) cancelAnimationFrame(animId);
-      if (sourceNode) { try { sourceNode.disconnect(); } catch {} }
-      if (audioContext && audioContext.state !== 'closed') { try { audioContext.close(); } catch {} }
-      setIsSpeakingRealtime(false);
+    const setupDetector = () => {
+      cleanupDetector?.();
+      cleanupDetector = null;
 
       const aTrack = isLocal
         ? groupLiveKitService.getLocalAudioTrack()
         : groupLiveKitService.getRemoteAudioTrack(participant.identity);
       const msTrack = aTrack?.mediaStreamTrack;
-      if (!msTrack || msTrack.readyState === 'ended' || !msTrack.enabled) return;
 
-      try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioCtx) return;
-        audioContext = new AudioCtx();
-        if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(() => {});
-        }
-        const stream = new MediaStream([msTrack]);
-        sourceNode = audioContext.createMediaStreamSource(stream);
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.1;
-        sourceNode.connect(analyser);
-
-        const buffer = new Uint8Array(analyser.frequencyBinCount);
-        let speakingState = false;
-
-        const checkAudio = () => {
-          if (!analyser) return;
-          analyser.getByteFrequencyData(buffer);
-          let sum = 0;
-          for (let i = 0; i < buffer.length; i++) {
-            sum += buffer[i];
-          }
-          const avg = sum / buffer.length;
-          const isLoud = avg > 2.5;
-
-          if (isLoud) {
-            if (silenceTimer) {
-              clearTimeout(silenceTimer);
-              silenceTimer = null;
-            }
-            if (!speakingState) {
-              speakingState = true;
-              setIsSpeakingRealtime(true);
-            }
-          } else if (speakingState && !silenceTimer) {
-            silenceTimer = setTimeout(() => {
-              speakingState = false;
-              setIsSpeakingRealtime(false);
-              silenceTimer = null;
-            }, 80);
-          }
-
-          animId = requestAnimationFrame(checkAudio);
-        };
-
-        checkAudio();
-      } catch {}
+      if (msTrack && msTrack.readyState !== 'ended' && msTrack.enabled) {
+        cleanupDetector = attachRustVoiceDetector(msTrack, setIsSpeakingRealtime, 0.005);
+      } else {
+        setIsSpeakingRealtime(false);
+      }
     };
 
-    setupAnalyser();
+    setupDetector();
 
-    groupLiveKitService.on('trackSubscribed', setupAnalyser);
-    groupLiveKitService.on('trackUnsubscribed', setupAnalyser);
+    groupLiveKitService.on('trackSubscribed', setupDetector);
+    groupLiveKitService.on('trackUnsubscribed', setupDetector);
 
     return () => {
-      if (animId) cancelAnimationFrame(animId);
-      if (silenceTimer) clearTimeout(silenceTimer);
-      if (sourceNode) { try { sourceNode.disconnect(); } catch {} }
-      if (audioContext && audioContext.state !== 'closed') { try { audioContext.close(); } catch {} }
-      groupLiveKitService.off('trackSubscribed', setupAnalyser);
-      groupLiveKitService.off('trackUnsubscribed', setupAnalyser);
+      cleanupDetector?.();
+      groupLiveKitService.off('trackSubscribed', setupDetector);
+      groupLiveKitService.off('trackUnsubscribed', setupDetector);
     };
   }, [isLocal, participant.identity, isMuted]);
 
