@@ -145,13 +145,8 @@ export function useDecryptedMedia(
     return null;
   }, [cachedUrl, autoLoad, streamUrl]);
 
-  const [result, setResult] = useState<{ blobUrl: string | null; blob: Blob | null; load: () => Promise<void>; isLoading: boolean; progress: number }>(() => ({
-    blobUrl: initialBlobUrl,
-    blob: null,
-    load: async () => {},
-    isLoading: false,
-    progress: 0,
-  }));
+  const [blobUrl, setBlobUrl] = useState<string | null>(initialBlobUrl);
+  const [blob, setBlob] = useState<Blob | null>(null);
 
   useEffect(() => {
     if (!cleanUrl) return;
@@ -167,13 +162,18 @@ export function useDecryptedMedia(
 
   const loadMedia = useCallback(async () => {
     if (!cleanUrl) {
-      setResult({ blobUrl: null, blob: null, load: async () => {}, isLoading: false, progress: 0 });
+      setBlobUrl(null);
+      setBlob(null);
+      setIsLoading(false);
+      setProgress(0);
       return;
     }
 
     if (cachedUrl) {
       setIsUnavailable(false);
-      setResult({ blobUrl: cachedUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
+      setBlobUrl(cachedUrl);
+      setIsLoading(false);
+      setProgress(1);
       return;
     }
 
@@ -185,10 +185,14 @@ export function useDecryptedMedia(
     try {
       const media = await mediaManager.getMedia(cleanUrl, sharedSecret || '', hintFileName, chatId, messageId);
       setIsUnavailable(false);
-      setResult({ blobUrl: media.blobUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
+      setBlobUrl(media.blobUrl);
+      setIsLoading(false);
+      setProgress(1);
     } catch {
       setIsUnavailable(true);
-      setResult({ blobUrl: null, blob: null, load: loadMedia, isLoading: false, progress: 0 });
+      setBlobUrl(null);
+      setIsLoading(false);
+      setProgress(0);
     } finally {
       isExecutingRef.current = false;
       setIsLoading(false);
@@ -197,21 +201,29 @@ export function useDecryptedMedia(
 
   useEffect(() => {
     if (!cleanUrl) {
-      setResult({ blobUrl: null, blob: null, load: async () => {}, isLoading: false, progress: 0 });
+      setBlobUrl(null);
+      setBlob(null);
+      setIsLoading(false);
+      setProgress(0);
       return;
     }
 
     if (cachedUrl) {
-      setResult({ blobUrl: cachedUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
+      setBlobUrl(cachedUrl);
+      setIsLoading(false);
+      setProgress(1);
       return;
     }
 
     if (!autoLoad) {
+      setBlobUrl(null);
       return;
     }
 
     if (streamUrl && streamUrl.startsWith('orbita-media:')) {
-      setResult({ blobUrl: streamUrl, blob: null, load: loadMedia, isLoading: false, progress: 1 });
+      setBlobUrl(streamUrl);
+      setIsLoading(false);
+      setProgress(1);
       return;
     }
 
@@ -219,9 +231,11 @@ export function useDecryptedMedia(
   }, [cleanUrl, cachedUrl, autoLoad, streamUrl, loadMedia]);
 
   return {
-    ...result,
-    isLoading: isLoading || result.isLoading,
-    progress: progress || result.progress,
+    blobUrl,
+    blob,
+    load: loadMedia,
+    isLoading,
+    progress,
     isUnavailable: isUnavailable || (cleanUrl ? mediaManager.isMediaUnavailable(cleanUrl) : false),
   };
 }

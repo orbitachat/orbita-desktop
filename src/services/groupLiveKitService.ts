@@ -188,21 +188,21 @@ export class GroupLiveKitService extends EventEmitter {
             red: true,
             forceStereo: false,
             audioPreset: {
-              maxBitrate: 128000,
+              maxBitrate: 64000,
               priority: 'high',
             },
             videoCodec: 'h264',
             videoEncoding: {
-              maxBitrate: 2500000,
+              maxBitrate: 1800000,
               maxFramerate: 30,
               priority: 'medium',
             },
             videoSimulcastLayers: [VideoPresets.h360],
-            degradationPreference: 'maintain-resolution',
+            degradationPreference: 'balanced',
             screenShareEncoding: {
-              maxBitrate: 10000000,
-              maxFramerate: 60,
-              priority: 'high',
+              maxBitrate: 2500000,
+              maxFramerate: 30,
+              priority: 'low',
             },
             simulcast: false,
           },
@@ -313,6 +313,17 @@ export class GroupLiveKitService extends EventEmitter {
   private onTrackSubscribed(track: RemoteTrack, _publication: any, participant: any): void {
     if (track.kind === Track.Kind.Audio) {
       const key = `${participant.identity}-${track.sid}`;
+      const receiver = (track as any).receiver as RTCRtpReceiver | undefined;
+      if (receiver) {
+        try {
+          if ('playoutDelayHint' in receiver) {
+            (receiver as any).playoutDelayHint = 0;
+          }
+          if ('jitterBufferTarget' in receiver) {
+            (receiver as any).jitterBufferTarget = 0;
+          }
+        } catch {}
+      }
       let el = this.attachedAudioElements.get(key);
       if (!el) {
         el = document.createElement('audio');
@@ -649,7 +660,7 @@ export class GroupLiveKitService extends EventEmitter {
     const height = is720 ? 720 : 1080;
     const frameRate = options?.fps === 60 ? 60 : 30;
     const is60Fps = frameRate === 60;
-    const maxBitrate = is720 ? (is60Fps ? 6000000 : 3500000) : (is60Fps ? 10000000 : 6500000);
+    const maxBitrate = is720 ? (is60Fps ? 2200000 : 1500000) : (is60Fps ? 3500000 : 2500000);
     const includeAudio = !!options?.audio;
 
     try {
@@ -690,9 +701,9 @@ export class GroupLiveKitService extends EventEmitter {
           videoEncoding: {
             maxBitrate,
             maxFramerate: frameRate,
-            priority: 'high',
+            priority: 'low',
           },
-          degradationPreference: 'maintain-resolution',
+          degradationPreference: 'balanced',
         });
         this.screenShareTrack = localVTrack;
 
@@ -709,8 +720,8 @@ export class GroupLiveKitService extends EventEmitter {
             forceStereo: true,
             dtx: false,
             audioPreset: {
-              maxBitrate: 160000,
-              priority: 'high',
+              maxBitrate: 96000,
+              priority: 'low',
             },
           });
           this.screenShareAudioTrack = localATrack;
@@ -735,9 +746,9 @@ export class GroupLiveKitService extends EventEmitter {
         screenShareEncoding: {
           maxBitrate,
           maxFramerate: frameRate,
-          priority: 'high',
+          priority: 'low',
         },
-        degradationPreference: 'maintain-resolution',
+        degradationPreference: 'balanced',
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.track) {

@@ -784,7 +784,7 @@ export const useChatStore = create<ChatState>()(
       autoLoadPhotos: true,
       autoLoadVideos: true,
       autoLoadAudio: true,
-      autoLoadFiles: true,
+      autoLoadFiles: false,
       autoLoadMaxPhotoSizeMb: 5,
       autoLoadMaxVideoSizeMb: 15,
       autoLoadMaxAudioSizeMb: 10,
