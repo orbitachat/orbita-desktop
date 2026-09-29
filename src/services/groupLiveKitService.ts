@@ -658,6 +658,30 @@ export class GroupLiveKitService extends EventEmitter {
     return null;
   }
 
+  public getLocalAudioTrack(): LocalTrack | null {
+    return this.localAudioTrack;
+  }
+
+  public getRemoteAudioTrack(identity?: string): RemoteTrack | null {
+    if (!this.room) return null;
+    if (identity) {
+      const participant = this.room.remoteParticipants.get(identity);
+      if (participant) {
+        const pub = participant.getTrackPublication(Track.Source.Microphone)
+          || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
+        return (pub?.track as RemoteTrack) || null;
+      }
+    }
+    for (const participant of this.room.remoteParticipants.values()) {
+      const pub = participant.getTrackPublication(Track.Source.Microphone)
+        || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
+      if (pub?.track) {
+        return pub.track as RemoteTrack;
+      }
+    }
+    return null;
+  }
+
   public async startScreenShare(options?: { sourceId?: string; quality?: '480p' | '720p'; fps?: number; audio?: boolean }): Promise<boolean> {
     if (!this.localParticipant) return false;
     const is480 = options?.quality === '480p';
