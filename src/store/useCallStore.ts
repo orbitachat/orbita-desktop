@@ -125,8 +125,8 @@ function getLivekitParticipantIdentity(nick: string): { identity: string; name: 
   };
 }
 
-async function fetchLivekitToken(room: string, identity: string, name?: string, isGroup?: boolean): Promise<{ token: string; url: string }> {
-  const endpoint = isGroup ? '/groups/token' : '/token';
+async function fetchLivekitToken(room: string, identity: string, name?: string, _isGroup?: boolean): Promise<{ token: string; url: string }> {
+  const endpoint = '/token';
   const res = await gatewayManager.fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

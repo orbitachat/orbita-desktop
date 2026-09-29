@@ -559,7 +559,8 @@ module.exports = async function handler(req, res) {
 
       try {
         const rsClient = new RoomServiceClient(ENV.LIVEKIT_URL, ENV.LIVEKIT_API_KEY, ENV.LIVEKIT_API_SECRET);
-        await rsClient.createRoom({ name: room, emptyTimeout: 300, departureTimeout: 20, maxParticipants: 2 });
+        const isGroupRoom = typeof room === 'string' && room.startsWith('group-');
+        await rsClient.createRoom({ name: room, emptyTimeout: 300, departureTimeout: 20, maxParticipants: isGroupRoom ? 50 : 2 });
       } catch {}
 
       const token = await at.toJwt();
