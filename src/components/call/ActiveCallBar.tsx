@@ -40,11 +40,12 @@ export const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ className = '', st
 
   return (
     <div
-      className={`active-call-header-bar w-full flex items-center justify-between select-none cursor-pointer relative shadow-sm overflow-hidden flex-shrink-0 ${className}`}
+      className={`active-call-header-bar w-full flex items-center justify-between select-none cursor-pointer relative overflow-hidden flex-shrink-0 ${className}`}
       style={{
         height: '42px',
         background: gradientBackground,
-        borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+        border: 'none',
+        borderBottom: 'none',
         transition: 'background 0.3s ease',
         ...style,
       }}

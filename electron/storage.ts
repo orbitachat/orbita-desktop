@@ -25,7 +25,9 @@ export function initStorage(): Promise<void> {
       db!.run('PRAGMA journal_mode = WAL');
       db!.run('PRAGMA synchronous = NORMAL');
       db!.run('PRAGMA temp_store = MEMORY');
-      db!.run('PRAGMA cache_size = -64000');
+      db!.run('PRAGMA cache_size = -8000');
+      db!.run('PRAGMA wal_autocheckpoint = 1000');
+      db!.run('PRAGMA wal_checkpoint(PASSIVE)');
 
       db!.run(`
         CREATE TABLE IF NOT EXISTS ${KV_TABLE} (
