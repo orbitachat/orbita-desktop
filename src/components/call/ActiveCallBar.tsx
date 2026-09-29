@@ -1,44 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
 import { Avatar } from '../common/Avatar';
-
-const CALL_GRADIENTS = [
-  'linear-gradient(90deg, var(--accent-color, #7C3AED) 0%, #2563eb 50%, #06b6d4 100%)',
-  'linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)',
-  'linear-gradient(90deg, #0284c7 0%, #2563eb 50%, #7c3aed 100%)',
-  'linear-gradient(90deg, #0d9488 0%, #0284c7 50%, #6366f1 100%)',
-  'linear-gradient(90deg, #6366f1 0%, #9333ea 50%, #e11d48 100%)',
-  'linear-gradient(90deg, #059669 0%, #0d9488 50%, #2563eb 100%)',
-  'linear-gradient(90deg, #8b5cf6 0%, #ec4899 50%, #f43f5e 100%)',
-  'linear-gradient(90deg, #2563eb 0%, #06b6d4 50%, #10b981 100%)',
-  'linear-gradient(90deg, #6d28d9 0%, #3b82f6 50%, #14b8a6 100%)',
-  'linear-gradient(90deg, #4338ca 0%, #6d28d9 50%, #0284c7 100%)',
-  'linear-gradient(90deg, #a21caf 0%, #c026d3 50%, #7c3aed 100%)',
-  'linear-gradient(90deg, #ea580c 0%, #f43f5e 50%, #9333ea 100%)',
-  'linear-gradient(90deg, #7c3aed 0%, #ec4899 50%, #f43f5e 100%)',
-  'linear-gradient(90deg, #be123c 0%, #e11d48 50%, #f97316 100%)',
-  'linear-gradient(90deg, #1d4ed8 0%, #6366f1 50%, #d946ef 100%)',
-  'linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #3b82f6 100%)',
-  'linear-gradient(90deg, #581c87 0%, #7e22ce 50%, #a855f7 100%)',
-  'linear-gradient(90deg, #d97706 0%, #ea580c 50%, #e11d48 100%)',
-  'linear-gradient(90deg, #312e81 0%, #2563eb 50%, #0d9488 100%)',
-  'linear-gradient(90deg, #831843 0%, #be185d 50%, #6b21a8 100%)',
-  'linear-gradient(90deg, #0284c7 0%, #06b6d4 50%, #4f46e5 100%)',
-  'linear-gradient(90deg, #9333ea 0%, #3b82f6 50%, #06b6d4 100%)',
-  'linear-gradient(90deg, #e11d48 0%, #c026d3 50%, #4c1d95 100%)',
-  'linear-gradient(90deg, #047857 0%, #10b981 50%, #0e7490 100%)',
-  'linear-gradient(90deg, #6b21a8 0%, #8b5cf6 50%, #2563eb 100%)',
-  'linear-gradient(90deg, #9f1239 0%, #d946ef 50%, #0284c7 100%)',
-  'linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #38bdf8 100%)',
-  'linear-gradient(90deg, #581c87 0%, #be123c 50%, #ea580c 100%)',
-];
-
-let sharedCurrentGradient = CALL_GRADIENTS[0];
-let sharedLayer1 = CALL_GRADIENTS[0];
-let sharedLayer2 = CALL_GRADIENTS[1];
-let sharedActiveLayer: 0 | 1 = 0;
 
 interface ActiveCallBarProps {
   className?: string;
@@ -55,51 +19,22 @@ export const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ className = '', st
 
   const chats = useChatStore((s) => s.chats);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  const chatColor = useChatStore((s) => s.chatColor);
 
   const isCallActive = !!activeCall && (callState === 'connected' || callState === 'connecting' || callState === 'ringing');
-
-  const [callBgLayer1, setCallBgLayer1] = useState(sharedLayer1);
-  const [callBgLayer2, setCallBgLayer2] = useState(sharedLayer2);
-  const [activeCallBgLayer, setActiveCallBgLayer] = useState<0 | 1>(sharedActiveLayer);
 
   const currentCallChat = activeCall ? chats.find((c) => c.id === activeCall.chatId) : null;
   const activeChat = useMemo(() => chats.find((c) => c.id === activeChatId), [chats, activeChatId]);
   const currentCallName = currentCallChat?.name || (activeCall as any)?.otherName || activeChat?.name || '';
   const currentCallAvatar = currentCallChat?.avatarUrl || (activeCall as any)?.otherAvatar || (currentCallChat?.id === activeChatId ? activeChat?.avatarUrl : null);
 
-  useEffect(() => {
-    if (!isCallActive) return;
-
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleNextChange = () => {
-      timeoutId = setTimeout(() => {
-        const available = CALL_GRADIENTS.filter((g) => g !== sharedCurrentGradient);
-        const nextGrad = available[Math.floor(Math.random() * available.length)] || CALL_GRADIENTS[0];
-        sharedCurrentGradient = nextGrad;
-
-        if (sharedActiveLayer === 0) {
-          sharedLayer2 = nextGrad;
-          sharedActiveLayer = 1;
-          setCallBgLayer2(nextGrad);
-          setActiveCallBgLayer(1);
-        } else {
-          sharedLayer1 = nextGrad;
-          sharedActiveLayer = 0;
-          setCallBgLayer1(nextGrad);
-          setActiveCallBgLayer(0);
-        }
-
-        scheduleNextChange();
-      }, 30000);
-    };
-
-    scheduleNextChange();
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isCallActive]);
+  const gradientBackground = useMemo(() => {
+    if (chatColor && chatColor.startsWith('linear-gradient')) {
+      return chatColor;
+    }
+    const baseColor = chatColor || 'var(--accent-color, #5c54e5)';
+    return `linear-gradient(90deg, color-mix(in srgb, ${baseColor} 75%, black) 0%, ${baseColor} 50%, color-mix(in srgb, ${baseColor} 80%, white) 100%)`;
+  }, [chatColor]);
 
   if (!isCallActive) return null;
 
@@ -108,7 +43,9 @@ export const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ className = '', st
       className={`active-call-header-bar w-full flex items-center justify-between select-none cursor-pointer relative shadow-sm overflow-hidden flex-shrink-0 ${className}`}
       style={{
         height: '42px',
+        background: gradientBackground,
         borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+        transition: 'background 0.3s ease',
         ...style,
       }}
       onClick={() => {
@@ -118,26 +55,6 @@ export const ActiveCallBar: React.FC<ActiveCallBarProps> = ({ className = '', st
         } catch {}
       }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: callBgLayer1,
-          opacity: activeCallBgLayer === 0 ? 1 : 0,
-          transition: 'opacity 3.5s cubic-bezier(0.4, 0, 0.2, 1)',
-          pointerEvents: 'none',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: callBgLayer2,
-          opacity: activeCallBgLayer === 1 ? 1 : 0,
-          transition: 'opacity 3.5s cubic-bezier(0.4, 0, 0.2, 1)',
-          pointerEvents: 'none',
-        }}
-      />
       <div className="flex items-center gap-2.5 z-10 pl-3">
         <button
           type="button"
