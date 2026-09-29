@@ -2770,10 +2770,10 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 <div
                   key={memberCode || `${member.nickname}_${index}`}
                   onClick={handleMemberClick}
-                  className={`flex items-center justify-between px-3 py-2.5 mx-2 rounded-xl transition-colors ${
+                  className={`w-full flex items-center justify-between px-5 py-2.5 transition-colors ${
                     isSelf ? 'cursor-default' : 'cursor-pointer hover:bg-[var(--surface-container-strong,rgba(255,255,255,0.06))]'
                   }`}
-                  style={{ gap: '12px' }}
+                  style={{ gap: '12px', borderRadius: 0, boxSizing: 'border-box' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                     <Avatar
