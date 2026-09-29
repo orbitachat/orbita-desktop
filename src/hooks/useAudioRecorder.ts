@@ -263,7 +263,7 @@ export function useAudioRecorder() {
               const ab = await draftBlob.arrayBuffer();
               const oggBytes = convertWebMOpusToOgg(new Uint8Array(ab));
               if (oggBytes && oggBytes.length > 0) {
-                finalBlob = new Blob([oggBytes], { type: 'audio/ogg;codecs=opus' });
+                finalBlob = new Blob([oggBytes as unknown as BlobPart], { type: 'audio/ogg;codecs=opus' });
               }
             } catch {}
             const waveform = computeNormalizedWaveform(samplesRef.current);
@@ -287,7 +287,7 @@ export function useAudioRecorder() {
           const ab = await rawBlob.arrayBuffer();
           const oggBytes = convertWebMOpusToOgg(new Uint8Array(ab));
           if (oggBytes && oggBytes.length > 0) {
-            finalBlob = new Blob([oggBytes], { type: 'audio/ogg;codecs=opus' });
+            finalBlob = new Blob([oggBytes as unknown as BlobPart], { type: 'audio/ogg;codecs=opus' });
           }
         } catch {}
 
