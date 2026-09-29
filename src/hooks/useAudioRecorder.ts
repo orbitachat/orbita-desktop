@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useChatStore } from '../store/useChatStore';
 import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
+import { convertWebMOpusToOgg } from '../utils/oggRemuxer';
 
 export interface RecordedAudioData {
   blob: Blob;
@@ -21,8 +22,6 @@ export function useAudioRecorder() {
   const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<number | null>(null);
-
-  // Web Audio API refs for live visualizer and waveform data
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -258,22 +257,40 @@ export function useAudioRecorder() {
       const recorder = mediaRecorderRef.current;
       if (!recorder || recorder.state === 'inactive') {
         if (draftBlob) {
-          const waveform = computeNormalizedWaveform(samplesRef.current);
-          const finalDuration = Math.max(0.5, recordingTime);
-          cleanupStream();
-          cleanupAudioContext();
-          clearTimer();
-          setStatus('idle');
-          resolve({ blob: draftBlob, duration: finalDuration, waveform });
+          (async () => {
+            let finalBlob = draftBlob;
+            try {
+              const ab = await draftBlob.arrayBuffer();
+              const oggBytes = convertWebMOpusToOgg(new Uint8Array(ab));
+              if (oggBytes && oggBytes.length > 0) {
+                finalBlob = new Blob([oggBytes], { type: 'audio/ogg;codecs=opus' });
+              }
+            } catch {}
+            const waveform = computeNormalizedWaveform(samplesRef.current);
+            const finalDuration = Math.max(0.5, recordingTime);
+            cleanupStream();
+            cleanupAudioContext();
+            clearTimer();
+            setStatus('idle');
+            resolve({ blob: finalBlob, duration: finalDuration, waveform });
+          })();
           return;
         }
         resolve(null);
         return;
       }
 
-      recorder.onstop = () => {
-        const mimeType = recorder.mimeType || 'audio/ogg;codecs=opus';
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+      recorder.onstop = async () => {
+        const rawBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        let finalBlob = rawBlob;
+        try {
+          const ab = await rawBlob.arrayBuffer();
+          const oggBytes = convertWebMOpusToOgg(new Uint8Array(ab));
+          if (oggBytes && oggBytes.length > 0) {
+            finalBlob = new Blob([oggBytes], { type: 'audio/ogg;codecs=opus' });
+          }
+        } catch {}
+
         const waveform = computeNormalizedWaveform(samplesRef.current);
         const finalDuration = Math.max(0.5, recordingTime);
 
@@ -286,7 +303,7 @@ export function useAudioRecorder() {
         setAmplitude(0);
         setDraftBlob(null);
 
-        resolve({ blob, duration: finalDuration, waveform });
+        resolve({ blob: finalBlob, duration: finalDuration, waveform });
       };
 
       recorder.stop();

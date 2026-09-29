@@ -61,7 +61,8 @@ export const VoiceMessagePlayer = memo(({
   const waveformRef = useRef<HTMLDivElement>(null);
   const progressOverlayRef = useRef<HTMLDivElement>(null);
   const timeDisplayRef = useRef<HTMLSpanElement>(null);
-  const { blobUrl } = useDecryptedMedia(url, sharedSecret, fileName, mime, chatId, messageId);
+  const effectiveSecret = msg?.mediaKey || sharedSecret;
+  const { blobUrl } = useDecryptedMedia(url, effectiveSecret, fileName, mime, chatId, messageId);
 
   useEffect(() => {
     if (!blobUrl || (localDuration > 0 && isFinite(localDuration))) return;
@@ -119,7 +120,7 @@ export const VoiceMessagePlayer = memo(({
         duration: effectiveDuration,
         cover: null,
         url,
-        sharedSecret: sharedSecret || '',
+        sharedSecret: effectiveSecret || '',
         mediaType: 'voice',
         message: msg,
       });
@@ -195,12 +196,12 @@ export const VoiceMessagePlayer = memo(({
         duration: effectiveDuration,
         cover: null,
         url,
-        sharedSecret: sharedSecret || '',
+        sharedSecret: effectiveSecret || '',
         message: msg,
       });
       setTimeout(() => seekTrack(newTime), 50);
     }
-  }, [effectiveDuration, isCurrentTrack, seekTrack, playTrack, trackId, chatId, msg, t, url, sharedSecret]);
+  }, [effectiveDuration, isCurrentTrack, seekTrack, playTrack, trackId, chatId, msg, t, url, effectiveSecret]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();

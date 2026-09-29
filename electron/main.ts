@@ -1691,9 +1691,19 @@ function uploadToCloudinaryWithProgress(
       avi: 'video/x-msvideo',
       webm: 'video/webm',
     };
+    const audioMimes: Record<string, string> = {
+      ogg: 'audio/ogg',
+      opus: 'audio/ogg',
+      mp3: 'audio/mpeg',
+      wav: 'audio/wav',
+      flac: 'audio/flac',
+      m4a: 'audio/mp4',
+      aac: 'audio/aac',
+    };
 
     if (imageMimes[ext]) mimeType = imageMimes[ext];
     else if (videoMimes[ext]) mimeType = videoMimes[ext];
+    else if (audioMimes[ext]) mimeType = audioMimes[ext];
 
     const fileHeader = Buffer.from(
       `--${boundary}\r\nContent-Disposition: form-data; name="${fieldName}"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`
