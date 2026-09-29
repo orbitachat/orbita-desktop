@@ -125,8 +125,8 @@ function getLivekitParticipantIdentity(nick: string): { identity: string; name: 
   };
 }
 
-async function fetchLivekitToken(room: string, identity: string, name?: string, _isGroup?: boolean): Promise<{ token: string; url: string }> {
-  const endpoint = '/token';
+async function fetchLivekitToken(room: string, identity: string, name?: string, isGroup?: boolean): Promise<{ token: string; url: string }> {
+  const endpoint = isGroup ? '/groups/token' : '/token';
   const res = await gatewayManager.fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -142,7 +142,7 @@ async function fetchLivekitToken(room: string, identity: string, name?: string, 
     throw new Error(`Invalid token response: expected { token, url }, got ${JSON.stringify(data)}`);
   }
   let url = data.url;
-  if (!url || url.includes('fewfregfrtgtr') || !url.startsWith('wss://')) {
+  if (!url || !url.startsWith('wss://')) {
     url = 'wss://orbita-qd7zok2r.livekit.cloud';
   }
   return { token: data.token, url };
