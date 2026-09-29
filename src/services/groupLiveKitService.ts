@@ -198,10 +198,10 @@ export class GroupLiveKitService extends EventEmitter {
               priority: 'medium',
             },
             videoSimulcastLayers: [VideoPresets.h360],
-            degradationPreference: 'balanced',
+            degradationPreference: 'maintain-resolution',
             screenShareEncoding: {
-              maxBitrate: 2500000,
-              maxFramerate: 30,
+              maxBitrate: 8000000,
+              maxFramerate: 60,
               priority: 'low',
             },
             simulcast: false,
@@ -660,7 +660,7 @@ export class GroupLiveKitService extends EventEmitter {
     const height = is720 ? 720 : 1080;
     const frameRate = options?.fps === 60 ? 60 : 30;
     const is60Fps = frameRate === 60;
-    const maxBitrate = is720 ? (is60Fps ? 2200000 : 1500000) : (is60Fps ? 3500000 : 2500000);
+    const maxBitrate = is720 ? (is60Fps ? 6000000 : 4000000) : (is60Fps ? 9000000 : 6500000);
     const includeAudio = !!options?.audio;
 
     try {
@@ -703,8 +703,21 @@ export class GroupLiveKitService extends EventEmitter {
             maxFramerate: frameRate,
             priority: 'low',
           },
-          degradationPreference: 'balanced',
+          degradationPreference: 'maintain-resolution',
         });
+        try {
+          const vSender = (localVTrack as any).sender as RTCRtpSender | undefined;
+          if (vSender && typeof vSender.getParameters === 'function' && typeof vSender.setParameters === 'function') {
+            const vParams = vSender.getParameters();
+            if (vParams && vParams.encodings && vParams.encodings.length > 0) {
+              vParams.encodings.forEach((enc: any) => {
+                enc.priority = 'low';
+                enc.networkPriority = 'low';
+              });
+              vSender.setParameters(vParams).catch(() => {});
+            }
+          }
+        } catch {}
         this.screenShareTrack = localVTrack;
 
         vTrack.onended = () => {
@@ -720,7 +733,7 @@ export class GroupLiveKitService extends EventEmitter {
             forceStereo: true,
             dtx: false,
             audioPreset: {
-              maxBitrate: 96000,
+              maxBitrate: 128000,
               priority: 'low',
             },
           });
@@ -748,7 +761,7 @@ export class GroupLiveKitService extends EventEmitter {
           maxFramerate: frameRate,
           priority: 'low',
         },
-        degradationPreference: 'balanced',
+        degradationPreference: 'maintain-resolution',
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.track) {

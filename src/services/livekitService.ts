@@ -311,10 +311,10 @@ class LiveKitService extends EventEmitter {
         videoSimulcastLayers: [
           VideoPresets.h360,
         ],
-        degradationPreference: 'balanced',
+        degradationPreference: 'maintain-resolution',
         screenShareEncoding: {
-          maxBitrate: 2500000,
-          maxFramerate: 30,
+          maxBitrate: 8000000,
+          maxFramerate: 60,
           priority: 'low',
         },
         simulcast: false,
@@ -749,7 +749,7 @@ class LiveKitService extends EventEmitter {
     const height = is720 ? 720 : 1080;
     const frameRate = options?.fps === 60 ? 60 : 30;
     const is60Fps = frameRate === 60;
-    const maxBitrate = is720 ? (is60Fps ? 2200000 : 1500000) : (is60Fps ? 3500000 : 2500000);
+    const maxBitrate = is720 ? (is60Fps ? 6000000 : 4000000) : (is60Fps ? 9000000 : 6500000);
     const includeAudio = !!options?.audio;
 
     try {
@@ -792,8 +792,21 @@ class LiveKitService extends EventEmitter {
             maxFramerate: frameRate,
             priority: 'low',
           },
-          degradationPreference: 'balanced',
+          degradationPreference: 'maintain-resolution',
         });
+        try {
+          const vSender = (localVTrack as any).sender as RTCRtpSender | undefined;
+          if (vSender && typeof vSender.getParameters === 'function' && typeof vSender.setParameters === 'function') {
+            const vParams = vSender.getParameters();
+            if (vParams && vParams.encodings && vParams.encodings.length > 0) {
+              vParams.encodings.forEach((enc: any) => {
+                enc.priority = 'low';
+                enc.networkPriority = 'low';
+              });
+              vSender.setParameters(vParams).catch(() => {});
+            }
+          }
+        } catch {}
         this.screenShareTrack = localVTrack;
 
         vTrack.onended = () => {
@@ -809,7 +822,7 @@ class LiveKitService extends EventEmitter {
             forceStereo: true,
             dtx: false,
             audioPreset: {
-              maxBitrate: 96000,
+              maxBitrate: 128000,
               priority: 'low',
             },
           });
@@ -835,7 +848,7 @@ class LiveKitService extends EventEmitter {
           maxFramerate: frameRate,
           priority: 'low',
         },
-        degradationPreference: 'balanced',
+        degradationPreference: 'maintain-resolution',
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.track) {
@@ -932,6 +945,17 @@ class LiveKitService extends EventEmitter {
             const key = `${p.identity}:${pub.track.sid}`;
             if (!this.attachedAudioElements.has(key)) {
               try {
+                const receiver = (pub.track as any).receiver as RTCRtpReceiver | undefined;
+                if (receiver) {
+                  try {
+                    if ('playoutDelayHint' in receiver) {
+                      (receiver as any).playoutDelayHint = 0;
+                    }
+                    if ('jitterBufferTarget' in receiver) {
+                      (receiver as any).jitterBufferTarget = 0;
+                    }
+                  } catch {}
+                }
                 const el = (pub.track as RemoteTrack).attach();
                 el.id = `livekit-audio-${p.identity}`;
                 el.autoplay = true;
