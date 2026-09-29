@@ -2014,7 +2014,22 @@ export const MainLayout = () => {
               if (item.chatId !== activeId || !isAppInFocusAndVisible()) {
                 const targetChat = useChatStore.getState().chats.find((c) => c.id === item.chatId);
                 const senderName = item.message.sender || targetChat?.name || 'Orbita';
-                const bodyText = item.message.text || t('chatWindow.new_message');
+                let bodyText = item.message.text || '';
+                if (item.message.mediaType === 'voice' || /^\[Audio\]\s+voice_/i.test(bodyText) || /^voice_\d+/i.test(bodyText) || bodyText.includes('voice_')) {
+                  bodyText = t('chatWindow.voice_message') || 'Голосовое сообщение';
+                } else if (item.message.mediaType === 'sticker' || (/^\[Sticker\]/i.test(bodyText) || /(\.stickers|\/stickers|stickers\/|bisquit)/i.test(bodyText))) {
+                  bodyText = t('chatWindow.sticker') || 'Стикер';
+                } else if (item.message.mediaType === 'image' || item.message.mediaType === 'photo' || /^\[Photo\]/i.test(bodyText)) {
+                  bodyText = t('chatWindow.photo') || 'Фотография';
+                } else if (item.message.mediaType === 'video' || /^\[Video\]/i.test(bodyText)) {
+                  bodyText = t('chatWindow.video') || 'Видео';
+                } else if (item.message.mediaType === 'audio' || /^\[Audio\]/i.test(bodyText)) {
+                  bodyText = item.message.mediaName || t('chatWindow.audio') || 'Аудиозапись';
+                } else if (item.message.mediaType === 'file' || /^\[File\]/i.test(bodyText)) {
+                  bodyText = item.message.mediaName || t('chatWindow.file') || 'Файл';
+                } else if (!bodyText) {
+                  bodyText = t('chatWindow.new_message') || 'Новое сообщение';
+                }
                 showNotification(senderName, bodyText, item.chatId, targetChat?.avatarUrl || null);
               }
             }
@@ -3882,14 +3897,34 @@ export const MainLayout = () => {
                 (typeof notifBody === 'string' && (/^\[Sticker\]/i.test(notifBody.trim()) || /(\.stickers|\/stickers|stickers\/|bisquit)/i.test(notifBody)))
               ) {
                 notifBody = t('chatWindow.sticker') || 'Стикер';
+              } else if (
+                messageData.mediaType === 'voice' ||
+                (typeof notifBody === 'string' && (/^\[Audio\]\s+voice_/i.test(notifBody.trim()) || /^voice_\d+/i.test(notifBody.trim()) || notifBody.includes('voice_')))
+              ) {
+                notifBody = t('chatWindow.voice_message') || 'Голосовое сообщение';
+              } else if (
+                messageData.mediaType === 'image' ||
+                messageData.mediaType === 'photo' ||
+                (typeof notifBody === 'string' && /^\[Photo\]/i.test(notifBody.trim()))
+              ) {
+                notifBody = t('chatWindow.photo') || 'Фотография';
+              } else if (
+                messageData.mediaType === 'video' ||
+                (typeof notifBody === 'string' && /^\[Video\]/i.test(notifBody.trim()))
+              ) {
+                notifBody = t('chatWindow.video') || 'Видео';
+              } else if (
+                messageData.mediaType === 'audio' ||
+                (typeof notifBody === 'string' && /^\[Audio\]/i.test(notifBody.trim()))
+              ) {
+                notifBody = messageData.mediaName || t('chatWindow.audio') || 'Аудиозапись';
+              } else if (
+                messageData.mediaType === 'file' ||
+                (typeof notifBody === 'string' && /^\[File\]/i.test(notifBody.trim()))
+              ) {
+                notifBody = messageData.mediaName || t('chatWindow.file') || 'Файл';
               } else if (!notifBody) {
-                if (messageData.mediaType === 'image') notifBody = t('chatWindow.photo') || '📷 Фотография';
-                else if (messageData.mediaType === 'video') notifBody = t('chatWindow.video') || '📹 Видео';
-                else if (messageData.mediaType === 'voice') notifBody = t('chatWindow.voice_message') || '🎤 Голосовое сообщение';
-                else if (messageData.mediaType === 'audio') notifBody = messageData.mediaName || t('chatWindow.audio') || '🎵 Аудиозапись';
-                else if (messageData.mediaType === 'file') notifBody = messageData.mediaName || t('chatWindow.file') || '📁 Файл';
-                else if (messageData.mediaType === 'sticker') notifBody = t('chatWindow.sticker') || 'Стикер';
-                else notifBody = t('chatWindow.new_message') || 'Новое сообщение';
+                notifBody = t('chatWindow.new_message') || 'Новое сообщение';
               }
               const notifAvatar = chat.avatarUrl || null;
               showNotification(data.sender, notifBody, chatId, notifAvatar);

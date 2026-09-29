@@ -206,23 +206,14 @@ export const GlobalAudioEngine = () => {
 
     if (isSeeking) {
       audio.pause();
-    } else {
-      audio.currentTime = useAudioStore.getState().currentTime;
-      audio.volume = useAudioStore.getState().volume;
-      if (isPlaying) {
-        audio.play().catch(() => {});
-      }
+      return;
     }
-  }, [isSeeking, isPlaying]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !audio.src || isSeeking) return;
 
     if (isPlaying) {
       if (audio.duration > 0 && audio.currentTime >= audio.duration - 0.1) {
         audio.currentTime = 0;
       }
+      audio.volume = useAudioStore.getState().volume;
       audio.play().catch(() => {});
     } else {
       audio.pause();

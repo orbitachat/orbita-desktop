@@ -83,13 +83,30 @@ export function showNotification(
 
   let finalTitle = title;
   let finalBody = body;
-  if (
-    typeof finalBody === 'string' &&
-    (/^\[Sticker\]/i.test(finalBody.trim()) ||
-      /(\.stickers|\/stickers|stickers\/)/i.test(finalBody) ||
-      /bisquit/i.test(finalBody))
-  ) {
-    finalBody = i18n.t('chatWindow.sticker') || 'Стикер';
+  if (typeof finalBody === 'string') {
+    const trimmed = finalBody.trim();
+    if (
+      /^\[Sticker\]/i.test(trimmed) ||
+      /(\.stickers|\/stickers|stickers\/)/i.test(trimmed) ||
+      /bisquit/i.test(trimmed)
+    ) {
+      finalBody = i18n.t('chatWindow.sticker') || 'Стикер';
+    } else if (
+      /^\[Audio\]\s+voice_/i.test(trimmed) ||
+      /^voice_\d+/i.test(trimmed) ||
+      /[\/\\]voice_\d+/i.test(trimmed) ||
+      trimmed.includes('voice_')
+    ) {
+      finalBody = i18n.t('chatWindow.voice_message') || 'Голосовое сообщение';
+    } else if (/^\[Photo\]/i.test(trimmed)) {
+      finalBody = i18n.t('chatWindow.photo') || 'Фотография';
+    } else if (/^\[Video\]/i.test(trimmed)) {
+      finalBody = i18n.t('chatWindow.video') || 'Видео';
+    } else if (/^\[Audio\]/i.test(trimmed)) {
+      finalBody = i18n.t('chatWindow.audio') || 'Аудиозапись';
+    } else if (/^\[File\]/i.test(trimmed)) {
+      finalBody = i18n.t('chatWindow.file') || 'Файл';
+    }
   }
   let finalAvatarUrl: string | undefined = avatarUrl || undefined;
 
@@ -98,7 +115,7 @@ export function showNotification(
 
   if (isNameHidden) {
     finalTitle = i18n.t('settings.hidden_name') || 'Orbita Desktop';
-    finalAvatarUrl = undefined; // Скрываем аватарку собеседника, если скрыто имя
+    finalAvatarUrl = undefined;
   }
   if (isTextHidden) {
     finalBody = i18n.t('settings.new_message') || 'Новое сообщение';

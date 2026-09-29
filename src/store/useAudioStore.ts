@@ -165,6 +165,11 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   getLiveTime: undefined,
 
   setTrack: (track) => {
+    const state = get();
+    if (track && state.currentTrack?.id === track.id) {
+      set({ isPlaying: true });
+      return;
+    }
     set({
       currentTrack: track,
       isPlaying: track !== null,
@@ -174,7 +179,16 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   },
 
   play: (track) => {
+    const state = get();
     if (track) {
+      if (state.currentTrack?.id === track.id) {
+        if (state.duration > 0 && state.currentTime >= state.duration - 0.1) {
+          set({ currentTime: 0, isPlaying: true });
+        } else {
+          set({ isPlaying: true });
+        }
+        return;
+      }
       set({
         currentTrack: track,
         isPlaying: true,
@@ -182,11 +196,25 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
         duration: track.duration,
       });
     } else {
-      set({ isPlaying: true });
+      if (state.duration > 0 && state.currentTime >= state.duration - 0.1) {
+        set({ currentTime: 0, isPlaying: true });
+      } else {
+        set({ isPlaying: true });
+      }
     }
   },
 
-  pause: () => set({ isPlaying: false }),
+  pause: () => {
+    const getLiveTime = get().getLiveTime;
+    if (getLiveTime) {
+      const live = getLiveTime();
+      if (typeof live === 'number' && isFinite(live) && live >= 0) {
+        set({ isPlaying: false, currentTime: live });
+        return;
+      }
+    }
+    set({ isPlaying: false });
+  },
 
   togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
 

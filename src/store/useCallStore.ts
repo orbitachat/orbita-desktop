@@ -833,7 +833,7 @@ export const useCallStore = create<CallStore>((set, get) => {
 
       set({
         myNickname,
-        activeCall: { chatId, roomName, direction: 'outgoing', callType, startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
+        activeCall: { chatId, roomName, direction: 'outgoing', callType, chatType: 'private', startTime: 0, participants: [], isMuted: false, isVideoEnabled: isVideo, isScreenSharing: false, connectionQuality: 'unknown', endedStatus: null, verificationSecret, verificationSalt, verificationEmojis: undefined },
         callState: 'preparing', isMicEnabled: true, isVideoEnabled: isVideo, isScreenSharing: false, isScreenPickerOpen: false, remoteScreenShareTrack: null, remoteScreenShareIdentity: null, connectionQuality: 'unknown', duration: 0, statusMessage: '', isEnding: false,
       });
     },
@@ -1283,7 +1283,7 @@ const syncCallState = (state: CallStore) => {
   const payload = {
     activeCall: state.activeCall ? {
       ...state.activeCall,
-      chatType: chat?.type,
+      chatType: chat?.type || state.activeCall.chatType || 'private',
       members: chat?.members,
       otherName: chat?.name || state.activeCall.chatId,
       otherAvatar: chat?.avatarUrl || null,

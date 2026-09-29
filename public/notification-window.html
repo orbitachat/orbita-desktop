@@ -477,7 +477,10 @@
 
       const isHidden = Boolean(hideContent);
       const finalTitle = title || 'Orbita Desktop';
-      const finalBody  = body || 'Новое сообщение';
+      let finalBody = body || 'Новое сообщение';
+      if (/^\[Audio\]\s+voice_/i.test(finalBody) || /^voice_\d+/i.test(finalBody) || finalBody.includes('voice_')) {
+        finalBody = 'Голосовое сообщение';
+      }
 
       let avatarHtml;
       if (isHidden) {

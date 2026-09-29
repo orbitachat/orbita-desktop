@@ -123,19 +123,26 @@ export function useAudioRecorder() {
       source.connect(analyser);
 
       let mimeType = '';
-      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mimeType = 'audio/webm;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-        mimeType = 'audio/webm';
-      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+      if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
         mimeType = 'audio/ogg;codecs=opus';
       } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
         mimeType = 'audio/ogg';
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mimeType = 'audio/webm';
       } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
         mimeType = 'audio/mp4';
       }
 
-      const mediaRecorder = new MediaRecorder(recordStream, mimeType ? { mimeType } : undefined);
+      const recorderOptions: MediaRecorderOptions = {
+        audioBitsPerSecond: 32000,
+      };
+      if (mimeType) {
+        recorderOptions.mimeType = mimeType;
+      }
+
+      const mediaRecorder = new MediaRecorder(recordStream, recorderOptions);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       samplesRef.current = [];
@@ -208,7 +215,7 @@ export function useAudioRecorder() {
         animFrameRef.current = null;
       }
       setStatus('paused');
-      const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm;codecs=opus';
+      const mimeType = mediaRecorderRef.current.mimeType || 'audio/ogg;codecs=opus';
       const blob = new Blob(audioChunksRef.current, { type: mimeType });
       setDraftBlob(blob);
       const url = URL.createObjectURL(blob);
@@ -265,7 +272,7 @@ export function useAudioRecorder() {
       }
 
       recorder.onstop = () => {
-        const mimeType = recorder.mimeType || 'audio/webm';
+        const mimeType = recorder.mimeType || 'audio/ogg;codecs=opus';
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const waveform = computeNormalizedWaveform(samplesRef.current);
         const finalDuration = Math.max(0.5, recordingTime);

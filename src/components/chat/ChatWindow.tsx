@@ -4374,13 +4374,13 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     if (!isBotChat && !isChannel && !sharedSecret) return;
     if (isChannel && !isChannelOwner) return;
 
-    const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'webm';
+    const ext = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'ogg';
     const voiceFileName = `voice_${Date.now()}.${ext}`;
 
     const localBlobUrl = URL.createObjectURL(blob);
     const optimisticMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    mediaManager.setDirectDecryptedMedia(localBlobUrl, '', blob, blob.type || 'audio/webm;codecs=opus', activeChatId, optimisticMessageId);
+    mediaManager.setDirectDecryptedMedia(localBlobUrl, '', blob, blob.type || 'audio/ogg;codecs=opus', activeChatId, optimisticMessageId);
 
     const optimisticMessage: Message = {
       id: optimisticMessageId,
@@ -4395,13 +4395,13 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       mediaType: 'voice',
       mediaUrl: localBlobUrl,
       mediaName: voiceFileName,
-      mime: blob.type || 'audio/webm;codecs=opus',
+      mime: blob.type || 'audio/ogg;codecs=opus',
       duration,
       waveform,
     };
 
     addMessage(activeChatId, optimisticMessage);
-    updateChat(activeChatId, { lastMsg: voiceFileName || t('chatWindow.voice_message') });
+    updateChat(activeChatId, { lastMsg: t('chatWindow.voice_message') || voiceFileName });
     requestAnimationFrame(() => scrollToBottom(false));
 
     (async () => {
@@ -4442,7 +4442,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         window.orbita.deleteTempFile?.(tempPath);
 
         if (result.success && result.secure_url) {
-          mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey || '', blob, blob.type || 'audio/webm;codecs=opus', activeChatId, optimisticMessageId);
+          mediaManager.setDirectDecryptedMedia(result.secure_url, fileKey || '', blob, blob.type || 'audio/ogg;codecs=opus', activeChatId, optimisticMessageId);
           await triggerMessage(
             `[Audio] ${voiceFileName}`,
             {
@@ -4450,7 +4450,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
               url: result.secure_url,
               key: fileKey,
               name: voiceFileName,
-              mime: blob.type || 'audio/webm;codecs=opus',
+              mime: blob.type || 'audio/ogg;codecs=opus',
               duration,
               waveform,
             },

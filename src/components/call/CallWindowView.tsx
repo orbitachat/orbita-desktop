@@ -562,9 +562,11 @@ export const CallWindowView = () => {
   const otherName = activeCall?.otherName || incomingCall?.otherName || incomingCall?.from || activeCall?.chatId || '';
   const otherAvatar = activeCall?.otherAvatar || incomingCall?.otherAvatar || null;
 
-  const isGroupCall = callData?.activeCall?.chatType === 'group' ||
-    Boolean(callData?.activeCall?.roomName?.startsWith('group-call-')) ||
-    new URLSearchParams(window.location.search).get('chatType') === 'group';
+  const isGroupCall = Boolean(
+    callData?.activeCall
+      ? (callData.activeCall.chatType === 'group' || callData.activeCall.roomName?.startsWith('group-call-'))
+      : (callData?.incomingCall ? false : new URLSearchParams(window.location.search).get('chatType') === 'group')
+  );
 
   const [groupParticipants, setGroupParticipants] = useState<ParticipantInfo[]>([]);
 
