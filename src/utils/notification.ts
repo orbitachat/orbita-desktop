@@ -155,7 +155,7 @@ export function showNotification(
       flashTaskbar: notificationFlashTaskbar ?? true,
       avatarUrl:    finalAvatarUrl,
       colors,
-      hideAllText:  i18n.t('common.hide_all') || 'Скрыть всё',
+      hideAllText:  i18n.t('common.hide_all') || 'Скрыть все',
     });
     return;
   }

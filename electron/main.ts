@@ -258,7 +258,7 @@ function showCustomNotification(payload: {
       soundEnabled: settings.soundEnabled,
       volume: settings.volume ?? 100,
       avatarUrl: avatarUrl || null,
-      hideAllText: hideAllText || 'Скрыть всё',
+      hideAllText: hideAllText || 'Скрыть все',
     });
   };
 

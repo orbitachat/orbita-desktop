@@ -171,7 +171,7 @@ export function showCustomNotification(payload: ShowNotificationPayload): void {
       soundEnabled: settings.soundEnabled,
       volume:       settings.volume ?? 100,
       avatarUrl:    avatarUrl || null,
-      hideAllText:  payload.hideAllText || 'Скрыть всё',
+      hideAllText:  payload.hideAllText || 'Скрыть все',
     });
   };
 

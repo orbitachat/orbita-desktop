@@ -28,7 +28,7 @@
       overflow: hidden;
       width: 100%;
       height: 100%;
-      font-family: 'Apple Color Emoji', var(--notif-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif), 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
+      font-family: var(--notif-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif), 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
       user-select: none;
       -webkit-user-select: none;
     }
@@ -175,7 +175,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       color: var(--notif-text, #ffffff);
-      font-family: 'Apple Color Emoji', inherit;
+      font-family: inherit;
     }
 
     .notif-message {
@@ -189,7 +189,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       color: var(--notif-subtext, #a89ec4);
-      font-family: 'Apple Color Emoji', inherit;
+      font-family: inherit;
       word-break: break-word;
     }
 
@@ -277,8 +277,8 @@
 </head>
 <body>
   <div id="root">
-    <div id="hide-all-bar" class="hide-all-bar" role="button" tabindex="-1" aria-label="Скрыть всё">
-      <span id="hide-all-text">Скрыть всё</span>
+    <div id="hide-all-bar" class="hide-all-bar" role="button" tabindex="-1" aria-label="Скрыть все">
+      <span id="hide-all-text">Скрыть все</span>
     </div>
     <div id="notifs-container"></div>
   </div>
