@@ -269,6 +269,9 @@ export const applyThemeToRoot = (themeId: ThemeId, chatColor?: string) => {
     : effectiveChatColor;
 
   root.style.setProperty('--accent-color', solidAccent);
+  if (resolvedMode === 'light') {
+    root.style.setProperty('--accent-light', solidAccent);
+  }
   root.style.setProperty('--accent-glow', `color-mix(in srgb, ${solidAccent} 30%, transparent)`);
   root.style.setProperty('--accent-glow-light', `color-mix(in srgb, ${solidAccent} 15%, transparent)`);
   root.style.setProperty('--selection-bg', `color-mix(in srgb, ${solidAccent} 28%, transparent)`);

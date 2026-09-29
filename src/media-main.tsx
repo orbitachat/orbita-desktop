@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { TelegramMediaViewer, MediaViewerItem } from './components/chat/TelegramMediaViewer';
+import { FONT_MAP, FontFamily } from './store/useChatStore';
 import './App.css';
 import './i18n';
 
@@ -21,6 +22,12 @@ export const MediaWindowView: React.FC = () => {
       });
     };
 
+    const applyFont = (fontKey: string) => {
+      const fontVal = FONT_MAP[fontKey as FontFamily] || fontKey || FONT_MAP['system'];
+      document.documentElement.style.setProperty('--main-font', fontVal);
+      document.body.style.fontFamily = fontVal;
+    };
+
     try {
       const savedThemeVars = localStorage.getItem('orbita_theme_vars');
       if (savedThemeVars) {
@@ -28,9 +35,15 @@ export const MediaWindowView: React.FC = () => {
       }
       const savedFont = localStorage.getItem('orbita_font_family');
       if (savedFont) {
-        document.body.style.fontFamily = savedFont;
+        applyFont(savedFont);
       }
     } catch {}
+
+    if (orbita?.getCurrentFont) {
+      orbita.getCurrentFont().then((font: string) => {
+        if (font) applyFont(font);
+      });
+    }
 
     const unsubTheme = orbita?.onThemeChanged?.((data: any) => {
       if (data?.themeVars) {
@@ -40,7 +53,7 @@ export const MediaWindowView: React.FC = () => {
 
     const unsubFont = orbita?.onFontChanged?.((font: string) => {
       if (font) {
-        document.body.style.fontFamily = font;
+        applyFont(font);
       }
     });
 

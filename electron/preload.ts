@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('orbita', {
       text?: string;
       textDim?: string;
     };
+    hideAllText?: string;
   }) => {
     ipcRenderer.send('orbita:show-custom-notification', payload);
   },

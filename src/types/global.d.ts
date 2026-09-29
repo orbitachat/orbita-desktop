@@ -25,6 +25,7 @@ interface OrbitaCustomNotificationPayload {
     text?: string;
     textDim?: string;
   };
+  hideAllText?: string;
 }
 
 interface AudioMetadata {

@@ -73,6 +73,13 @@ import { groupService } from '../../services/groupService';
 import { extractGroupCode, isValidGroupCode, deriveGroupKey } from '../../lib/groupCrypto';
 import { supportService } from '../../services/supportService';
 
+const isAppInFocusAndVisible = (): boolean => {
+  if (typeof document === 'undefined') return false;
+  if (document.hidden || document.visibilityState === 'hidden') return false;
+  if (typeof document.hasFocus === 'function' && !document.hasFocus()) return false;
+  return true;
+};
+
 interface ChatContextMenu {
   visible: boolean;
   x: number;
@@ -1962,7 +1969,7 @@ export const MainLayout = () => {
             addMessagesBatch(nonBatchMessages);
             const activeId = useChatStore.getState().activeChatId;
             for (const item of nonBatchMessages) {
-              if (item.chatId !== activeId) {
+              if (item.chatId !== activeId || !isAppInFocusAndVisible()) {
                 const targetChat = useChatStore.getState().chats.find((c) => c.id === item.chatId);
                 const senderName = item.message.sender || targetChat?.name || 'Orbita';
                 const bodyText = item.message.text || t('chatWindow.new_message');
@@ -3281,7 +3288,7 @@ export const MainLayout = () => {
       }
       useChatStore.getState().updateChat(channelId, { lastMsg: postText || 'Новый пост' });
 
-      if (!isViewingThisChannel) {
+      if (!isViewingThisChannel || !isAppInFocusAndVisible()) {
         let notifBody = post.text;
         if (!notifBody) {
           if (post.mediaType === 'photo' || post.mediaType === 'image') notifBody = t('chatWindow.photo') || '📷 Фотография';
@@ -3826,7 +3833,7 @@ export const MainLayout = () => {
 
           if (!isSelf && chat) {
             const activeChatId = useChatStore.getState().activeChatId;
-            if (activeChatId !== chatId) {
+            if (activeChatId !== chatId || !isAppInFocusAndVisible()) {
               let notifBody = messageData.text;
               if (
                 messageData.mediaType === 'sticker' ||

@@ -333,7 +333,11 @@ function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty('--main-font', FONT_MAP[fontFamily] || FONT_MAP['system']);
+    const fontVal = FONT_MAP[fontFamily] || FONT_MAP['system'];
+    root.style.setProperty('--main-font', fontVal);
+    try {
+      localStorage.setItem('orbita_font_family', fontFamily);
+    } catch {}
     try {
       if (typeof window !== 'undefined' && (window as any).orbita?.setFontForElectron) {
         (window as any).orbita.setFontForElectron(fontFamily);

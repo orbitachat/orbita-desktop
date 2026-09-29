@@ -193,13 +193,59 @@
       word-break: break-word;
     }
 
+    .hide-all-bar {
+      width: 356px;
+      min-height: 38px;
+      height: 38px;
+      border-radius: 0px !important;
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+      background: var(--notif-bg, #1c182a) !important;
+      color: var(--notif-subtext, #8b83a8);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 160ms ease, transform 160ms ease, color 120ms ease;
+      flex-shrink: 0;
+      pointer-events: auto !important;
+      z-index: 100;
+    }
+
+    .hide-all-bar.visible {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .hide-all-bar:hover {
+      color: var(--notif-text, #ffffff);
+    }
+
+    #notifs-container {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 7px;
+      padding: 0;
+      margin: 0;
+      width: 100%;
+    }
+
     .notif-close {
       position: absolute;
-      top: 3px;
-      right: 3px;
-      width: 36px;
-      height: 36px;
-      border-radius: 0;
+      top: 6px;
+      right: 6px;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
       border: none !important;
       background: transparent !important;
       color: var(--notif-subtext, #8b83a8);
@@ -208,27 +254,34 @@
       align-items: center;
       justify-content: center;
       opacity: 0.75;
-      transition: opacity 120ms ease, color 120ms ease;
-      z-index: 10;
+      transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease;
+      z-index: 99;
       outline: none !important;
       box-shadow: none !important;
+      pointer-events: auto !important;
     }
 
     .notif-close:hover {
       opacity: 1;
-      background: transparent !important;
+      background: rgba(255, 255, 255, 0.08) !important;
       color: var(--notif-text, #ffffff);
     }
 
     .notif-close svg {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       stroke: currentColor;
+      pointer-events: none !important;
     }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div id="hide-all-bar" class="hide-all-bar" role="button" tabindex="-1" aria-label="Скрыть всё">
+      <span id="hide-all-text">Скрыть всё</span>
+    </div>
+    <div id="notifs-container"></div>
+  </div>
 
   <script>
     const { ipcRenderer } = require('electron');
@@ -277,12 +330,31 @@
       }
     }
 
+    function updateHideAllVisibility() {
+      const hideAllBar = document.getElementById('hide-all-bar');
+      if (!hideAllBar) return;
+      if (activeNotifs.length >= 2) {
+        hideAllBar.style.display = 'flex';
+        requestAnimationFrame(() => {
+          hideAllBar.classList.add('visible');
+        });
+      } else {
+        hideAllBar.classList.remove('visible');
+        setTimeout(() => {
+          if (activeNotifs.length < 2) {
+            hideAllBar.style.display = 'none';
+          }
+        }, 180);
+      }
+    }
+
     function removeNotifInstant(id, animation = 'fade-out', immediate = false) {
       const idx = activeNotifs.findIndex(n => n.id === id);
       if (idx === -1) return;
       const notifObj = activeNotifs[idx];
       if (notifObj.timer) clearTimeout(notifObj.timer);
       activeNotifs.splice(idx, 1);
+      updateHideAllVisibility();
 
       if (immediate) {
         notifObj.el.remove();
@@ -298,6 +370,13 @@
           }
         }, 180);
       }
+    }
+
+    function clearAllNotifications() {
+      const list = [...activeNotifs];
+      list.forEach(n => removeNotifInstant(n.id, 'fade-out', true));
+      updateHideAllVisibility();
+      ipcRenderer.send('notif-window:all-closed');
     }
 
     function removeOldestNotification() {
@@ -417,12 +496,12 @@
             <div class="notif-message">${escapeHtml(finalBody)}</div>
           </div>
         </div>
-        <button class="notif-close" title="Закрыть" aria-label="Закрыть">
-          <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <div class="notif-close" role="button" tabindex="-1" aria-label="Закрыть">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
-        </button>
+        </div>
       `;
 
       const notifObj = {
@@ -466,12 +545,20 @@
       });
 
       const closeBtn = el.querySelector('.notif-close');
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
+      const handleClose = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        }
         removeNotifInstant(id, 'fade-out', true);
-      });
+      };
+      closeBtn.addEventListener('pointerdown', handleClose);
+      closeBtn.addEventListener('mousedown', handleClose);
+      closeBtn.addEventListener('click', handleClose);
 
-      root.appendChild(el);
+      const container = document.getElementById('notifs-container') || root;
+      container.appendChild(el);
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -481,6 +568,7 @@
       });
 
       activeNotifs.push(notifObj);
+      updateHideAllVisibility();
     }
 
     function escapeHtml(str) {
@@ -491,6 +579,21 @@
         .replace(/"/g, '&quot;');
     }
 
+    const hideAllBarEl = document.getElementById('hide-all-bar');
+    if (hideAllBarEl) {
+      const handleHideAll = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        }
+        clearAllNotifications();
+      };
+      hideAllBarEl.addEventListener('click', handleHideAll);
+      hideAllBarEl.addEventListener('pointerdown', handleHideAll);
+      hideAllBarEl.addEventListener('mousedown', handleHideAll);
+    }
+
     ipcRenderer.on('notif:show', (_event, payload) => {
       settings = {
         position:    payload.position    || 'bottom-right',
@@ -498,6 +601,13 @@
         hideContent: payload.hideContent || false,
         maxCount:    payload.maxCount    || 3,
       };
+
+      if (payload.hideAllText) {
+        const txtEl = document.getElementById('hide-all-text');
+        if (txtEl) txtEl.textContent = payload.hideAllText;
+        if (hideAllBarEl) hideAllBarEl.setAttribute('aria-label', payload.hideAllText);
+      }
+
       showNotification({
         id:          nextId++,
         title:       payload.title,
@@ -515,7 +625,7 @@
     });
 
     ipcRenderer.on('notif:clear-all', () => {
-      [...activeNotifs].forEach(n => removeNotifInstant(n.id, 'fade-out'));
+      clearAllNotifications();
     });
   </script>
 </body>

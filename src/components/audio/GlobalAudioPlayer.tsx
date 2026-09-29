@@ -379,6 +379,17 @@ export const GlobalAudioPlayer = () => {
       }}
     >
       <style>{`
+        .global-audio-player {
+          --player-accent: var(--accent-light);
+          --player-progress: var(--accent-color);
+          --player-track-bg: var(--surface-muted);
+        }
+        [data-theme="light"] .global-audio-player,
+        [data-theme-light="true"] .global-audio-player {
+          --player-accent: var(--accent-color);
+          --player-progress: var(--accent-color);
+          --player-track-bg: rgba(0, 0, 0, 0.12);
+        }
         .global-audio-player,
         .global-audio-player * {
           -webkit-user-select: none !important;
@@ -389,7 +400,6 @@ export const GlobalAudioPlayer = () => {
         }
       `}</style>
       <div className="flex items-center px-2 py-1 gap-1.5" style={{ height: '32px' }}>
-        {/* Previous Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -399,7 +409,7 @@ export const GlobalAudioPlayer = () => {
           style={{
             width: 20,
             height: 20,
-            color: 'var(--accent-light)',
+            color: 'var(--player-accent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -413,7 +423,6 @@ export const GlobalAudioPlayer = () => {
           </svg>
         </button>
 
-        {/* Play/Pause Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -424,7 +433,7 @@ export const GlobalAudioPlayer = () => {
           style={{
             width: 24,
             height: 24,
-            color: 'var(--accent-light)',
+            color: 'var(--player-accent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -444,7 +453,6 @@ export const GlobalAudioPlayer = () => {
           )}
         </button>
 
-        {/* Next Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -454,7 +462,7 @@ export const GlobalAudioPlayer = () => {
           style={{
             width: 20,
             height: 20,
-            color: 'var(--accent-light)',
+            color: 'var(--player-accent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -506,7 +514,7 @@ export const GlobalAudioPlayer = () => {
           style={{
             width: 22,
             height: 22,
-            color: isVolumeOpen ? 'var(--accent-light)' : 'var(--text-dim)',
+            color: isVolumeOpen ? 'var(--player-accent)' : 'var(--text-dim)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -545,7 +553,6 @@ export const GlobalAudioPlayer = () => {
           )}
         </button>
 
-        {/* Playback Order Button */}
         <button
           ref={orderBtnRef}
           onClick={(e) => {
@@ -558,7 +565,7 @@ export const GlobalAudioPlayer = () => {
           style={{
             width: 22,
             height: 22,
-            color: isOrderActive || isOrderOpen ? 'var(--accent-light)' : 'var(--text-dim)',
+            color: isOrderActive || isOrderOpen ? 'var(--player-accent)' : 'var(--text-dim)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -589,7 +596,6 @@ export const GlobalAudioPlayer = () => {
           )}
         </button>
 
-        {/* Repeat Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -599,7 +605,7 @@ export const GlobalAudioPlayer = () => {
           style={{
             width: 22,
             height: 22,
-            color: repeat !== 'none' ? 'var(--accent-light)' : 'var(--text-dim)',
+            color: repeat !== 'none' ? 'var(--player-accent)' : 'var(--text-dim)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -628,7 +634,7 @@ export const GlobalAudioPlayer = () => {
                 fontSize: '9px',
                 fontWeight: 700,
                 lineHeight: 1,
-                color: 'var(--accent-light)',
+                color: 'var(--player-accent)',
                 textShadow: '0 0 2px rgba(0,0,0,0.8)',
               }}
             >
@@ -637,7 +643,6 @@ export const GlobalAudioPlayer = () => {
           )}
         </button>
 
-        {/* Playback Speed Button */}
         <button
           ref={speedBtnRef}
           onClick={(e) => {
@@ -650,12 +655,12 @@ export const GlobalAudioPlayer = () => {
           style={{
             height: '18px',
             padding: '0 2px',
-            borderTop: `1px dashed ${playbackRate !== 1 || isSpeedOpen ? 'var(--accent-light)' : 'var(--text-dim)'}`,
-            borderBottom: `1px dashed ${playbackRate !== 1 || isSpeedOpen ? 'var(--accent-light)' : 'var(--text-dim)'}`,
+            borderTop: `1px dashed ${playbackRate !== 1 || isSpeedOpen ? 'var(--player-accent)' : 'var(--text-dim)'}`,
+            borderBottom: `1px dashed ${playbackRate !== 1 || isSpeedOpen ? 'var(--player-accent)' : 'var(--text-dim)'}`,
             borderLeft: 'none',
             borderRight: 'none',
             background: 'none',
-            color: playbackRate !== 1 || isSpeedOpen ? 'var(--accent-light)' : 'var(--text-dim)',
+            color: playbackRate !== 1 || isSpeedOpen ? 'var(--player-accent)' : 'var(--text-dim)',
             fontSize: '11px',
             fontWeight: 700,
             letterSpacing: '-0.2px',
@@ -726,7 +731,7 @@ export const GlobalAudioPlayer = () => {
             position: 'relative',
             width: '100%',
             height: isExpanded ? '7px' : '2px',
-            backgroundColor: 'var(--surface-muted)',
+            backgroundColor: 'var(--player-track-bg)',
             transition: 'height 0.18s ease-out',
             borderRadius: 0,
             willChange: isExpanded ? 'height' : 'auto',
@@ -740,7 +745,7 @@ export const GlobalAudioPlayer = () => {
               left: 0,
               height: '100%',
               width: `${progress}%`,
-              backgroundColor: 'var(--accent-color)',
+              backgroundColor: 'var(--player-progress)',
               transition: 'none',
               borderRadius: 0,
               willChange: 'width',

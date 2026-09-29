@@ -135,7 +135,7 @@ function calcNotificationBounds(position: string, maxCount: number) {
   const { x: workX, y: workY } = display.workArea;
 
   const count = Math.max(1, maxCount);
-  const totalHeight = count * NOTIF_HEIGHT + (count - 1) * NOTIF_GAP;
+  const totalHeight = count * NOTIF_HEIGHT + count * NOTIF_GAP + 38;
 
   let x: number;
   let y: number;
@@ -232,8 +232,9 @@ function showCustomNotification(payload: {
   fontFamily?: string;
   iconData?: string | null;
   avatarUrl?: string;
+  hideAllText?: string;
 }) {
-  const { title, body, chatId, settings, colors, fontFamily, iconData, avatarUrl } = payload;
+  const { title, body, chatId, settings, colors, fontFamily, iconData, avatarUrl, hideAllText } = payload;
   console.log('[NotifManager] showCustomNotification called:', { title, body, position: settings.position });
 
   if (mainWindowRef && !mainWindowRef.isDestroyed() && !mainWindowRef.isFocused() && settings.flashTaskbar) {
@@ -257,6 +258,7 @@ function showCustomNotification(payload: {
       soundEnabled: settings.soundEnabled,
       volume: settings.volume ?? 100,
       avatarUrl: avatarUrl || null,
+      hideAllText: hideAllText || 'Скрыть всё',
     });
   };
 
@@ -4213,6 +4215,7 @@ ipcMain.on('orbita:show-custom-notification', (_event, payload: any) => {
     fontFamily: payload.fontFamily,
     iconData,
     avatarUrl: payload.avatarUrl,
+    hideAllText: payload.hideAllText,
   });
 });
 

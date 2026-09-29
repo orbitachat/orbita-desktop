@@ -23,6 +23,7 @@ interface ShowNotificationPayload {
   fontFamily?: string;
   iconData?: string | null;
   avatarUrl?: string | null;
+  hideAllText?: string;
 }
 
 const CARD_WIDTH     = 356;
@@ -42,7 +43,7 @@ function getWindowBounds(
   const { x: wx, y: wy } = display.workArea;
 
   const count = Math.max(1, maxCount);
-  const totalH = count * NOTIF_ITEM_H + (count - 1) * NOTIF_GAP;
+  const totalH = count * NOTIF_ITEM_H + count * NOTIF_GAP + 38;
 
   let x: number;
   let y: number;
@@ -170,6 +171,7 @@ export function showCustomNotification(payload: ShowNotificationPayload): void {
       soundEnabled: settings.soundEnabled,
       volume:       settings.volume ?? 100,
       avatarUrl:    avatarUrl || null,
+      hideAllText:  payload.hideAllText || 'Скрыть всё',
     });
   };
 

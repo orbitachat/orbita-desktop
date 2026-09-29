@@ -23,7 +23,7 @@ import { useDecryptedMedia } from '../../lib/media-utils';
 import { mediaManager } from '../../services/mediaManager';
 import { arrayBufferToBase64 } from '../../utils/messageUtils';
 import { useToastStore } from '../../store/useToastStore';
-import { useChatStore } from '../../store/useChatStore';
+import { useChatStore, FONT_MAP, FontFamily } from '../../store/useChatStore';
 
 const formatTelegramDate = (timestamp: number, lang: string = 'ru') => {
   const d = new Date(timestamp);
@@ -745,6 +745,9 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
   const dateStr = currentItem?.time ? formatTelegramDate(currentItem.time, i18n.language) : '';
   const senderStr = currentItem?.sender || '';
 
+  const userFontFamily = useChatStore((s) => s.fontFamily);
+  const activeFont = FONT_MAP[userFontFamily as FontFamily] || 'var(--main-font, inherit)';
+
   return typeof document !== 'undefined' && createPortal(
     <div
       id="telegram-media-viewer-root"
@@ -762,10 +765,15 @@ export const TelegramMediaViewer: React.FC<TelegramMediaViewerProps> = ({
         userSelect: 'none',
         overflow: 'hidden',
         cursor: areControlsVisible ? (zoomScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default') : 'none',
+        fontFamily: activeFont,
       }}
       onClick={onClose}
     >
       <style>{`
+        #telegram-media-viewer-root,
+        #telegram-media-viewer-root * {
+          font-family: inherit;
+        }
         @keyframes tgSpinner {
           to { transform: rotate(360deg); }
         }
