@@ -15,12 +15,14 @@ export const CallMiniPlayer = () => {
   const toggleMic = useCallStore((state) => state.toggleMic);
   const setMinimized = useCallStore((state) => state.setMinimized);
 
+  const activeChatId = useChatStore((state) => state.activeChatId);
   const chat = useChatStore((state) =>
     activeCall ? state.chats.find((c) => c.id === activeCall.chatId) : null
   );
   const otherName = chat?.name || activeCall?.chatId || '';
 
   if (!activeCall) return null;
+  if (activeCall.chatType === 'group' || chat?.type === 'group' || activeCall.chatId === activeChatId) return null;
 
   const isPreparing = callState === 'preparing';
   const isConnected = callState === 'connected';
