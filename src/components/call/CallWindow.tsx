@@ -126,7 +126,7 @@ const GroupParticipantTile = memo(({
       style={{
         backgroundColor: 'color-mix(in srgb, var(--bg-secondary) 85%, black)',
         border: 'none',
-        boxShadow: participant.isSpeaking ? '0 0 0 3px #22c55e' : undefined,
+        boxShadow: participant.isSpeaking ? '0 0 0 5px #22c55e' : undefined,
         transition: 'none',
       }}
     >
