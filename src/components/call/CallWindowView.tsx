@@ -1707,7 +1707,8 @@ export const CallWindowView = () => {
         onClose={() => setIsScreenPickerOpen(false)}
         onStart={async (options) => {
           setIsScreenPickerOpen(false);
-          const success = await liveKitService.startScreenShare(options);
+          const svc = isGroupCall ? groupLiveKitService : liveKitService;
+          const success = await svc.startScreenShare(options);
           if (success) {
             setIsLocalScreenShareActive(true);
             setCallData((prev) => (prev ? { ...prev, isScreenSharing: true } : prev));

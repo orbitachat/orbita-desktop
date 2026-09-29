@@ -105,7 +105,7 @@ class LiveKitService extends EventEmitter {
           params.encodings.forEach((enc: any) => {
             enc.priority = 'high';
             enc.networkPriority = 'high';
-            enc.maxBitrate = 96000;
+            enc.maxBitrate = 128000;
           });
           sender.setParameters(params).catch(() => {});
         }
@@ -263,7 +263,7 @@ class LiveKitService extends EventEmitter {
     const selectedCamId = useChatStore.getState().selectedCameraId;
 
     const roomOptions: RoomOptions = {
-      adaptiveStream: true,
+      adaptiveStream: false,
       dynacast: true,
       stopLocalTrackOnUnpublish: true,
       audioCaptureDefaults: {
@@ -289,34 +289,34 @@ class LiveKitService extends EventEmitter {
         red: true,
         forceStereo: false,
         audioPreset: {
-          maxBitrate: 48000,
+          maxBitrate: 128000,
           priority: 'high',
         },
         videoCodec: 'h264',
         backupCodec: {
           codec: 'vp8',
           encoding: {
-            maxBitrate: 1200000,
+            maxBitrate: 1500000,
             maxFramerate: 30,
             priority: 'low',
           },
         },
         backupCodecPolicy: BackupCodecPolicy.REGRESSION,
         videoEncoding: {
-          maxBitrate: 1500000,
+          maxBitrate: 2500000,
           maxFramerate: 30,
           priority: 'medium',
         },
         videoSimulcastLayers: [
           VideoPresets.h360,
         ],
-        degradationPreference: 'maintain-framerate',
+        degradationPreference: 'maintain-resolution',
         screenShareEncoding: {
-          maxBitrate: 2500000,
-          maxFramerate: 30,
-          priority: 'medium',
+          maxBitrate: 10000000,
+          maxFramerate: 60,
+          priority: 'high',
         },
-        simulcast: true,
+        simulcast: false,
       },
     };
 
@@ -468,7 +468,7 @@ class LiveKitService extends EventEmitter {
         dtx: false,
         forceStereo: false,
         audioPreset: {
-          maxBitrate: 48000,
+          maxBitrate: 128000,
           priority: 'high',
         },
       });
@@ -525,10 +525,10 @@ class LiveKitService extends EventEmitter {
           sampleRate: 48000,
           sampleSize: 16,
         }, {
-          dtx: true,
+          dtx: false,
           forceStereo: true,
           audioPreset: {
-            maxBitrate: 96000,
+            maxBitrate: 128000,
             priority: 'high',
           },
         });
@@ -650,22 +650,22 @@ class LiveKitService extends EventEmitter {
         backupCodec: {
           codec: 'vp8',
           encoding: {
-            maxBitrate: 1200000,
+            maxBitrate: 1500000,
             maxFramerate: 30,
             priority: 'low',
           },
         },
         backupCodecPolicy: BackupCodecPolicy.REGRESSION,
         videoEncoding: {
-          maxBitrate: 1500000,
+          maxBitrate: 2500000,
           maxFramerate: 30,
           priority: 'medium',
         },
         videoSimulcastLayers: [
           VideoPresets.h360,
         ],
-        degradationPreference: 'maintain-framerate',
-        simulcast: true,
+        degradationPreference: 'maintain-resolution',
+        simulcast: false,
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.Camera);
       if (pub?.track) {
@@ -743,7 +743,7 @@ class LiveKitService extends EventEmitter {
     const height = is720 ? 720 : 1080;
     const frameRate = options?.fps === 60 ? 60 : 30;
     const is60Fps = frameRate === 60;
-    const maxBitrate = is720 ? (is60Fps ? 3000000 : 2000000) : (is60Fps ? 4800000 : 3500000);
+    const maxBitrate = is720 ? (is60Fps ? 6000000 : 3500000) : (is60Fps ? 10000000 : 6500000);
     const includeAudio = !!options?.audio;
 
     try {
@@ -772,7 +772,7 @@ class LiveKitService extends EventEmitter {
         if (!vTrack) throw new Error('No video track');
 
         if ('contentHint' in vTrack) {
-          vTrack.contentHint = is60Fps ? 'motion' : 'detail';
+          vTrack.contentHint = 'detail';
         }
 
         const localVTrack = new LocalVideoTrack(vTrack, undefined, false);
@@ -780,13 +780,13 @@ class LiveKitService extends EventEmitter {
         await this.localParticipant.publishTrack(localVTrack, {
           source: Track.Source.ScreenShare,
           name: 'screen_share',
-          simulcast: true,
+          simulcast: false,
           videoEncoding: {
             maxBitrate,
             maxFramerate: frameRate,
             priority: 'high',
           },
-          degradationPreference: is60Fps ? 'maintain-framerate' : 'maintain-resolution',
+          degradationPreference: 'maintain-resolution',
         });
         this.screenShareTrack = localVTrack;
 
@@ -801,9 +801,9 @@ class LiveKitService extends EventEmitter {
             source: Track.Source.ScreenShareAudio,
             name: 'screen_share_audio',
             forceStereo: true,
-            dtx: true,
+            dtx: false,
             audioPreset: {
-              maxBitrate: 96000,
+              maxBitrate: 160000,
               priority: 'high',
             },
           });
@@ -816,24 +816,25 @@ class LiveKitService extends EventEmitter {
 
       await this.localParticipant.setScreenShareEnabled(true, {
         audio: includeAudio,
-        contentHint: is60Fps ? 'motion' : 'detail',
+        contentHint: 'detail',
         resolution: {
           width,
           height,
           frameRate,
         },
       }, {
-        simulcast: true,
+        simulcast: false,
         screenShareEncoding: {
           maxBitrate,
           maxFramerate: frameRate,
+          priority: 'high',
         },
-        degradationPreference: is60Fps ? 'maintain-framerate' : 'maintain-resolution',
+        degradationPreference: 'maintain-resolution',
       });
       const pub = this.localParticipant.getTrackPublication(Track.Source.ScreenShare);
       if (pub?.track) {
         if ('contentHint' in pub.track.mediaStreamTrack) {
-          pub.track.mediaStreamTrack.contentHint = is60Fps ? 'motion' : 'detail';
+          pub.track.mediaStreamTrack.contentHint = 'detail';
         }
         this.screenShareTrack = pub.track as LocalTrack;
         pub.track.mediaStreamTrack.onended = () => {
