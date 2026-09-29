@@ -577,6 +577,19 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
     };
   }, [activeChatId]);
 
+  useEffect(() => {
+    if (activeChat?.type === 'group' && activeChatId) {
+      groupService.getGroup(activeChatId).then((info) => {
+        if (info && info.members && info.members.length > 0) {
+          useChatStore.getState().updateChat(activeChatId, {
+            members: info.members as any[],
+            membersCount: Math.max(info.membersCount || 0, info.members.length),
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [activeChatId, activeChat?.type]);
+
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingSentRef = useRef<boolean>(false);
 

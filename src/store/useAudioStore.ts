@@ -189,7 +189,14 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
         }
         return;
       }
+      const isVoice = isVoiceTrack(track);
+      const isPrevVoice = isVoiceTrack(state.currentTrack);
+      const newQueue = isVoice !== isPrevVoice
+        ? [track]
+        : (state.queue.some((t) => t.id === track.id) ? state.queue : [...state.queue, track]);
+
       set({
+        queue: newQueue,
         currentTrack: track,
         isPlaying: true,
         currentTime: 0,

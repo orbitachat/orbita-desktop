@@ -1581,9 +1581,19 @@ export const MainLayout = () => {
       if (!serverGroups || serverGroups.length === 0) return;
       const currentChats = useChatStore.getState().chats;
       const currentIds = new Set(currentChats.map((c) => c.id));
-      const deletedIds = new Set(useChatStore.getState().deletedChatIds || []);
       for (const g of serverGroups) {
-        if (currentIds.has(g.id) || deletedIds.has(g.id)) continue;
+        if (useChatStore.getState().deletedChatIds?.includes(g.id)) continue;
+        if (currentIds.has(g.id)) {
+          useChatStore.getState().updateChat(g.id, {
+            name: g.name,
+            description: g.description || '',
+            avatarUrl: g.avatarUrl || undefined,
+            members: (g.members || []) as any[],
+            membersCount: g.membersCount || g.members?.length || 1,
+            role: (g.role as any) || 'member',
+          });
+          continue;
+        }
         useChatStore.getState().addChat({
           id: g.id,
           type: 'group',
@@ -2765,7 +2775,29 @@ export const MainLayout = () => {
       if (data.type === 'pin') { updateChat(chatId, { pinnedMessage: data.pinData }); return; }
       if (data.type === 'unpin') { updateChat(chatId, { pinnedMessage: null }); return; }
       if (data.type === 'member-joined') {
-        if (data.members) updateChat(chatId, { members: data.members, membersCount: data.members.length });
+        if (data.members) {
+          updateChat(chatId, { members: data.members, membersCount: data.members.length });
+        } else {
+          groupService.getGroup(chatId).then((info) => {
+            if (info?.members) {
+              updateChat(chatId, { members: info.members as any, membersCount: info.membersCount || info.members.length });
+            }
+          }).catch(() => {});
+        }
+        const isCurrentActive = useChatStore.getState().activeChatId === chatId && isAppInFocusAndVisible();
+        const myUid = useAuthStore.getState().userId;
+        const myC = useChatStore.getState().myCode;
+        const isSelfJoined = Boolean(
+          (myUid && (data.userId === myUid || data.userCode === myUid)) ||
+          (myC && (data.userCode === myC || data.userId === myC)) ||
+          (data.nickname && data.nickname === nickname)
+        );
+        if (!isCurrentActive && !isSelfJoined) {
+          const joinText = data.inviterNickname
+            ? `${data.inviterNickname} добавил(а) ${data.nickname || 'участника'} в группу`
+            : `${data.nickname || 'Новый участник'} вступил(а) в группу`;
+          showNotification(chat.name, joinText, chatId, chat.avatarUrl || null);
+        }
         return;
       }
       if (data.type === 'member-left') {
@@ -3051,6 +3083,16 @@ export const MainLayout = () => {
 
         if (parsedData?.mediaType === 'system' || data.mediaType === 'system') {
           const sysType = parsedData?.systemType || data.systemType;
+          if (sysType === 'join' || sysType === 'invite') {
+            groupService.getGroup(chatId).then((info) => {
+              if (info?.members) {
+                updateChat(chatId, {
+                  members: info.members as any,
+                  membersCount: info.membersCount || info.members.length,
+                });
+              }
+            }).catch(() => {});
+          }
           if (sysType === 'call_ended') {
             useChatStore.getState().updateChat(chatId, { activeCallRoom: null });
           } else if (sysType === 'call') {
@@ -3065,6 +3107,23 @@ export const MainLayout = () => {
         try {
           (window as any).orbita?.storageAddMessage?.(chatId, msgId, msgPayload);
         } catch {}
+
+        if (!isCurrentActive || !isAppInFocusAndVisible()) {
+          let notifBody = msgText;
+          if (typeof notifBody === 'string' && (notifBody.startsWith('orb_e2e:') || notifBody === '[ENCRYPTED MESSAGE]')) {
+            notifBody = '';
+          }
+          if (!notifBody) {
+            if (msgPayload.mediaType === 'photo' || msgPayload.mediaType === 'image') notifBody = t('chatWindow.photo') || '📷 Фотография';
+            else if (msgPayload.mediaType === 'video') notifBody = t('chatWindow.video') || '📹 Видео';
+            else if (msgPayload.mediaType === 'voice') notifBody = t('chatWindow.voice_message') || '🎤 Голосовое сообщение';
+            else if (msgPayload.mediaType === 'audio') notifBody = msgPayload.mediaName || t('chatWindow.audio') || '🎵 Музыка';
+            else if (msgPayload.mediaType === 'file') notifBody = msgPayload.mediaName || t('chatWindow.file') || '📁 Файл';
+            else notifBody = t('chatWindow.new_message') || 'Новое сообщение';
+          }
+          const notifSender = (data.sender && data.sender !== 'system') ? `${data.sender} (${chat.name})` : chat.name;
+          showNotification(notifSender, notifBody, chatId, chat.avatarUrl || null);
+        }
 
         if (isCurrentActive) {
           const myUid = useAuthStore.getState().userId;
@@ -3264,13 +3323,30 @@ export const MainLayout = () => {
       const activeChatId = useChatStore.getState().activeChatId;
       const isViewingThisChannel = activeChatId === channelId;
 
+      const currentMsgs = useChatStore.getState().messagesByChatId[channelId] || [];
+      const existingMatch = currentMsgs.find(
+        (m) =>
+          m.id === post.id ||
+          (m.isOutgoing &&
+            m.sender === (post.sender || post.senderNickname) &&
+            ((post.text && m.text === post.text) ||
+              (post.mediaUrl && m.mediaUrl === post.mediaUrl) ||
+              (post.mediaName && m.mediaName === post.mediaName)) &&
+            Math.abs(m.time - (post.time || 0)) < 30000)
+      );
+
       const sender = post.sender || post.senderNickname || 'Channel';
       const myNickname = useAuthStore.getState().nickname;
       const myUserId = useAuthStore.getState().userId;
       const isMine = Boolean(
+        existingMatch?.isOutgoing ||
         (myUserId && (post.senderUserId === myUserId || post.userId === myUserId || post.senderId === myUserId)) ||
-        (myCode && (post.senderCode === myCode || post.senderId === myCode)) ||
-        (!post.senderUserId && !post.senderCode && !post.senderId && myNickname ? sender === myNickname : false)
+        (myCode && (post.senderCode === myCode || post.senderId === myCode || post.sender === myCode)) ||
+        (myNickname && (
+          (post.sender && post.sender.trim().toLowerCase() === myNickname.trim().toLowerCase()) ||
+          (post.senderNickname && post.senderNickname.trim().toLowerCase() === myNickname.trim().toLowerCase()) ||
+          sender.trim().toLowerCase() === myNickname.trim().toLowerCase()
+        ))
       );
 
       const newMsg: Message = {
@@ -3294,18 +3370,6 @@ export const MainLayout = () => {
         reactions: post.reactions || undefined,
         blurPreview: post.blurPreview || post.thumbnail || undefined,
       };
-
-      const currentMsgs = useChatStore.getState().messagesByChatId[channelId] || [];
-      const existingMatch = currentMsgs.find(
-        (m) =>
-          m.id === post.id ||
-          (m.isOutgoing &&
-            m.sender === (post.sender || post.senderNickname) &&
-            ((post.text && m.text === post.text) ||
-              (post.mediaUrl && m.mediaUrl === post.mediaUrl) ||
-              (post.mediaName && m.mediaName === post.mediaName)) &&
-            Math.abs(m.time - (post.time || 0)) < 30000)
-      );
 
       const validPostTime = (typeof post.time === 'number' && post.time > 0) ? post.time : Date.now();
       if (existingMatch) {
@@ -3345,15 +3409,18 @@ export const MainLayout = () => {
       }
       useChatStore.getState().updateChat(channelId, { lastMsg: postText || 'Новый пост' });
 
-      if (!isViewingThisChannel || !isAppInFocusAndVisible()) {
-        let notifBody = post.text;
+      if (!isMine && (!isViewingThisChannel || !isAppInFocusAndVisible())) {
+        let notifBody = postText;
+        if (typeof notifBody === 'string' && (notifBody.startsWith('orb_e2e:') || notifBody === '[ENCRYPTED MESSAGE]')) {
+          notifBody = '';
+        }
         if (!notifBody) {
           if (post.mediaType === 'photo' || post.mediaType === 'image') notifBody = t('chatWindow.photo') || '📷 Фотография';
           else if (post.mediaType === 'video') notifBody = t('chatWindow.video') || '📹 Видео';
           else if (post.mediaType === 'voice') notifBody = t('chatWindow.voice_message') || '🎤 Голосовое сообщение';
           else if (post.mediaType === 'audio') notifBody = post.mediaName || t('chatWindow.audio') || '🎵 Музыка';
           else if (post.mediaType === 'file') notifBody = post.mediaName || t('chatWindow.file') || '📁 Файл';
-          else notifBody = 'Новый пост в сообществе';
+          else notifBody = t('chatWindow.new_message') || 'Новое сообщение';
         }
         showNotification(currentChat?.name || post.sender || 'Канал', notifBody, channelId, currentChat?.avatarUrl || null);
       }

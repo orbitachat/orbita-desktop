@@ -85,7 +85,9 @@ export function showNotification(
   let finalBody = body;
   if (typeof finalBody === 'string') {
     const trimmed = finalBody.trim();
-    if (
+    if (trimmed.startsWith('orb_e2e:') || trimmed === '[ENCRYPTED MESSAGE]') {
+      finalBody = i18n.t('chatWindow.new_message') || 'Новое сообщение';
+    } else if (
       /^\[Sticker\]/i.test(trimmed) ||
       /(\.stickers|\/stickers|stickers\/)/i.test(trimmed) ||
       /bisquit/i.test(trimmed)

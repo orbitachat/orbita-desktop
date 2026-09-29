@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import { MicOff, VideoOff, X, Maximize2, Minimize2 } from 'lucide-react';
 import type { RemoteTrack } from 'livekit-client';
-import { Avatar } from '../common/Avatar';
+import { Avatar, getAvatarGradient } from '../common/Avatar';
 import { CallVerificationBadge } from './CallVerificationBadge';
 import { TitleBar } from '../layout/TitleBar';
 import { ScreenSharePickerModal } from './ScreenSharePickerModal';
@@ -74,12 +74,16 @@ const GroupParticipantTile = React.memo(({
   isLocalVideoActive,
   isScreenSharing,
   isMicEnabled,
+  onTileClick,
+  onAvatarClick,
 }: {
   participant: ParticipantInfo;
   chatMembers?: any[];
   isLocalVideoActive: boolean;
   isScreenSharing: boolean;
   isMicEnabled: boolean;
+  onTileClick?: (participant: ParticipantInfo) => void;
+  onAvatarClick?: (participant: ParticipantInfo) => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isLocal = participant.isLocal;
@@ -145,10 +149,11 @@ const GroupParticipantTile = React.memo(({
 
   return (
     <div
-      className="relative flex items-center justify-center w-full h-full min-h-[140px] max-h-[360px] aspect-video rounded-2xl overflow-hidden select-none transition-all"
+      onClick={() => onTileClick?.(participant)}
+      className="relative flex items-center justify-center w-full h-full min-h-[140px] max-h-[360px] aspect-video rounded-2xl overflow-hidden select-none transition-all cursor-pointer group"
       style={{
         backgroundColor: 'color-mix(in srgb, var(--bg-secondary, #1a1726) 85%, black)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        border: 'none',
       }}
     >
       {hasStream ? (
@@ -160,22 +165,189 @@ const GroupParticipantTile = React.memo(({
             muted={isLocal}
             className={`w-full h-full ${hasScreenShare ? 'object-contain bg-black' : 'object-cover'} ${isLocal && hasCamera && !hasScreenShare ? '-scale-x-100' : ''}`}
           />
-          <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/95 max-w-[85%]">
-            <span className="truncate">{displayName}</span>
-            {isMuted && <MicOff size={13} className="text-red-400 flex-shrink-0" />}
-          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTileClick?.(participant);
+            }}
+            aria-label={displayName}
+            className="absolute top-2.5 right-2.5 z-20 p-1.5 rounded-lg bg-black/60 hover:bg-black/85 text-white/90 opacity-0 group-hover:opacity-100 transition-opacity border-0 cursor-pointer"
+          >
+            <Maximize2 size={15} />
+          </button>
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-3 p-4 w-full">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 shadow-md">
-            <Avatar src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+        <>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-125 pointer-events-none"
+            />
+          ) : (
+            <div
+              className="absolute inset-0 w-full h-full opacity-25 pointer-events-none"
+              style={{ background: getAvatarGradient(displayName) }}
+            />
+          )}
+          <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onAvatarClick?.(participant);
+            }}
+            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+              !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
+            }`}
+            style={{ borderRadius: '16px' }}
+            role={!isLocal ? 'button' : undefined}
+            aria-label={displayName}
+          >
+            <Avatar
+              src={avatarUrl}
+              alt={displayName}
+              className="w-full h-full object-cover"
+              style={{ borderRadius: '16px' }}
+            />
           </div>
-          <div className="flex items-center gap-1.5 text-sm font-semibold text-white/90 max-w-[90%]">
-            <span className="truncate">{displayName}</span>
-            {isMuted && <MicOff size={14} className="text-red-400 flex-shrink-0" />}
+        </>
+      )}
+      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-[85%] border-0 shadow-sm pointer-events-none">
+        <span className="truncate">{displayName}</span>
+        {isMuted && <MicOff size={13} className="text-red-400 flex-shrink-0" />}
+      </div>
+    </div>
+  );
+});
+
+const ExpandedGroupParticipantTile = React.memo(({
+  participant,
+  chatMembers,
+  isLocalVideoActive,
+  isScreenSharing,
+  isMicEnabled,
+  onAvatarClick,
+}: {
+  participant: ParticipantInfo;
+  chatMembers?: any[];
+  isLocalVideoActive: boolean;
+  isScreenSharing: boolean;
+  isMicEnabled: boolean;
+  onAvatarClick?: (participant: ParticipantInfo) => void;
+}) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const isLocal = participant.isLocal;
+  const hasScreenShare = isLocal ? isScreenSharing : !!participant.screenShareEnabled;
+  const hasCamera = isLocal ? isLocalVideoActive : participant.videoEnabled;
+  const hasStream = hasScreenShare || hasCamera;
+
+  const memberInfo = chatMembers?.find((m: any) => m.nickname === participant.name || m.userCode === participant.identity || m.userId === participant.identity);
+  const avatarUrl = isLocal ? (() => {
+    try {
+      const auth = localStorage.getItem('auth-storage');
+      if (auth) return JSON.parse(auth)?.state?.avatarUrl;
+    } catch {}
+    return null;
+  })() : (memberInfo?.avatarUrl || null);
+  const displayName = participant.name || memberInfo?.nickname || participant.identity;
+  const isMuted = isLocal ? !isMicEnabled : !participant.audioEnabled;
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    const attach = () => {
+      if (hasScreenShare) {
+        const sTrack = isLocal ? groupLiveKitService.getScreenShareTrack() : groupLiveKitService.getRemoteScreenShareTrack(participant.identity);
+        if (sTrack) {
+          sTrack.attach(el);
+          try { el.play().catch(() => {}); } catch {}
+          return;
+        }
+      }
+      if (hasCamera) {
+        const vTrack = isLocal ? groupLiveKitService.getLocalVideoTrack() : groupLiveKitService.getRemoteVideoTrack(participant.identity);
+        if (vTrack) {
+          vTrack.attach(el);
+          try { el.play().catch(() => {}); } catch {}
+          return;
+        }
+      }
+    };
+    attach();
+    groupLiveKitService.on('trackSubscribed', attach);
+    groupLiveKitService.on('trackUnsubscribed', attach);
+    groupLiveKitService.on('cameraChanged', attach);
+    groupLiveKitService.on('screenShareChanged', attach);
+    groupLiveKitService.on('remoteScreenShareChanged', attach);
+    return () => {
+      groupLiveKitService.off('trackSubscribed', attach);
+      groupLiveKitService.off('trackUnsubscribed', attach);
+      groupLiveKitService.off('cameraChanged', attach);
+      groupLiveKitService.off('screenShareChanged', attach);
+      groupLiveKitService.off('remoteScreenShareChanged', attach);
+      try {
+        if (hasScreenShare) {
+          const sTrack = isLocal ? groupLiveKitService.getScreenShareTrack() : groupLiveKitService.getRemoteScreenShareTrack(participant.identity);
+          sTrack?.detach(el);
+        } else if (hasCamera) {
+          const vTrack = isLocal ? groupLiveKitService.getLocalVideoTrack() : groupLiveKitService.getRemoteVideoTrack(participant.identity);
+          vTrack?.detach(el);
+        }
+      } catch {}
+    };
+  }, [hasScreenShare, hasCamera, isLocal, participant.identity]);
+
+  return (
+    <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden border-0">
+      {hasStream ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={isLocal}
+          className={`w-full h-full max-w-full max-h-full object-contain ${isLocal && hasCamera && !hasScreenShare ? '-scale-x-100' : ''}`}
+        />
+      ) : (
+        <div className="relative w-full h-full flex items-center justify-center">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-35 scale-125 pointer-events-none"
+            />
+          ) : (
+            <div
+              className="absolute inset-0 w-full h-full opacity-25 pointer-events-none"
+              style={{ background: getAvatarGradient(displayName) }}
+            />
+          )}
+          <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onAvatarClick?.(participant);
+            }}
+            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+              !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
+            }`}
+            style={{ borderRadius: '20px' }}
+            role={!isLocal ? 'button' : undefined}
+            aria-label={displayName}
+          >
+            <Avatar
+              src={avatarUrl}
+              alt={displayName}
+              className="w-full h-full object-cover"
+              style={{ borderRadius: '20px' }}
+            />
           </div>
         </div>
       )}
+      <div className="absolute bottom-4 left-4 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-[85%] border-0 shadow-sm pointer-events-none">
+        <span className="truncate">{displayName}</span>
+        {isMuted && <MicOff size={13} className="text-red-400 flex-shrink-0" />}
+      </div>
     </div>
   );
 });
@@ -569,6 +741,36 @@ export const CallWindowView = () => {
   );
 
   const [groupParticipants, setGroupParticipants] = useState<ParticipantInfo[]>([]);
+  const [expandedGroupParticipant, setExpandedGroupParticipant] = useState<ParticipantInfo | null>(null);
+
+  const handleOpenChat = useCallback((participant: ParticipantInfo) => {
+    if (participant.isLocal) return;
+    const memberInfo = callData?.activeCall?.members?.find(
+      (m: any) => m.nickname === participant.name || m.userCode === participant.identity || m.userId === participant.identity
+    );
+    const targetCode = memberInfo?.userCode || memberInfo?.userId || participant.identity;
+    const targetName = participant.name || memberInfo?.nickname || participant.identity;
+    const targetAvatar = memberInfo?.avatarUrl || null;
+
+    sendAction('openChat', {
+      peerCode: targetCode,
+      name: targetName,
+      avatarUrl: targetAvatar,
+    });
+    try {
+      const bc = new BroadcastChannel('orbita-call-channel');
+      bc.postMessage({
+        type: 'CALL_ACTION',
+        action: 'openChat',
+        payload: {
+          peerCode: targetCode,
+          name: targetName,
+          avatarUrl: targetAvatar,
+        },
+      });
+      setTimeout(() => { try { bc.close(); } catch {} }, 500);
+    } catch {}
+  }, [callData?.activeCall?.members]);
 
   useEffect(() => {
     if (!isConnected || !isGroupCall) return;
@@ -608,6 +810,17 @@ export const CallWindowView = () => {
       isLocal: true,
     }];
   }, [groupParticipants, callData?.myNickname, otherName, isMicEnabled, isVideoEnabled, isLocalScreenShareActive]);
+
+  useEffect(() => {
+    if (expandedGroupParticipant) {
+      const current = allGroupParticipants.find((p) => p.identity === expandedGroupParticipant.identity);
+      if (!current) {
+        setExpandedGroupParticipant(null);
+      } else if (current !== expandedGroupParticipant) {
+        setExpandedGroupParticipant(current);
+      }
+    }
+  }, [allGroupParticipants, expandedGroupParticipant]);
 
   const connectTimeRef = useRef<number>(0);
   useEffect(() => {
@@ -1214,26 +1427,51 @@ export const CallWindowView = () => {
 
       <div className="flex flex-col items-center justify-center flex-1 py-2 z-10 w-full relative min-h-0 overflow-hidden">
         {isGroupCall ? (
-          <div className="w-full h-full flex-1 flex flex-col items-center justify-center p-2 sm:p-4 min-h-0 overflow-y-auto custom-scrollbar">
-            <div className={`grid gap-3 sm:gap-4 w-full max-w-6xl mx-auto h-full max-h-[75vh] items-center justify-center ${
-              allGroupParticipants.length <= 1 ? 'grid-cols-1 max-w-lg aspect-video' :
-              allGroupParticipants.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl' :
-              allGroupParticipants.length <= 4 ? 'grid-cols-1 sm:grid-cols-2 max-w-4xl' :
-              allGroupParticipants.length <= 6 ? 'grid-cols-2 sm:grid-cols-3 max-w-5xl' :
-              'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 max-w-6xl'
-            }`}>
-              {allGroupParticipants.map((p) => (
-                <GroupParticipantTile
-                  key={p.identity}
-                  participant={p}
+          expandedGroupParticipant ? (
+            <div className="fixed inset-0 z-40 bg-black flex items-center justify-center p-3 sm:p-5 select-none">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <ExpandedGroupParticipantTile
+                  participant={expandedGroupParticipant}
                   chatMembers={callData?.activeCall?.members}
                   isLocalVideoActive={isLocalVideoActive}
                   isScreenSharing={isLocalScreenShareActive}
                   isMicEnabled={isMicEnabled}
+                  onAvatarClick={handleOpenChat}
                 />
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setExpandedGroupParticipant(null)}
+                  aria-label={t('call.exit_fullscreen')}
+                  className="absolute top-4 right-4 z-50 p-2.5 rounded-xl bg-black/60 hover:bg-black/80 text-white/90 transition-all border-0 cursor-pointer"
+                >
+                  <Minimize2 size={20} />
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="w-full h-full flex-1 flex flex-col items-center justify-center p-2 sm:p-4 min-h-0 overflow-y-auto custom-scrollbar">
+              <div className={`grid gap-3 sm:gap-4 w-full max-w-6xl mx-auto h-full max-h-[75vh] items-center justify-center ${
+                allGroupParticipants.length <= 1 ? 'grid-cols-1 max-w-lg aspect-video' :
+                allGroupParticipants.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-3xl' :
+                allGroupParticipants.length <= 4 ? 'grid-cols-1 sm:grid-cols-2 max-w-4xl' :
+                allGroupParticipants.length <= 6 ? 'grid-cols-2 sm:grid-cols-3 max-w-5xl' :
+                'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 max-w-6xl'
+              }`}>
+                {allGroupParticipants.map((p) => (
+                  <GroupParticipantTile
+                    key={p.identity}
+                    participant={p}
+                    chatMembers={callData?.activeCall?.members}
+                    isLocalVideoActive={isLocalVideoActive}
+                    isScreenSharing={isLocalScreenShareActive}
+                    isMicEnabled={isMicEnabled}
+                    onTileClick={(part) => setExpandedGroupParticipant(part)}
+                    onAvatarClick={handleOpenChat}
+                  />
+                ))}
+              </div>
+            </div>
+          )
         ) : (
           <>
             {isDualStream ? (

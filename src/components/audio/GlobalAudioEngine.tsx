@@ -16,7 +16,7 @@ export const GlobalAudioEngine = () => {
     currentTrack?.url || null,
     currentTrack?.sharedSecret,
     currentTrack?.message?.mediaName || currentTrack?.title,
-    currentTrack?.message?.mime || (currentTrack?.mediaType === 'voice' ? 'audio/webm' : undefined),
+    currentTrack?.message?.mime || (currentTrack?.mediaType === 'voice' ? (currentTrack.url?.includes('.webm') ? 'audio/webm' : 'audio/ogg; codecs=opus') : undefined),
     currentTrack?.chatId,
     currentTrack?.message?.id || currentTrack?.id
   );
@@ -97,6 +97,8 @@ export const GlobalAudioEngine = () => {
 
   useEffect(() => {
     if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       audioRef.current.volume = useAudioStore.getState().volume;
     }
   }, [currentTrack?.id]);
@@ -108,6 +110,13 @@ export const GlobalAudioEngine = () => {
 
     const checkFade = () => {
       const audio = audioRef.current;
+      if (!audio || !blobUrl || audio.src !== blobUrl || audio.readyState < 1) {
+        if (isPlaying) {
+          animId = requestAnimationFrame(checkFade);
+        }
+        return;
+      }
+
       if (audio && isPlaying && !isSeeking && audio.duration && isFinite(audio.duration) && audio.duration > 1.5 && currentTrack?.mediaType !== 'voice') {
         const remaining = audio.duration - audio.currentTime;
         const baseVol = useAudioStore.getState().volume;
@@ -168,7 +177,7 @@ export const GlobalAudioEngine = () => {
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [isPlaying, isSeeking, currentTrack?.id, currentTrack?.mediaType]);
+  }, [isPlaying, isSeeking, currentTrack?.id, currentTrack?.mediaType, blobUrl]);
 
   useEffect(() => {
     if (audioRef.current) {

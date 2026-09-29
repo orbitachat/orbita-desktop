@@ -11,6 +11,7 @@ import { gatewayManager } from '../services/gatewayManager';
 import { ablyService } from '../services/ablyService';
 import { groupService } from '../services/groupService';
 import { deriveGroupKey } from '../lib/groupCrypto';
+import { generateKeyPair, generateChatId } from '../lib/crypto';
 import i18n from '../i18n';
 
 export type CallType = 'audio' | 'video';
@@ -1368,6 +1369,42 @@ const handleCallAction = (action: { type: string; payload?: any }) => {
       callSoundService.stop();
       store.handleConnected(action.payload);
       break;
+    case 'openChat':
+      if (action.payload) {
+        const { chatId, peerCode, name, avatarUrl } = action.payload;
+        const chatStore = useChatStore.getState();
+        if (chatId && chatStore.chats.some(c => c.id === chatId)) {
+          chatStore.setActiveChat(chatId);
+        } else {
+          const targetCode = peerCode || name;
+          const existing = chatStore.chats.find(
+            (c) =>
+              c.type === 'private' &&
+              ((peerCode && (c.peerCode === peerCode || c.originalPeerCode === peerCode || c.name === peerCode)) ||
+                (name && c.name === name))
+          );
+          if (existing) {
+            chatStore.setActiveChat(existing.id);
+          } else if (targetCode) {
+            const myKeys = generateKeyPair();
+            const newChatId = generateChatId();
+            chatStore.addChat({
+              id: newChatId,
+              type: 'private',
+              name: name || targetCode,
+              lastMsg: '',
+              online: false,
+              isChatInitiator: true,
+              sharedSecret: myKeys.privateKey,
+              avatarUrl: avatarUrl || undefined,
+              peerCode: targetCode,
+              originalPeerCode: targetCode,
+            });
+            chatStore.setActiveChat(newChatId);
+          }
+        }
+      }
+      break;
   }
 };
 
@@ -1382,6 +1419,9 @@ if (typeof window !== 'undefined') {
       bc.onmessage = (event) => {
         if (event.data?.type === 'CALL_ACTION') handleCallAction({ type: event.data.action, payload: event.data.payload });
         else if (event.data?.type === 'REQUEST_CALL_STATE') syncCallState(useCallStore.getState());
+        else if (event.data?.type === 'OPEN_CHAT' && event.data?.payload) {
+          handleCallAction({ type: 'openChat', payload: event.data.payload });
+        }
       };
     } catch {}
   }

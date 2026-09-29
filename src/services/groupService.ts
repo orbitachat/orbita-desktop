@@ -378,6 +378,50 @@ class GroupService {
     return { group: resultGroup, sharedSecret };
   }
 
+  async addMember(
+    groupId: string,
+    inviteCode: string,
+    nickname: string,
+    userCode?: string,
+    avatarUrl?: string | null,
+    inviterNickname?: string
+  ): Promise<GroupInfo | null> {
+    try {
+      const codeToUse = inviteCode || groupId;
+      const result = await this.joinGroup(
+        codeToUse,
+        nickname,
+        userCode,
+        { avatarUrl: avatarUrl || undefined, userId: userCode },
+        inviterNickname
+      );
+      if (result?.group) {
+        try {
+          const groupPusher = getGroupPusher();
+          const channel = groupPusher.subscribe(`presence-group-${groupId}`);
+          const joinData = {
+            type: 'member-joined',
+            groupId,
+            nickname,
+            userCode,
+            userId: userCode,
+            members: result.group.members,
+            membersCount: result.group.membersCount,
+            inviterNickname,
+          };
+          const sendJoin = () => {
+            try { channel.trigger('member-joined', joinData); } catch {}
+            try { channel.trigger('client-message', joinData); } catch {}
+          };
+          if (channel.subscribed) sendJoin();
+          else channel.bind('pusher:subscription_succeeded', sendJoin);
+        } catch {}
+        return result.group;
+      }
+    } catch {}
+    return null;
+  }
+
   async resetInviteLink(groupId: string): Promise<string | null> {
     const newCode = generateGroupInviteCode();
     const nowIso = new Date().toISOString();
@@ -681,22 +725,6 @@ class GroupService {
       return res.ok;
     } catch {
       return true;
-    }
-  }
-
-  async addMember(
-    _groupId: string,
-    groupCode: string,
-    nickname: string,
-    userCode?: string,
-    avatarUrl?: string | null,
-    inviterNickname?: string
-  ): Promise<GroupInfo | null> {
-    try {
-      const res = await this.joinGroup(groupCode, nickname, userCode, { avatarUrl: avatarUrl || undefined }, inviterNickname);
-      return res.group;
-    } catch {
-      return null;
     }
   }
 

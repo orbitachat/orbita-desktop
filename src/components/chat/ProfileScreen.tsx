@@ -5,6 +5,7 @@ import { channelService } from '../../services/channelService';
 import { groupService } from '../../services/groupService';
 import { supabaseService } from '../../services/supabaseService';
 import { buildGroupInviteLink } from '../../lib/groupCrypto';
+import { generateKeyPair, generateChatId } from '../../lib/crypto';
 import { Search, MoreVertical, Copy, Check, Pencil, Camera, Smile, ArrowLeft, UserPlus, ShieldCheck, Trash2, LogOut, RefreshCw, Lock, Unlock, Clock } from 'lucide-react';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { BotIcon } from '../common/BotIcon';
@@ -1126,7 +1127,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         const validName = (info.name && info.name !== 'Group Chat') ? info.name : (current?.name || info.name);
         const validMembers = (info.members && info.members.length > 0)
           ? info.members.map((m) => ({
-              userId: m.userCode,
+              userId: m.userId || m.userCode,
+              userCode: m.userCode || m.userId,
               nickname: m.nickname,
               role: m.role,
               lastSeen: m.lastSeen || Date.now(),
@@ -2729,17 +2731,49 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                   (member.nickname && chat.onlineMemberIds.includes(member.nickname))
                 ));
 
+              const handleMemberClick = () => {
+                if (isSelf) return;
+                const targetCode = memberCode || member.userId || member.nickname;
+                if (!targetCode) return;
+                const currentChats = useChatStore.getState().chats;
+                const existing = currentChats.find(
+                  (c) =>
+                    c.type === 'private' &&
+                    ((memberCode && (c.peerCode === memberCode || c.originalPeerCode === memberCode || c.name === memberCode)) ||
+                      (member.userId && (c.peerCode === member.userId || c.originalPeerCode === member.userId)) ||
+                      (member.nickname && c.name === member.nickname))
+                );
+                if (existing) {
+                  setActiveChat(existing.id);
+                  onClose();
+                } else {
+                  const myKeys = generateKeyPair();
+                  const newChatId = generateChatId();
+                  useChatStore.getState().addChat({
+                    id: newChatId,
+                    type: 'private',
+                    name: member.nickname || targetCode,
+                    lastMsg: '',
+                    online: isMemberOnline,
+                    isChatInitiator: true,
+                    sharedSecret: myKeys.privateKey,
+                    avatarUrl: effectiveAvatar || undefined,
+                    peerCode: targetCode,
+                    originalPeerCode: targetCode,
+                  });
+                  setActiveChat(newChatId);
+                  onClose();
+                }
+              };
+
               return (
                 <div
                   key={memberCode || `${member.nickname}_${index}`}
-                  style={{
-                    padding: '10px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    borderBottom: 'none',
-                  }}
+                  onClick={handleMemberClick}
+                  className={`flex items-center justify-between px-3 py-2.5 mx-2 rounded-xl transition-colors ${
+                    isSelf ? 'cursor-default' : 'cursor-pointer hover:bg-[var(--surface-container-strong,rgba(255,255,255,0.06))]'
+                  }`}
+                  style={{ gap: '12px' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                     <Avatar
@@ -2796,7 +2830,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                       {isGroupOwner && (
                         <button
                           type="button"
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation();
                             const newRole = isMemberAdmin ? 'member' : 'admin';
                             await groupService.updateMemberRole(chat.id, member.nickname, newRole, memberCode, myNickname);
                             const updatedMembers = (chat.members || []).map((m: any) => {
@@ -2826,7 +2861,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
 
                       <button
                         type="button"
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           if (window.confirm(`${t('groupSettings.kick', 'Исключить')} ${member.nickname}?`)) {
                             await groupService.kickMember(chat.id, member.nickname, myNickname, memberCode, member.userId);
                             const updatedMembers = (chat.members || []).filter((m: any) => {
