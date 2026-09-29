@@ -1437,21 +1437,51 @@ export const useChatStore = create<ChatState>()(
           if (recent && typeof recent === 'object' && Object.keys(recent).length > 0) {
             set((state) => {
               const updated = { ...state.messagesByChatId };
+              const updatedChats = [...state.chats];
+              let chatsChanged = false;
               for (const [chatId, msgs] of Object.entries(recent)) {
                 if (Array.isArray(msgs) && msgs.length > 0) {
                   const current = updated[chatId] || [];
+                  let mergedMsgs = msgs;
                   if (current.length === 0) {
                     updated[chatId] = msgs;
                   } else {
                     const existingIds = new Set(current.map((m: any) => m.id || `${m.time}_${m.text}`));
                     const toAdd = (msgs as any[]).filter((m: any) => !existingIds.has(m.id || `${m.time}_${m.text}`));
                     if (toAdd.length > 0) {
-                      updated[chatId] = [...toAdd, ...current].sort((a: any, b: any) => (a.time || 0) - (b.time || 0));
+                      mergedMsgs = [...toAdd, ...current].sort((a: any, b: any) => (a.time || 0) - (b.time || 0));
+                      updated[chatId] = mergedMsgs;
+                    } else {
+                      mergedMsgs = current;
+                    }
+                  }
+                  const lastMessage = mergedMsgs[mergedMsgs.length - 1];
+                  if (lastMessage) {
+                    const chatIdx = updatedChats.findIndex((c) => c.id === chatId);
+                    if (chatIdx !== -1) {
+                      const c = updatedChats[chatIdx];
+                      const derivedLastMsg =
+                        lastMessage.text ||
+                        (lastMessage.mediaItems && lastMessage.mediaItems.length > 0
+                          ? '[MediaGroup]'
+                          : lastMessage.mediaType
+                          ? `[${lastMessage.mediaType}]`
+                          : '');
+                      if (
+                        derivedLastMsg &&
+                        (!c.lastMsg || c.lastMsg === 'E2EE_SECURE_CHANNEL_READY' || c.lastMsg === '')
+                      ) {
+                        updatedChats[chatIdx] = { ...c, lastMsg: derivedLastMsg };
+                        chatsChanged = true;
+                      }
                     }
                   }
                 }
               }
-              return { messagesByChatId: updated };
+              return {
+                messagesByChatId: updated,
+                ...(chatsChanged ? { chats: updatedChats } : {}),
+              };
             });
           }
         } catch {}

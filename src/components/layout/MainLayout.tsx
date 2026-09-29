@@ -92,10 +92,97 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = 
 
   if (!lastMsg) {
     if (chat.lastMsg === 'HISTORY_CLEARED') return t('common.history_cleared');
-    if (chat.lastMsg && chat.lastMsg !== 'E2EE_SECURE_CHANNEL_READY') {
-      return <span className="truncate">{chat.lastMsg}</span>;
+    if (!chat.lastMsg || chat.lastMsg === 'E2EE_SECURE_CHANNEL_READY') {
+      return t('common.no_messages');
     }
-    return t('common.no_messages');
+
+    let rawFallback = chat.lastMsg.trim();
+    let fallbackSenderPrefix = '';
+    if (chat.type === 'group') {
+      const colonIdx = rawFallback.indexOf(': ');
+      if (colonIdx > 0 && colonIdx < 35 && !rawFallback.startsWith('[Call]')) {
+        fallbackSenderPrefix = rawFallback.slice(0, colonIdx);
+        rawFallback = rawFallback.slice(colonIdx + 2).trim();
+      }
+    }
+
+    const renderFallback = (content: React.ReactNode, isAccent = false) => {
+      if (!fallbackSenderPrefix) {
+        return isAccent ? (
+          <span className="truncate" style={accentStyle}>{content}</span>
+        ) : (
+          <span className="truncate">{content}</span>
+        );
+      }
+      return (
+        <span className="truncate">
+          <span style={accentStyle}>{fallbackSenderPrefix}</span>
+          <span>: </span>
+          {isAccent ? <span style={accentStyle}>{content}</span> : content}
+        </span>
+      );
+    };
+
+    if (rawFallback.startsWith('[Call]') || /^(?:исходящий|входящий|пропущенный|отклонённый)\s+звонок/i.test(rawFallback)) {
+      const isMissed = /missed|пропущен/i.test(rawFallback);
+      const isRejected = /rejected|busy|отклон/i.test(rawFallback);
+      const isOutgoing = /исходящ|outgoing/i.test(rawFallback);
+      const text = isMissed ? t('call.missed_call') : (isRejected ? t('call.rejected_call') : (isOutgoing ? t('call.outgoing_call') : t('call.incoming_call')));
+      return renderFallback(text, true);
+    }
+
+    if (/^\[(?:photo|image)\]$/i.test(rawFallback) || /^(?:фото|фотография|photo)$/i.test(rawFallback)) {
+      return renderFallback(t('chatWindow.photo'), true);
+    }
+
+    if (/^\[video\]$/i.test(rawFallback) || /^(?:видео|видеозапись|video)$/i.test(rawFallback)) {
+      return renderFallback(t('chatWindow.video'), true);
+    }
+
+    if (/^\[voice\]$/i.test(rawFallback) || /^\[audio\]\s+voice_\d+\.ogg/i.test(rawFallback) || /^voice_\d+\.ogg/i.test(rawFallback) || /^(?:голосовое\s+сообщение|голосовое|voice\s+message)$/i.test(rawFallback)) {
+      return renderFallback(t('chatWindow.voice_message'), true);
+    }
+
+    if (/^\[sticker\]$/i.test(rawFallback) || /^(?:стикер|sticker)$/i.test(rawFallback) || rawFallback.includes('/stickers/') || rawFallback.includes('\\stickers\\') || rawFallback.includes('.stickers')) {
+      return renderFallback(t('chatWindow.sticker'), true);
+    }
+
+    if (/^\[gif\]$/i.test(rawFallback) || /^gif$/i.test(rawFallback)) {
+      return renderFallback('GIF', true);
+    }
+
+    if (/^\[mediagroup\]$/i.test(rawFallback) || /^(?:медиа|медиафайлы|media)$/i.test(rawFallback)) {
+      return renderFallback(t('chatWindow.media_items', 'Медиа'), true);
+    }
+
+    if (/^\[audio\]/i.test(rawFallback)) {
+      const match = rawFallback.match(/^\[audio\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
+      const title = match ? match[1] : t('chatWindow.audio');
+      return renderFallback(<>🎧 {title}</>, true);
+    }
+
+    if (/^\[(?:file|document)\]/i.test(rawFallback)) {
+      const match = rawFallback.match(/^\[(?:file|document)\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
+      const fileName = match ? match[1] : t('chatWindow.file');
+      return renderFallback(fileName, true);
+    }
+
+    if (rawFallback.startsWith('🎧')) {
+      return renderFallback(rawFallback, true);
+    }
+
+    const plain = rawFallback
+      .replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n?/, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/~~(.*?)~~/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\|\|(.*?)\|\|/g, '$1')
+      .replace(/^>\s?(.*)$/gm, '$1')
+      .replace(/\n+/g, ' ')
+      .trim();
+
+    return renderFallback(plain || t('common.no_messages'));
   }
 
   if (lastMsg.mediaType === 'system' || lastMsg.sender === 'system' || (lastMsg as any).systemType) {
@@ -273,11 +360,14 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = 
     if (/^\[GIF\]/i.test(cleanText)) {
       return renderWithPrefix('GIF', true);
     }
-    if (/^\[Photo\]/i.test(cleanText)) {
+    if (/^\[(?:Photo|Image)\]/i.test(cleanText)) {
       return renderWithPrefix(t('chatWindow.photo'), true);
     }
     if (/^\[Video\]/i.test(cleanText)) {
       return renderWithPrefix(t('chatWindow.video'), true);
+    }
+    if (/^\[MediaGroup\]/i.test(cleanText)) {
+      return renderWithPrefix(t('chatWindow.media_items', 'Медиа'), true);
     }
     if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
       return renderWithPrefix(t('chatWindow.voice_message'), true);
@@ -305,55 +395,7 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = 
     return renderWithPrefix(plain || t('common.no_messages'));
   }
 
-  if (chat.lastMsg === 'E2EE_SECURE_CHANNEL_READY') return t('common.no_messages');
-  if (chat.lastMsg === 'HISTORY_CLEARED') return t('common.history_cleared');
-  if (!chat.lastMsg && !lastMsg) return t('common.no_messages');
-
-  let cleanText = chat.lastMsg || '';
-  if (/^\[Sticker\]/i.test(cleanText) || cleanText.includes('/stickers/') || cleanText.includes('\\stickers\\') || cleanText.includes('.stickers')) {
-    return renderWithPrefix(t('chatWindow.sticker'), true);
-  }
-  if (/^\[GIF\]/i.test(cleanText)) {
-    return renderWithPrefix('GIF', true);
-  }
-  if (/^\[Photo\]/i.test(cleanText)) {
-    return renderWithPrefix(t('chatWindow.photo'), true);
-  }
-  if (/^\[Video\]/i.test(cleanText)) {
-    return renderWithPrefix(t('chatWindow.video'), true);
-  }
-  if (/^\[Audio\]\s+voice_\d+\.ogg/i.test(cleanText) || /^voice_\d+\.ogg/i.test(cleanText)) {
-    return renderWithPrefix(t('chatWindow.voice_message'), true);
-  }
-  if (/^\[Audio\]/i.test(cleanText)) {
-    const match = cleanText.match(/^\[Audio\]\s+(.+?)\s+https?:\/\//i);
-    if (match) {
-      if (/^voice_\d+\.ogg$/i.test(match[1])) {
-        return renderWithPrefix(t('chatWindow.voice_message'), true);
-      }
-      const parts = match[1].split(' – ');
-      const title = parts.length === 2 ? `${parts[0]} – ${parts[1]}` : match[1];
-      return renderWithPrefix(<>🎧 {title}</>, true);
-    }
-    return renderWithPrefix(<>🎧 {t('chatWindow.audio')}</>, true);
-  }
-  if (/^\[File\]/i.test(cleanText)) {
-    const match = cleanText.match(/^\[File\]\s+(.+?)\s+https?:\/\//i);
-    const fileName = match ? match[1] : t('chatWindow.file');
-    return renderWithPrefix(fileName, true);
-  }
-
-  const plain = cleanText
-    .replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n?/, '')
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .replace(/~~(.*?)~~/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\|\|(.*?)\|\|/g, '$1')
-    .replace(/^>\s?(.*)$/gm, '$1')
-    .replace(/\n+/g, ' ')
-    .trim();
-  return renderWithPrefix(plain || t('common.no_messages'));
+  return renderWithPrefix(t('common.no_messages'));
 };
 
 const formatUnreadCount = (count: number): string => {
@@ -992,7 +1034,7 @@ export const MainLayout = () => {
 
   useEffect(() => {
     useChatStore.getState().preloadRecentMessagesFromStorage();
-  }, []);
+  }, [_hasHydrated, step]);
 
   useEffect(() => {
     if (step === 'main' && nickname && myCode) {

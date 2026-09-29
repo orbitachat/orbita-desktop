@@ -123,7 +123,46 @@ class BrowserOrbitaAdapter {
           return [];
         }
       },
-      storageGetAllRecentMessages: async () => ({}),
+      storageGetAllRecentMessages: async (limitPerChat = 30) => {
+        try {
+          const result: Record<string, any[]> = {};
+          const isAccount2 = currentActiveAccountId === 'account_2';
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith('orbita_msgs_')) continue;
+            let rawChatId = key.replace('orbita_msgs_', '');
+            if (isAccount2) {
+              if (!rawChatId.startsWith('account_2:::')) continue;
+              rawChatId = rawChatId.replace('account_2:::', '');
+            } else {
+              if (rawChatId.startsWith('account_2:::')) continue;
+              if (rawChatId.startsWith('account_1:::')) {
+                rawChatId = rawChatId.replace('account_1:::', '');
+              }
+            }
+            try {
+              const raw = localStorage.getItem(key);
+              const msgs = raw ? JSON.parse(raw) : [];
+              if (Array.isArray(msgs) && msgs.length > 0) {
+                const current = result[rawChatId] || [];
+                const merged = [...current, ...msgs];
+                const seen = new Set();
+                const unique = merged.filter((m: any) => {
+                  const id = m.id || `${m.time}_${m.text}`;
+                  if (seen.has(id)) return false;
+                  seen.add(id);
+                  return true;
+                });
+                unique.sort((a: any, b: any) => (a.time || 0) - (b.time || 0));
+                result[rawChatId] = unique.slice(-limitPerChat);
+              }
+            } catch {}
+          }
+          return result;
+        } catch {
+          return {};
+        }
+      },
       storageAddMessage: async (chatId: string, messageId: string, messageData: any) => {
         try {
           const scopedChatId = getScopedChatId(chatId);

@@ -1,17 +1,25 @@
 export function formatPreviewText(rawText: string, t: any): string {
   if (!rawText) return '';
   const clean = rawText.replace(/^↩\s(?:\[id:.+?\]\s)?.+?:.+?,\s\d{2}:\d{2}\n?/, '').trim();
+  if (clean.startsWith('[Call]') || /^(?:исходящий|входящий|пропущенный|отклонённый)\s+звонок/i.test(clean)) {
+    const isMissed = /missed|пропущен/i.test(clean);
+    const isRejected = /rejected|busy|отклон/i.test(clean);
+    const isOutgoing = /исходящ|outgoing/i.test(clean);
+    return isMissed ? t('call.missed_call', 'Пропущенный звонок') : (isRejected ? t('call.rejected_call', 'Отклонённый звонок') : (isOutgoing ? t('call.outgoing_call', 'Исходящий звонок') : t('call.incoming_call', 'Входящий звонок')));
+  }
   if (/^\[Sticker\]/i.test(clean) || clean.includes('/stickers/') || clean.includes('\\stickers\\') || clean.includes('.stickers')) return t('chatWindow.sticker', 'Стикер');
   if (/^\[GIF\]/i.test(clean)) return 'GIF';
-  if (/^\[Photo\]/i.test(clean)) return t('chatWindow.photo', 'Фотография');
-  if (/^\[Video\]/i.test(clean)) return t('chatWindow.video', 'Видео');
+  if (/^\[(?:Photo|Image)\]/i.test(clean) || /^(?:фото|фотография|photo)$/i.test(clean)) return t('chatWindow.photo', 'Фотография');
+  if (/^\[Video\]/i.test(clean) || /^(?:видео|видеозапись|video)$/i.test(clean)) return t('chatWindow.video', 'Видео');
+  if (/^\[MediaGroup\]/i.test(clean)) return t('chatWindow.media_items', 'Медиа');
+  if (/^\[Voice\]/i.test(clean) || /^(?:голосовое\s+сообщение|голосовое|voice\s+message)$/i.test(clean)) return t('chatWindow.voice_message', 'Голосовое сообщение');
   if (/^\[Audio\]/i.test(clean)) {
     if (/voice_/i.test(clean)) return t('chatWindow.voice_message', 'Голосовое сообщение');
     const match = clean.match(/^\[Audio\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
     return match ? match[1] : t('chatWindow.audio', 'Аудио');
   }
-  if (/^\[File\]/i.test(clean)) {
-    const match = clean.match(/^\[File\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
+  if (/^\[(?:File|Document)\]/i.test(clean)) {
+    const match = clean.match(/^\[(?:File|Document)\]\s+(.+?)(?:\s+https?:\/\/|$)/i);
     return match ? match[1] : t('chatWindow.file', 'Файл');
   }
   return clean.replace(/\n+/g, ' ');

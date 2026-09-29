@@ -1505,6 +1505,69 @@ function addMessage(chatId: string, messageId: string, messageData: any): Promis
   });
 }
 
+function addMessagesBatch(chatId: string, messages: Array<{ id: string; messageData: any }>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!messages || messages.length === 0) return resolve();
+    const db = getDb();
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION;');
+      const stmt = db.prepare(`INSERT OR REPLACE INTO ${MSG_TABLE} (id, chat_id, message_data, created_at) VALUES (?, ?, ?, ?)`);
+      for (const m of messages) {
+        try {
+          const json = JSON.stringify(m.messageData);
+          const enc = encryptData(Buffer.from(json, 'utf8')).toString('base64');
+          const createdAt = m.messageData?.time || Date.now();
+          stmt.run([m.id, chatId, enc, createdAt]);
+        } catch {}
+      }
+      stmt.finalize();
+      db.run('COMMIT;', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  });
+}
+
+function getAllRecentMessages(scopePrefix?: string, limitPerChat: number = 30): Promise<Record<string, any[]>> {
+  return new Promise((resolve) => {
+    const isAccount2 = scopePrefix === 'account_2';
+    const sql = isAccount2
+      ? `SELECT id, chat_id, message_data, created_at FROM ${MSG_TABLE} WHERE chat_id LIKE 'account_2:::%' ORDER BY created_at ASC`
+      : `SELECT id, chat_id, message_data, created_at FROM ${MSG_TABLE} WHERE chat_id LIKE 'account_1:::%' OR chat_id NOT LIKE 'account_%:::%' ORDER BY created_at ASC`;
+
+    getDb().all(sql, [], (err, rows: any[]) => {
+      if (err || !rows) {
+        resolve({});
+        return;
+      }
+      const result: Record<string, any[]> = {};
+      const seenIds = new Set<string>();
+      for (const r of rows) {
+        if (seenIds.has(r.id)) continue;
+        seenIds.add(r.id);
+        const dec = decryptData(Buffer.from(r.message_data, 'base64'));
+        if (!dec) continue;
+        try {
+          const parsed = JSON.parse(dec.toString('utf8'));
+          let rawChatId = r.chat_id;
+          if (rawChatId.startsWith('account_1:::') || rawChatId.startsWith('account_2:::')) {
+            rawChatId = rawChatId.replace(/^account_\d+:::/, '');
+          }
+          if (!result[rawChatId]) result[rawChatId] = [];
+          result[rawChatId].push(parsed);
+        } catch {}
+      }
+      for (const chatId of Object.keys(result)) {
+        if (result[chatId].length > limitPerChat) {
+          result[chatId] = result[chatId].slice(-limitPerChat);
+        }
+      }
+      resolve(result);
+    });
+  });
+}
+
 function deleteMessagesByChat(chatId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     let sql: string;
@@ -1554,7 +1617,6 @@ function deleteMessageById(id: string): Promise<void> {
 }
 
 async function migrateFromLocalStorage(): Promise<void> {
-  // LocalStorage is in renderer context; no-op in Node main process
 }
 
 function registerStorageIpcHandlers() {
@@ -1572,8 +1634,14 @@ function registerStorageIpcHandlers() {
   ipcMain.handle('storage:get-messages', async (_event, chatId: string, limit?: number, offset?: number) =>
     await getMessages(chatId, limit, offset)
   );
+  ipcMain.handle('storage:get-all-recent-messages', async (_event, scopePrefix?: string, limitPerChat?: number) =>
+    await getAllRecentMessages(scopePrefix, limitPerChat)
+  );
   ipcMain.handle('storage:add-message', async (_event, chatId: string, messageId: string, messageData: any) => {
     await addMessage(chatId, messageId, messageData);
+  });
+  ipcMain.handle('storage:add-messages-batch', async (_event, chatId: string, messages: Array<{ id: string; messageData: any }>) => {
+    await addMessagesBatch(chatId, messages);
   });
   ipcMain.handle('storage:delete-messages', async (_event, chatId: string) => {
     await deleteMessagesByChat(chatId);
