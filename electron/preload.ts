@@ -349,6 +349,8 @@ contextBridge.exposeInMainWorld('orbita', {
   },
   storageGetMessages: (chatId: string, limit?: number, offset?: number) =>
     ipcRenderer.invoke('storage:get-messages', getScopedChatId(chatId), limit, offset),
+  storageGetAllRecentMessages: (limitPerChat?: number) =>
+    ipcRenderer.invoke('storage:get-all-recent-messages', currentActiveAccountId, limitPerChat),
   storageAddMessage: (chatId: string, messageId: string, messageData: any) =>
     ipcRenderer.invoke('storage:add-message', getScopedChatId(chatId), getScopedMsgId(messageId), messageData),
   storageAddMessagesBatch: (chatId: string, messages: Array<{ id: string; messageData: any }>) =>

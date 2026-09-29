@@ -168,6 +168,63 @@ export function storageGetMessages(chatId: string, limit?: number, offset?: numb
   });
 }
 
+export function storageGetAllRecentMessages(scopePrefix?: string, limitPerChat: number = 30): Promise<Record<string, any[]>> {
+  return new Promise((resolve) => {
+    const prefix = scopePrefix ? `${scopePrefix}:::` : '';
+    let sql: string;
+    let params: any[];
+    if (prefix) {
+      sql = `
+        SELECT id, chat_id, message_data, created_at 
+        FROM (
+          SELECT id, chat_id, message_data, created_at,
+                 ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY created_at DESC) as rn
+          FROM ${MESSAGES_TABLE}
+          WHERE chat_id LIKE ? OR chat_id NOT LIKE 'account_%:::%'
+        )
+        WHERE rn <= ?
+        ORDER BY chat_id, created_at ASC
+      `;
+      params = [`${prefix}%`, limitPerChat];
+    } else {
+      sql = `
+        SELECT id, chat_id, message_data, created_at 
+        FROM (
+          SELECT id, chat_id, message_data, created_at,
+                 ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY created_at DESC) as rn
+          FROM ${MESSAGES_TABLE}
+        )
+        WHERE rn <= ?
+        ORDER BY chat_id, created_at ASC
+      `;
+      params = [limitPerChat];
+    }
+
+    getDb().all(sql, params, (err, rows: any[]) => {
+      if (err || !rows) {
+        resolve({});
+        return;
+      }
+      const result: Record<string, any[]> = {};
+      for (const row of rows) {
+        const decrypted = decryptLocal(Buffer.from(row.message_data, 'base64'));
+        if (!decrypted) continue;
+        try {
+          const parsed = JSON.parse(decrypted.toString('utf8'));
+          let rawChatId = row.chat_id;
+          if (rawChatId.startsWith('account_1:::') || rawChatId.startsWith('account_2:::')) {
+            rawChatId = rawChatId.replace(/^account_\d+:::/, '');
+          }
+          if (!result[rawChatId]) result[rawChatId] = [];
+          result[rawChatId].push(parsed);
+        } catch {}
+      }
+      resolve(result);
+    });
+  });
+}
+
+
 let pendingMessageBatch: Array<{ chatId: string; id: string; messageData: any }> = [];
 let batchFlushTimer: NodeJS.Timeout | null = null;
 
@@ -287,6 +344,10 @@ export function setupStorageIPC(): void {
 
   ipcMain.handle('storage:get-messages', async (_, chatId: string, limit?: number, offset?: number) => {
     return await storageGetMessages(chatId, limit, offset);
+  });
+
+  ipcMain.handle('storage:get-all-recent-messages', async (_, scopePrefix?: string, limitPerChat?: number) => {
+    return await storageGetAllRecentMessages(scopePrefix, limitPerChat);
   });
 
   ipcMain.handle('storage:add-message', async (_, chatId: string, messageId: string, messageData: any) => {

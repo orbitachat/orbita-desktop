@@ -561,6 +561,7 @@ interface ChatState {
   setReaction: (chatId: string, messageIndexOrId: number | string, emoji: string, user: string, action?: 'add' | 'remove' | 'toggle', userAliases?: string[]) => 'add' | 'remove' | 'limit_reached';
   syncReactionsFromSupabase: (chatId: string) => Promise<void>;
   getMessages: (chatId: string) => Message[];
+  preloadRecentMessagesFromStorage: () => Promise<void>;
   setPasscode: (code: string | null) => void;
   setTheme: (theme: ThemeId) => void;
   setChatColor: (color: string) => void;
@@ -1428,6 +1429,33 @@ export const useChatStore = create<ChatState>()(
       getMessages: (chatId) => {
         return get().messagesByChatId[chatId] || [];
       },
+      preloadRecentMessagesFromStorage: async () => {
+        try {
+          const orb = (window as any).orbita;
+          if (!orb?.storageGetAllRecentMessages) return;
+          const recent = await orb.storageGetAllRecentMessages(30);
+          if (recent && typeof recent === 'object' && Object.keys(recent).length > 0) {
+            set((state) => {
+              const updated = { ...state.messagesByChatId };
+              for (const [chatId, msgs] of Object.entries(recent)) {
+                if (Array.isArray(msgs) && msgs.length > 0) {
+                  const current = updated[chatId] || [];
+                  if (current.length === 0) {
+                    updated[chatId] = msgs;
+                  } else {
+                    const existingIds = new Set(current.map((m: any) => m.id || `${m.time}_${m.text}`));
+                    const toAdd = (msgs as any[]).filter((m: any) => !existingIds.has(m.id || `${m.time}_${m.text}`));
+                    if (toAdd.length > 0) {
+                      updated[chatId] = [...toAdd, ...current].sort((a: any, b: any) => (a.time || 0) - (b.time || 0));
+                    }
+                  }
+                }
+              }
+              return { messagesByChatId: updated };
+            });
+          }
+        } catch {}
+      },
       setPasscode: (code) => set({ passcode: code }),
       setTheme: (theme) => {
         set({ currentTheme: theme });
@@ -1926,12 +1954,6 @@ export const useChatStore = create<ChatState>()(
             return [id, rest];
           })
         ),
-        messagesByChatId: Object.fromEntries(
-          Object.entries(state.messagesByChatId || {}).map(([id, msgs]) => [
-            id,
-            Array.isArray(msgs) ? msgs.slice(-50) : [],
-          ])
-        ),
         passcode: state.passcode,
         currentTheme: state.currentTheme,
         dotOverlay: state.dotOverlay,
@@ -2046,6 +2068,7 @@ export const useChatStore = create<ChatState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHasHydrated(true);
+          state.preloadRecentMessagesFromStorage();
         }
         if (state && !Array.isArray(state.pinnedChatIds)) {
           state.pinnedChatIds = [];

@@ -85,6 +85,9 @@ const getLastMsgDisplay = (chat: Chat, lastMsg: Message | null, t: any, isOwn = 
 
   if (!lastMsg) {
     if (chat.lastMsg === 'HISTORY_CLEARED') return t('common.history_cleared');
+    if (chat.lastMsg && chat.lastMsg !== 'E2EE_SECURE_CHANNEL_READY') {
+      return <span className="truncate">{chat.lastMsg}</span>;
+    }
     return t('common.no_messages');
   }
 
@@ -979,6 +982,10 @@ export const MainLayout = () => {
       }
     }
   }, [_hasHydrated, myCode, step, setMyCode]);
+
+  useEffect(() => {
+    useChatStore.getState().preloadRecentMessagesFromStorage();
+  }, []);
 
   useEffect(() => {
     if (step === 'main' && nickname && myCode) {

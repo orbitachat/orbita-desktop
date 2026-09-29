@@ -123,6 +123,7 @@ class BrowserOrbitaAdapter {
           return [];
         }
       },
+      storageGetAllRecentMessages: async () => ({}),
       storageAddMessage: async (chatId: string, messageId: string, messageData: any) => {
         try {
           const scopedChatId = getScopedChatId(chatId);
