@@ -2719,9 +2719,31 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 (memberCode && myAuthUserId && memberCode === myAuthUserId) ||
                 (member.nickname === myNickname)
               );
+              const memberNickKey = member.nickname?.toLowerCase().trim();
+              const allChats = useChatStore.getState().chats || [];
+              const directChat = allChats.find(
+                (c: any) =>
+                  c.type === 'private' &&
+                  ((memberCode && (c.peerCode === memberCode || c.originalPeerCode === memberCode)) ||
+                    (member.userId && (c.peerCode === member.userId || c.originalPeerCode === member.userId)) ||
+                    (memberNickKey && c.name?.toLowerCase().trim() === memberNickKey))
+              );
+              const userObj = Object.values(useChatStore.getState().usersById || {}).find(
+                (u: any) =>
+                  (u.nickname && memberNickKey && u.nickname.toLowerCase().trim() === memberNickKey) ||
+                  (memberCode && u.id === memberCode) ||
+                  (member.userId && u.id === member.userId)
+              );
               const effectiveAvatar = (isSelf && myAvatarUrl)
                 ? myAvatarUrl
-                : (member.avatarUrl || (memberCode ? memberAvatars[memberCode] : null));
+                : (
+                    member.avatarUrl ||
+                    (member as any).avatar_url ||
+                    (memberCode ? memberAvatars[memberCode] : null) ||
+                    directChat?.avatarUrl ||
+                    (userObj as any)?.avatarUrl ||
+                    null
+                  );
               const isMemberOnline = isSelf ||
                 Boolean(chat.onlineCount && chat.members && chat.onlineCount >= chat.members.length) ||
                 Boolean(chat.onlineMemberIds && (
@@ -2783,7 +2805,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="truncate" style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
+                        <span className={`truncate ${isSelf ? '' : 'hover:underline'}`} style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>
                           {member.nickname}
                         </span>
                         <DeveloperBadge userId={memberCode || member.userId || member.nickname} nickname={member.nickname} size={24} />

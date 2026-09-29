@@ -82,10 +82,13 @@ export const Avatar = ({ src, alt = '', className = '', style }: AvatarProps) =>
     if (className.includes('w-6') || className.includes('w-[24px]')) {
       return '10px';
     }
+    if (className.includes('w-[34px]') || className.includes('w-9')) {
+      return '14.5px';
+    }
     if (className.includes('w-8') || className.includes('w-7')) {
       return '12px';
     }
-    return '1.35rem';
+    return '14px';
   }, [className, style?.fontSize]);
 
   const noDragStyle: React.CSSProperties = {
@@ -128,7 +131,6 @@ export const Avatar = ({ src, alt = '', className = '', style }: AvatarProps) =>
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            transform: 'translateY(-0.5px)',
             userSelect: 'none',
             WebkitUserSelect: 'none',
           }}

@@ -3058,6 +3058,8 @@ export const MainLayout = () => {
           id: msgId,
           sender: data.sender,
           senderId: data.senderCode || data.senderId,
+          senderAvatar: parsedData?.avatarUrl || data.avatarUrl || data.senderAvatar || undefined,
+          avatarUrl: parsedData?.avatarUrl || data.avatarUrl || data.senderAvatar || undefined,
           text: msgText,
           time: data.time || Date.now(),
           read: isCurrentActive,

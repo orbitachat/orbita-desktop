@@ -24,6 +24,7 @@ interface MessageItemProps {
   isPrevSameSender?: boolean;
   onLinkClick?: (url: string) => void;
   onButtonClick?: (button: { text: string; action: string; channelId?: string; url?: string; data?: string; icon?: 'channel' | 'backup' | 'help' | 'link' }) => void;
+  onSenderClick?: (senderId?: string, senderName?: string) => void;
   activeChat?: Chat;
 }
 
@@ -102,7 +103,7 @@ const MessageText = ({
 };
 
 export const MessageItem: React.FC<MessageItemProps> = React.memo(
-  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, isPrevSameSender = false, onLinkClick, onButtonClick, activeChat: activeChatProp }) => {
+  ({ msg, isOwn, isPinned, onContextMenu, themeColor, bubbleRadius, currentUserId, onToggleReaction, onQuoteClick, isGroup = false, isPrevSameSender = false, onLinkClick, onButtonClick, onSenderClick, activeChat: activeChatProp }) => {
     const { t } = useTranslation();
     const myCode = useChatStore((s) => s.myCode);
     const myNickname = useAuthStore((s) => s.nickname);
@@ -258,7 +259,18 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                 }}
               >
                 <span
-                  className="font-semibold select-none message-sender-name"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const sMember = activeChat?.members?.find(
+                      (m) =>
+                        (m.userId && m.userId === msg.senderId) ||
+                        ((m as any).userCode && (m as any).userCode === msg.senderId) ||
+                        (m.nickname && msg.sender && m.nickname.toLowerCase().trim() === msg.sender.toLowerCase().trim())
+                    );
+                    const sDisplayName = sMember?.nickname || msg.sender;
+                    onSenderClick?.(msg.senderId, sDisplayName);
+                  }}
+                  className="font-semibold select-none message-sender-name hover:underline cursor-pointer"
                   style={{
                     color: themeColor || 'var(--accent-color, #7C3AED)',
                     fontSize: '12.5px',
@@ -271,7 +283,7 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
                     maxWidth: 380,
                   }}
                 >
-                  {activeChat?.members?.find((m) => (m.userId && m.userId === msg.senderId) || ((m as any).userCode && (m as any).userCode === msg.senderId) || m.nickname === msg.sender)?.nickname || msg.sender}
+                  {activeChat?.members?.find((m) => (m.userId && m.userId === msg.senderId) || ((m as any).userCode && (m as any).userCode === msg.senderId) || (m.nickname && msg.sender && m.nickname.toLowerCase().trim() === msg.sender.toLowerCase().trim()))?.nickname || msg.sender}
                 </span>
                 {(
                   (activeChat?.creatorCode && (activeChat.creatorCode === msg.senderId || activeChat.creatorCode === (msg as any).senderUserId || activeChat.creatorCode === (msg as any).senderCode)) ||

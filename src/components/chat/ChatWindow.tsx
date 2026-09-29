@@ -14,7 +14,7 @@ import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher
 import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
-import { deriveChannelKey, decryptMessage, encryptMessage } from '../../lib/crypto';
+import { deriveChannelKey, decryptMessage, encryptMessage, generateKeyPair, generateChatId } from '../../lib/crypto';
 import { isValidGroupCode, deriveGroupKey, extractGroupCode } from '../../lib/groupCrypto';
 import { useTranslation } from 'react-i18next';
 import { useCallStore } from '../../store/useCallStore';
@@ -589,6 +589,93 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       }).catch(() => {});
     }
   }, [activeChatId, activeChat?.type]);
+
+  const [memberAvatars, setMemberAvatars] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!activeChat || activeChat.type !== 'group' || !activeChat.members) return;
+    let isMounted = true;
+    activeChat.members.forEach((m) => {
+      const code = m.userId || (m as any).userCode;
+      const nick = m.nickname?.toLowerCase().trim();
+      if (!code && !nick) return;
+      if (m.avatarUrl || (m as any).avatar_url) return;
+      if (code && memberAvatars[code]) return;
+      if (nick && memberAvatars[nick]) return;
+
+      const lookupKey = code || m.nickname;
+      if (lookupKey) {
+        supabaseService.lookupPublicProfile(lookupKey).then((profile) => {
+          if (isMounted && profile?.avatar_url) {
+            setMemberAvatars((prev) => {
+              const next = { ...prev };
+              if (code) next[code] = profile.avatar_url!;
+              if (nick) next[nick] = profile.avatar_url!;
+              return next;
+            });
+            const updatedMembers = (activeChat.members || []).map((mem) => {
+              const memCode = mem.userId || (mem as any).userCode;
+              if ((code && memCode === code) || (nick && mem.nickname?.toLowerCase().trim() === nick)) {
+                return { ...mem, avatarUrl: profile.avatar_url };
+              }
+              return mem;
+            });
+            useChatStore.getState().updateChat(activeChat.id, { members: updatedMembers });
+          }
+        }).catch(() => {});
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [activeChat?.id, activeChat?.type, activeChat?.members, memberAvatars]);
+
+  const handleOpenDirectChat = useCallback((senderId?: string, senderName?: string, memberObj?: any) => {
+    const chatStore = useChatStore.getState();
+    const myCode = chatStore.myCode;
+    const myNickname = useAuthStore.getState().nickname;
+    const myUserId = useAuthStore.getState().userId;
+
+    const targetCode = memberObj?.userCode || memberObj?.userId || (senderId && senderId !== myCode && senderId !== myUserId ? senderId : null);
+    const targetName = senderName || memberObj?.nickname || targetCode;
+    const targetAvatar = memberObj?.avatarUrl || memberObj?.avatar_url || (targetCode ? memberAvatars[targetCode] : null) || (targetName ? memberAvatars[targetName.toLowerCase().trim()] : null) || null;
+
+    if (!targetCode && !targetName) return;
+
+    if (
+      (targetCode && (targetCode === myCode || targetCode === myUserId)) ||
+      (targetName && myNickname && targetName.toLowerCase().trim() === myNickname.toLowerCase().trim())
+    ) {
+      return;
+    }
+
+    const existing = chatStore.chats.find(
+      (c) =>
+        c.type === 'private' &&
+        ((targetCode && (c.peerCode === targetCode || c.originalPeerCode === targetCode || c.name === targetCode)) ||
+          (targetName && c.name?.toLowerCase().trim() === targetName.toLowerCase().trim()))
+    );
+
+    if (existing) {
+      chatStore.setActiveChat(existing.id);
+    } else {
+      const myKeys = generateKeyPair();
+      const newChatId = generateChatId();
+      chatStore.addChat({
+        id: newChatId,
+        type: 'private',
+        name: targetName || targetCode,
+        lastMsg: '',
+        online: false,
+        isChatInitiator: true,
+        sharedSecret: myKeys.privateKey,
+        avatarUrl: targetAvatar || undefined,
+        peerCode: targetCode || undefined,
+        originalPeerCode: targetCode || undefined,
+      });
+      chatStore.setActiveChat(newChatId);
+    }
+  }, [memberAvatars]);
 
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingSentRef = useRef<boolean>(false);
@@ -5940,11 +6027,43 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
       ? activeChat?.members?.find(
           (m) => (m.userId && m.userId === msg.senderId) ||
                  ((m as any).userCode && (m as any).userCode === msg.senderId) ||
-                 m.nickname === msg.sender
+                 (m.nickname && msg.sender && m.nickname.toLowerCase().trim() === msg.sender.toLowerCase().trim())
         )
       : null;
-    const senderAvatar = senderMember?.avatarUrl || (msg as any).senderAvatar || (msg as any).avatarUrl;
     const senderNickname = senderMember?.nickname || msg.sender || '';
+    const senderAvatar = (() => {
+      if (senderMember?.avatarUrl) return senderMember.avatarUrl;
+      if ((senderMember as any)?.avatar_url) return (senderMember as any).avatar_url;
+      if ((msg as any).senderAvatar) return (msg as any).senderAvatar;
+      if ((msg as any).avatarUrl) return (msg as any).avatarUrl;
+      const nickKey = senderNickname.toLowerCase().trim();
+      if (nickKey && memberAvatars[nickKey]) return memberAvatars[nickKey];
+      if (msg.senderId && memberAvatars[msg.senderId]) return memberAvatars[msg.senderId];
+      if (senderMember?.userId && memberAvatars[senderMember.userId]) return memberAvatars[senderMember.userId];
+      if ((senderMember as any)?.userCode && memberAvatars[(senderMember as any).userCode]) return memberAvatars[(senderMember as any).userCode];
+
+      const allChats = useChatStore.getState().chats || [];
+      const directChat = allChats.find((c) =>
+        c.type === 'private' && (
+          (c.name && nickKey && c.name.toLowerCase().trim() === nickKey) ||
+          (msg.senderId && (c.peerCode === msg.senderId || c.originalPeerCode === msg.senderId)) ||
+          (senderMember?.userId && (c.peerCode === senderMember.userId || c.originalPeerCode === senderMember.userId)) ||
+          ((senderMember as any)?.userCode && (c.peerCode === (senderMember as any).userCode || c.originalPeerCode === (senderMember as any).userCode))
+        )
+      );
+      if (directChat?.avatarUrl) return directChat.avatarUrl;
+
+      const usersById = useChatStore.getState().usersById || {};
+      if (msg.senderId && usersById[msg.senderId]?.avatarUrl) return usersById[msg.senderId].avatarUrl;
+      if (senderMember?.userId && usersById[senderMember.userId]?.avatarUrl) return usersById[senderMember.userId].avatarUrl;
+      const matchedUser = Object.values(usersById).find((u: any) =>
+        (u.nickname && nickKey && u.nickname.toLowerCase().trim() === nickKey) ||
+        (msg.senderId && u.id === msg.senderId)
+      );
+      if ((matchedUser as any)?.avatarUrl) return (matchedUser as any).avatarUrl;
+
+      return null;
+    })();
 
     const wrapWithGroupAvatar = (content: React.ReactNode) => {
       if (!showGroupAvatar) {
@@ -5965,12 +6084,20 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             }}
           >
             {!isNextSameSenderGroup ? (
-              <Avatar
-                src={senderAvatar}
-                alt={senderNickname}
-                className="w-[34px] h-[34px]"
-                style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0 }}
-              />
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenDirectChat(msg.senderId, senderNickname, senderMember);
+                }}
+                className="cursor-pointer transition-transform duration-150 active:scale-95 hover:opacity-90 flex-shrink-0"
+              >
+                <Avatar
+                  src={senderAvatar}
+                  alt={senderNickname}
+                  className="w-[34px] h-[34px]"
+                  style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0 }}
+                />
+              </div>
             ) : (
               <div style={{ width: 34, height: 34 }} />
             )}
@@ -6191,6 +6318,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
               isPrevSameSender={isPrevSameSenderGroup}
               onLinkClick={handleLinkClick}
               onButtonClick={handleMessageButtonClick}
+              onSenderClick={(sId, sName) => handleOpenDirectChat(sId, sName, senderMember)}
               activeChat={activeChat}
             />
           )}
