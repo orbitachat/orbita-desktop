@@ -513,7 +513,7 @@ export const CallWindow = () => {
   const chat = useChatStore((state) =>
     activeCall ? state.chats.find((c) => c.id === activeCall.chatId) : null
   );
-  const isGroupCall = chat?.type === 'group';
+  const isGroupCall = chat?.type === 'group' || activeCall?.chatType === 'group' || Boolean(activeCall?.roomName?.startsWith('group-call-'));
   const otherName = chat?.name || activeCall?.chatId || '';
   const otherAvatar = chat?.avatarUrl || null;
   const [groupParticipants, setGroupParticipants] = useState<ParticipantInfo[]>([]);
@@ -1169,7 +1169,7 @@ export const CallWindow = () => {
 
       <div ref={remoteAudioContainerRef} style={{ display: 'none' }} />
 
-      {isConnected && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
+      {isConnected && !isGroupCall && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
         <div
           className="select-none"
           style={{

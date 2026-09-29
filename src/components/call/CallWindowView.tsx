@@ -1564,7 +1564,7 @@ export const CallWindowView = () => {
       </div>
 
       <div className="h-9 flex items-center justify-center flex-shrink-0 relative z-30">
-        {isConnected && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
+        {isConnected && !isGroupCall && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
           <CallVerificationBadge emojis={activeCall.verificationEmojis} />
         )}
       </div>
