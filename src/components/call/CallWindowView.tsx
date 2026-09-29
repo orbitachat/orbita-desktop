@@ -607,10 +607,20 @@ export const CallWindowView = () => {
     }];
   }, [groupParticipants, callData?.myNickname, otherName, isMicEnabled, isVideoEnabled, isLocalScreenShareActive]);
 
+  const connectTimeRef = useRef<number>(0);
+  useEffect(() => {
+    if (isConnected) {
+      connectTimeRef.current = Date.now();
+    }
+  }, [isConnected]);
+
   const lastSoundTimesRef = useRef<Record<string, number>>({});
-  const playMediaSound = useCallback((type: 'screen' | 'camera' | 'mic', enabled: boolean) => {
+  const playMediaSound = useCallback((type: 'screen' | 'camera' | 'mic', enabled: boolean, identity?: string) => {
     if (!isConnected) return;
-    const key = `${type}_${enabled}`;
+    if (enabled && (type === 'mic' || type === 'camera') && Date.now() - connectTimeRef.current < 2000) {
+      return;
+    }
+    const key = `${type}_${enabled}_${identity || 'local'}`;
     const now = Date.now();
     if (lastSoundTimesRef.current[key] && now - lastSoundTimesRef.current[key] < 800) {
       return;
@@ -915,11 +925,11 @@ export const CallWindowView = () => {
           tr.attach(localVideoRef.current);
         }
       }
-      playMediaSoundRef.current('camera', enabled);
+      playMediaSoundRef.current('camera', enabled, 'local');
     };
 
-    const handleRemoteCameraChanged = (enabled: boolean) => {
-      playMediaSoundRef.current('camera', enabled);
+    const handleRemoteCameraChanged = (enabled: boolean, _track?: any, identity?: string) => {
+      playMediaSoundRef.current('camera', enabled, identity);
     };
 
     const handleScreenShareChanged = (enabled: boolean, track: any) => {
@@ -928,10 +938,10 @@ export const CallWindowView = () => {
         track.attach(localScreenShareRef.current);
       }
       sendAction('syncMediaState', { isScreenSharing: enabled });
-      playMediaSoundRef.current('screen', enabled);
+      playMediaSoundRef.current('screen', enabled, 'local');
     };
 
-    const handleRemoteScreenShareChanged = (active: boolean, track: any) => {
+    const handleRemoteScreenShareChanged = (active: boolean, track: any, identity?: string) => {
       setIsRemoteScreenShareActive(active);
       if (active && track) {
         if (remoteScreenShareRef.current) track.attach(remoteScreenShareRef.current);
@@ -940,7 +950,7 @@ export const CallWindowView = () => {
         const rTrack = liveKitService.getRemoteVideoTrack();
         if (rTrack && !rTrack.isMuted) rTrack.attach(bgVideoRef.current);
       }
-      playMediaSoundRef.current('screen', active);
+      playMediaSoundRef.current('screen', active, identity);
     };
 
     const handleConnected = () => {
@@ -969,11 +979,11 @@ export const CallWindowView = () => {
       micEnabledRef.current = enabled;
       setCallData((prev) => (prev ? { ...prev, isMicEnabled: enabled } : prev));
       sendAction('toggleMic', enabled);
-      playMediaSoundRef.current('mic', enabled);
+      playMediaSoundRef.current('mic', enabled, 'local');
     };
 
-    const handleRemoteMicChanged = (enabled: boolean) => {
-      playMediaSoundRef.current('mic', enabled);
+    const handleRemoteMicChanged = (enabled: boolean, identity?: string) => {
+      playMediaSoundRef.current('mic', enabled, identity);
     };
 
     liveKitService.on('trackSubscribed', handleTrackSubscribed);

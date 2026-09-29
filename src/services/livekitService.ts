@@ -53,6 +53,7 @@ class LiveKitService extends EventEmitter {
   private micVolume = 1.0;
   private isWindowHidden = false;
   private visibilityCleanup: (() => void) | null = null;
+  private connectedAt = 0;
 
   constructor() {
     super();
@@ -499,6 +500,11 @@ class LiveKitService extends EventEmitter {
     try {
       await this.localParticipant.setMicrophoneEnabled(false);
     } catch {}
+    if (this.localAudioTrack) {
+      try {
+        this.localAudioTrack.mediaStreamTrack.enabled = false;
+      } catch {}
+    }
     this.emit('micChanged', false);
   }
 
@@ -946,6 +952,7 @@ class LiveKitService extends EventEmitter {
         }
       }
     }
+    this.connectedAt = Date.now();
     this.emit('connected');
     console.log(`${LOG_PREFIX} Connected to room`);
   }
@@ -1007,6 +1014,9 @@ class LiveKitService extends EventEmitter {
         try {
           (track as any).setVolume?.(this.peerVolume);
         } catch {}
+        if (track.source !== Track.Source.ScreenShareAudio && Date.now() - this.connectedAt > 2000 && !track.isMuted) {
+          this.emit('remoteMicChanged', true, participant.identity);
+        }
       } catch {}
     }
     if (track.kind === Track.Kind.Video && this.isWindowHidden && _publication) {
@@ -1034,6 +1044,7 @@ class LiveKitService extends EventEmitter {
       } else {
         try { track.detach().forEach((detachedEl) => detachedEl.remove()); } catch {}
       }
+      this.emit('remoteMicChanged', false, participant.identity);
     }
     if (track.source === Track.Source.ScreenShare) {
       this.emit('remoteScreenShareChanged', false, null, participant.identity);
@@ -1045,16 +1056,34 @@ class LiveKitService extends EventEmitter {
   }
 
   private onTrackMuted(publication: any, participant: any): void {
-    if (publication?.kind === Track.Kind.Video || publication?.source === Track.Source.Camera) {
-      this.emit('remoteCameraChanged', false, null, participant?.identity);
+    const isLocal = Boolean(participant?.isLocal || (this.localParticipant && participant?.identity === this.localParticipant.identity));
+    if (!isLocal) {
+      const isScreen = publication?.source === Track.Source.ScreenShare || publication?.source === 'screen_share';
+      const isVideo = !isScreen && (publication?.kind === Track.Kind.Video || publication?.kind === 'video' || publication?.source === Track.Source.Camera || publication?.source === 'camera');
+      const isScreenAudio = publication?.source === Track.Source.ScreenShareAudio || publication?.source === 'screen_share_audio';
+      const isAudio = !isScreenAudio && (publication?.kind === Track.Kind.Audio || publication?.kind === 'audio' || publication?.source === Track.Source.Microphone || publication?.source === 'microphone');
+      if (isVideo) {
+        this.emit('remoteCameraChanged', false, null, participant?.identity);
+      } else if (isAudio) {
+        this.emit('remoteMicChanged', false, participant?.identity);
+      }
     }
     this.updateParticipants();
     this.emit('trackMuted');
   }
 
   private onTrackUnmuted(publication: any, participant: any): void {
-    if (publication?.kind === Track.Kind.Video || publication?.source === Track.Source.Camera) {
-      this.emit('remoteCameraChanged', true, publication?.track, participant?.identity);
+    const isLocal = Boolean(participant?.isLocal || (this.localParticipant && participant?.identity === this.localParticipant.identity));
+    if (!isLocal) {
+      const isScreen = publication?.source === Track.Source.ScreenShare || publication?.source === 'screen_share';
+      const isVideo = !isScreen && (publication?.kind === Track.Kind.Video || publication?.kind === 'video' || publication?.source === Track.Source.Camera || publication?.source === 'camera');
+      const isScreenAudio = publication?.source === Track.Source.ScreenShareAudio || publication?.source === 'screen_share_audio';
+      const isAudio = !isScreenAudio && (publication?.kind === Track.Kind.Audio || publication?.kind === 'audio' || publication?.source === Track.Source.Microphone || publication?.source === 'microphone');
+      if (isVideo) {
+        this.emit('remoteCameraChanged', true, publication?.track, participant?.identity);
+      } else if (isAudio) {
+        this.emit('remoteMicChanged', true, participant?.identity);
+      }
     }
     this.updateParticipants();
     this.emit('trackUnmuted');
@@ -1091,7 +1120,7 @@ class LiveKitService extends EventEmitter {
     for (const [identity, participant] of this.room.remoteParticipants) {
       const audioPub = participant.getTrackPublication(Track.Source.Microphone)
         || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
-      const audioEnabled = audioPub?.track?.mediaStreamTrack.enabled ?? false;
+      const audioEnabled = audioPub?.track ? (!audioPub.isMuted && audioPub.track.mediaStreamTrack.enabled) : false;
       const videoPub = participant.getTrackPublication(Track.Source.Camera)
         || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Camera);
       const videoEnabled = !!(
