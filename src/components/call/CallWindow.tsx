@@ -59,7 +59,17 @@ const GroupParticipantTile = memo(({
     (u.nickname && participant.name && u.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
     (u.id && (participant.identity.includes(u.id) || u.id === memberInfo?.userId || u.id === memberInfo?.user_id))
   ) : null;
-  const avatarUrl = isLocal ? useAuthStore.getState().avatarUrl : (
+  const avatarUrl = isLocal ? (
+    useAuthStore.getState().avatarUrl ||
+    (() => {
+      try {
+        const auth = localStorage.getItem('orbita-auth-storage') || localStorage.getItem('auth-storage');
+        if (auth) return JSON.parse(auth)?.state?.avatarUrl;
+      } catch {}
+      return null;
+    })()
+  ) : (
+    participant.avatarUrl ||
     memberInfo?.avatarUrl ||
     memberInfo?.avatar_url ||
     fallbackChat?.avatarUrl ||

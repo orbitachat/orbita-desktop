@@ -23,6 +23,7 @@ export type CallStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 
 export interface ParticipantInfo {
   identity: string;
   name?: string;
+  avatarUrl?: string | null;
   audioEnabled: boolean;
   videoEnabled: boolean;
   screenShareEnabled?: boolean;

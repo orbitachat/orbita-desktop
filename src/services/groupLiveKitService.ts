@@ -13,6 +13,7 @@ import {
 } from 'livekit-client';
 import { EventEmitter } from 'events';
 import { useChatStore } from '../store/useChatStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { useDevicePermissionStore } from '../store/useDevicePermissionStore';
 import type { NoiseSuppressionMode } from './neuralAudioProcessor';
 import type { ParticipantInfo, CallStatus } from './livekitService';
@@ -221,6 +222,10 @@ export class GroupLiveKitService extends EventEmitter {
           .on(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed.bind(this))
           .on(RoomEvent.TrackMuted, this.onTrackMuted.bind(this))
           .on(RoomEvent.TrackUnmuted, this.onTrackUnmuted.bind(this))
+          .on(RoomEvent.ParticipantMetadataChanged, () => {
+            this.updateParticipants();
+            this.emit('participantsChanged', this.getParticipants());
+          })
           .on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
             this.updateParticipants();
             this.emit('participantsChanged', this.getParticipants());
@@ -278,6 +283,16 @@ export class GroupLiveKitService extends EventEmitter {
   private onConnected(): void {
     if (!this.room) return;
     this.localParticipant = this.room.localParticipant;
+    const myAvatar = useAuthStore.getState().avatarUrl || (() => {
+      try {
+        return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state?.avatarUrl;
+      } catch { return null; }
+    })();
+    if (myAvatar && this.localParticipant) {
+      try {
+        this.localParticipant.setMetadata(JSON.stringify({ avatarUrl: myAvatar }));
+      } catch {}
+    }
     this.connectedAt = Date.now();
     this.updateParticipants();
     this.emit('connected');
@@ -286,6 +301,16 @@ export class GroupLiveKitService extends EventEmitter {
   private async onReconnected(): Promise<void> {
     if (!this.room) return;
     this.localParticipant = this.room.localParticipant;
+    const myAvatar = useAuthStore.getState().avatarUrl || (() => {
+      try {
+        return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state?.avatarUrl;
+      } catch { return null; }
+    })();
+    if (myAvatar && this.localParticipant) {
+      try {
+        this.localParticipant.setMetadata(JSON.stringify({ avatarUrl: myAvatar }));
+      } catch {}
+    }
     this.updateParticipants();
     if (this.desiredMicEnabled) {
       await this.enableMicrophone();
@@ -902,6 +927,19 @@ export class GroupLiveKitService extends EventEmitter {
     this.participants.clear();
 
     if (this.localParticipant) {
+      let localAvatar: string | null = null;
+      if (this.localParticipant.metadata) {
+        try {
+          localAvatar = JSON.parse(this.localParticipant.metadata)?.avatarUrl || null;
+        } catch {}
+      }
+      if (!localAvatar) {
+        localAvatar = useAuthStore.getState().avatarUrl || (() => {
+          try {
+            return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state?.avatarUrl;
+          } catch { return null; }
+        })();
+      }
       const isVideoOn = !!(
         this.localVideoTrack &&
         this.localVideoTrack.mediaStreamTrack &&
@@ -912,6 +950,7 @@ export class GroupLiveKitService extends EventEmitter {
       const info: ParticipantInfo = {
         identity: this.localParticipant.identity,
         name: this.localParticipant.name || this.localParticipant.identity,
+        avatarUrl: localAvatar,
         audioEnabled: this.desiredMicEnabled && (this.localAudioTrack?.mediaStreamTrack.enabled ?? true),
         videoEnabled: isVideoOn,
         screenShareEnabled: isScreenOn,
@@ -922,6 +961,12 @@ export class GroupLiveKitService extends EventEmitter {
     }
 
     for (const [identity, participant] of this.room.remoteParticipants) {
+      let remoteAvatar: string | null = null;
+      if (participant.metadata) {
+        try {
+          remoteAvatar = JSON.parse(participant.metadata)?.avatarUrl || null;
+        } catch {}
+      }
       const audioPub = participant.getTrackPublication(Track.Source.Microphone)
         || Array.from(participant.trackPublications.values()).find((t) => t.source === Track.Source.Microphone);
       const audioEnabled = audioPub?.track ? (!audioPub.isMuted && audioPub.track.mediaStreamTrack.enabled) : false;
@@ -949,6 +994,7 @@ export class GroupLiveKitService extends EventEmitter {
       const info: ParticipantInfo = {
         identity,
         name: participant.name || identity,
+        avatarUrl: remoteAvatar,
         audioEnabled,
         videoEnabled,
         screenShareEnabled: screenEnabled,

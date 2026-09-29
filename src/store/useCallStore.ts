@@ -1283,14 +1283,40 @@ const syncCallState = (state: CallStore) => {
   const chat = state.activeCall
     ? useChatStore.getState().chats.find((c) => c.id === state.activeCall?.chatId)
     : state.incomingCall ? useChatStore.getState().chats.find((c) => c.id === state.incomingCall?.chatId) : null;
+  const myAvatar = useAuthStore.getState().avatarUrl || (() => {
+    try {
+      return JSON.parse(localStorage.getItem('orbita-auth-storage') || '{}')?.state?.avatarUrl;
+    } catch { return null; }
+  })();
+  const knownAvatars: Record<string, string> = {};
+  for (const c of (useChatStore.getState().chats || [])) {
+    if (c.avatarUrl) {
+      if (c.name) knownAvatars[c.name.toLowerCase().trim()] = c.avatarUrl;
+      if (c.peerCode) knownAvatars[c.peerCode] = c.avatarUrl;
+      if (c.id) knownAvatars[c.id] = c.avatarUrl;
+    }
+  }
+  for (const u of Object.values(useChatStore.getState().usersById || {})) {
+    if ((u as any)?.avatarUrl) {
+      if ((u as any).nickname) knownAvatars[(u as any).nickname.toLowerCase().trim()] = (u as any).avatarUrl;
+      if ((u as any).id) knownAvatars[(u as any).id] = (u as any).avatarUrl;
+    }
+  }
+  const members = (chat?.members || []).map((m: any) => {
+    const nickKey = m.nickname?.toLowerCase().trim();
+    const avatar = m.avatarUrl || m.avatar_url || (nickKey ? knownAvatars[nickKey] : null) || (m.userId ? knownAvatars[m.userId] : null) || (m.userCode ? knownAvatars[m.userCode] : null);
+    return avatar ? { ...m, avatarUrl: avatar } : m;
+  });
   const payload = {
     activeCall: state.activeCall ? {
       ...state.activeCall,
       chatType: chat?.type || state.activeCall.chatType || 'private',
-      members: chat?.members,
+      members,
       otherName: chat?.name || state.activeCall.chatId,
       otherAvatar: chat?.avatarUrl || null,
     } : null,
+    myAvatar,
+    knownAvatars,
     incomingCall: state.incomingCall ? { ...state.incomingCall, otherName: chat?.name || state.incomingCall.from, otherAvatar: chat?.avatarUrl || null } : null,
     callState: state.callState, isMicEnabled: state.isMicEnabled, isVideoEnabled: state.isVideoEnabled, isScreenSharing: state.isScreenSharing, duration: state.duration, statusMessage: state.statusMessage, myNickname: state.myNickname,
     peerVolume: state.peerVolume, micVolume: state.micVolume,

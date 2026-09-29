@@ -12,6 +12,7 @@ import { gatewayManager } from '../../services/gatewayManager';
 import { callSoundService } from '../../services/callSoundService';
 import { generateCallVerificationEmojis } from '../../lib/call-verification';
 import { useChatStore, FONT_MAP, type FontFamily } from '../../store/useChatStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { attachRustVoiceDetector } from '../../services/rustVoiceVadService';
 
 interface CallStatePayload {
@@ -49,6 +50,8 @@ interface CallStatePayload {
   duration: number;
   statusMessage: string;
   myNickname: string | null;
+  myAvatar?: string | null;
+  knownAvatars?: Record<string, string>;
   peerVolume?: number;
   micVolume?: number;
   noiseSuppressionMode?: 'krisp' | 'standard' | 'none';
@@ -75,6 +78,8 @@ const GroupParticipantTile = React.memo(({
   isLocalVideoActive,
   isScreenSharing,
   isMicEnabled,
+  myAvatar,
+  knownAvatars,
   onTileClick,
   onAvatarClick,
 }: {
@@ -83,6 +88,8 @@ const GroupParticipantTile = React.memo(({
   isLocalVideoActive: boolean;
   isScreenSharing: boolean;
   isMicEnabled: boolean;
+  myAvatar?: string | null;
+  knownAvatars?: Record<string, string>;
   onTileClick?: (participant: ParticipantInfo) => void;
   onAvatarClick?: (participant: ParticipantInfo) => void;
 }) => {
@@ -114,15 +121,22 @@ const GroupParticipantTile = React.memo(({
     (u.nickname && participant.name && u.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
     (u.id && (participant.identity.includes(u.id) || u.id === memberInfo?.userId || u.id === memberInfo?.user_id))
   ) : null;
-  const avatarUrl = isLocal ? (() => {
-    try {
-      const auth = localStorage.getItem('auth-storage');
-      if (auth) return JSON.parse(auth)?.state?.avatarUrl;
-    } catch {}
-    return null;
-  })() : (
+  const avatarUrl = isLocal ? (
+    myAvatar ||
+    useAuthStore.getState().avatarUrl ||
+    (() => {
+      try {
+        const auth = localStorage.getItem('orbita-auth-storage') || localStorage.getItem('auth-storage');
+        if (auth) return JSON.parse(auth)?.state?.avatarUrl;
+      } catch {}
+      return null;
+    })()
+  ) : (
+    participant.avatarUrl ||
     memberInfo?.avatarUrl ||
     memberInfo?.avatar_url ||
+    (participant.name ? knownAvatars?.[participant.name.toLowerCase().trim()] : null) ||
+    (participant.identity ? knownAvatars?.[participant.identity] : null) ||
     fallbackChat?.avatarUrl ||
     (fallbackProfile as any)?.avatarUrl ||
     null
@@ -327,6 +341,8 @@ const ExpandedGroupParticipantTile = React.memo(({
   isLocalVideoActive,
   isScreenSharing,
   isMicEnabled,
+  myAvatar,
+  knownAvatars,
   onAvatarClick,
 }: {
   participant: ParticipantInfo;
@@ -334,6 +350,8 @@ const ExpandedGroupParticipantTile = React.memo(({
   isLocalVideoActive: boolean;
   isScreenSharing: boolean;
   isMicEnabled: boolean;
+  myAvatar?: string | null;
+  knownAvatars?: Record<string, string>;
   onAvatarClick?: (participant: ParticipantInfo) => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -364,15 +382,22 @@ const ExpandedGroupParticipantTile = React.memo(({
     (u.nickname && participant.name && u.nickname.toLowerCase().trim() === participant.name.toLowerCase().trim()) ||
     (u.id && (participant.identity.includes(u.id) || u.id === memberInfo?.userId || u.id === memberInfo?.user_id))
   ) : null;
-  const avatarUrl = isLocal ? (() => {
-    try {
-      const auth = localStorage.getItem('auth-storage');
-      if (auth) return JSON.parse(auth)?.state?.avatarUrl;
-    } catch {}
-    return null;
-  })() : (
+  const avatarUrl = isLocal ? (
+    myAvatar ||
+    useAuthStore.getState().avatarUrl ||
+    (() => {
+      try {
+        const auth = localStorage.getItem('orbita-auth-storage') || localStorage.getItem('auth-storage');
+        if (auth) return JSON.parse(auth)?.state?.avatarUrl;
+      } catch {}
+      return null;
+    })()
+  ) : (
+    participant.avatarUrl ||
     memberInfo?.avatarUrl ||
     memberInfo?.avatar_url ||
+    (participant.name ? knownAvatars?.[participant.name.toLowerCase().trim()] : null) ||
+    (participant.identity ? knownAvatars?.[participant.identity] : null) ||
     fallbackChat?.avatarUrl ||
     (fallbackProfile as any)?.avatarUrl ||
     null
@@ -521,7 +546,7 @@ export const CallWindowView = () => {
           statusMessage: '',
           myNickname: searchParams.get('myNickname') || (() => {
             try {
-              const auth = localStorage.getItem('auth-storage');
+              const auth = localStorage.getItem('orbita-auth-storage') || localStorage.getItem('auth-storage');
               if (auth) return JSON.parse(auth)?.state?.nickname;
             } catch {}
             return null;
@@ -1091,7 +1116,7 @@ export const CallWindowView = () => {
         const roomName = activeCall.roomName;
         const myNick = callData?.myNickname || (() => {
           try {
-            const auth = localStorage.getItem('auth-storage');
+            const auth = localStorage.getItem('orbita-auth-storage') || localStorage.getItem('auth-storage');
             if (auth) return JSON.parse(auth)?.state?.nickname;
           } catch {}
           return null;
@@ -1105,7 +1130,7 @@ export const CallWindowView = () => {
         if (!token || !url) {
           const myUserId = (() => {
             try {
-              const auth = localStorage.getItem('auth-storage');
+              const auth = localStorage.getItem('orbita-auth-storage') || localStorage.getItem('auth-storage');
               if (auth) return JSON.parse(auth)?.state?.userId;
             } catch {}
             return null;
@@ -1579,6 +1604,8 @@ export const CallWindowView = () => {
                   isLocalVideoActive={isLocalVideoActive}
                   isScreenSharing={isLocalScreenShareActive}
                   isMicEnabled={isMicEnabled}
+                  myAvatar={callData?.myAvatar}
+                  knownAvatars={callData?.knownAvatars}
                   onAvatarClick={handleOpenChat}
                 />
                 <button
@@ -1608,6 +1635,8 @@ export const CallWindowView = () => {
                     isLocalVideoActive={isLocalVideoActive}
                     isScreenSharing={isLocalScreenShareActive}
                     isMicEnabled={isMicEnabled}
+                    myAvatar={callData?.myAvatar}
+                    knownAvatars={callData?.knownAvatars}
                     onTileClick={(part) => setExpandedGroupParticipant(part)}
                     onAvatarClick={handleOpenChat}
                   />
