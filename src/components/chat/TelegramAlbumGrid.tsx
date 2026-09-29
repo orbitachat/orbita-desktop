@@ -50,7 +50,8 @@ const AlbumTile = memo(({
   );
 
   const isUploading = Boolean(item.uploading || (isOwn && (msg.uploading || msg.status === 'sending' || msg.status === 'pending')));
-  const autoLoad = !isUploading && (isGif || useChatStore((state) => state.shouldAutoLoadMedia(isVideo ? 'video' : 'photo', item.size, isOwn)));
+  const shouldAutoLoad = useChatStore((state) => state.shouldAutoLoadMedia(isVideo ? 'video' : 'photo', item.size, isOwn));
+  const autoLoad = !isUploading && (isGif || shouldAutoLoad);
   const effectiveSecret = item.key || (msg as any).mediaKey || sharedSecret;
   const { blobUrl, load, isLoading, progress, isUnavailable } = useDecryptedMedia(
     item.url,

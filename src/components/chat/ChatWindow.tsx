@@ -4629,7 +4629,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         let preview: string | null = null;
         let sizeMb = 0;
         try {
-          if (fileType !== 'video') {
+          if (fileType === 'photo') {
             const dataUrl = await window.orbita.readFileAsDataURL(filePath);
             if (dataUrl) {
               preview = dataUrl;
@@ -4641,7 +4641,15 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             }
           } else {
             const sizeBytes = await window.orbita.getFileSize(filePath);
-            sizeMb = sizeBytes ? sizeBytes / (1024 * 1024) : 0;
+            if (sizeBytes) {
+              sizeMb = sizeBytes / (1024 * 1024);
+            } else {
+              const dataUrl = await window.orbita.readFileAsDataURL(filePath);
+              if (dataUrl) {
+                const binary = atob(dataUrl.split(',')[1] || '');
+                sizeMb = binary.length / (1024 * 1024);
+              }
+            }
           }
         } catch { }
 
@@ -4871,7 +4879,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           height: file.height,
           duration: file.duration || file.audioMetadata?.duration,
           blurPreview: file.blurPreview,
-          thumbnail: file.preview || file.blurPreview,
+          thumbnail: (file.fileType === 'photo' || file.fileType === 'video') ? file.blurPreview : undefined,
         };
       } catch (err) {
         console.error('Upload error for file', file.name, err);
@@ -5044,20 +5052,28 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             id: messageId,
             senderId: myCode,
             text: chunkCaption,
-            mediaItems: uploadedItems.map((f) => ({
-              ...f,
-              type: f.type,
-              key: f.key,
-              width: f.width,
-              height: f.height,
-              duration: f.duration,
-              audioMetadata: f.audioMetadata ? {
-                title: f.audioMetadata.title,
-                artist: f.audioMetadata.artist,
-                duration: f.audioMetadata.duration,
-                size: f.audioMetadata.size,
-              } : undefined,
-            })),
+            mediaItems: uploadedItems.map((f) => {
+              const isVisual = f.type === 'photo' || f.type === 'video';
+              return {
+                type: f.type,
+                url: f.url,
+                name: f.name,
+                mime: f.mime,
+                size: f.size,
+                key: f.key,
+                width: f.width,
+                height: f.height,
+                duration: f.duration,
+                blurPreview: isVisual ? f.blurPreview : undefined,
+                thumbnail: isVisual ? (f.blurPreview || undefined) : undefined,
+                audioMetadata: f.audioMetadata ? {
+                  title: f.audioMetadata.title,
+                  artist: f.audioMetadata.artist,
+                  duration: f.audioMetadata.duration,
+                  size: f.audioMetadata.size,
+                } : undefined,
+              };
+            }),
           };
           const plaintext = JSON.stringify(messageData);
           const { ciphertext, index, dhPublicKey: groupDhPublicKey, prevChainCount: groupPrevChainCount } = await ratchet.encrypt(plaintext);
@@ -5089,24 +5105,40 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           });
           updateChat(activeChatId, { ratchetState: ratchet.getState() });
 
-          const pusher = getPusher();
-          const channel = pusher.subscribe(`private-chat-${activeChatId}`);
-          const send = () => {
-            channel.trigger('client-message', {
-              type: 'message',
-              ciphertext,
-              index,
-              dhPublicKey: groupDhPublicKey,
-              prevChainCount: groupPrevChainCount,
-              messageId,
-              chatId: activeChatId,
-              sender: myNickname,
-              senderUserId: myUserId,
-              senderCode: myCode,
-              senderId: myUserId || myCode,
-            });
+          const payload = {
+            type: 'message',
+            ciphertext,
+            index,
+            dhPublicKey: groupDhPublicKey,
+            prevChainCount: groupPrevChainCount,
+            messageId,
+            chatId: activeChatId,
+            sender: myNickname,
+            senderUserId: myUserId,
+            senderCode: myCode,
+            senderId: myUserId || myCode,
           };
-          if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+
+          ablyService.sendMessage(activeChatId, payload).catch((err) => {
+            console.warn('[ChatWindow] Ably group media send failed:', err);
+          });
+
+          try {
+            const isGroup = activeChat?.type === 'group';
+            const pusher = isGroup ? getGroupPusher() : getPusher();
+            const channelName = isGroup ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+            const channel = pusher.subscribe(channelName);
+            const sendPusher = () => {
+              try {
+                channel.trigger('client-message', payload);
+              } catch (e) {
+                console.warn('[ChatWindow] Pusher group media trigger failed:', e);
+              }
+            };
+            if (channel.subscribed) sendPusher(); else channel.bind('pusher:subscription_succeeded', sendPusher);
+          } catch (e) {
+            console.warn('[ChatWindow] Pusher group media send error:', e);
+          }
 
           try {
             const recipientTargets = Array.from(new Set([
@@ -5303,6 +5335,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             size: uploaded.audioMetadata.size,
           } : undefined;
 
+          const isVisualMedia = uploaded.type === 'photo' || uploaded.type === 'video';
           const messageData = {
             id: messageId,
             senderId: myCode,
@@ -5317,8 +5350,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             width: uploaded.width,
             height: uploaded.height,
             duration: uploaded.duration,
-            blurPreview: uploaded.blurPreview,
-            thumbnail: uploaded.thumbnail,
+            blurPreview: isVisualMedia ? uploaded.blurPreview : undefined,
+            thumbnail: isVisualMedia ? (uploaded.blurPreview || undefined) : undefined,
           };
           const plaintext = JSON.stringify(messageData);
           const { ciphertext, index, dhPublicKey: fileDhPublicKey, prevChainCount: filePrevChainCount } = await ratchet.encrypt(plaintext);
@@ -5343,8 +5376,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                     width: uploaded.width,
                     height: uploaded.height,
                     duration: uploaded.duration,
-                    blurPreview: uploaded.blurPreview,
-                    thumbnail: uploaded.thumbnail,
+                    blurPreview: isVisualMedia ? uploaded.blurPreview : undefined,
+                    thumbnail: isVisualMedia ? (uploaded.blurPreview || undefined) : undefined,
                   }
                 : m
             );
@@ -5361,24 +5394,40 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           });
           updateChat(activeChatId, { ratchetState: ratchet.getState() });
 
-          const pusher = getPusher();
-          const channel = pusher.subscribe(`private-chat-${activeChatId}`);
-          const send = () => {
-            channel.trigger('client-message', {
-              type: 'message',
-              ciphertext,
-              index,
-              dhPublicKey: fileDhPublicKey,
-              prevChainCount: filePrevChainCount,
-              messageId,
-              chatId: activeChatId,
-              sender: myNickname,
-              senderUserId: myUserId,
-              senderCode: myCode,
-              senderId: myUserId || myCode,
-            });
+          const payload = {
+            type: 'message',
+            ciphertext,
+            index,
+            dhPublicKey: fileDhPublicKey,
+            prevChainCount: filePrevChainCount,
+            messageId,
+            chatId: activeChatId,
+            sender: myNickname,
+            senderUserId: myUserId,
+            senderCode: myCode,
+            senderId: myUserId || myCode,
           };
-          if (channel.subscribed) send(); else channel.bind('pusher:subscription_succeeded', send);
+
+          ablyService.sendMessage(activeChatId, payload).catch((err) => {
+            console.warn('[ChatWindow] Ably media send failed:', err);
+          });
+
+          try {
+            const isGroup = activeChat?.type === 'group';
+            const pusher = isGroup ? getGroupPusher() : getPusher();
+            const channelName = isGroup ? `presence-group-${activeChatId}` : `private-chat-${activeChatId}`;
+            const channel = pusher.subscribe(channelName);
+            const sendPusher = () => {
+              try {
+                channel.trigger('client-message', payload);
+              } catch (e) {
+                console.warn('[ChatWindow] Pusher media trigger failed:', e);
+              }
+            };
+            if (channel.subscribed) sendPusher(); else channel.bind('pusher:subscription_succeeded', sendPusher);
+          } catch (e) {
+            console.warn('[ChatWindow] Pusher media send error:', e);
+          }
 
           try {
             const recipientTargets = Array.from(new Set([
@@ -6419,6 +6468,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             {media.type === 'music' && (
               <AudioMessageBubble
                 msg={msg}
+                chatId={activeChatId || undefined}
                 sharedSecret={msg.mediaKey || sharedSecret}
                 bubbleRadius={customRadius}
                 onContextMenu={(e) => handleContextMenu(e, index, isOwn)}

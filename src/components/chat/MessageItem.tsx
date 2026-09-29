@@ -106,7 +106,8 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
     const { t } = useTranslation();
     const myCode = useChatStore((s) => s.myCode);
     const myNickname = useAuthStore((s) => s.nickname);
-    const activeChat = activeChatProp || useChatStore((s) => s.chats.find(c => c.id === s.activeChatId));
+    const storeActiveChat = useChatStore((s) => s.chats.find(c => c.id === s.activeChatId));
+    const activeChat = activeChatProp || storeActiveChat;
     const parsed = useMemo(() => parseReplyChain(msg.text), [msg.text]);
     const isEmoji = useMemo(() => isEmojiOnly(parsed.body) && parsed.body.trim().length > 0, [parsed.body]);
     const emojiCount = useMemo(() => (isEmoji ? countEmojis(parsed.body) : 0), [parsed.body, isEmoji]);

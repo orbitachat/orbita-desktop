@@ -10,6 +10,7 @@ const orbitFs = (px: number) => `calc(${px}px * var(--text-scale, 1))`;
 
 interface AudioMessageBubbleProps {
   msg: Message;
+  chatId?: string;
   sharedSecret: string | undefined;
   bubbleRadius: number | string;
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -20,6 +21,7 @@ interface AudioMessageBubbleProps {
 
 export const AudioMessageBubble = memo(({
   msg,
+  chatId,
   sharedSecret,
   bubbleRadius,
   onContextMenu,
@@ -53,7 +55,7 @@ export const AudioMessageBubble = memo(({
     effectiveSecret,
     msg.mediaName,
     msg.mime,
-    msg.id,
+    chatId || (msg as any).chatId || (msg as any).chat_id,
     msg.id,
     autoLoad
   );
