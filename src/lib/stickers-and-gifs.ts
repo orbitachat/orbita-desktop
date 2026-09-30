@@ -208,13 +208,12 @@ export const SPOTTY_STICKER_PACK: StickerPack = {
   id: 'spotty',
   title: 'Spotty',
   author: 'Telegram',
-  avatarUrl: './stickers/SpottyAnimated/file_3298489.webp',
+  avatarUrl: './stickers/SpottyAnimated/file_3298489.tgs',
   stickers: Array.from({ length: 49 }, (_, i) => {
     const fileId = 3298489 + i;
     return {
       id: `spotty_${fileId}`,
       url: `./stickers/SpottyAnimated/file_${fileId}.tgs`,
-      thumbUrl: `./stickers/SpottyAnimated/file_${fileId}.webp`,
       packId: 'spotty',
       name: `Spotty ${i + 1}`,
       tags: ['spotty', 'спотти', 'dog', 'собака', 'пес', 'telegram', 'tgs', 'анимация', 'animated'],
@@ -222,26 +221,62 @@ export const SPOTTY_STICKER_PACK: StickerPack = {
   }),
 };
 
-export const BISCUIT_STICKER_PACK: StickerPack = {
-  id: 'biscuit',
-  title: 'Biscuit',
-  author: 'Orbita',
-  avatarUrl: './stickers/biscuit/biscuit 1.webp',
-  stickers: Array.from({ length: 49 }, (_, i) => {
-    const num = i + 1;
+export const MUFFIN_STICKER_PACK: StickerPack = {
+  id: 'muffin',
+  title: 'Muffin',
+  author: 'Telegram',
+  avatarUrl: './stickers/Muffin_tgs/001.tgs',
+  stickers: Array.from({ length: 28 }, (_, i) => {
+    const num = String(i + 1).padStart(3, '0');
     return {
-      id: `biscuit_${num}`,
-      url: `./stickers/biscuit/biscuit ${num}.webp`,
-      packId: 'biscuit',
-      name: `Biscuit ${num}`,
-      tags: ['biscuit', 'бисквит', 'кот', 'котик', 'cat', 'kitten', 'cute', 'милый'],
+      id: `muffin_${num}`,
+      url: `./stickers/Muffin_tgs/${num}.tgs`,
+      packId: 'muffin',
+      name: `Muffin ${i + 1}`,
+      tags: ['muffin', 'маффин', 'dog', 'щенок', 'собака', 'cute', 'милый', 'tgs', 'animated', 'анимация'],
+    };
+  }),
+};
+
+export const SNAIL_STICKER_PACK: StickerPack = {
+  id: 'snail',
+  title: 'Snail',
+  author: 'Telegram',
+  avatarUrl: './stickers/Snail_tgs/001.tgs',
+  stickers: Array.from({ length: 26 }, (_, i) => {
+    const num = String(i + 1).padStart(3, '0');
+    return {
+      id: `snail_${num}`,
+      url: `./stickers/Snail_tgs/${num}.tgs`,
+      packId: 'snail',
+      name: `Snail ${i + 1}`,
+      tags: ['snail', 'улитка', 'cute', 'милый', 'tgs', 'animated', 'анимация'],
+    };
+  }),
+};
+
+export const UTYA_STICKER_PACK: StickerPack = {
+  id: 'utya',
+  title: 'Utya Duck',
+  author: 'Telegram',
+  avatarUrl: './stickers/UtyaDuck_tgs/001.tgs',
+  stickers: Array.from({ length: 40 }, (_, i) => {
+    const num = String(i + 1).padStart(3, '0');
+    return {
+      id: `utya_${num}`,
+      url: `./stickers/UtyaDuck_tgs/${num}.tgs`,
+      packId: 'utya',
+      name: `Utya ${i + 1}`,
+      tags: ['utya', 'duck', 'утя', 'утка', 'уточка', 'cute', 'tgs', 'animated', 'анимация'],
     };
   }),
 };
 
 export const STICKER_PACKS: StickerPack[] = [
   SPOTTY_STICKER_PACK,
-  BISCUIT_STICKER_PACK,
+  MUFFIN_STICKER_PACK,
+  SNAIL_STICKER_PACK,
+  UTYA_STICKER_PACK,
 ];
 
 export function resolveStickerUrl(rawUrl: string | null | undefined): string | null {
@@ -267,17 +302,29 @@ export function resolveStickerUrl(rawUrl: string | null | undefined): string | n
       return `./stickers/SpottyAnimated/file_${match[1]}.tgs`;
     }
   }
-  if (clean.includes('biscuit')) {
+  if (clean.includes('Muffin') || clean.includes('muffin')) {
     const match = clean.match(/(\d+)/);
     if (match) {
-      return `./stickers/biscuit/biscuit ${match[1]}.webp`;
+      const num = match[1].padStart(3, '0');
+      return `./stickers/Muffin_tgs/${num}.tgs`;
+    }
+  }
+  if (clean.includes('Snail') || clean.includes('snail')) {
+    const match = clean.match(/(\d+)/);
+    if (match) {
+      const num = match[1].padStart(3, '0');
+      return `./stickers/Snail_tgs/${num}.tgs`;
+    }
+  }
+  if (clean.includes('Utya') || clean.includes('utya')) {
+    const match = clean.match(/(\d+)/);
+    if (match) {
+      const num = match[1].padStart(3, '0');
+      return `./stickers/UtyaDuck_tgs/${num}.tgs`;
     }
   }
   if (clean.endsWith('.tgs')) {
     return `./stickers/SpottyAnimated/${clean}`;
-  }
-  if (clean.endsWith('.webp')) {
-    return `./stickers/biscuit/${clean}`;
   }
   return clean;
 }

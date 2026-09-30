@@ -122,6 +122,9 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       anim.setSubframe(false);
       anim.addEventListener('DOMLoaded', () => {
         setIsReady(true);
+        if (!loop && (!autoplay || !isIntersectingRef.current || document.hidden)) {
+          anim?.goToAndStop(0, true);
+        }
       });
       anim.addEventListener('complete', () => {
         isPlayingRef.current = false;
@@ -137,6 +140,8 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
           isPlayingRef.current = true;
           anim.goToAndPlay(0, true);
         }
+      } else {
+        anim.goToAndStop(0, true);
       }
     } catch (e) {
       console.error('[TgsPlayer] render error:', e);
@@ -222,8 +227,6 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
     }
   };
 
-  const thumbUrl = src.replace('.tgs', '.webp');
-
   return (
     <div
       ref={wrapperRef}
@@ -251,13 +254,6 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
           pointerEvents: 'none',
         }}
       />
-      {!isReady && (
-        <img
-          src={thumbUrl}
-          alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-        />
-      )}
     </div>
   );
 };
