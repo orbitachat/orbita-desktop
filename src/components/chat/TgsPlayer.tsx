@@ -12,7 +12,7 @@ interface TgsPlayerProps {
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-const MAX_CACHE_SIZE = 12;
+const MAX_CACHE_SIZE = 8;
 const tgsCache = new Map<string, any>();
 const pendingRequests = new Map<string, Promise<any>>();
 

@@ -81,8 +81,8 @@ const normalizeMediaUrl = (raw: string): string => {
 class MediaManager {
   private memoryCache = new Map<string, DecryptedMedia>();
   private totalMemorySize = 0;
-  private maxMemorySize = 32 * 1024 * 1024;
-  private maxItemCount = 40;
+  private maxMemorySize = 20 * 1024 * 1024;
+  private maxItemCount = 20;
 
   private pendingRequests = new Map<string, Promise<DecryptedMedia>>();
   private downloadQueue: QueuedItem[] = [];

@@ -60,7 +60,7 @@ const StickerGridButton: React.FC<{
         <TgsPlayer
           src={sticker.url}
           loop={false}
-          autoplay={true}
+          autoplay={false}
           playOnHover={true}
           className="w-full h-full select-none pointer-events-none"
         />
@@ -116,6 +116,12 @@ export const EmojiPicker = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'stickers') {
+      clearTgsCache();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     return () => {

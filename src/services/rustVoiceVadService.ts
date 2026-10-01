@@ -39,6 +39,21 @@ class RustVoiceVadService {
 
 export const rustVoiceVad = new RustVoiceVadService();
 
+let sharedAudioContext: AudioContext | null = null;
+let activeDetectorsCount = 0;
+
+function getSharedAudioContext(): AudioContext | null {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
+    sharedAudioContext = new AudioCtx();
+  }
+  if (sharedAudioContext.state === 'suspended') {
+    sharedAudioContext.resume().catch(() => {});
+  }
+  return sharedAudioContext;
+}
+
 export function attachRustVoiceDetector(
   track: MediaStreamTrack | null | undefined,
   onSpeakingChange: (isSpeaking: boolean) => void,
@@ -49,22 +64,19 @@ export function attachRustVoiceDetector(
     return () => {};
   }
 
-  let audioContext: AudioContext | null = null;
   let sourceNode: MediaStreamAudioSourceNode | null = null;
   let analyser: AnalyserNode | null = null;
   let animId: number | null = null;
   let silenceTimer: any = null;
   let isSpeakingState = false;
   let consecutiveVoiceFrames = 0;
+  let lastCheckTime = 0;
 
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return () => {};
+    const audioContext = getSharedAudioContext();
+    if (!audioContext) return () => {};
 
-    audioContext = new AudioCtx();
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().catch(() => {});
-    }
+    activeDetectorsCount++;
 
     const stream = new MediaStream([track]);
     sourceNode = audioContext.createMediaStreamSource(stream);
@@ -77,30 +89,34 @@ export function attachRustVoiceDetector(
 
     const checkAudio = () => {
       if (!analyser) return;
-      analyser.getFloatTimeDomainData(buffer);
+      const now = performance.now();
+      if (now - lastCheckTime >= 50) {
+        lastCheckTime = now;
+        analyser.getFloatTimeDomainData(buffer);
 
-      const hasVoice = rustVoiceVad.isVoiceDetected(buffer, threshold);
+        const hasVoice = rustVoiceVad.isVoiceDetected(buffer, threshold);
 
-      if (hasVoice) {
-        consecutiveVoiceFrames++;
-        if (consecutiveVoiceFrames >= 3) {
-          if (silenceTimer) {
-            clearTimeout(silenceTimer);
-            silenceTimer = null;
+        if (hasVoice) {
+          consecutiveVoiceFrames++;
+          if (consecutiveVoiceFrames >= 2) {
+            if (silenceTimer) {
+              clearTimeout(silenceTimer);
+              silenceTimer = null;
+            }
+            if (!isSpeakingState) {
+              isSpeakingState = true;
+              onSpeakingChange(true);
+            }
           }
-          if (!isSpeakingState) {
-            isSpeakingState = true;
-            onSpeakingChange(true);
+        } else {
+          consecutiveVoiceFrames = 0;
+          if (isSpeakingState && !silenceTimer) {
+            silenceTimer = setTimeout(() => {
+              isSpeakingState = false;
+              onSpeakingChange(false);
+              silenceTimer = null;
+            }, 260);
           }
-        }
-      } else {
-        consecutiveVoiceFrames = 0;
-        if (isSpeakingState && !silenceTimer) {
-          silenceTimer = setTimeout(() => {
-            isSpeakingState = false;
-            onSpeakingChange(false);
-            silenceTimer = null;
-          }, 260);
         }
       }
 
@@ -116,7 +132,12 @@ export function attachRustVoiceDetector(
     if (animId) cancelAnimationFrame(animId);
     if (silenceTimer) clearTimeout(silenceTimer);
     if (sourceNode) { try { sourceNode.disconnect(); } catch {} }
-    if (audioContext && audioContext.state !== 'closed') { try { audioContext.close(); } catch {} }
+    if (analyser) { try { analyser.disconnect(); } catch {} }
+    activeDetectorsCount = Math.max(0, activeDetectorsCount - 1);
+    if (activeDetectorsCount === 0 && sharedAudioContext && sharedAudioContext.state !== 'closed') {
+      try { sharedAudioContext.close(); } catch {}
+      sharedAudioContext = null;
+    }
     onSpeakingChange(false);
   };
 }

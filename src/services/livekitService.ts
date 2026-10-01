@@ -286,11 +286,11 @@ class LiveKitService extends EventEmitter {
         },
       },
       publishDefaults: {
-        dtx: true,
+        dtx: false,
         red: true,
         forceStereo: false,
         audioPreset: {
-          maxBitrate: 64000,
+          maxBitrate: 96000,
           priority: 'high',
         },
         videoCodec: 'h264',
@@ -353,6 +353,12 @@ class LiveKitService extends EventEmitter {
     if (selectedSpeakerId) {
       try {
         await this.room.switchActiveDevice('audiooutput', selectedSpeakerId);
+      } catch {}
+    }
+
+    if (this.desiredMicEnabled) {
+      try {
+        await this.enableMicrophone();
       } catch {}
     }
 
@@ -945,44 +951,6 @@ class LiveKitService extends EventEmitter {
     this.connectionAttempts = 0;
     this.localParticipant = this.room!.localParticipant;
     this.updateParticipants();
-    if (this.room) {
-      for (const p of this.room.remoteParticipants.values()) {
-        for (const pub of p.trackPublications.values()) {
-          if (pub.track && pub.track.kind === Track.Kind.Audio) {
-            const key = `${p.identity}:${pub.track.sid}`;
-            if (!this.attachedAudioElements.has(key)) {
-              try {
-                const receiver = (pub.track as any).receiver as RTCRtpReceiver | undefined;
-                if (receiver) {
-                  try {
-                    if ('playoutDelayHint' in receiver) {
-                      (receiver as any).playoutDelayHint = 0;
-                    }
-                    if ('jitterBufferTarget' in receiver) {
-                      (receiver as any).jitterBufferTarget = 0;
-                    }
-                  } catch {}
-                }
-                const el = (pub.track as RemoteTrack).attach();
-                el.id = `livekit-audio-${p.identity}`;
-                el.autoplay = true;
-                el.volume = Math.min(1.0, this.peerVolume);
-                el.style.display = 'none';
-                document.body.appendChild(el);
-                this.attachedAudioElements.set(key, el);
-                try {
-                  const pl = el.play();
-                  if (pl && typeof pl.catch === 'function') pl.catch(() => {});
-                } catch {}
-                try {
-                  (pub.track as any).setVolume?.(this.peerVolume);
-                } catch {}
-              } catch {}
-            }
-          }
-        }
-      }
-    }
     this.connectedAt = Date.now();
     this.emit('connected');
     console.log(`${LOG_PREFIX} Connected to room`);
@@ -1031,23 +999,25 @@ class LiveKitService extends EventEmitter {
     if (track.kind === Track.Kind.Audio) {
       const key = `${participant.identity}:${track.sid}`;
       try {
-        const receiver = (track as any).receiver as RTCRtpReceiver | undefined;
-        if (receiver) {
-          try {
-            if ('playoutDelayHint' in receiver) {
-              (receiver as any).playoutDelayHint = 0;
-            }
-            if ('jitterBufferTarget' in receiver) {
-              (receiver as any).jitterBufferTarget = 0;
-            }
-          } catch {}
+        const existing = this.attachedAudioElements.get(key);
+        if (existing) {
+          try { track.detach(existing as HTMLAudioElement); } catch {}
+          try { existing.remove(); } catch {}
+          this.attachedAudioElements.delete(key);
         }
-        const el = track.attach();
+        const el = document.createElement('audio');
         el.id = `livekit-audio-${participant.identity}`;
         el.autoplay = true;
         el.volume = Math.min(1.0, this.peerVolume);
         el.style.display = 'none';
+
+        const selectedSpeakerId = useChatStore.getState().selectedSpeakerId;
+        if (selectedSpeakerId && typeof (el as any).setSinkId === 'function') {
+          (el as any).setSinkId(selectedSpeakerId).catch(() => {});
+        }
+
         document.body.appendChild(el);
+        track.attach(el);
         this.attachedAudioElements.set(key, el);
         try {
           const p = el.play();
@@ -1151,7 +1121,7 @@ class LiveKitService extends EventEmitter {
       const info: ParticipantInfo = {
         identity: this.localParticipant.identity,
         name: this.localParticipant.name || this.localParticipant.identity,
-        audioEnabled: this.localAudioTrack?.mediaStreamTrack.enabled ?? false,
+        audioEnabled: this.desiredMicEnabled && (this.localAudioTrack?.mediaStreamTrack.enabled ?? true),
         videoEnabled: isVideoOn,
         screenShareEnabled: isScreenOn,
         isSpeaking: false,
