@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
+import { TgsPlayer } from './TgsPlayer';
+import { GREETING_STICKERS, StickerItem } from '../../lib/stickers-and-gifs';
 
 interface EmptyChatGreetingProps {
-  onSendGreeting: () => void;
+  onSendGreeting: (sticker?: StickerItem) => void;
   isInitiator?: boolean;
   isPeerOnline?: boolean;
   isRatchetReady?: boolean;
+  chatId?: string | null;
 }
 
 export const EmptyChatGreeting: React.FC<EmptyChatGreetingProps> = ({
@@ -14,10 +17,22 @@ export const EmptyChatGreeting: React.FC<EmptyChatGreetingProps> = ({
   isInitiator,
   isPeerOnline,
   isRatchetReady,
+  chatId,
 }) => {
   const { t } = useTranslation();
 
   const isOfflineWaiting = Boolean(isInitiator && !isPeerOnline && !isRatchetReady);
+
+  const greetingSticker = useMemo(() => {
+    if (!chatId) return GREETING_STICKERS[0];
+    let hash = 0;
+    for (let i = 0; i < chatId.length; i++) {
+      hash = (hash << 5) - hash + chatId.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % GREETING_STICKERS.length;
+    return GREETING_STICKERS[idx] || GREETING_STICKERS[0];
+  }, [chatId]);
 
   return (
     <div className="flex-1 w-full h-full flex items-center justify-center p-4 select-none pointer-events-none">
@@ -60,19 +75,19 @@ export const EmptyChatGreeting: React.FC<EmptyChatGreetingProps> = ({
 
         <button
           type="button"
-          onClick={onSendGreeting}
+          onClick={() => onSendGreeting(greetingSticker)}
           aria-label={t('chatWindow.send_greeting', 'Отправить приветствие')}
-          className="cursor-pointer outline-none transition-transform duration-150 hover:scale-125 active:scale-95 flex items-center justify-center p-2 rounded-full focus:outline-none"
+          className="cursor-pointer outline-none transition-transform duration-150 hover:scale-105 active:scale-95 flex items-center justify-center p-1 rounded-2xl focus:outline-none"
           style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}
         >
-          <span
-            role="img"
-            aria-label="wave"
-            className="text-5xl select-none inline-block hover:rotate-12 transition-transform duration-200"
-            style={{ filter: 'none' }}
-          >
-            👋
-          </span>
+          <div className="w-[124px] h-[124px] pointer-events-none">
+            <TgsPlayer
+              src={greetingSticker.url}
+              loop={true}
+              autoplay={true}
+              className="w-full h-full select-none"
+            />
+          </div>
         </button>
       </motion.div>
     </div>

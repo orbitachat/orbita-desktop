@@ -279,6 +279,37 @@ export const STICKER_PACKS: StickerPack[] = [
   UTYA_STICKER_PACK,
 ];
 
+export const GREETING_STICKERS: StickerItem[] = [
+  {
+    id: 'spotty_3298490',
+    url: './stickers/SpottyAnimated/file_3298490.tgs',
+    packId: 'spotty',
+    name: 'Spotty Hi',
+    tags: ['spotty', 'hi', 'привет', 'greeting'],
+  },
+  {
+    id: 'muffin_006',
+    url: './stickers/Muffin_tgs/006.tgs',
+    packId: 'muffin',
+    name: 'Muffin Hi',
+    tags: ['muffin', 'hi', 'привет', 'greeting'],
+  },
+  {
+    id: 'snail_005',
+    url: './stickers/Snail_tgs/005.tgs',
+    packId: 'snail',
+    name: 'Snail Hi',
+    tags: ['snail', 'hi', 'привет', 'greeting'],
+  },
+  {
+    id: 'utya_005',
+    url: './stickers/UtyaDuck_tgs/005.tgs',
+    packId: 'utya',
+    name: 'Utya Hi',
+    tags: ['utya', 'hi', 'привет', 'greeting'],
+  },
+];
+
 export function resolveStickerUrl(rawUrl: string | null | undefined): string | null {
   if (!rawUrl) return null;
   const clean = rawUrl.trim();

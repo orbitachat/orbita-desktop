@@ -6835,10 +6835,17 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
               <GroupEmptyCard key={activeChat.id} chat={activeChat} />
             ) : (
               <EmptyChatGreeting
-                onSendGreeting={() => triggerMessage('👋')}
+                onSendGreeting={(stk) => {
+                  if (stk) {
+                    handleSendSticker(stk);
+                  } else {
+                    triggerMessage('👋');
+                  }
+                }}
                 isInitiator={activeChat?.isChatInitiator}
                 isPeerOnline={activeChat?.online}
                 isRatchetReady={Boolean(activeChat?.ratchetState)}
+                chatId={activeChatId}
               />
             )
           ) : (

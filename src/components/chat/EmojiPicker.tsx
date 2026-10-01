@@ -18,7 +18,7 @@ import {
   StickerItem,
   searchStickers,
 } from '../../lib/stickers-and-gifs';
-import { TgsPlayer } from './TgsPlayer';
+import { TgsPlayer, prewarmTgsAnimations } from './TgsPlayer';
 
 interface EmojiPickerProps {
   onSelect: (emoji: string) => void;
@@ -114,6 +114,11 @@ export const EmojiPicker = ({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const urls = STICKER_PACKS[0]?.stickers.slice(0, 16).map((s) => s.url) || [];
+    prewarmTgsAnimations(urls);
   }, []);
 
   const handleSelectEmoji = useCallback(
