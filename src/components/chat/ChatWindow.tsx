@@ -6450,6 +6450,8 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                   {media.url && media.url.toLowerCase().endsWith('.tgs') ? (
                     <TgsPlayer
                       src={media.url}
+                      loop={true}
+                      autoplay={true}
                       className="w-full h-full select-none cursor-pointer active:scale-[0.98] transition-transform"
                     />
                   ) : (

@@ -47,47 +47,20 @@ const StickerGridButton: React.FC<{
   sticker: StickerItem;
   onSelect: (s: StickerItem) => void;
 }> = ({ sticker, onSelect }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const hoverTimerRef = useRef<any>(null);
   const isTgs = sticker.url.endsWith('.tgs');
-
-  const handleMouseEnter = () => {
-    if (!isTgs) return;
-    hoverTimerRef.current = setTimeout(() => {
-      setIsHovered(true);
-    }, 80);
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    setIsHovered(false);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-      }
-    };
-  }, []);
 
   return (
     <button
       type="button"
       onClick={() => onSelect(sticker)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       className="relative aspect-square flex items-center justify-center p-1.5 rounded-lg hover:bg-white/10 active:scale-95 transition-all cursor-pointer bg-transparent border-0"
       aria-label={sticker.name}
     >
       {isTgs ? (
         <TgsPlayer
           src={sticker.url}
-          loop={isHovered}
-          autoplay={false}
+          loop={true}
+          autoplay={true}
           className="w-full h-full select-none pointer-events-none"
         />
       ) : (

@@ -61,14 +61,14 @@ class AppVisibilityManager {
     };
 
     if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => update());
+      document.addEventListener('visibilitychange', () => update(document.hidden));
       window.addEventListener('focus', () => {
         this.isElectronWindowFocused = true;
         update(true);
       });
       window.addEventListener('blur', () => {
         this.isElectronWindowFocused = false;
-        update(false);
+        update(true);
       });
       window.addEventListener('pagehide', () => {
         this.isElectronWindowVisible = false;
@@ -91,7 +91,7 @@ class AppVisibilityManager {
     if (orbita?.onAppFocusChanged) {
       orbita.onAppFocusChanged((focused: boolean) => {
         this.isElectronWindowFocused = focused;
-        update(focused);
+        update(!focused);
       });
     }
 

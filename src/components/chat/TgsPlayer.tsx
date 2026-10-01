@@ -57,13 +57,14 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   src,
   className = '',
   style,
-  loop = false,
+  loop = true,
   autoplay = true,
   onClick,
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<AnimationItem | null>(null);
+  const [shouldLoad, setShouldLoad] = useState<boolean>(() => tgsCache.has(src));
   const [animData, setAnimData] = useState<any>(() => tgsCache.get(src) || null);
   const [isReady, setIsReady] = useState(false);
   const hasPlayedRef = useRef(false);
@@ -71,6 +72,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   const isPlayingRef = useRef(false);
 
   useEffect(() => {
+    if (!shouldLoad) return;
     let isMounted = true;
     if (!tgsCache.has(src)) {
       loadTgsAnimation(src)
@@ -88,13 +90,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [src]);
-
-  const playOnce = () => {
-    if (!animRef.current) return;
-    isPlayingRef.current = true;
-    animRef.current.goToAndPlay(0, true);
-  };
+  }, [src, shouldLoad]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -122,16 +118,27 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       anim.setSubframe(false);
       anim.addEventListener('DOMLoaded', () => {
         setIsReady(true);
-        if (!loop && (!autoplay || !isIntersectingRef.current || document.hidden)) {
+        const canPlay = appVisibility.getIsVisible() && !document.hidden && isIntersectingRef.current;
+        if (!canPlay) {
           anim?.goToAndStop(0, true);
+        } else if (loop) {
+          isPlayingRef.current = true;
+          anim?.play();
+        } else if (autoplay && !hasPlayedRef.current) {
+          hasPlayedRef.current = true;
+          isPlayingRef.current = true;
+          anim?.goToAndPlay(0, true);
         }
       });
       anim.addEventListener('complete', () => {
-        isPlayingRef.current = false;
+        if (!loop) {
+          isPlayingRef.current = false;
+        }
       });
       animRef.current = anim;
 
-      if (isIntersectingRef.current && !document.hidden) {
+      const isAppVis = appVisibility.getIsVisible() && !document.hidden;
+      if (isIntersectingRef.current && isAppVis) {
         if (loop) {
           isPlayingRef.current = true;
           anim.play();
@@ -159,33 +166,40 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
 
   useEffect(() => {
     const el = wrapperRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setShouldLoad(true);
+      isIntersectingRef.current = true;
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
         if (!entry) return;
-        isIntersectingRef.current = entry.isIntersecting;
+        const isIntersecting = entry.isIntersecting;
+        isIntersectingRef.current = isIntersecting;
 
-        if (entry.isIntersecting) {
-          if (!document.hidden) {
+        if (isIntersecting) {
+          setShouldLoad(true);
+          const isAppVis = appVisibility.getIsVisible() && !document.hidden;
+          if (isAppVis && animRef.current) {
             if (loop) {
               isPlayingRef.current = true;
-              animRef.current?.play();
+              animRef.current.play();
             } else if (!hasPlayedRef.current && autoplay) {
               hasPlayedRef.current = true;
-              playOnce();
+              isPlayingRef.current = true;
+              animRef.current.goToAndPlay(0, true);
             } else if (isPlayingRef.current) {
-              animRef.current?.play();
+              animRef.current.play();
             }
           }
         } else {
-          if (isPlayingRef.current) {
-            animRef.current?.pause();
-          }
+          isPlayingRef.current = false;
+          animRef.current?.pause();
         }
       },
-      { threshold: 0.05 }
+      { rootMargin: '80px 0px 80px 0px', threshold: 0.01 }
     );
 
     observer.observe(el);
@@ -197,19 +211,25 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   useEffect(() => {
     const handleVisibility = (visible: boolean) => {
       if (!visible) {
-        if (isPlayingRef.current) {
-          animRef.current?.pause();
-        }
+        isPlayingRef.current = false;
+        animRef.current?.pause();
+        try {
+          (lottie as any).freeze?.();
+        } catch {}
       } else {
-        if (isIntersectingRef.current) {
+        try {
+          (lottie as any).unfreeze?.();
+        } catch {}
+        if (isIntersectingRef.current && animRef.current) {
           if (loop) {
             isPlayingRef.current = true;
-            animRef.current?.play();
+            animRef.current.play();
           } else if (!hasPlayedRef.current && autoplay) {
             hasPlayedRef.current = true;
-            playOnce();
+            isPlayingRef.current = true;
+            animRef.current.goToAndPlay(0, true);
           } else if (isPlayingRef.current) {
-            animRef.current?.play();
+            animRef.current.play();
           }
         }
       }
@@ -223,7 +243,8 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       onClick(e);
     }
     if (animRef.current) {
-      playOnce();
+      isPlayingRef.current = true;
+      animRef.current.goToAndPlay(0, true);
     }
   };
 
