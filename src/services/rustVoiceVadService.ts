@@ -134,9 +134,8 @@ export function attachRustVoiceDetector(
     if (sourceNode) { try { sourceNode.disconnect(); } catch {} }
     if (analyser) { try { analyser.disconnect(); } catch {} }
     activeDetectorsCount = Math.max(0, activeDetectorsCount - 1);
-    if (activeDetectorsCount === 0 && sharedAudioContext && sharedAudioContext.state !== 'closed') {
-      try { sharedAudioContext.close(); } catch {}
-      sharedAudioContext = null;
+    if (activeDetectorsCount === 0 && sharedAudioContext && sharedAudioContext.state === 'running') {
+      try { sharedAudioContext.suspend().catch(() => {}); } catch {}
     }
     onSpeakingChange(false);
   };

@@ -286,11 +286,11 @@ class LiveKitService extends EventEmitter {
         },
       },
       publishDefaults: {
-        dtx: false,
+        dtx: true,
         red: true,
         forceStereo: false,
         audioPreset: {
-          maxBitrate: 96000,
+          maxBitrate: 64000,
           priority: 'high',
         },
         videoCodec: 'h264',
@@ -460,10 +460,11 @@ class LiveKitService extends EventEmitter {
         sampleRate: 48000,
         sampleSize: 16,
       }, {
-        dtx: false,
+        dtx: true,
+        red: true,
         forceStereo: false,
         audioPreset: {
-          maxBitrate: 128000,
+          maxBitrate: 64000,
           priority: 'high',
         },
       });

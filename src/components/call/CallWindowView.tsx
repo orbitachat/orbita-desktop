@@ -311,7 +311,7 @@ const GroupParticipantTile = React.memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}
@@ -495,7 +495,7 @@ const ExpandedGroupParticipantTile = React.memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-44 h-44 sm:w-56 sm:h-56 rounded-full overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}
@@ -1033,12 +1033,12 @@ export const CallWindowView = () => {
   const lastSoundTimesRef = useRef<Record<string, number>>({});
   const playMediaSound = useCallback((type: 'screen' | 'camera' | 'mic', enabled: boolean, identity?: string) => {
     if (!isConnected) return;
-    if (enabled && (type === 'mic' || type === 'camera') && identity !== 'local' && Date.now() - connectTimeRef.current < 2000) {
+    if (Date.now() - connectTimeRef.current < 2500) {
       return;
     }
     const key = `${type}_${enabled}_${identity || 'local'}`;
     const now = Date.now();
-    if (lastSoundTimesRef.current[key] && now - lastSoundTimesRef.current[key] < 350) {
+    if (lastSoundTimesRef.current[key] && now - lastSoundTimesRef.current[key] < 800) {
       return;
     }
     lastSoundTimesRef.current[key] = now;
@@ -1392,9 +1392,10 @@ export const CallWindowView = () => {
     };
 
     const handleMicChanged = (enabled: boolean) => {
+      if (micEnabledRef.current === enabled) return;
       micEnabledRef.current = enabled;
       setCallData((prev) => (prev ? { ...prev, isMicEnabled: enabled } : prev));
-      sendAction('toggleMic', enabled);
+      sendAction('syncMediaState', { isMicEnabled: enabled });
       playMediaSoundRef.current('mic', enabled, 'local');
     };
 
@@ -1491,12 +1492,14 @@ export const CallWindowView = () => {
   const prevMicRef = useRef(isMicEnabled);
   useEffect(() => {
     const svc = isGroupCall ? groupLiveKitService : liveKitService;
-    if (prevMicRef.current !== isMicEnabled && svc.isConnected) {
+    if (prevMicRef.current !== isMicEnabled) {
       prevMicRef.current = isMicEnabled;
-      if (isMicEnabled) {
-        svc.enableMicrophone().catch(() => {});
-      } else {
-        svc.disableMicrophone().catch(() => {});
+      if (svc.isConnected && (svc as any).desiredMicEnabled !== isMicEnabled) {
+        if (isMicEnabled) {
+          svc.enableMicrophone().catch(() => {});
+        } else {
+          svc.disableMicrophone().catch(() => {});
+        }
       }
     }
   }, [isMicEnabled, isGroupCall]);

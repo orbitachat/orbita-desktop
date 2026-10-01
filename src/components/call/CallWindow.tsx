@@ -246,7 +246,7 @@ const GroupParticipantTile = memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}
@@ -413,7 +413,7 @@ const ExpandedGroupParticipantTile = memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-44 h-44 sm:w-56 sm:h-56 rounded-full overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}

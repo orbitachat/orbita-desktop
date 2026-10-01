@@ -184,11 +184,11 @@ export class GroupLiveKitService extends EventEmitter {
             },
           },
           publishDefaults: {
-            dtx: false,
+            dtx: true,
             red: true,
             forceStereo: false,
             audioPreset: {
-              maxBitrate: 96000,
+              maxBitrate: 64000,
               priority: 'high',
             },
             videoCodec: 'h264',
