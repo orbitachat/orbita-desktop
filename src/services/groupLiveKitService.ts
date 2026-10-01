@@ -345,17 +345,22 @@ export class GroupLiveKitService extends EventEmitter {
   private onTrackSubscribed(track: RemoteTrack, _publication: any, participant: any): void {
     if (track.kind === Track.Kind.Audio) {
       const key = `${participant.identity}-${track.sid}`;
+      const receiver = (track as any).receiver as RTCRtpReceiver | undefined;
+      if (receiver) {
+        try {
+          if ('playoutDelayHint' in receiver) {
+            (receiver as any).playoutDelayHint = 0;
+          }
+          if ('jitterBufferTarget' in receiver) {
+            (receiver as any).jitterBufferTarget = 0;
+          }
+        } catch {}
+      }
       let el = this.attachedAudioElements.get(key);
       if (!el) {
         el = document.createElement('audio');
         el.autoplay = true;
         el.setAttribute('data-group-call-audio', participant.identity);
-
-        const selectedSpeakerId = useChatStore.getState().selectedSpeakerId;
-        if (selectedSpeakerId && typeof (el as any).setSinkId === 'function') {
-          (el as any).setSinkId(selectedSpeakerId).catch(() => {});
-        }
-
         document.body.appendChild(el);
         this.attachedAudioElements.set(key, el);
       }

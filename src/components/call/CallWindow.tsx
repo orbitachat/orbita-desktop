@@ -14,7 +14,6 @@ import { ScreenSharePickerModal } from './ScreenSharePickerModal';
 import { generateKeyPair, generateChatId } from '../../lib/crypto';
 import { attachRustVoiceDetector } from '../../services/rustVoiceVadService';
 import { SignalStrengthIcon } from './SignalStrengthIcon';
-import { DeveloperBadge } from '../ui/DeveloperBadge';
 
 const GroupParticipantTile = memo(({
   participant,
@@ -246,7 +245,7 @@ const GroupParticipantTile = memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}
@@ -272,7 +271,6 @@ const GroupParticipantTile = memo(({
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-full border-0 shadow-sm">
           <SignalStrengthIcon level={(participant as any).connectionQuality || 4} size={13} />
           <span className="truncate">{displayName}</span>
-          <DeveloperBadge nickname={displayName} userId={participant.identity} size={13} className="ml-1 inline-flex shrink-0" />
           {isMuted && (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
               <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
@@ -413,7 +411,7 @@ const ExpandedGroupParticipantTile = memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden shadow-2xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}
@@ -439,7 +437,6 @@ const ExpandedGroupParticipantTile = memo(({
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-full border-0 shadow-sm">
           <SignalStrengthIcon level={(participant as any).connectionQuality || 4} size={13} />
           <span className="truncate">{displayName}</span>
-          <DeveloperBadge nickname={displayName} userId={participant.identity} size={13} className="ml-1 inline-flex shrink-0" />
           {isMuted && (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
               <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
@@ -1576,9 +1573,8 @@ export const CallWindow = () => {
 
         {hasAnyActiveStream && !expandedShare && (
           <div className="flex flex-col items-center mt-3 select-none">
-            <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white inline-flex items-center justify-center gap-1.5">
-              <span>{otherName}</span>
-              <DeveloperBadge nickname={otherName} userId={activeCall?.chatId} size={18} className="shrink-0" />
+            <h2 className="text-xl font-bold tracking-tight text-center truncate max-w-full text-white">
+              {otherName}
             </h2>
             <p
               className="mt-0.5 text-sm tabular-nums font-semibold text-center"
@@ -1603,9 +1599,8 @@ export const CallWindow = () => {
               </div>
             </div>
 
-            <h2 className="mt-7 text-2xl font-bold tracking-tight text-center px-4 inline-flex items-center justify-center gap-1.5" style={{ color: 'var(--text-main)' }}>
-              <span>{otherName}</span>
-              <DeveloperBadge nickname={otherName} userId={activeCall?.chatId} size={18} className="shrink-0" />
+            <h2 className="mt-7 text-2xl font-bold tracking-tight text-center px-4" style={{ color: 'var(--text-main)' }}>
+              {otherName}
             </h2>
 
             {isPreparing ? (

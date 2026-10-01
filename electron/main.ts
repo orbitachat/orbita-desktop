@@ -82,7 +82,6 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('enable-accelerated-video-decode');
 app.commandLine.appendSwitch('enable-accelerated-video-encode');
 app.commandLine.appendSwitch('enable-features', 'CalculateNativeWinOcclusion,WebRtcD3D11VideoDecoder,WebRtcHardwareVideoEncoding,WebRtcD3d11DesktopCapturer,PlatformHEVCDecoderSupport');
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
 
 // Load optional native module
 let nativeModule: any = null;
@@ -3035,15 +3034,14 @@ ipcMain.handle('orbita:open-call-window', (_event, payload?: any) => {
 ipcMain.handle('orbita:close-call-window', () => {
   if (callWindow && !callWindow.isDestroyed()) {
     currentCallStateCache = null;
-    try {
-      callWindow.close();
-    } catch {
-      try { callWindow.destroy(); } catch {}
-    }
-    callWindow = null;
+    callWindow.hide();
+    callWindow.webContents.send('orbita:call-state', null);
     if (global.gc) {
-      try { global.gc(); } catch {}
+      try { global.gc(); } catch { }
     }
+    try {
+      callWindow.webContents.executeJavaScript('if (typeof window !== "undefined" && window.gc) window.gc();', true).catch(() => {});
+    } catch { }
   }
   return { success: true };
 });

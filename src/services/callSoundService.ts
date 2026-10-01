@@ -118,7 +118,7 @@ class CallSoundService {
           source.loop = isLoop;
 
           const gainNode = ctx.createGain();
-          gainNode.gain.setValueAtTime(0.35, ctx.currentTime);
+          gainNode.gain.setValueAtTime(1.0, ctx.currentTime);
 
           source.connect(gainNode);
           gainNode.connect(ctx.destination);
@@ -152,7 +152,7 @@ class CallSoundService {
     try {
       const audio = new Audio('./' + path);
       audio.loop = isLoop;
-      audio.volume = 0.35;
+      audio.volume = 1.0;
 
       const speakerId = useChatStore.getState().selectedSpeakerId;
       if (speakerId && typeof (audio as any).setSinkId === 'function') {

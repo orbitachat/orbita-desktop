@@ -2,7 +2,6 @@ import { useCallStore } from '../../store/useCallStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useTranslation } from 'react-i18next';
 import { Mic, MicOff } from 'lucide-react';
-import { DeveloperBadge } from '../ui/DeveloperBadge';
 
 export const CallMiniPlayer = () => {
   const { t } = useTranslation();
@@ -91,7 +90,6 @@ export const CallMiniPlayer = () => {
         >
           {otherName}
         </span>
-        <DeveloperBadge nickname={otherName} userId={chat?.peerCode || activeCall?.chatId} size={12} className="ml-1 inline-flex shrink-0" />
       </div>
 
       <div className="flex items-center gap-3 ml-auto flex-shrink-0 z-10">
