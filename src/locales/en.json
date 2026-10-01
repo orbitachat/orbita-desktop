@@ -424,6 +424,7 @@
       "playback_speed": "Playback speed"
     },
     "call": {
+      "speaking": "speaking",
       "answer": "Accept",
       "reject": "Decline",
       "call": "Call",

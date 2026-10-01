@@ -87,7 +87,7 @@ export class GroupLiveKitService extends EventEmitter {
           params.encodings.forEach((enc: any) => {
             enc.priority = 'high';
             enc.networkPriority = 'high';
-            enc.maxBitrate = 128000;
+            enc.maxBitrate = 64000;
           });
           sender.setParameters(params).catch(() => {});
         }
@@ -177,14 +177,14 @@ export class GroupLiveKitService extends EventEmitter {
           videoCaptureDefaults: {
             deviceId: selectedCamId || undefined,
             resolution: {
-              width: 640,
-              height: 360,
+              width: 854,
+              height: 480,
               frameRate: 15,
               aspectRatio: 16 / 9,
             },
           },
           publishDefaults: {
-            dtx: false,
+            dtx: true,
             red: true,
             forceStereo: false,
             audioPreset: {
@@ -193,14 +193,14 @@ export class GroupLiveKitService extends EventEmitter {
             },
             videoCodec: 'h264',
             videoEncoding: {
-              maxBitrate: 250000,
+              maxBitrate: 450000,
               maxFramerate: 15,
               priority: 'medium',
             },
             degradationPreference: 'maintain-resolution',
             screenShareEncoding: {
-              maxBitrate: 450000,
-              maxFramerate: 12,
+              maxBitrate: 550000,
+              maxFramerate: 15,
               priority: 'low',
             },
             simulcast: false,
@@ -229,7 +229,11 @@ export class GroupLiveKitService extends EventEmitter {
             this.emit('participantsChanged', this.getParticipants());
             this.emit('activeSpeakersChanged', speakers);
           })
-          .on(RoomEvent.ConnectionQualityChanged, (q: any, p: any) => this.emit('connectionQuality', q, p.identity))
+          .on(RoomEvent.ConnectionQualityChanged, (q: any, p: any) => {
+            this.updateParticipants();
+            this.emit('connectionQuality', q, p.identity);
+            this.emit('participantsChanged', this.getParticipants());
+          })
           .on(RoomEvent.LocalTrackPublished, (pub: any) => {
             if (pub.source === Track.Source.ScreenShare) {
               this.screenShareTrack = (pub.track as LocalTrack) || null;
@@ -520,10 +524,11 @@ export class GroupLiveKitService extends EventEmitter {
         sampleRate: 48000,
         sampleSize: 16,
       }, {
-        dtx: false,
+        dtx: true,
+        red: true,
         forceStereo: false,
         audioPreset: {
-          maxBitrate: 128000,
+          maxBitrate: 64000,
           priority: 'high',
         },
       });
@@ -598,15 +603,15 @@ export class GroupLiveKitService extends EventEmitter {
       await this.localParticipant.setCameraEnabled(true, {
         deviceId: selectedCamId || undefined,
         resolution: {
-          width: 640,
-          height: 360,
+          width: 854,
+          height: 480,
           frameRate: 15,
           aspectRatio: 16 / 9,
         },
       }, {
         videoCodec: 'h264',
         videoEncoding: {
-          maxBitrate: 250000,
+          maxBitrate: 450000,
           maxFramerate: 15,
           priority: 'medium',
         },
@@ -718,8 +723,8 @@ export class GroupLiveKitService extends EventEmitter {
     if (!this.localParticipant) return false;
     const width = 1280;
     const height = 720;
-    const frameRate = 12;
-    const maxBitrate = 450000;
+    const frameRate = 15;
+    const maxBitrate = 550000;
     const includeAudio = !!options?.audio;
 
     try {
@@ -790,9 +795,10 @@ export class GroupLiveKitService extends EventEmitter {
             source: Track.Source.ScreenShareAudio,
             name: 'screen_share_audio',
             forceStereo: true,
-            dtx: false,
+            dtx: true,
+            red: true,
             audioPreset: {
-              maxBitrate: 128000,
+              maxBitrate: 64000,
               priority: 'low',
             },
           });
@@ -951,6 +957,7 @@ export class GroupLiveKitService extends EventEmitter {
         screenShareEnabled: isScreenOn,
         isSpeaking: !!this.localParticipant?.isSpeaking,
         isLocal: true,
+        connectionQuality: this.localParticipant.connectionQuality,
       };
       this.participants.set(this.localParticipant.identity, info);
     }
@@ -995,6 +1002,7 @@ export class GroupLiveKitService extends EventEmitter {
         screenShareEnabled: screenEnabled,
         isSpeaking: participant.isSpeaking,
         isLocal: false,
+        connectionQuality: participant.connectionQuality,
       };
       this.participants.set(identity, info);
     }

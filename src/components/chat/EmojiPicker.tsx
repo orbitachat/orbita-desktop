@@ -18,7 +18,7 @@ import {
   StickerItem,
   searchStickers,
 } from '../../lib/stickers-and-gifs';
-import { TgsPlayer, prewarmTgsAnimations } from './TgsPlayer';
+import { TgsPlayer, clearTgsCache } from './TgsPlayer';
 
 interface EmojiPickerProps {
   onSelect: (emoji: string) => void;
@@ -118,8 +118,9 @@ export const EmojiPicker = ({
   }, []);
 
   useEffect(() => {
-    const urls = STICKER_PACKS[0]?.stickers.slice(0, 16).map((s) => s.url) || [];
-    prewarmTgsAnimations(urls);
+    return () => {
+      clearTgsCache();
+    };
   }, []);
 
   const handleSelectEmoji = useCallback(
@@ -317,10 +318,12 @@ export const EmojiPicker = ({
 
   const [renderedEmojiCount, setRenderedEmojiCount] = useState(25);
   const [renderedGifCount, setRenderedGifCount] = useState(12);
+  const [renderedStickerCount, setRenderedStickerCount] = useState(24);
 
   useEffect(() => {
     setRenderedEmojiCount(25);
     setRenderedGifCount(12);
+    setRenderedStickerCount(24);
   }, [searchQuery, activeTab]);
 
   const visibleEmojiRows = useMemo(() => {
@@ -356,6 +359,13 @@ export const EmojiPicker = ({
       }
     }
   }, [renderedGifCount, gifRows.length]);
+
+  const handleStickerScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 350) {
+      setRenderedStickerCount((prev) => prev + 20);
+    }
+  }, []);
 
   const filteredStickers = useMemo(() => {
     if (activeTab !== 'stickers') return [];
@@ -530,6 +540,7 @@ export const EmojiPicker = ({
 
             {activeTab === 'stickers' && (
               <div
+                onScroll={handleStickerScroll}
                 className="custom-chat-scrollbar h-full overflow-y-auto overflow-x-hidden"
                 style={{
                   padding: '0 8px 10px 8px',
@@ -544,7 +555,7 @@ export const EmojiPicker = ({
                     </div>
                   ) : (
                     <div className="grid grid-cols-4 gap-2 pt-1">
-                      {filteredStickers.map((sticker) => (
+                      {filteredStickers.slice(0, renderedStickerCount).map((sticker) => (
                         <StickerGridButton
                           key={sticker.id}
                           sticker={sticker}
@@ -554,22 +565,46 @@ export const EmojiPicker = ({
                     </div>
                   )
                 ) : (
-                  STICKER_PACKS.map((pack) => (
-                    <div key={pack.id} className="mb-3" id={`sticker-pack-${pack.id}`}>
-                      <div className="px-1 pt-2 pb-1 text-xs font-semibold text-white/40 select-none">
-                        {pack.title}
-                      </div>
-                      <div className="grid grid-cols-4 gap-2">
-                        {pack.stickers.map((sticker) => (
-                          <StickerGridButton
-                            key={sticker.id}
-                            sticker={sticker}
-                            onSelect={handleSelectSticker}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))
+                  (() => {
+                    let cumulativeCount = 0;
+                    return STICKER_PACKS.map((pack) => {
+                      const packStart = cumulativeCount;
+                      cumulativeCount += pack.stickers.length;
+                      const packVisibleStickers = pack.stickers.slice(
+                        0,
+                        Math.max(0, renderedStickerCount - packStart)
+                      );
+                      if (packVisibleStickers.length === 0 && packStart >= renderedStickerCount) {
+                        return (
+                          <div key={pack.id} id={`sticker-pack-${pack.id}`} className="mb-3">
+                            <div className="px-1 pt-2 pb-1 text-xs font-semibold text-white/40 select-none">
+                              {pack.title}
+                            </div>
+                            <div style={{ height: `${Math.ceil(pack.stickers.length / 4) * 78}px` }} />
+                          </div>
+                        );
+                      }
+                      const unrenderedCount = pack.stickers.length - packVisibleStickers.length;
+                      const placeholderHeight = unrenderedCount > 0 ? Math.ceil(unrenderedCount / 4) * 78 : 0;
+                      return (
+                        <div key={pack.id} className="mb-3" id={`sticker-pack-${pack.id}`}>
+                          <div className="px-1 pt-2 pb-1 text-xs font-semibold text-white/40 select-none">
+                            {pack.title}
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            {packVisibleStickers.map((sticker) => (
+                              <StickerGridButton
+                                key={sticker.id}
+                                sticker={sticker}
+                                onSelect={handleSelectSticker}
+                              />
+                            ))}
+                          </div>
+                          {placeholderHeight > 0 && <div style={{ height: `${placeholderHeight}px` }} />}
+                        </div>
+                      );
+                    });
+                  })()
                 )}
               </div>
             )}

@@ -14,6 +14,7 @@ import { generateCallVerificationEmojis } from '../../lib/call-verification';
 import { useChatStore, FONT_MAP, type FontFamily } from '../../store/useChatStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { attachRustVoiceDetector } from '../../services/rustVoiceVadService';
+import { SignalStrengthIcon } from './SignalStrengthIcon';
 
 interface CallStatePayload {
   activeCall: {
@@ -93,6 +94,7 @@ const GroupParticipantTile = React.memo(({
   onTileClick?: (participant: ParticipantInfo) => void;
   onAvatarClick?: (participant: ParticipantInfo) => void;
 }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isLocal = participant.isLocal;
   const hasScreenShare = isLocal ? isScreenSharing : !!participant.screenShareEnabled;
@@ -165,7 +167,7 @@ const GroupParticipantTile = React.memo(({
       const msTrack = aTrack?.mediaStreamTrack;
 
       if (msTrack && msTrack.readyState !== 'ended' && msTrack.enabled) {
-        cleanupDetector = attachRustVoiceDetector(msTrack, setIsSpeakingRealtime, 0.005);
+        cleanupDetector = attachRustVoiceDetector(msTrack, setIsSpeakingRealtime, 0.028);
       } else {
         setIsSpeakingRealtime(false);
         if (isLocal && !isMuted) {
@@ -264,7 +266,6 @@ const GroupParticipantTile = React.memo(({
       style={{
         backgroundColor: 'color-mix(in srgb, var(--bg-secondary, #1a1726) 85%, black)',
         border: 'none',
-        boxShadow: isSpeaking ? '0 0 0 3px var(--accent-color, #7C3AED)' : undefined,
         transition: 'none',
       }}
     >
@@ -323,13 +324,24 @@ const GroupParticipantTile = React.memo(({
           </div>
         </>
       )}
-      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-[85%] border-0 shadow-sm pointer-events-none">
-        <span className="truncate">{displayName}</span>
-        {isMuted && (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
-            <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
-          </svg>
+      <div className="absolute bottom-3 left-3 z-20 flex flex-col items-start gap-1 max-w-[85%] pointer-events-none">
+        {isSpeaking && (
+          <div
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[11px] font-semibold border-0 shadow-sm"
+            style={{ color: 'var(--accent-color, #7C3AED)' }}
+          >
+            <span>{t('call.speaking')}</span>
+          </div>
         )}
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-full border-0 shadow-sm">
+          <SignalStrengthIcon level={(participant as any).connectionQuality || 4} size={13} />
+          <span className="truncate">{displayName}</span>
+          {isMuted && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
+              <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
+            </svg>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -354,6 +366,7 @@ const ExpandedGroupParticipantTile = React.memo(({
   knownAvatars?: Record<string, string>;
   onAvatarClick?: (participant: ParticipantInfo) => void;
 }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isLocal = participant.isLocal;
   const hasScreenShare = isLocal ? isScreenSharing : !!participant.screenShareEnabled;
@@ -494,13 +507,24 @@ const ExpandedGroupParticipantTile = React.memo(({
           </div>
         </div>
       )}
-      <div className="absolute bottom-4 left-4 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-[85%] border-0 shadow-sm pointer-events-none">
-        <span className="truncate">{displayName}</span>
-        {isMuted && (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
-            <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
-          </svg>
+      <div className="absolute bottom-4 left-4 z-30 flex flex-col items-start gap-1 max-w-[85%] pointer-events-none">
+        {participant.isSpeaking && (
+          <div
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[11px] font-semibold border-0 shadow-sm"
+            style={{ color: 'var(--accent-color, #7C3AED)' }}
+          >
+            <span>{t('call.speaking')}</span>
+          </div>
         )}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-xs font-semibold text-white/95 max-w-full border-0 shadow-sm">
+          <SignalStrengthIcon level={(participant as any).connectionQuality || 4} size={13} />
+          <span className="truncate">{displayName}</span>
+          {isMuted && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="13" height="13" className="w-3.5 h-3.5 text-red-400 flex-shrink-0">
+              <path fill="currentColor" d="M4.113 6.945a4 4 0 0 0 2.94 2.94L9.069 11.9l-.073.015Q9 11.957 9 12v1h1a1 1 0 1 1 0 2H6a1 1 0 1 1 0-2h1v-1q0-.043.004-.085A6 6 0 0 1 2 6a1 1 0 0 1 .382-.786zM8 1a3 3 0 0 1 3 3v2c0 .978-.47 1.843-1.195 2.39l.712.713A3.99 3.99 0 0 0 12 6a1 1 0 0 1 2 0a5.97 5.97 0 0 1-2.065 4.52l2.772 2.773a1 1 0 1 1-1.414 1.414l-12-12a1 1 0 1 1 1.414-1.414l2.318 2.318A3 3 0 0 1 8 1" />
+            </svg>
+          )}
+        </div>
       </div>
     </div>
   );

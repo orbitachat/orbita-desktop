@@ -28,7 +28,7 @@ class RustVoiceVadService {
     } catch {}
   }
 
-  public isVoiceDetected(samples: Float32Array, threshold = 0.006): boolean {
+  public isVoiceDetected(samples: Float32Array, threshold = 0.028): boolean {
     if (!this.instance || !this.floatView) return false;
     const len = Math.min(samples.length, this.bufferLen);
     this.floatView.set(samples.subarray(0, len));
@@ -42,7 +42,7 @@ export const rustVoiceVad = new RustVoiceVadService();
 export function attachRustVoiceDetector(
   track: MediaStreamTrack | null | undefined,
   onSpeakingChange: (isSpeaking: boolean) => void,
-  threshold = 0.006
+  threshold = 0.028
 ): () => void {
   if (!track || track.readyState === 'ended' || !track.enabled) {
     onSpeakingChange(false);
@@ -55,6 +55,7 @@ export function attachRustVoiceDetector(
   let animId: number | null = null;
   let silenceTimer: any = null;
   let isSpeakingState = false;
+  let consecutiveVoiceFrames = 0;
 
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -69,7 +70,7 @@ export function attachRustVoiceDetector(
     sourceNode = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.0;
+    analyser.smoothingTimeConstant = 0.2;
     sourceNode.connect(analyser);
 
     const buffer = new Float32Array(analyser.fftSize);
@@ -81,20 +82,26 @@ export function attachRustVoiceDetector(
       const hasVoice = rustVoiceVad.isVoiceDetected(buffer, threshold);
 
       if (hasVoice) {
-        if (silenceTimer) {
-          clearTimeout(silenceTimer);
-          silenceTimer = null;
+        consecutiveVoiceFrames++;
+        if (consecutiveVoiceFrames >= 3) {
+          if (silenceTimer) {
+            clearTimeout(silenceTimer);
+            silenceTimer = null;
+          }
+          if (!isSpeakingState) {
+            isSpeakingState = true;
+            onSpeakingChange(true);
+          }
         }
-        if (!isSpeakingState) {
-          isSpeakingState = true;
-          onSpeakingChange(true);
+      } else {
+        consecutiveVoiceFrames = 0;
+        if (isSpeakingState && !silenceTimer) {
+          silenceTimer = setTimeout(() => {
+            isSpeakingState = false;
+            onSpeakingChange(false);
+            silenceTimer = null;
+          }, 260);
         }
-      } else if (isSpeakingState && !silenceTimer) {
-        silenceTimer = setTimeout(() => {
-          isSpeakingState = false;
-          onSpeakingChange(false);
-          silenceTimer = null;
-        }, 70);
       }
 
       animId = requestAnimationFrame(checkAudio);

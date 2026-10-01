@@ -12,9 +12,18 @@ interface TgsPlayerProps {
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-const MAX_CACHE_SIZE = 25;
+const MAX_CACHE_SIZE = 12;
 const tgsCache = new Map<string, any>();
 const pendingRequests = new Map<string, Promise<any>>();
+
+export function clearTgsCache(): void {
+  tgsCache.clear();
+  pendingRequests.clear();
+  lottieInitQueue.length = 0;
+  try {
+    (lottie as any).destroy?.();
+  } catch {}
+}
 
 function getFromCache(key: string): any {
   if (!tgsCache.has(key)) return null;
@@ -176,13 +185,11 @@ export async function loadTgsAnimation(src: string): Promise<any> {
           : `/${src}`;
         res = await fetch(alt).catch(() => null);
       }
-      if (!res || !res.ok) {
+      if (!res || !res.ok || !res.body) {
         throw new Error(`Failed to fetch sticker: ${src}`);
       }
 
-      const blob = await res.blob();
-      const ds = new DecompressionStream('gzip');
-      const decompressed = blob.stream().pipeThrough(ds);
+      const decompressed = res.body.pipeThrough(new DecompressionStream('gzip'));
       const text = await new Response(decompressed).text();
       const json = JSON.parse(text);
       addToCache(src, json);
@@ -309,6 +316,14 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       if (anim) {
         anim.destroy();
       }
+      if (containerRef.current) {
+        const canvases = containerRef.current.querySelectorAll('canvas');
+        canvases.forEach((c) => {
+          c.width = 0;
+          c.height = 0;
+        });
+        containerRef.current.innerHTML = '';
+      }
       animRef.current = null;
       isPlayingRef.current = false;
       setIsReady(false);
@@ -350,6 +365,11 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
           animRef.current = null;
         }
         if (containerRef.current) {
+          const canvases = containerRef.current.querySelectorAll('canvas');
+          canvases.forEach((c) => {
+            c.width = 0;
+            c.height = 0;
+          });
           containerRef.current.innerHTML = '';
         }
         setIsReady(false);

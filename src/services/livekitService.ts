@@ -27,6 +27,7 @@ export interface ParticipantInfo {
   screenShareEnabled?: boolean;
   isSpeaking: boolean;
   isLocal: boolean;
+  connectionQuality?: any;
 }
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://orbita-qd7zok2r.livekit.cloud';
@@ -278,30 +279,30 @@ class LiveKitService extends EventEmitter {
       videoCaptureDefaults: {
         deviceId: selectedCamId || undefined,
         resolution: {
-          width: 640,
-          height: 360,
+          width: 854,
+          height: 480,
           frameRate: 15,
           aspectRatio: 16 / 9,
         },
       },
       publishDefaults: {
-        dtx: false,
+        dtx: true,
         red: true,
         forceStereo: false,
         audioPreset: {
-          maxBitrate: 128000,
+          maxBitrate: 64000,
           priority: 'high',
         },
         videoCodec: 'h264',
         videoEncoding: {
-          maxBitrate: 250000,
+          maxBitrate: 450000,
           maxFramerate: 15,
           priority: 'medium',
         },
         degradationPreference: 'maintain-resolution',
         screenShareEncoding: {
-          maxBitrate: 450000,
-          maxFramerate: 12,
+          maxBitrate: 550000,
+          maxFramerate: 15,
           priority: 'low',
         },
         simulcast: false,
@@ -633,15 +634,15 @@ class LiveKitService extends EventEmitter {
       await this.localParticipant.setCameraEnabled(true, {
         deviceId: selectedCamId || undefined,
         resolution: {
-          width: 640,
-          height: 360,
+          width: 854,
+          height: 480,
           frameRate: 15,
           aspectRatio: 16 / 9,
         },
       }, {
         videoCodec: 'h264',
         videoEncoding: {
-          maxBitrate: 250000,
+          maxBitrate: 450000,
           maxFramerate: 15,
           priority: 'medium',
         },
@@ -754,8 +755,8 @@ class LiveKitService extends EventEmitter {
     }
     const width = 1280;
     const height = 720;
-    const frameRate = 12;
-    const maxBitrate = 450000;
+    const frameRate = 15;
+    const maxBitrate = 550000;
     const includeAudio = !!options?.audio;
 
     try {
@@ -1131,6 +1132,7 @@ class LiveKitService extends EventEmitter {
   }
 
   private onConnectionQualityChanged(quality: any, participant: any): void {
+    this.updateParticipants();
     this.emit('connectionQuality', quality, participant.identity);
   }
 
@@ -1154,6 +1156,7 @@ class LiveKitService extends EventEmitter {
         screenShareEnabled: isScreenOn,
         isSpeaking: false,
         isLocal: true,
+        connectionQuality: this.localParticipant.connectionQuality,
       };
       this.participants.set(this.localParticipant.identity, info);
     }
@@ -1191,6 +1194,7 @@ class LiveKitService extends EventEmitter {
         screenShareEnabled,
         isSpeaking: participant.isSpeaking,
         isLocal: false,
+        connectionQuality: participant.connectionQuality,
       };
       this.participants.set(identity, info);
     }
