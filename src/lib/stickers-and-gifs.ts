@@ -269,7 +269,7 @@ export const UTYA_STICKER_PACK: StickerPack = {
       name: `Utya ${i + 1}`,
       tags: ['utya', 'duck', 'утя', 'утка', 'уточка', 'cute', 'tgs', 'animated', 'анимация'],
     };
-  }),
+  }).filter((s) => s.id !== 'utya_029'),
 };
 
 export const STICKER_PACKS: StickerPack[] = [

@@ -59,8 +59,9 @@ const StickerGridButton: React.FC<{
       {isTgs ? (
         <TgsPlayer
           src={sticker.url}
-          loop={true}
+          loop={false}
           autoplay={true}
+          playOnHover={true}
           className="w-full h-full select-none pointer-events-none"
         />
       ) : (

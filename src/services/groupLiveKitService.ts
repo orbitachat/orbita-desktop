@@ -162,8 +162,8 @@ export class GroupLiveKitService extends EventEmitter {
         const selectedCamId = useChatStore.getState().selectedCameraId;
 
         const roomOptions: RoomOptions = {
-          adaptiveStream: false,
-          dynacast: false,
+          adaptiveStream: true,
+          dynacast: true,
           stopLocalTrackOnUnpublish: true,
           audioCaptureDefaults: {
             deviceId: selectedMicId || undefined,

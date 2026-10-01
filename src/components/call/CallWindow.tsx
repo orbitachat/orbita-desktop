@@ -668,14 +668,9 @@ export const CallWindow = () => {
   const attachBgVideo = useCallback((el: HTMLVideoElement | null) => {
     bgVideoRef.current = el;
     if (el) {
-      const sTrack = liveKitService.getRemoteScreenShareTrack();
-      if (sTrack && !sTrack.isMuted) {
-        sTrack.attach(el);
-      } else {
-        const rTrack = liveKitService.getRemoteVideoTrack();
-        if (rTrack && !rTrack.isMuted) {
-          rTrack.attach(el);
-        }
+      const rTrack = liveKitService.getRemoteVideoTrack();
+      if (rTrack && !rTrack.isMuted) {
+        rTrack.attach(el);
       }
     }
   }, []);
@@ -868,7 +863,6 @@ export const CallWindow = () => {
     const sTrack = liveKitService.getRemoteScreenShareTrack();
     if (sTrack && !sTrack.isMuted && remoteScreenShareRef.current) {
       sTrack.attach(remoteScreenShareRef.current);
-      if (bgVideoRef.current) sTrack.attach(bgVideoRef.current);
       setIsRemoteScreenShareActive(true);
     }
     const track = liveKitService.getRemoteVideoTrack();
@@ -884,10 +878,8 @@ export const CallWindow = () => {
   useEffect(() => {
     if (!bgVideoRef.current) return;
     if (isRemoteScreenShareActive) {
-      const sTrack = liveKitService.getRemoteScreenShareTrack();
-      if (sTrack) {
-        if (remoteScreenShareRef.current) sTrack.attach(remoteScreenShareRef.current);
-        sTrack.attach(bgVideoRef.current);
+      if (bgVideoRef.current.srcObject) {
+        bgVideoRef.current.srcObject = null;
       }
     } else if (isRemoteVideoActive) {
       const track = liveKitService.getRemoteVideoTrack();
@@ -901,7 +893,7 @@ export const CallWindow = () => {
   useEffect(() => {
     if (remoteScreenShareTrack) {
       if (remoteScreenShareRef.current) remoteScreenShareTrack.attach(remoteScreenShareRef.current);
-      if (bgVideoRef.current) remoteScreenShareTrack.attach(bgVideoRef.current);
+      if (bgVideoRef.current) bgVideoRef.current.srcObject = null;
       setIsRemoteScreenShareActive(true);
     } else {
       setIsRemoteScreenShareActive(false);
@@ -1142,7 +1134,7 @@ export const CallWindow = () => {
         WebkitUserSelect: 'none',
       }}
     >
-      {(isRemoteVideoActive || isRemoteScreenShareActive) && (
+      {isRemoteVideoActive && !isRemoteScreenShareActive && !isMinimized && (
         <div
           className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
           style={{ contain: 'strict' }}
@@ -1154,10 +1146,10 @@ export const CallWindow = () => {
             muted
             className="w-full h-full object-cover pointer-events-none"
             style={{
-              filter: 'blur(30px)',
-              transform: 'scale(1.15) translate3d(0, 0, 0)',
+              filter: 'blur(16px)',
+              transform: 'scale(1.05) translate3d(0, 0, 0)',
               willChange: 'transform',
-              opacity: 0.35,
+              opacity: 0.3,
               backfaceVisibility: 'hidden',
             }}
           />

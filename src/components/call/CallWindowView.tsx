@@ -821,14 +821,9 @@ export const CallWindowView = () => {
   const attachBgVideo = useCallback((el: HTMLVideoElement | null) => {
     bgVideoRef.current = el;
     if (el) {
-      const sTrack = liveKitService.getRemoteScreenShareTrack();
-      if (sTrack && !sTrack.isMuted) {
-        sTrack.attach(el);
-      } else {
-        const rTrack = liveKitService.getRemoteVideoTrack();
-        if (rTrack && !rTrack.isMuted) {
-          rTrack.attach(el);
-        }
+      const rTrack = liveKitService.getRemoteVideoTrack();
+      if (rTrack && !rTrack.isMuted) {
+        rTrack.attach(el);
       }
     }
   }, []);
@@ -1500,18 +1495,15 @@ export const CallWindowView = () => {
   };
 
   useEffect(() => {
-    if (hasRemoteStream && bgVideoRef.current) {
-      const sTrack = liveKitService.getRemoteScreenShareTrack();
-      if (sTrack && !sTrack.isMuted) {
-        sTrack.attach(bgVideoRef.current);
-      } else {
-        const rTrack = liveKitService.getRemoteVideoTrack();
-        if (rTrack && !rTrack.isMuted) {
-          rTrack.attach(bgVideoRef.current);
-        }
+    if (isRemoteVideoActive && !isRemoteScreenShareActive && bgVideoRef.current) {
+      const rTrack = liveKitService.getRemoteVideoTrack();
+      if (rTrack && !rTrack.isMuted) {
+        rTrack.attach(bgVideoRef.current);
       }
+    } else if (bgVideoRef.current && bgVideoRef.current.srcObject) {
+      bgVideoRef.current.srcObject = null;
     }
-  }, [hasRemoteStream]);
+  }, [isRemoteVideoActive, isRemoteScreenShareActive]);
 
   if (!callData || callData.callState === 'idle' || callData.callState === 'ended') {
     return (
@@ -1536,7 +1528,7 @@ export const CallWindowView = () => {
         ['--title-bar-bg' as any]: 'transparent',
       }}
     >
-      {hasRemoteStream && (
+      {isRemoteVideoActive && !isRemoteScreenShareActive && (
         <div
           className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
           style={{ contain: 'strict' }}
@@ -1548,10 +1540,10 @@ export const CallWindowView = () => {
             muted
             className="w-full h-full object-cover pointer-events-none"
             style={{
-              filter: 'blur(30px)',
-              transform: 'scale(1.15) translate3d(0, 0, 0)',
+              filter: 'blur(16px)',
+              transform: 'scale(1.05) translate3d(0, 0, 0)',
               willChange: 'transform',
-              opacity: 0.35,
+              opacity: 0.3,
               backfaceVisibility: 'hidden',
             }}
           />

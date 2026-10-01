@@ -8,11 +8,33 @@ interface TgsPlayerProps {
   style?: React.CSSProperties;
   loop?: boolean;
   autoplay?: boolean;
+  playOnHover?: boolean;
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
+const MAX_CACHE_SIZE = 25;
 const tgsCache = new Map<string, any>();
 const pendingRequests = new Map<string, Promise<any>>();
+
+function getFromCache(key: string): any {
+  if (!tgsCache.has(key)) return null;
+  const val = tgsCache.get(key);
+  tgsCache.delete(key);
+  tgsCache.set(key, val);
+  return val;
+}
+
+function addToCache(key: string, data: any): void {
+  if (tgsCache.has(key)) {
+    tgsCache.delete(key);
+  } else if (tgsCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = tgsCache.keys().next().value;
+    if (oldestKey) {
+      tgsCache.delete(oldestKey);
+    }
+  }
+  tgsCache.set(key, data);
+}
 
 const MAX_CONCURRENT_DECOMPRESSIONS = 2;
 let activeDecompressions = 0;
@@ -56,7 +78,7 @@ function getSharedObserver(): IntersectionObserver | null {
           }
         }
       },
-      { rootMargin: '60px 0px 60px 0px', threshold: 0.01 }
+      { rootMargin: '40px 0px 40px 0px', threshold: 0.01 }
     );
   }
   return sharedObserver;
@@ -110,7 +132,7 @@ export function prewarmTgsAnimations(urls: string[]): void {
   function step() {
     if (idx >= urls.length) return;
     const url = urls[idx++];
-    if (!tgsCache.has(url)) {
+    if (!getFromCache(url)) {
       loadTgsAnimation(url).finally(() => {
         if (typeof requestIdleCallback !== 'undefined') {
           requestIdleCallback(step);
@@ -130,8 +152,9 @@ export function prewarmTgsAnimations(urls: string[]): void {
 }
 
 export async function loadTgsAnimation(src: string): Promise<any> {
-  if (tgsCache.has(src)) {
-    return tgsCache.get(src);
+  const cached = getFromCache(src);
+  if (cached) {
+    return cached;
   }
   if (pendingRequests.has(src)) {
     return pendingRequests.get(src);
@@ -140,8 +163,9 @@ export async function loadTgsAnimation(src: string): Promise<any> {
   const promise = (async () => {
     await acquireDecompressionSlot();
     try {
-      if (tgsCache.has(src)) {
-        return tgsCache.get(src);
+      const existing = getFromCache(src);
+      if (existing) {
+        return existing;
       }
       let res = await fetch(src).catch(() => null);
       if (!res || !res.ok) {
@@ -161,7 +185,7 @@ export async function loadTgsAnimation(src: string): Promise<any> {
       const decompressed = blob.stream().pipeThrough(ds);
       const text = await new Response(decompressed).text();
       const json = JSON.parse(text);
-      tgsCache.set(src, json);
+      addToCache(src, json);
       return json;
     } finally {
       releaseDecompressionSlot();
@@ -179,13 +203,15 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   style,
   loop = true,
   autoplay = true,
+  playOnHover = false,
   onClick,
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<AnimationItem | null>(null);
-  const [shouldLoad, setShouldLoad] = useState<boolean>(() => tgsCache.has(src));
-  const [animData, setAnimData] = useState<any>(() => tgsCache.get(src) || null);
+  const [isInView, setIsInView] = useState<boolean>(false);
+  const [shouldLoad, setShouldLoad] = useState<boolean>(() => !!getFromCache(src));
+  const [animData, setAnimData] = useState<any>(() => getFromCache(src));
   const [isReady, setIsReady] = useState(false);
   const hasPlayedRef = useRef(false);
   const isIntersectingRef = useRef(false);
@@ -194,7 +220,8 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
   useEffect(() => {
     if (!shouldLoad) return;
     let isMounted = true;
-    if (!tgsCache.has(src)) {
+    const cached = getFromCache(src);
+    if (!cached) {
       loadTgsAnimation(src)
         .then((data) => {
           if (isMounted) {
@@ -205,7 +232,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
           console.error('[TgsPlayer] load error:', src, err);
         });
     } else {
-      setAnimData(tgsCache.get(src));
+      setAnimData(cached);
     }
     return () => {
       isMounted = false;
@@ -214,7 +241,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !animData) return;
+    if (!container || !animData || !isInView) return;
 
     if (animRef.current) {
       animRef.current.destroy();
@@ -223,7 +250,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
 
     let anim: AnimationItem | null = null;
     const cancelSchedule = scheduleLottieInit(() => {
-      if (!containerRef.current) return;
+      if (!containerRef.current || !isIntersectingRef.current) return;
       try {
         anim = lottie.loadAnimation({
           container: containerRef.current,
@@ -286,11 +313,12 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
       isPlayingRef.current = false;
       setIsReady(false);
     };
-  }, [animData, loop, autoplay]);
+  }, [animData, loop, autoplay, isInView]);
 
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) {
+      setIsInView(true);
       setShouldLoad(true);
       isIntersectingRef.current = true;
       return;
@@ -299,6 +327,7 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
     return observeElement(el, (isIntersecting) => {
       isIntersectingRef.current = isIntersecting;
       if (isIntersecting) {
+        setIsInView(true);
         setShouldLoad(true);
         const isAppVis = appVisibility.getIsVisible() && !document.hidden;
         if (isAppVis && animRef.current) {
@@ -314,8 +343,16 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
           }
         }
       } else {
+        setIsInView(false);
         isPlayingRef.current = false;
-        animRef.current?.pause();
+        if (animRef.current) {
+          animRef.current.destroy();
+          animRef.current = null;
+        }
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+        }
+        setIsReady(false);
       }
     });
   }, [loop, autoplay]);
@@ -360,11 +397,19 @@ export const TgsPlayer: React.FC<TgsPlayerProps> = ({
     }
   };
 
+  const handleMouseEnter = () => {
+    if (playOnHover && animRef.current) {
+      isPlayingRef.current = true;
+      animRef.current.goToAndPlay(0, true);
+    }
+  };
+
   return (
     <div
       ref={wrapperRef}
       className={className}
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
       style={{
         width: '100%',
         height: '100%',
