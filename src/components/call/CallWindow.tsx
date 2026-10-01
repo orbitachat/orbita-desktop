@@ -245,7 +245,7 @@ const GroupParticipantTile = memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}
@@ -262,7 +262,7 @@ const GroupParticipantTile = memo(({
       <div className="absolute bottom-3 left-3 z-20 flex flex-col items-start gap-1 max-w-[85%] pointer-events-none">
         {isSpeaking && (
           <div
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[11px] font-semibold border-0 shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[12.5px] font-semibold border-0 shadow-sm"
             style={{ color: 'var(--accent-color, #7C3AED)' }}
           >
             <span>{t('call.speaking')}</span>
@@ -428,7 +428,7 @@ const ExpandedGroupParticipantTile = memo(({
       <div className="absolute bottom-4 left-4 z-30 flex flex-col items-start gap-1 max-w-[85%] pointer-events-none">
         {participant.isSpeaking && (
           <div
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[11px] font-semibold border-0 shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[12.5px] font-semibold border-0 shadow-sm"
             style={{ color: 'var(--accent-color, #7C3AED)' }}
           >
             <span>{t('call.speaking')}</span>
@@ -503,6 +503,15 @@ export const CallWindow = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [hasCamera, setHasCamera] = useState<boolean>(false);
   const [expandedShare, setExpandedShare] = useState<'remote' | 'local' | null>(null);
+  const [remoteConnectionQuality, setRemoteConnectionQuality] = useState<any>('excellent');
+
+  useEffect(() => {
+    const onQuality = (quality: any) => setRemoteConnectionQuality(quality);
+    liveKitService.on('connectionQuality', onQuality);
+    return () => {
+      liveKitService.off('connectionQuality', onQuality);
+    };
+  }, []);
 
   useEffect(() => {
     if (expandedShare === 'remote' && !isRemoteVideoActive && !isRemoteScreenShareActive) {
@@ -1187,16 +1196,27 @@ export const CallWindow = () => {
 
       {isConnected && !isGroupCall && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
         <div
-          className="select-none"
+          className="select-none flex items-center"
           style={{
             position: 'absolute',
             top: '55px',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 30,
+            gap: '10px',
           }}
         >
           <CallVerificationBadge emojis={activeCall.verificationEmojis} />
+          <div
+            className="inline-flex items-center justify-center px-3 py-2 rounded-full shadow-md"
+            style={{
+              backgroundColor: 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
+            <SignalStrengthIcon level={remoteConnectionQuality} size={17} />
+          </div>
         </div>
       )}
 

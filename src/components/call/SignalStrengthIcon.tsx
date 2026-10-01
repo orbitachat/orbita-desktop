@@ -36,12 +36,8 @@ export const SignalStrengthIcon: React.FC<SignalStrengthIconProps> = ({
     }
   }
 
-  const barColor =
-    numLevel >= 3
-      ? 'var(--emerald-400, #34d399)'
-      : numLevel === 2
-      ? 'var(--amber-400, #fbbf24)'
-      : 'var(--rose-500, #f43f5e)';
+  const activeColor = numLevel === 1 ? '#f43f5e' : '#ffffff';
+  const dimColor = 'rgba(255,255,255,0.28)';
 
   return (
     <svg
@@ -50,28 +46,24 @@ export const SignalStrengthIcon: React.FC<SignalStrengthIconProps> = ({
       width={size}
       height={size}
       className={`inline-block flex-shrink-0 ${className}`}
-      style={{ color: barColor, verticalAlign: 'middle', ...style }}
+      style={{ verticalAlign: 'middle', ...style }}
       aria-hidden="true"
     >
       <path
-        fill="currentColor"
+        fill={numLevel >= 1 ? activeColor : dimColor}
         d="M1.5 20v-8h3v8z"
-        opacity={numLevel >= 1 ? 1 : 0.22}
       />
       <path
-        fill="currentColor"
+        fill={numLevel >= 2 ? activeColor : dimColor}
         d="M7.5 20V9.5h3V20z"
-        opacity={numLevel >= 2 ? 1 : 0.22}
       />
       <path
-        fill="currentColor"
+        fill={numLevel >= 3 ? activeColor : dimColor}
         d="M13.5 20V7h3V20z"
-        opacity={numLevel >= 3 ? 1 : 0.22}
       />
       <path
-        fill="currentColor"
+        fill={numLevel >= 4 ? activeColor : dimColor}
         d="M19.5 20V4h3V20z"
-        opacity={numLevel >= 4 ? 1 : 0.22}
       />
     </svg>
   );

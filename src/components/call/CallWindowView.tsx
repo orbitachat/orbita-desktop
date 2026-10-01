@@ -310,7 +310,7 @@ const GroupParticipantTile = React.memo(({
               e.stopPropagation();
               onAvatarClick?.(participant);
             }}
-            className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
+            className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shadow-xl flex items-center justify-center flex-shrink-0 border-0 transition-transform duration-200 z-10 ${
               !isLocal ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
             }`}
             role={!isLocal ? 'button' : undefined}
@@ -327,7 +327,7 @@ const GroupParticipantTile = React.memo(({
       <div className="absolute bottom-3 left-3 z-20 flex flex-col items-start gap-1 max-w-[85%] pointer-events-none">
         {isSpeaking && (
           <div
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[11px] font-semibold border-0 shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[12.5px] font-semibold border-0 shadow-sm"
             style={{ color: 'var(--accent-color, #7C3AED)' }}
           >
             <span>{t('call.speaking')}</span>
@@ -510,7 +510,7 @@ const ExpandedGroupParticipantTile = React.memo(({
       <div className="absolute bottom-4 left-4 z-30 flex flex-col items-start gap-1 max-w-[85%] pointer-events-none">
         {participant.isSpeaking && (
           <div
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[11px] font-semibold border-0 shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-0.5 rounded-[9999px] bg-black/65 backdrop-blur-md text-[12.5px] font-semibold border-0 shadow-sm"
             style={{ color: 'var(--accent-color, #7C3AED)' }}
           >
             <span>{t('call.speaking')}</span>
@@ -595,6 +595,7 @@ export const CallWindowView = () => {
   const [isLocalScreenShareActive, setIsLocalScreenShareActive] = useState<boolean>(false);
   const [isLocalVideoActive, setIsLocalVideoActive] = useState<boolean>(false);
   const [expandedShare, setExpandedShare] = useState<'remote' | 'local' | null>(null);
+  const [remoteConnectionQuality, setRemoteConnectionQuality] = useState<any>('excellent');
 
   const handleToggleMicRef = useRef<(() => Promise<void>) | null>(null);
   const handleHangupRef = useRef<((action: 'cancelCall' | 'endCall' | 'rejectCall') => Promise<void>) | null>(null);
@@ -984,6 +985,16 @@ export const CallWindowView = () => {
       groupLiveKitService.off('remoteScreenShareChanged', updateList);
     };
   }, [isConnected, isGroupCall]);
+
+  useEffect(() => {
+    const onQuality = (quality: any) => {
+      setRemoteConnectionQuality(quality);
+    };
+    liveKitService.on('connectionQuality', onQuality);
+    return () => {
+      liveKitService.off('connectionQuality', onQuality);
+    };
+  }, []);
 
   const allGroupParticipants = useMemo(() => {
     if (groupParticipants.length > 0) return groupParticipants;
@@ -1581,7 +1592,19 @@ export const CallWindowView = () => {
 
       <div className="h-9 flex items-center justify-center flex-shrink-0 relative z-30">
         {isConnected && !isGroupCall && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
-          <CallVerificationBadge emojis={activeCall.verificationEmojis} />
+          <div className="flex items-center" style={{ gap: '10px' }}>
+            <CallVerificationBadge emojis={activeCall.verificationEmojis} />
+            <div
+              className="inline-flex items-center justify-center px-3 py-2 rounded-full shadow-md"
+              style={{
+                backgroundColor: 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+              }}
+            >
+              <SignalStrengthIcon level={remoteConnectionQuality} size={17} />
+            </div>
+          </div>
         )}
       </div>
 
