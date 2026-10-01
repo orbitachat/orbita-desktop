@@ -1196,7 +1196,7 @@ export const CallWindow = () => {
 
       {isConnected && !isGroupCall && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
         <div
-          className="select-none flex items-center"
+          className="select-none flex items-stretch"
           style={{
             position: 'absolute',
             top: '55px',
@@ -1208,7 +1208,7 @@ export const CallWindow = () => {
         >
           <CallVerificationBadge emojis={activeCall.verificationEmojis} />
           <div
-            className="inline-flex items-center justify-center px-3 py-2 rounded-full shadow-md"
+            className="inline-flex items-center justify-center px-3 rounded-full shadow-md"
             style={{
               backgroundColor: 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
               backdropFilter: 'blur(12px)',

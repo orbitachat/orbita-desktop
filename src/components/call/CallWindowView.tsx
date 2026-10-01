@@ -1592,10 +1592,10 @@ export const CallWindowView = () => {
 
       <div className="h-9 flex items-center justify-center flex-shrink-0 relative z-30">
         {isConnected && !isGroupCall && activeCall?.verificationEmojis && activeCall.verificationEmojis.length === 4 && (
-          <div className="flex items-center" style={{ gap: '10px' }}>
+          <div className="flex items-stretch" style={{ gap: '10px' }}>
             <CallVerificationBadge emojis={activeCall.verificationEmojis} />
             <div
-              className="inline-flex items-center justify-center px-3 py-2 rounded-full shadow-md"
+              className="inline-flex items-center justify-center px-3 rounded-full shadow-md"
               style={{
                 backgroundColor: 'var(--surface-muted, rgba(255, 255, 255, 0.08))',
                 backdropFilter: 'blur(12px)',
