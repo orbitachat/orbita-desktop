@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import i18n from 'i18next';
 import { useChatStore, type Chat, type Message, type IncomingFriendRequest, isMessageOutgoing } from '../../store/useChatStore';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useAuthStore, getInitialNumericId } from '../../store/useAuthStore';
 import { DeveloperBadge, revalidateDevelopersOnConnection } from '../ui/DeveloperBadge';
 import { X, Trash, WifiOff, LogOut, RotateCw, Archive, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1183,6 +1183,7 @@ export const MainLayout = () => {
 
       const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, data.publicKey);
 
+      const senderNumericId = data.numericId || data.numeric_id || (data.senderCode ? getInitialNumericId(data.senderCode) : undefined);
       addChat({
         id: chatId,
         type: 'private',
@@ -1195,6 +1196,7 @@ export const MainLayout = () => {
         avatarUrl: data.avatarUrl ?? undefined,
         peerCode: data.senderCode,
         originalPeerCode: data.senderCode,
+        numericId: senderNumericId,
         username: data.username || undefined,
         description: data.bio || undefined,
         birthday: data.birthday || undefined,
@@ -1203,6 +1205,7 @@ export const MainLayout = () => {
       const myCurrentUsername = useAuthStore.getState().username;
       const myCurrentBio = useAuthStore.getState().bio;
       const myCurrentBirthday = useAuthStore.getState().birthday;
+      const myCurrentNumericId = useAuthStore.getState().numericId;
 
       ablyService.sendHandshakeConfirm(data.senderCode, {
         nickname,
@@ -1210,6 +1213,7 @@ export const MainLayout = () => {
         chatId,
         avatarUrl,
         senderCode: myCode,
+        numericId: myCurrentNumericId,
         username: myCurrentUsername,
         bio: myCurrentBio,
         birthday: myCurrentBirthday,
@@ -1224,6 +1228,7 @@ export const MainLayout = () => {
           chatId,
           avatarUrl,
           senderCode: myCode,
+          numericId: myCurrentNumericId,
           username: myCurrentUsername,
           bio: myCurrentBio,
           birthday: myCurrentBirthday,
@@ -1274,6 +1279,7 @@ export const MainLayout = () => {
         avatarUrl: data.avatarUrl ?? existing.avatarUrl,
         peerCode: peerCode,
         originalPeerCode: peerCode || existing.originalPeerCode || existing.peerCode,
+        numericId: data.numericId || data.numeric_id || existing.numericId || (peerCode ? getInitialNumericId(peerCode) : undefined),
         username: data.username !== undefined ? data.username : existing.username,
         description: data.bio !== undefined ? data.bio : existing.description,
         birthday: data.birthday !== undefined ? data.birthday : existing.birthday,
@@ -2505,12 +2511,14 @@ export const MainLayout = () => {
         const myUsername = useAuthStore.getState().username;
         const myBio = useAuthStore.getState().bio;
         const myBirthday = useAuthStore.getState().birthday;
+        const myNumericId = useAuthStore.getState().numericId;
         friendChannel.trigger('client-request-identity', {
           senderNickname: nickname,
           senderCode: myCode,
           publicKey: myKeys.publicKey,
           avatarUrl,
           chatId,
+          numericId: myNumericId,
           username: myUsername,
           bio: myBio,
           birthday: myBirthday,
@@ -2521,6 +2529,7 @@ export const MainLayout = () => {
           publicKey: myKeys.publicKey,
           avatarUrl,
           chatId,
+          numericId: myNumericId,
           username: myUsername,
           bio: myBio,
           birthday: myBirthday,
@@ -2542,6 +2551,7 @@ export const MainLayout = () => {
         if (peerCode) {
           revalidateDevelopersOnConnection(peerCode);
         }
+        const peerNumericId = data.numericId || data.numeric_id || (peerCode ? getInitialNumericId(peerCode) : undefined);
         if (currentChats.some((c) => c.id === chatId)) {
           updateChat(chatId, {
             name: data.nickname,
@@ -2551,6 +2561,7 @@ export const MainLayout = () => {
             avatarUrl: data.avatarUrl ?? undefined,
             peerCode: peerCode,
             originalPeerCode: peerCode || friendCode,
+            numericId: peerNumericId,
             username: data.username !== undefined ? data.username : undefined,
             description: data.bio !== undefined ? data.bio : undefined,
             birthday: data.birthday !== undefined ? data.birthday : undefined,
@@ -2568,6 +2579,7 @@ export const MainLayout = () => {
             avatarUrl: data.avatarUrl ?? undefined,
             peerCode: peerCode,
             originalPeerCode: peerCode || friendCode,
+            numericId: peerNumericId,
             username: data.username || undefined,
             description: data.bio || undefined,
             birthday: data.birthday || undefined,
@@ -2604,11 +2616,13 @@ export const MainLayout = () => {
         avatarUrl: undefined,
         peerCode: friendCode,
         originalPeerCode: friendCode,
+        numericId: getInitialNumericId(friendCode),
       });
       setActiveChat(chatId);
 
       supabaseService.lookupPublicProfile(friendCode).then((friendProfile) => {
         if (friendProfile && !settled) {
+          const friendNumericId = friendProfile.numeric_id || getInitialNumericId(friendCode);
           if (friendProfile.public_key) {
             const sharedSecret = deriveSharedSecret(myKeys.privateKey, friendProfile.public_key);
             const rootKey = deriveRootKey(sharedSecret);
@@ -2619,6 +2633,7 @@ export const MainLayout = () => {
               username: friendProfile.username ?? undefined,
               description: friendProfile.bio ?? undefined,
               birthday: friendProfile.birthday ?? undefined,
+              numericId: friendNumericId,
               sharedSecret: sharedSecret,
               ratchetState: ratchet.getState(),
               lastMsg: 'E2EE_SECURE_CHANNEL_READY',
@@ -2632,6 +2647,7 @@ export const MainLayout = () => {
               username: friendProfile.username ?? undefined,
               description: friendProfile.bio ?? undefined,
               birthday: friendProfile.birthday ?? undefined,
+              numericId: friendNumericId,
               peerCode: friendCode,
               originalPeerCode: friendCode,
             });
