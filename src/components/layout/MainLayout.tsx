@@ -914,18 +914,6 @@ export const MainLayout = () => {
 
   const isLoadingPendingRef = useRef(false);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).orbita?.onOpenChat) {
-      const unsub = (window as any).orbita.onOpenChat((openChatId: string) => {
-        if (openChatId) {
-          setActiveChat(openChatId);
-          setCurrentView('chats');
-        }
-      });
-      return unsub;
-    }
-  }, [setActiveChat, setCurrentView]);
-
   // Создаём чат "Заметки для себя" при старте, если его нет
   useEffect(() => {
     const notes = chats.find(c => c.id === 'notes');
@@ -4534,6 +4522,26 @@ export const MainLayout = () => {
 
   const toggleArchiveChat = useChatStore((s) => s.toggleArchiveChat);
   const [isViewingArchive, setIsViewingArchive] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).orbita?.onOpenChat) {
+      const unsub = (window as any).orbita.onOpenChat((openChatId: string) => {
+        if (!openChatId) return;
+        const currentChats = useChatStore.getState().chats;
+        const targetChat = currentChats.find(c => c.id === openChatId);
+        setCurrentView('chats');
+        setActiveProfileChatId(null);
+        setSearchQuery('');
+        if (targetChat?.isArchived) {
+          setIsViewingArchive(true);
+        } else {
+          setIsViewingArchive(false);
+        }
+        setActiveChat(openChatId);
+      });
+      return unsub;
+    }
+  }, [setActiveChat, setCurrentView, setActiveProfileChatId, setIsViewingArchive, setSearchQuery]);
 
   const handleToggleArchiveChat = (chatId: string) => {
     if (chatId === 'notes') return;

@@ -26,10 +26,10 @@ interface ShowNotificationPayload {
   hideAllText?: string;
 }
 
-const CARD_WIDTH     = 356;
-const NOTIF_ITEM_H   = 82;
-const NOTIF_GAP      = 7;
-const SCREEN_MARGIN  = 10; // Exactly 10px from edge
+const CARD_WIDTH     = 348;
+const NOTIF_ITEM_H   = 68;
+const NOTIF_GAP      = 6;
+const SCREEN_MARGIN  = 10;
 
 let notifWindow: BrowserWindow | null = null;
 let mainWin: BrowserWindow | null = null;

@@ -56,7 +56,7 @@ class BrowserOrbitaAdapter {
       getAudioMetadata: this.getAudioMetadata.bind(this),
       showCustomNotification: this.showCustomNotification.bind(this),
       clearNotifications: () => {},
-      onOpenChat: () => () => {},
+      onOpenChat: this.onOpenChat.bind(this),
       onDeepLink: () => () => {},
       setThemeForElectron: () => {},
       getCurrentTheme: async () => ({ themeId: 'dark', themeVars: {} }),
@@ -523,13 +523,28 @@ class BrowserOrbitaAdapter {
     }
   }
 
-  public showCustomNotification(payload: { title: string; body: string; avatarUrl?: string }) {
+  private openChatListeners: ((chatId: string) => void)[] = [];
+
+  public onOpenChat(callback: (chatId: string) => void) {
+    this.openChatListeners.push(callback);
+    return () => {
+      this.openChatListeners = this.openChatListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  public showCustomNotification(payload: { title: string; body: string; avatarUrl?: string; chatId?: string }) {
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification(payload.title, {
+        const notif = new Notification(payload.title, {
           body: payload.body,
           icon: payload.avatarUrl || '/icon.png',
         });
+        notif.onclick = () => {
+          window.focus();
+          if (payload.chatId) {
+            this.openChatListeners.forEach(cb => cb(payload.chatId!));
+          }
+        };
       } catch {}
     }
   }

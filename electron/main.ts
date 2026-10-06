@@ -121,9 +121,9 @@ for (const candidate of candidatePaths) {
 // -----------------------------------------------------------------------------
 // 1. Notification Manager
 // -----------------------------------------------------------------------------
-const NOTIF_WIDTH = 356;
-const NOTIF_HEIGHT = 82;
-const NOTIF_GAP = 7;
+const NOTIF_WIDTH = 348;
+const NOTIF_HEIGHT = 68;
+const NOTIF_GAP = 6;
 const NOTIF_MARGIN = 10;
 
 let notifWindow: BrowserWindow | null = null;
@@ -135,7 +135,7 @@ function calcNotificationBounds(position: string, maxCount: number) {
   const { x: workX, y: workY } = display.workArea;
 
   const count = Math.max(1, maxCount);
-  const totalHeight = count * NOTIF_HEIGHT + count * NOTIF_GAP + 38;
+  const totalHeight = count * NOTIF_HEIGHT + count * NOTIF_GAP + 36;
 
   let x: number;
   let y: number;
@@ -3671,12 +3671,25 @@ function createMainWindow() {
 
   initNotifManager(mainWindow);
 
+  let lastNotifClickTime = 0;
   ipcMain.on('notif-window:clicked', (_event, data: any) => {
+    const now = Date.now();
+    if (now - lastNotifClickTime < 300) return;
+    lastNotifClickTime = now;
     if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
       mainWindow.show();
+      mainWindow.setAlwaysOnTop(true);
       mainWindow.focus();
-      if (data?.chatId) {
-        mainWindow.webContents.send('notification:open-chat', data.chatId);
+      mainWindow.setAlwaysOnTop(false);
+      const targetChatId = typeof data === 'string' ? data : data?.chatId;
+      if (targetChatId) {
+        mainWindow.webContents.send('notification:open-chat', targetChatId);
       }
     }
   });

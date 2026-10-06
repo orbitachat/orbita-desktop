@@ -39,7 +39,7 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      gap: 7px;
+      gap: 6px;
       padding: 0;
       margin: 0;
       background: transparent !important;
@@ -50,21 +50,13 @@
       justify-content: flex-start;
     }
 
-    /* Telegram Desktop Style:
-       - Width 356px, Height 82px
-       - Sharp 0px corners
-       - Dynamic Theme Background
-       - No border, no shadow
-       - 10px screen edge distance
-       - Constant color (no change on hover)
-    */
     .notif {
-      width: 356px;
-      min-height: 82px;
-      height: 82px;
-      border-radius: 0px !important;
+      width: 348px;
+      min-height: 68px;
+      height: 68px;
+      border-radius: 6px !important;
       border: none !important;
-      box-shadow: none !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
       outline: none !important;
       overflow: hidden;
       cursor: pointer;
@@ -99,19 +91,19 @@
 
     .notif.slide-out-right {
       opacity: 0 !important;
-      transform: translateX(380px) !important;
+      transform: translateX(360px) !important;
       transition: opacity 180ms ease-out, transform 180ms ease-out !important;
     }
 
     .notif.slide-out-left {
       opacity: 0 !important;
-      transform: translateX(-380px) !important;
+      transform: translateX(-360px) !important;
       transition: opacity 180ms ease-out, transform 180ms ease-out !important;
     }
 
     .notif.slide-out-top {
       opacity: 0 !important;
-      transform: translateY(-82px) !important;
+      transform: translateY(-68px) !important;
       transition: opacity 180ms ease-out, transform 180ms ease-out !important;
     }
 
@@ -119,14 +111,15 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 11px 40px 11px 11px;
+      padding: 10px 34px 10px 12px;
       width: 100%;
       height: 100%;
+      min-width: 0;
     }
 
     .notif-avatar {
-      width: 60px;
-      height: 60px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
       flex-shrink: 0;
       display: flex;
@@ -164,11 +157,11 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 3px;
+      gap: 2px;
     }
 
     .notif-title {
-      font-size: 14.5px;
+      font-size: 13.5px;
       font-weight: 600;
       line-height: 1.25;
       white-space: nowrap;
@@ -179,13 +172,10 @@
     }
 
     .notif-message {
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 400;
-      line-height: 1.35;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
-      -webkit-box-orient: vertical;
+      line-height: 1.3;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       color: var(--notif-subtext, #a89ec4);
@@ -194,17 +184,17 @@
     }
 
     .hide-all-bar {
-      width: 356px;
-      min-height: 38px;
-      height: 38px;
-      border-radius: 0px !important;
+      width: 348px;
+      min-height: 32px;
+      height: 32px;
+      border-radius: 6px !important;
       border: none !important;
-      box-shadow: none !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
       outline: none !important;
       background: var(--notif-bg, #1c182a) !important;
       color: var(--notif-subtext, #8b83a8);
       font-family: inherit;
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 500;
       letter-spacing: -0.1px;
       display: none;
@@ -233,7 +223,7 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      gap: 7px;
+      gap: 6px;
       padding: 0;
       margin: 0;
       width: 100%;
@@ -241,11 +231,11 @@
 
     .notif-close {
       position: absolute;
-      top: 0px;
-      right: 0px;
-      width: 44px;
-      height: 44px;
-      border-radius: 0px;
+      top: 8px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
       border: none !important;
       background: transparent !important;
       color: var(--notif-subtext, #8b83a8);
@@ -253,7 +243,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0.75;
+      opacity: 0.55;
       transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease;
       z-index: 100;
       outline: none !important;
@@ -263,14 +253,14 @@
 
     .notif-close:hover {
       opacity: 1;
-      background: rgba(255, 255, 255, 0.08) !important;
+      background: rgba(255, 255, 255, 0.12) !important;
       color: var(--notif-text, #ffffff);
     }
 
     .notif-close svg,
     .notif-close * {
-      width: 18px;
-      height: 18px;
+      width: 13px;
+      height: 13px;
       stroke: currentColor;
       pointer-events: none !important;
     }
@@ -401,7 +391,7 @@
     function getLetterAvatar(name, accentColor = '#9b7dd4') {
       const initial = (name && String(name).trim().length > 0) ? String(name).trim().charAt(0).toUpperCase() : 'O';
       return `
-        <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg, ${accentColor}, #3c2468);display:flex;align-items:center;justify-content:center;color:#ffffff;font-size:24px;font-weight:700;user-select:none;">
+        <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg, ${accentColor}, #3c2468);display:flex;align-items:center;justify-content:center;color:#ffffff;font-size:19px;font-weight:600;user-select:none;">
           ${escapeHtml(initial)}
         </div>
       `;
@@ -409,21 +399,21 @@
 
     function getDefaultAvatarSvg(accentColor = '#9b7dd4', accentLight = '#b89fee') {
       return `
-        <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <radialGradient id="planeBg" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stop-color="#382d56" />
               <stop offset="100%" stop-color="#1e182e" />
             </radialGradient>
           </defs>
-          <circle cx="30" cy="30" r="30" fill="url(#planeBg)" />
-          <path d="M30 0 L33 30 L27 30 Z" fill="rgba(155,125,212,0.15)" />
-          <path d="M10 10 L30 30 L23 33 Z" fill="rgba(155,125,212,0.10)" />
-          <path d="M50 10 L37 33 L30 30 Z" fill="rgba(155,125,212,0.10)" />
-          <path d="M16 41 L30 16 L26 35 Z" fill="${accentLight}" />
-          <path d="M44 41 L30 16 L34 35 Z" fill="#e8deff" />
-          <path d="M30 16 L26 35 L34 35 Z" fill="#ffffff" />
-          <path d="M26 35 L30 41 L34 35 Z" fill="${accentColor}" />
+          <circle cx="24" cy="24" r="24" fill="url(#planeBg)" />
+          <path d="M24 0 L26 24 L22 24 Z" fill="rgba(155,125,212,0.15)" />
+          <path d="M8 8 L24 24 L18 26 Z" fill="rgba(155,125,212,0.10)" />
+          <path d="M40 8 L30 26 L24 24 Z" fill="rgba(155,125,212,0.10)" />
+          <path d="M13 33 L24 13 L21 28 Z" fill="${accentLight}" />
+          <path d="M35 33 L24 13 L27 28 Z" fill="#e8deff" />
+          <path d="M24 13 L21 28 L27 28 Z" fill="#ffffff" />
+          <path d="M21 28 L24 33 L27 28 Z" fill="${accentColor}" />
         </svg>
       `;
     }
@@ -449,7 +439,6 @@
         document.documentElement.style.removeProperty('--notif-font');
       }
 
-      // Воспроизводим звук с учетом заданной громкости
       if (soundEnabled) {
         try {
           const audio = new Audio('./sounds/notification.mp3');
@@ -467,7 +456,6 @@
         }
       }
 
-      // Если количество активных уведомлений достигло maxCount, удаляем старое
       while (activeNotifs.length >= settings.maxCount) {
         removeOldestNotification();
       }
@@ -484,9 +472,8 @@
 
       let avatarHtml;
       if (isHidden) {
-        avatarHtml = `<img src="./icons/128x128.png" alt="Orbita" style="width:60px;height:60px;object-fit:contain;display:block;" onerror="this.onerror=null;this.src='/icons/128x128.png';" />`;
+        avatarHtml = `<img src="./icons/128x128.png" alt="Orbita" style="width:48px;height:48px;object-fit:contain;display:block;" onerror="this.onerror=null;this.src='/icons/128x128.png';" />`;
       } else if (avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '') {
-        // Если имя НЕ скрыто и есть реальная аватарка пользователя:
         const cleanUrl = avatarUrl.split('?')[0];
         const ext = cleanUrl.split('.').pop().toLowerCase();
         const isVideo = ['mp4', 'mov', 'avi', 'webm', 'mkv', 'm4v'].includes(ext);
@@ -496,7 +483,6 @@
           avatarHtml = `<img src="${avatarUrl}" alt="Avatar" onerror="this.onerror=null;this.parentElement.innerHTML=getLetterAvatar('${escapeHtml(finalTitle)}','${accent}');" />`;
         }
       } else {
-        // Если имя НЕ скрыто, но у пользователя нет своей аватарки: показываем аватарку с первой буквой как в Telegram
         avatarHtml = getLetterAvatar(finalTitle, accent);
       }
 
@@ -554,11 +540,19 @@
         });
       });
 
-      const bodyEl = el.querySelector('.notif-body');
-      bodyEl.addEventListener('click', (e) => {
-        if (e.target && e.target.closest && e.target.closest('.notif-close')) return;
+      let isClicked = false;
+      const handleClick = (e) => {
+        if (isClicked) return;
+        if (e && e.target && e.target.closest && e.target.closest('.notif-close')) return;
+        isClicked = true;
         ipcRenderer.send('notif-window:clicked', { chatId });
         removeNotifInstant(id, 'fade-out', true);
+      };
+
+      el.addEventListener('click', handleClick);
+      el.addEventListener('pointerup', (e) => {
+        if (e.button !== 0) return;
+        handleClick(e);
       });
 
       const closeBtn = el.querySelector('.notif-close');

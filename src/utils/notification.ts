@@ -137,6 +137,7 @@ export function showNotification(
         n.addEventListener('click', () => {
           window.focus();
           if (chatId) {
+            useChatStore.getState().setCurrentView('chats');
             useChatStore.getState().setActiveChat(chatId);
           }
         });
@@ -179,7 +180,6 @@ export function showNotification(
     return;
   }
 
-  // ── Веб-версия: стандартный Browser Notification API ──
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
   try {
@@ -191,6 +191,7 @@ export function showNotification(
     n.addEventListener('click', () => {
       window.focus();
       if (chatId) {
+        useChatStore.getState().setCurrentView('chats');
         useChatStore.getState().setActiveChat(chatId);
       }
     });
