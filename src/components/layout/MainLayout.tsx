@@ -1351,6 +1351,85 @@ export const MainLayout = () => {
       );
       if (isSelf) return;
 
+      if (data.type === 'system') {
+        if (data.action === 'delete-chat') {
+          if (activeSubscriptions.current.has(data.chatId)) {
+            const sub = activeSubscriptions.current.get(data.chatId)!;
+            sub.channel.unbind_all();
+            getPusher().unsubscribe(`private-chat-${data.chatId}`);
+            activeSubscriptions.current.delete(data.chatId);
+          }
+          if (ablyMessageUnsubscribes.current.has(data.chatId)) {
+            const unsub = ablyMessageUnsubscribes.current.get(data.chatId)!;
+            unsub();
+            ablyMessageUnsubscribes.current.delete(data.chatId);
+          }
+          useChatStore.getState().deleteChat(data.chatId);
+          if (useChatStore.getState().activeChatId === data.chatId) {
+            useChatStore.getState().setActiveChat(null);
+          }
+          return;
+        }
+        if (data.action === 'clear-history') {
+          useChatStore.setState((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [data.chatId]: [],
+            }
+          }));
+          updateChat(data.chatId, {
+            lastMsg: t('common.history_cleared'),
+            unreadCount: 0,
+            lastReadTimestamp: Date.now()
+          });
+          return;
+        }
+        return;
+      }
+
+      if (data.type === 'delete' || data.type === 'delete-message') {
+        const targetId = data.targetMessageId || data.messageId;
+        if (targetId) {
+          useChatStore.getState().deleteMessage(data.chatId, targetId);
+        }
+        return;
+      }
+
+      if (data.type === 'read' || data.type === 'delivered' || data.type === 'reaction' || data.type === 'ping' || data.type === 'pong' || data.type === 'profile-update') {
+        return;
+      }
+
+      if (useChatStore.getState().deletedChatIds?.includes(data.chatId)) {
+        return;
+      }
+
+      let textContent = data.ciphertext || data.text || '';
+      let mediaType = data.mediaType;
+      let mediaUrl = data.mediaUrl;
+      let mediaName = data.mediaName;
+      let mime = data.mime;
+      if (typeof textContent === 'string' && textContent.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(textContent);
+          if (parsed.text !== undefined) textContent = parsed.text;
+          if (parsed.mediaType) mediaType = parsed.mediaType;
+          if (parsed.mediaUrl) mediaUrl = parsed.mediaUrl;
+          if (parsed.mediaName) mediaName = parsed.mediaName;
+          if (parsed.mime) mime = parsed.mime;
+        } catch {}
+      }
+
+      const hasContent = Boolean(
+        (typeof textContent === 'string' && textContent.trim().length > 0) ||
+        mediaType ||
+        mediaUrl ||
+        mediaName ||
+        (data.mediaItems && data.mediaItems.length > 0)
+      );
+      if (!hasContent) {
+        return;
+      }
+
       let chat = useChatStore.getState().chats.find((c) => c.id === data.chatId);
       if (!chat) {
         let senderNick = data.sender || 'User';
@@ -1401,21 +1480,6 @@ export const MainLayout = () => {
         processedMessageIds.current.add(data.messageId);
       }
 
-      let textContent = data.ciphertext || data.text || '';
-      let mediaType = data.mediaType;
-      let mediaUrl = data.mediaUrl;
-      let mediaName = data.mediaName;
-      let mime = data.mime;
-      if (typeof textContent === 'string' && textContent.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(textContent);
-          if (parsed.text !== undefined) textContent = parsed.text;
-          if (parsed.mediaType) mediaType = parsed.mediaType;
-          if (parsed.mediaUrl) mediaUrl = parsed.mediaUrl;
-          if (parsed.mediaName) mediaName = parsed.mediaName;
-          if (parsed.mime) mime = parsed.mime;
-        } catch {}
-      }
 
       const newMsg: Message = {
         id: data.messageId || `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -4172,8 +4236,8 @@ export const MainLayout = () => {
             chatId,
             {
               id: msgId,
-              senderId: senderCode,
-              sender: data.sender,
+              senderId: senderCode || messageData?.senderId || data.senderId || data.senderCode || chat.peerCode,
+              sender: senderNick || data.sender || chat.name || 'User',
               isOutgoing: false,
               text: messageData.text || '',
               time: data.time || Date.now(),

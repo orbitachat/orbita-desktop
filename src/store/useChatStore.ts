@@ -195,8 +195,20 @@ export function isMessageOutgoing(
   myUserId?: string | null
 ): boolean {
   if (!msg) return false;
+  if (chat && chat.id === 'notes') {
+    return true;
+  }
+  if (typeof msg.isOutgoing === 'boolean') {
+    return msg.isOutgoing;
+  }
   if (chat && chat.type === 'private') {
     if (chat.peerCode && (msg.senderId === chat.peerCode || (msg as any).senderCode === chat.peerCode)) {
+      return false;
+    }
+    if (chat.originalPeerCode && (msg.senderId === chat.originalPeerCode || (msg as any).senderCode === chat.originalPeerCode)) {
+      return false;
+    }
+    if (chat.name && msg.sender && msg.sender.toLowerCase().trim() === chat.name.toLowerCase().trim()) {
       return false;
     }
     if (chat.id && chat.id.length === 36 && (msg.senderId === chat.id || (msg as any).senderCode === chat.id)) {
@@ -209,17 +221,11 @@ export function isMessageOutgoing(
   if (myCode && (msg.senderId === myCode || (msg as any).senderCode === myCode)) {
     return true;
   }
-  if (chat && chat.id === 'notes') {
-    return true;
-  }
   if (_myNickname && msg.sender && msg.sender === _myNickname && msg.sender !== 'Orbita') {
     if (chat && chat.name === _myNickname && myCode && msg.senderId && msg.senderId !== myCode) {
       return false;
     }
     return true;
-  }
-  if (typeof msg.isOutgoing === 'boolean') {
-    return msg.isOutgoing;
   }
   return false;
 }
@@ -933,7 +939,7 @@ export const useChatStore = create<ChatState>()(
           avatarUrl: newChat.avatarUrl,
           muted: newChat.muted ?? false,
           notificationsEnabled: newChat.notificationsEnabled ?? true,
-          peerCode: newChat.peerCode,
+          peerCode: (newChat.peerCode && newChat.peerCode !== get().myCode) ? newChat.peerCode : undefined,
           description: newChat.description,
           username: newChat.username,
           numericId: newChat.numericId,
