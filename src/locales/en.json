@@ -118,6 +118,7 @@
       "from_archive": "Unarchive",
       "max_reactions_limit": "You can add up to 3 reactions per message",
       "copy": "Copy",
+      "copied": "Copied",
       "forward": "Forward",
       "select": "Select",
       "delete_account": "Delete account",
@@ -287,7 +288,15 @@
       "rotation_10hours": "10 hours",
       "rotation_10hours_desc": "Highly economical",
       "rotation_never": "Do not rotate",
-      "rotation_never_desc": "Permanent code"
+      "rotation_never_desc": "Permanent code",
+      "contacts": "Contacts",
+      "new_message": "New message",
+      "invite_friend": "Invite friend",
+      "create_group": "Create group",
+      "join_community": "Join community",
+      "enter_code_description": "Enter the personal code to send a friend request",
+      "enter_code_placeholder": "Enter code",
+      "invite_description": "Share your permanent code so others can find and add you to contacts."
     },
     "friendRequests": {
       "title": "Message requests",
@@ -383,6 +392,7 @@
       "send_video": "Send video",
       "send_audio": "Send audio",
       "send_file": "Send file",
+      "selected_count": "Selected: {{count}}",
       "selected_files_count": "{{count}} files selected",
       "send_as_file": "Send as file",
       "remember_choice": "Remember choice",
