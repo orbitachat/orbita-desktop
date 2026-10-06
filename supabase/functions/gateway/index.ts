@@ -277,18 +277,29 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ status: 'ok' });
     }
 
-    // 13. Relay: Сохранение обновления профиля (ник/аватар)
     if ((path === '/relay/profile' || path.endsWith('/relay/profile')) && req.method === 'POST') {
       const supabase = getSupabaseClient();
       const body = await req.json();
       if (!body.chatId) return jsonResponse({ error: 'Missing chatId parameter' }, 400);
 
+      try {
+        if (body.senderCode) {
+          await supabase.from('profile_updates').delete().eq('chat_id', body.chatId).eq('sender_code', body.senderCode);
+        }
+      } catch {}
+
+      const cleanUsername = body.username ? body.username.replace(/^@+/, '').trim().toLowerCase() : null;
       const { data, error } = await supabase
         .from('profile_updates')
         .insert({
           chat_id: body.chatId,
           nickname: body.nickname || null,
           avatar_url: body.avatarUrl || null,
+          hide_profile_id: body.hideProfileId !== undefined ? body.hideProfileId : null,
+          sender_code: body.senderCode || null,
+          bio: body.bio || null,
+          username: cleanUsername,
+          birthday: body.birthday || null,
         })
         .select();
 
@@ -296,7 +307,70 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ status: 'ok', data });
     }
 
-    // 14. Relay: Получение обновления профиля для чата
+    if ((path === '/relay/search-users' || path.endsWith('/relay/search-users')) && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      const q = (url.searchParams.get('q') || '').replace(/^@+/, '').trim().toLowerCase();
+      const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+      if (!q) return jsonResponse({ users: [] });
+
+      const { data, error } = await supabase
+        .from('profile_updates')
+        .select('*')
+        .or(`username.ilike.%${q}%,nickname.ilike.%${q}%,sender_code.ilike.%${q}%`)
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+
+      if (error) return jsonResponse({ error: error.message }, 500);
+
+      const seen = new Set();
+      const users: any[] = [];
+      for (const row of (data || [])) {
+        const userCode = row.sender_code || row.chat_id;
+        if (userCode && !seen.has(userCode)) {
+          seen.add(userCode);
+          users.push({
+            user_code: userCode,
+            nickname: row.nickname || 'User',
+            avatar_url: row.avatar_url,
+            username: row.username,
+            bio: row.bio,
+            birthday: row.birthday,
+            updated_at: row.updated_at,
+          });
+        }
+      }
+      return jsonResponse({ users });
+    }
+
+    if ((path === '/relay/resolve-username' || path.endsWith('/relay/resolve-username')) && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      const username = (url.searchParams.get('username') || '').replace(/^@+/, '').trim().toLowerCase();
+      if (!username) return jsonResponse({ user: null });
+
+      const { data, error } = await supabase
+        .from('profile_updates')
+        .select('*')
+        .ilike('username', username)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) return jsonResponse({ error: error.message }, 500);
+      if (!data) return jsonResponse({ user: null });
+
+      return jsonResponse({
+        user: {
+          user_code: data.sender_code || data.chat_id,
+          nickname: data.nickname || 'User',
+          avatar_url: data.avatar_url,
+          username: data.username,
+          bio: data.bio,
+          birthday: data.birthday,
+          updated_at: data.updated_at,
+        }
+      });
+    }
+
     if ((path === '/relay/profile' || path.endsWith('/relay/profile')) && req.method === 'GET') {
       const supabase = getSupabaseClient();
       const chatId = url.searchParams.get('chatId');

@@ -79,6 +79,7 @@
       "copied": "QR code copied to clipboard"
     },
     "common": {
+      "you": "You",
       "link_copied": "Link copied",
       "image_copied": "Image copied to clipboard",
       "image_saved_to_clipboard": "Image copied to clipboard",
@@ -1367,6 +1368,21 @@
       "support_faq_desc": "FAQ before submitting a ticket",
       "support_admin_reply_desc": "Reply to ticket: /reply #T-XXXXX <text>",
       "support_admin_tickets_desc": "List all active tickets"
+    },
+    "createModal": {
+      "found_users": "Global Search",
+      "found_community": "Community found",
+      "found_support": "Support Service",
+      "friend_id": "Friend's Account ID",
+      "channel_name": "Channel Name",
+      "group_name": "Group Name",
+      "choose_photo": "Choose photo",
+      "user_not_found": "User not found",
+      "invalid_content": "Invalid content",
+      "subscribers": "subscribers"
+    },
+    "search": {
+      "no_results": "No results found"
     },
     "mediaViewer": {
       "video": "Video",

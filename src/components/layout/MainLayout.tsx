@@ -4719,10 +4719,7 @@ export const MainLayout = () => {
     const timer = setTimeout(() => {
       supabaseService.searchPublicProfiles(cleanQ, 10).then((users) => {
         if (!cancelled) {
-          const myUid = useAuthStore.getState().userId;
-          const myC = useChatStore.getState().myCode;
-          const filtered = (users || []).filter((u) => u.user_code !== myC && u.user_code !== myUid);
-          setGlobalFoundUsers(filtered);
+          setGlobalFoundUsers(users || []);
         }
       }).catch(() => {
         if (!cancelled) {
@@ -4931,6 +4928,13 @@ export const MainLayout = () => {
   }, [t, myCode, handleSelectChat]);
 
   const handleSelectFoundUser = useCallback((user: UserDirectoryRecord) => {
+    const myUid = useAuthStore.getState().userId;
+    const myC = useChatStore.getState().myCode;
+    if (user.user_code === myC || user.user_code === myUid) {
+      handleSelectChat('notes');
+      setSearchQuery('');
+      return;
+    }
     const currentChats = useChatStore.getState().chats;
     const existingChat = currentChats.find(
       (c) => c.type === 'private' && (c.id === user.user_code || c.peerCode === user.user_code)
@@ -5528,7 +5532,10 @@ export const MainLayout = () => {
                             {t('createModal.found_users', 'Глобальный поиск')}
                           </div>
                           {globalFoundUsers.map((user) => {
-                            const isExisting = chats.some(c => c.type === 'private' && (c.id === user.user_code || c.peerCode === user.user_code));
+                            const myUid = useAuthStore.getState().userId;
+                            const myC = useChatStore.getState().myCode;
+                            const isMe = user.user_code === myC || user.user_code === myUid;
+                            const isExisting = isMe || chats.some(c => c.type === 'private' && (c.id === user.user_code || c.peerCode === user.user_code));
                             return (
                               <div
                                 key={user.user_code}
@@ -5545,6 +5552,11 @@ export const MainLayout = () => {
                                     <span className="font-semibold text-sm text-[var(--text-main)] truncate">
                                       {user.nickname}
                                     </span>
+                                    {isMe && (
+                                      <span className="px-1.5 py-0.5 rounded bg-[var(--accent-color)]/20 text-[var(--accent-color)] text-[10px] font-bold">
+                                        {t('common.you', 'Вы')}
+                                      </span>
+                                    )}
                                   </div>
                                   {user.username && (
                                     <div className="text-xs text-[var(--accent-color,#7C3AED)] truncate mt-0.5 font-mono">
@@ -5571,6 +5583,13 @@ export const MainLayout = () => {
                               </div>
                             );
                           })}
+                        </div>
+                      )}
+                      {searchQuery.trim().length >= 2 && visibleChats.length === 0 && !searchChannelResult && !isSupportFound && globalFoundUsers.length === 0 && !isSearchingChannel && (
+                        <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                          <span className="text-sm text-[var(--text-dim)]">
+                            {t('search.no_results', 'Ничего не найдено')}
+                          </span>
                         </div>
                       )}
                     </div>

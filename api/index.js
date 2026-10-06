@@ -866,15 +866,85 @@ module.exports = async function handler(req, res) {
           await supabase.from('profile_updates').delete().eq('chat_id', body.chatId).eq('sender_code', body.senderCode);
         }
       } catch {}
+      const cleanUsername = body.username ? body.username.replace(/^@+/, '').trim().toLowerCase() : null;
       const { data, error } = await supabase.from('profile_updates').insert({
         chat_id: body.chatId,
         nickname: body.nickname || null,
         avatar_url: body.avatarUrl || null,
         hide_profile_id: body.hideProfileId !== undefined ? body.hideProfileId : null,
         sender_code: body.senderCode || null,
+        bio: body.bio || null,
+        username: cleanUsername,
+        birthday: body.birthday || null,
       }).select();
       if (error) return sendError(res, error.message, 500);
       return sendJson(res, { status: 'ok', data });
+    }
+
+    if (pathname === '/relay/search-users' && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const q = (query.q || '').replace(/^@+/, '').trim().toLowerCase();
+      const limit = parseInt(query.limit, 10) || 20;
+      if (!q) return sendJson(res, { users: [] });
+
+      const { data, error } = await supabase
+        .from('profile_updates')
+        .select('*')
+        .or(`username.ilike.%${q}%,nickname.ilike.%${q}%,sender_code.ilike.%${q}%`)
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+
+      if (error) return sendError(res, error.message, 500);
+
+      const seen = new Set();
+      const users = [];
+      for (const row of (data || [])) {
+        const userCode = row.sender_code || row.chat_id;
+        if (userCode && !seen.has(userCode)) {
+          seen.add(userCode);
+          users.push({
+            user_code: userCode,
+            nickname: row.nickname || 'User',
+            avatar_url: row.avatar_url,
+            username: row.username,
+            bio: row.bio,
+            birthday: row.birthday,
+            updated_at: row.updated_at,
+          });
+        }
+      }
+      return sendJson(res, { users });
+    }
+
+    if (pathname === '/relay/resolve-username' && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const username = (query.username || '').replace(/^@+/, '').trim().toLowerCase();
+      if (!username) return sendJson(res, { user: null });
+
+      const { data, error } = await supabase
+        .from('profile_updates')
+        .select('*')
+        .ilike('username', username)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) return sendError(res, error.message, 500);
+      if (!data) return sendJson(res, { user: null });
+
+      return sendJson(res, {
+        user: {
+          user_code: data.sender_code || data.chat_id,
+          nickname: data.nickname || 'User',
+          avatar_url: data.avatar_url,
+          username: data.username,
+          bio: data.bio,
+          birthday: data.birthday,
+          updated_at: data.updated_at,
+        }
+      });
     }
 
     if (pathname === '/relay/delete-message' && req.method === 'POST') {

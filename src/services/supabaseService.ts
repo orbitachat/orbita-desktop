@@ -664,6 +664,8 @@ class SupabaseService {
   ): Promise<void> {
     if (!chatId || chatId === 'notes') return;
 
+    const cleanUsername = username ? username.replace(/^@+/, '').trim().toLowerCase() : null;
+
     const primaryRelay = relayRouter.getRelayForRecipient(chatId);
     const allRelays = [
       primaryRelay,
@@ -672,13 +674,11 @@ class SupabaseService {
 
     for (const relay of allRelays) {
       try {
-        const res = await fetch(`${relay.url}/relay/profile`, {
+        await fetch(`${relay.url}/relay/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, bio, username, birthday }),
+          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, bio, username: cleanUsername, birthday }),
         });
-
-        if (res.ok) return;
       } catch (err) {
         console.warn(`[Relay] Failed to save profile update on ${relay.url}:`, err);
       }
@@ -698,7 +698,7 @@ class SupabaseService {
           avatar_url: avatarUrl,
           sender_code: senderCode || null,
           bio: bio || null,
-          username: username || null,
+          username: cleanUsername,
           birthday: birthday || null,
         });
 
@@ -803,6 +803,17 @@ class SupabaseService {
     const cleanUsername = username.replace(/^@+/, '').trim().toLowerCase();
     if (!cleanUsername) return null;
 
+    const nodes = relayRouter.getNodes();
+    for (const relay of nodes) {
+      try {
+        const res = await fetch(`${relay.url}/relay/resolve-username?username=${encodeURIComponent(cleanUsername)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user) return data.user;
+        }
+      } catch {}
+    }
+
     if (this.client) {
       try {
         const { data, error } = await this.client
@@ -837,6 +848,9 @@ class SupabaseService {
     const cleanQuery = query.replace(/^@+/, '').trim().toLowerCase();
     if (!cleanQuery) return [];
 
+    const seen = new Set<string>();
+    const results: UserDirectoryRecord[] = [];
+
     const nodes = relayRouter.getNodes();
     for (const relay of nodes) {
       try {
@@ -844,7 +858,13 @@ class SupabaseService {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data?.users) && data.users.length > 0) {
-            return data.users;
+            for (const u of data.users) {
+              const code = u.user_code;
+              if (code && !seen.has(code)) {
+                seen.add(code);
+                results.push(u);
+              }
+            }
           }
         }
       } catch {}
@@ -860,8 +880,6 @@ class SupabaseService {
           .limit(limit);
 
         if (!error && data && Array.isArray(data)) {
-          const seen = new Set<string>();
-          const results: UserDirectoryRecord[] = [];
           for (const row of data) {
             const userCode = row.sender_code || row.chat_id;
             if (userCode && !seen.has(userCode)) {
@@ -877,14 +895,13 @@ class SupabaseService {
               });
             }
           }
-          return results;
         }
       } catch (err) {
         console.warn('[Directory] Failed to search profiles in Supabase:', err);
       }
     }
 
-    return [];
+    return results;
   }
 
   async getHandshakeRecordsForChat(chatId: string): Promise<OfflineHandshakeRecord[]> {
