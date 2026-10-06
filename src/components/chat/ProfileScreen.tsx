@@ -15,6 +15,7 @@ import { EmojiPicker } from './EmojiPicker';
 import { AddGroupMemberModal } from './AddGroupMemberModal';
 import { DeleteGroupModal } from './DeleteGroupModal';
 import { arrayBufferToBase64, formatLastSeen } from '../../utils/messageUtils';
+import { formatBirthday } from '../../utils/birthday';
 import {
   Picture as GravityPictureIcon,
   Video as GravityVideoIcon,
@@ -2600,23 +2601,80 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 <Pencil size={14} style={{ color: 'var(--accent-color, #9b7dd4)' }} />
               </div>
             ) : null
-          ) : chat.description ? (
-            <div
-              style={{
-                padding: '12px 20px',
-                borderBottom: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
-                {chat.description}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                {t('profile.bio', 'О себе')}
-              </div>
-            </div>
-          ) : null}
+          ) : (
+            <>
+              {chat.description && (
+                <div
+                  style={{
+                    padding: '12px 20px',
+                    borderBottom: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
+                    {chat.description}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('profile.bio', 'О себе')}
+                  </div>
+                </div>
+              )}
+
+              {chat.username && (
+                <div
+                  onClick={() => handleCopyChannelKey(`@${chat.username}`)}
+                  style={{
+                    padding: '12px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <span
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: 'var(--accent-color, #9b7dd4)',
+                        wordBreak: 'break-all',
+                        lineHeight: 1.3,
+                        fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                      }}
+                    >
+                      @{chat.username}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                      {t('profile.username', 'Имя пользователя')}
+                    </span>
+                  </div>
+                  <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
+                    {copiedKey ? <Check size={18} /> : <Copy size={18} />}
+                  </div>
+                </div>
+              )}
+
+              {chat.birthday && formatBirthday(chat.birthday, i18n.language) && (
+                <div
+                  style={{
+                    padding: '12px 20px',
+                    borderBottom: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
+                    {formatBirthday(chat.birthday, i18n.language)}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('profile.birthday', 'День рождения')}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {!isGroup && profileId ? (
             <div

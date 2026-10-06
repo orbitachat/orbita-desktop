@@ -11,6 +11,8 @@ import { extractGroupCode, isValidGroupCode } from '../../lib/groupCrypto';
 import { generateChannelId } from '../../lib/codes';
 import { useToastStore } from '../../store/useToastStore';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
+import { supabaseService, type UserDirectoryRecord } from '../../services/supabaseService';
+import { Avatar } from '../common/Avatar';
 
 export type CreateModalType = 'group' | 'channel' | 'friend';
 
@@ -35,7 +37,37 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tempWarning, setTempWarning] = useState<string | null>(null);
+  const [liveResults, setLiveResults] = useState<UserDirectoryRecord[]>([]);
   const tempWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (type !== 'friend') {
+      setLiveResults([]);
+      return;
+    }
+    const clean = inputValue.replace(/^@+/, '').trim().toLowerCase();
+    if (clean.length < 2) {
+      setLiveResults([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      supabaseService.searchPublicProfiles(clean, 5).then((results) => {
+        if (!cancelled) {
+          const myUid = useAuthStore.getState().userId;
+          const myC = useChatStore.getState().myCode;
+          setLiveResults((results || []).filter((u) => u.user_code !== myC && u.user_code !== myUid));
+        }
+      }).catch(() => {
+        if (!cancelled) setLiveResults([]);
+      });
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [inputValue, type]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -187,21 +219,66 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
       }
 
       const cleanInput = extractCodeFromInput(trimmed).trim();
-      if (!cleanInput || !/^[a-zA-Z0-9_-]{6,64}$/.test(cleanInput)) {
+      const rawClean = cleanInput.replace(/^@+/, '').trim();
+      if (!rawClean) {
         showTempWarning(t('createModal.invalid_content', 'Неверное содержимое'));
         return;
       }
+
       setIsLoading(true);
       setError(null);
-      const targetCode = cleanInput.length === 36 && !cleanInput.includes(' ') ? cleanInput.toUpperCase() : cleanInput;
-      onConnectRequest(targetCode, (ok, msg) => {
-        setIsLoading(false);
-        if (ok) {
-          onClose();
-        } else {
-          showTempWarning(msg || t('createModal.invalid_content', 'Неверное содержимое'));
+
+      if (/^[0-9a-fA-F-]{36}$/.test(rawClean)) {
+        onConnectRequest(rawClean.toUpperCase(), (ok, msg) => {
+          setIsLoading(false);
+          if (ok) {
+            onClose();
+          } else {
+            showTempWarning(msg || t('createModal.invalid_content', 'Неверное содержимое'));
+          }
+        });
+        return;
+      }
+
+      try {
+        const found = await supabaseService.lookupProfileByUsername(rawClean);
+        if (found && found.user_code) {
+          onConnectRequest(found.user_code, (ok, msg) => {
+            setIsLoading(false);
+            if (ok) {
+              onClose();
+            } else {
+              showTempWarning(msg || t('createModal.invalid_content', 'Неверное содержимое'));
+            }
+          });
+          return;
         }
-      });
+
+        const searchMatches = await supabaseService.searchPublicProfiles(rawClean, 1);
+        if (searchMatches && searchMatches.length > 0 && searchMatches[0].user_code) {
+          onConnectRequest(searchMatches[0].user_code, (ok, msg) => {
+            setIsLoading(false);
+            if (ok) {
+              onClose();
+            } else {
+              showTempWarning(msg || t('createModal.invalid_content', 'Неверное содержимое'));
+            }
+          });
+          return;
+        }
+
+        onConnectRequest(rawClean, (ok, msg) => {
+          setIsLoading(false);
+          if (ok) {
+            onClose();
+          } else {
+            showTempWarning(msg || t('createModal.user_not_found', 'Пользователь не найден'));
+          }
+        });
+      } catch {
+        setIsLoading(false);
+        showTempWarning(t('createModal.user_not_found', 'Пользователь не найден'));
+      }
       return;
     }
 
@@ -408,6 +485,43 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
               />
             </div>
           </div>
+
+          {type === 'friend' && liveResults.length > 0 && (
+            <div className="mt-3 flex flex-col gap-1 max-h-[160px] overflow-y-auto custom-scrollbar">
+              <div className="text-[11px] font-semibold text-[var(--text-dim)] px-1 uppercase tracking-wider mb-0.5">
+                {t('createModal.found_users', 'Глобальный поиск')}
+              </div>
+              {liveResults.map((u) => (
+                <div
+                  key={u.user_code}
+                  onClick={() => {
+                    setIsLoading(true);
+                    onConnectRequest(u.user_code, (ok, msg) => {
+                      setIsLoading(false);
+                      if (ok) {
+                        onClose();
+                      } else {
+                        showTempWarning(msg || t('createModal.invalid_content', 'Неверное содержимое'));
+                      }
+                    });
+                  }}
+                  className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-[var(--surface-container-strong,rgba(255,255,255,0.08))] cursor-pointer transition-colors"
+                >
+                  <Avatar src={u.avatar_url} alt={u.nickname} className="w-8 h-8 rounded-full flex-shrink-0" />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-[13px] font-medium text-[var(--text-main)] truncate leading-tight">
+                      {u.nickname}
+                    </span>
+                    {u.username && (
+                      <span className="text-[11px] text-[var(--accent-color,#7C3AED)] truncate leading-normal">
+                        @{u.username}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {(type === 'channel' || type === 'group') && (
             <div className="relative w-full flex flex-col pt-3">

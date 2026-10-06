@@ -36,7 +36,7 @@ import { deriveChannelKey } from '../../lib/crypto';
 import { useCallStore } from '../../store/useCallStore';
 import { callSoundService } from '../../services/callSoundService';
 import { ResizableSidebar } from './ResizableSidebar';
-import { supabaseService, type OfflineMessageRecord } from '../../services/supabaseService';
+import { supabaseService, type OfflineMessageRecord, type UserDirectoryRecord } from '../../services/supabaseService';
 import { mediaManager } from '../../services/mediaManager';
 import { gatewayManager } from '../../services/gatewayManager';
 import { Avatar } from '../common/Avatar';
@@ -835,12 +835,16 @@ export const MainLayout = () => {
   const [isNetworkOnline, setIsNetworkOnline] = useState<boolean>(() => {
     return typeof navigator !== 'undefined' ? navigator.onLine : true;
   });
-  const { nickname, avatarUrl, step } = useAuthStore(useShallow(state => ({
+  const { nickname, avatarUrl, step, username, bio, birthday } = useAuthStore(useShallow(state => ({
     nickname: state.nickname,
     avatarUrl: state.avatarUrl,
     step: state.step,
+    username: state.username,
+    bio: state.bio,
+    birthday: state.birthday,
   })));
   const [searchQuery, setSearchQuery] = useState('');
+  const [globalFoundUsers, setGlobalFoundUsers] = useState<UserDirectoryRecord[]>([]);
   const [connectModalConfig, setConnectModalConfig] = useState<{
     isOpen: boolean;
     type: 'group' | 'channel' | 'friend';
@@ -1027,9 +1031,9 @@ export const MainLayout = () => {
   useEffect(() => {
     if (step === 'main' && nickname && myCode) {
       const myKeys = generateKeyPair();
-      supabaseService.publishPublicProfile(myCode, nickname, avatarUrl || null, myKeys.publicKey).catch(() => {});
+      supabaseService.publishPublicProfile(myCode, nickname, avatarUrl || null, myKeys.publicKey, bio, username, birthday).catch(() => {});
     }
-  }, [step, nickname, myCode, avatarUrl]);
+  }, [step, nickname, myCode, avatarUrl, bio, username, birthday]);
 
   useEffect(() => {
     const pusher = getPusher();
@@ -1145,6 +1149,7 @@ export const MainLayout = () => {
     if (!myCode && !nickname) return;
     const pusher = getPusher();
     const unsubscribes: (() => void)[] = [];
+    const cleanUsername = username ? username.replace(/^@+/, '').trim() : null;
     const keysToListen = Array.from(new Set([
       myCode,
       myCode?.toUpperCase(),
@@ -1152,6 +1157,9 @@ export const MainLayout = () => {
       nickname,
       nickname?.toUpperCase(),
       nickname?.toLowerCase(),
+      cleanUsername,
+      cleanUsername ? `@${cleanUsername}` : null,
+      cleanUsername ? cleanUsername.toLowerCase() : null,
     ].filter(Boolean))) as string[];
 
     const handleRequest = (data: any) => {
@@ -1187,13 +1195,25 @@ export const MainLayout = () => {
         ratchetState: ratchet.getState(),
         avatarUrl: data.avatarUrl ?? undefined,
         peerCode: data.senderCode,
+        originalPeerCode: data.senderCode,
+        username: data.username || undefined,
+        description: data.bio || undefined,
+        birthday: data.birthday || undefined,
       });
+
+      const myCurrentUsername = useAuthStore.getState().username;
+      const myCurrentBio = useAuthStore.getState().bio;
+      const myCurrentBirthday = useAuthStore.getState().birthday;
 
       ablyService.sendHandshakeConfirm(data.senderCode, {
         nickname,
         publicKey: myKeys.publicKey,
         chatId,
         avatarUrl,
+        senderCode: myCode,
+        username: myCurrentUsername,
+        bio: myCurrentBio,
+        birthday: myCurrentBirthday,
       }).catch((err) => console.warn('[Ably] Handshake confirm send error:', err));
 
       const pusher = getPusher();
@@ -1204,6 +1224,10 @@ export const MainLayout = () => {
           publicKey: myKeys.publicKey,
           chatId,
           avatarUrl,
+          senderCode: myCode,
+          username: myCurrentUsername,
+          bio: myCurrentBio,
+          birthday: myCurrentBirthday,
         });
 
       if (senderChannel.subscribed) sendConfirm();
@@ -1251,6 +1275,9 @@ export const MainLayout = () => {
         avatarUrl: data.avatarUrl ?? existing.avatarUrl,
         peerCode: peerCode,
         originalPeerCode: peerCode || existing.originalPeerCode || existing.peerCode,
+        username: data.username !== undefined ? data.username : existing.username,
+        description: data.bio !== undefined ? data.bio : existing.description,
+        birthday: data.birthday !== undefined ? data.birthday : existing.birthday,
       };
 
       if (existing.sharedSecret && !existing.ratchetState) {
@@ -1378,16 +1405,26 @@ export const MainLayout = () => {
       avatarUrl: req.avatarUrl ?? undefined,
       peerCode: req.senderCode,
       originalPeerCode: req.senderCode,
+      username: req.username || undefined,
+      description: req.bio || undefined,
+      birthday: req.birthday || undefined,
     });
+
+    const myCurrentUsername = useAuthStore.getState().username;
+    const myCurrentBio = useAuthStore.getState().bio;
+    const myCurrentBirthday = useAuthStore.getState().birthday;
 
     ablyService.sendHandshakeConfirm(req.senderCode, {
       nickname,
       publicKey: myKeys.publicKey,
       chatId: req.chatId,
       avatarUrl,
+      senderCode: myCode,
+      username: myCurrentUsername,
+      bio: myCurrentBio,
+      birthday: myCurrentBirthday,
     }).catch((err) => console.warn('[Ably] Handshake confirm send error:', err));
 
-    // Send confirmation over Pusher
     const pusher = getPusher();
     const senderChannel = pusher.subscribe(`private-handshake-${req.senderCode}`);
     const sendConfirm = () =>
@@ -1396,6 +1433,10 @@ export const MainLayout = () => {
         publicKey: myKeys.publicKey,
         chatId: req.chatId,
         avatarUrl,
+        senderCode: myCode,
+        username: myCurrentUsername,
+        bio: myCurrentBio,
+        birthday: myCurrentBirthday,
       });
 
     if (senderChannel.subscribed) sendConfirm();
@@ -2462,12 +2503,18 @@ export const MainLayout = () => {
 
       const sendRequest = () => {
         revalidateDevelopersOnConnection(friendCode);
+        const myUsername = useAuthStore.getState().username;
+        const myBio = useAuthStore.getState().bio;
+        const myBirthday = useAuthStore.getState().birthday;
         friendChannel.trigger('client-request-identity', {
           senderNickname: nickname,
           senderCode: myCode,
           publicKey: myKeys.publicKey,
           avatarUrl,
           chatId,
+          username: myUsername,
+          bio: myBio,
+          birthday: myBirthday,
         });
         ablyService.sendHandshakeRequest(friendCode, {
           senderNickname: nickname,
@@ -2475,6 +2522,9 @@ export const MainLayout = () => {
           publicKey: myKeys.publicKey,
           avatarUrl,
           chatId,
+          username: myUsername,
+          bio: myBio,
+          birthday: myBirthday,
         }).catch((err) => console.warn('[Ably] Handshake request error:', err));
       };
 
@@ -2502,6 +2552,9 @@ export const MainLayout = () => {
             avatarUrl: data.avatarUrl ?? undefined,
             peerCode: peerCode,
             originalPeerCode: peerCode || friendCode,
+            username: data.username !== undefined ? data.username : undefined,
+            description: data.bio !== undefined ? data.bio : undefined,
+            birthday: data.birthday !== undefined ? data.birthday : undefined,
           });
         } else {
           addChat({
@@ -2516,6 +2569,9 @@ export const MainLayout = () => {
             avatarUrl: data.avatarUrl ?? undefined,
             peerCode: peerCode,
             originalPeerCode: peerCode || friendCode,
+            username: data.username || undefined,
+            description: data.bio || undefined,
+            birthday: data.birthday || undefined,
           });
         }
         cleanup();
@@ -2561,6 +2617,9 @@ export const MainLayout = () => {
             updateChat(chatId, {
               name: friendProfile.nickname,
               avatarUrl: friendProfile.avatar_url ?? undefined,
+              username: friendProfile.username ?? undefined,
+              description: friendProfile.bio ?? undefined,
+              birthday: friendProfile.birthday ?? undefined,
               sharedSecret: sharedSecret,
               ratchetState: ratchet.getState(),
               lastMsg: 'E2EE_SECURE_CHANNEL_READY',
@@ -2571,6 +2630,9 @@ export const MainLayout = () => {
             updateChat(chatId, {
               name: friendProfile.nickname,
               avatarUrl: friendProfile.avatar_url ?? undefined,
+              username: friendProfile.username ?? undefined,
+              description: friendProfile.bio ?? undefined,
+              birthday: friendProfile.birthday ?? undefined,
               peerCode: friendCode,
               originalPeerCode: friendCode,
             });
@@ -4635,14 +4697,45 @@ export const MainLayout = () => {
   const searchedChats = useMemo(() => {
     if (!searchQuery.trim()) return sortedChats;
     const q = searchQuery.toLowerCase().trim();
+    const cleanUserQ = q.replace(/^@+/, '');
     return sortedChats.filter(chat => {
       if (isSupportFound && chat.id === supportService.BOT_ID) return false;
       return (
         chat.name.toLowerCase().includes(q) ||
-        (chat.peerCode && chat.peerCode.toLowerCase().includes(q))
+        (chat.peerCode && chat.peerCode.toLowerCase().includes(q)) ||
+        (chat.username && chat.username.toLowerCase().includes(cleanUserQ))
       );
     });
   }, [sortedChats, searchQuery, isSupportFound]);
+
+  useEffect(() => {
+    const cleanQ = searchQuery.replace(/^@+/, '').trim().toLowerCase();
+    if (cleanQ.length < 2) {
+      setGlobalFoundUsers([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      supabaseService.searchPublicProfiles(cleanQ, 10).then((users) => {
+        if (!cancelled) {
+          const myUid = useAuthStore.getState().userId;
+          const myC = useChatStore.getState().myCode;
+          const filtered = (users || []).filter((u) => u.user_code !== myC && u.user_code !== myUid);
+          setGlobalFoundUsers(filtered);
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setGlobalFoundUsers([]);
+        }
+      });
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   const isLightTheme = document.documentElement.getAttribute('data-theme-light') === 'true';
 
@@ -4836,6 +4929,24 @@ export const MainLayout = () => {
     handleSelectChat(supportService.BOT_ID);
     setSearchQuery('');
   }, [t, myCode, handleSelectChat]);
+
+  const handleSelectFoundUser = useCallback((user: UserDirectoryRecord) => {
+    const currentChats = useChatStore.getState().chats;
+    const existingChat = currentChats.find(
+      (c) => c.type === 'private' && (c.id === user.user_code || c.peerCode === user.user_code)
+    );
+    if (existingChat) {
+      handleSelectChat(existingChat.id);
+      setSearchQuery('');
+      return;
+    }
+    handleConnectRequest(user.user_code, (ok, err) => {
+      if (!ok && err) {
+        console.warn('[GlobalSearch] Connect error:', err);
+      }
+    });
+    setSearchQuery('');
+  }, [handleSelectChat, handleConnectRequest]);
 
 
   const renderChat = useCallback((chat: Chat) => {
@@ -5411,6 +5522,57 @@ export const MainLayout = () => {
                         />
                       )}
                       {visibleChats.map((chat) => renderChat(chat))}
+                      {searchQuery.trim().length >= 2 && globalFoundUsers.length > 0 && (
+                        <div className="px-2 py-1">
+                          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
+                            {t('createModal.found_users', 'Глобальный поиск')}
+                          </div>
+                          {globalFoundUsers.map((user) => {
+                            const isExisting = chats.some(c => c.type === 'private' && (c.id === user.user_code || c.peerCode === user.user_code));
+                            return (
+                              <div
+                                key={user.user_code}
+                                onClick={() => handleSelectFoundUser(user)}
+                                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer"
+                              >
+                                <Avatar
+                                  src={user.avatar_url}
+                                  alt={user.nickname}
+                                  className="w-11 h-11 rounded-full flex-shrink-0"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-sm text-[var(--text-main)] truncate">
+                                      {user.nickname}
+                                    </span>
+                                  </div>
+                                  {user.username && (
+                                    <div className="text-xs text-[var(--accent-color,#7C3AED)] truncate mt-0.5 font-mono">
+                                      @{user.username}
+                                    </div>
+                                  )}
+                                  {!user.username && user.bio && (
+                                    <div className="text-xs text-[var(--text-dim)] truncate mt-0.5">
+                                      {user.bio}
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectFoundUser(user);
+                                  }}
+                                  aria-label={isExisting ? t('common.open', 'Открыть') : t('connectModal.connect', 'Подключиться')}
+                                  className="px-3 py-1.5 rounded-lg bg-[var(--accent-color)] text-white text-xs font-semibold hover:opacity-90 transition-opacity border-none outline-none cursor-pointer flex-shrink-0"
+                                >
+                                  {isExisting ? t('common.open', 'Открыть') : t('connectModal.connect', 'Подключиться')}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

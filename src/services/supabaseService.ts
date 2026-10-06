@@ -832,6 +832,61 @@ class SupabaseService {
     return null;
   }
 
+  async searchPublicProfiles(query: string, limit: number = 20): Promise<UserDirectoryRecord[]> {
+    if (!query) return [];
+    const cleanQuery = query.replace(/^@+/, '').trim().toLowerCase();
+    if (!cleanQuery) return [];
+
+    const nodes = relayRouter.getNodes();
+    for (const relay of nodes) {
+      try {
+        const res = await fetch(`${relay.url}/relay/search-users?q=${encodeURIComponent(cleanQuery)}&limit=${limit}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.users) && data.users.length > 0) {
+            return data.users;
+          }
+        }
+      } catch {}
+    }
+
+    if (this.client) {
+      try {
+        const { data, error } = await this.client
+          .from('profile_updates')
+          .select('*')
+          .or(`username.ilike.%${cleanQuery}%,nickname.ilike.%${cleanQuery}%,sender_code.ilike.%${cleanQuery}%`)
+          .order('updated_at', { ascending: false })
+          .limit(limit);
+
+        if (!error && data && Array.isArray(data)) {
+          const seen = new Set<string>();
+          const results: UserDirectoryRecord[] = [];
+          for (const row of data) {
+            const userCode = row.sender_code || row.chat_id;
+            if (userCode && !seen.has(userCode)) {
+              seen.add(userCode);
+              results.push({
+                user_code: userCode,
+                nickname: row.nickname || 'User',
+                avatar_url: row.avatar_url,
+                username: row.username,
+                bio: row.bio,
+                birthday: row.birthday,
+                updated_at: row.updated_at,
+              });
+            }
+          }
+          return results;
+        }
+      } catch (err) {
+        console.warn('[Directory] Failed to search profiles in Supabase:', err);
+      }
+    }
+
+    return [];
+  }
+
   async getHandshakeRecordsForChat(chatId: string): Promise<OfflineHandshakeRecord[]> {
     if (!chatId || chatId === 'notes') return [];
     const nodes = relayRouter.getNodes();

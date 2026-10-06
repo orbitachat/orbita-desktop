@@ -247,6 +247,22 @@
       "flip_horizontal": "Отразить по горизонтали",
       "set_photo": "Установить фотографию"
     },
+    "createModal": {
+      "friend_id": "Имя пользователя или ID друга",
+      "specify_friend_id": "Укажите имя пользователя или ID друга",
+      "channel_name": "Название канала",
+      "specify_channel_name": "Укажите название канала",
+      "group_name": "Название группы",
+      "specify_group_name": "Укажите название группы",
+      "choose_photo": "Выбрать фото",
+      "invalid_content": "Неверное содержимое",
+      "user_not_found": "Пользователь не найден",
+      "found_community": "Найдено сообщество",
+      "found_support": "Служба поддержки",
+      "found_users": "Глобальный поиск",
+      "no_users_found": "Пользователи не найдены",
+      "subscribers": "подписчиков"
+    },
     "connectModal": {
       "notes": "Избранное",
       "find_friends": "Поиск друзей",

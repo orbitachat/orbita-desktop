@@ -247,6 +247,22 @@
       "flip_horizontal": "Flip horizontally",
       "set_photo": "Set profile picture"
     },
+    "createModal": {
+      "friend_id": "Username or friend ID",
+      "specify_friend_id": "Specify username or friend ID",
+      "channel_name": "Channel name",
+      "specify_channel_name": "Specify channel name",
+      "group_name": "Group name",
+      "specify_group_name": "Specify group name",
+      "choose_photo": "Choose photo",
+      "invalid_content": "Invalid content",
+      "user_not_found": "User not found",
+      "found_community": "Community found",
+      "found_support": "Support Service",
+      "found_users": "Global Search",
+      "no_users_found": "No users found",
+      "subscribers": "subscribers"
+    },
     "connectModal": {
       "notes": "Saved Messages",
       "find_friends": "Find Friends",

@@ -277,6 +277,9 @@ export interface IncomingFriendRequest {
   senderCode: string;
   senderPublicKey: string;
   avatarUrl?: string | null;
+  username?: string | null;
+  bio?: string | null;
+  birthday?: string | null;
   createdAt: number;
 }
 
@@ -929,6 +932,9 @@ export const useChatStore = create<ChatState>()(
           muted: newChat.muted ?? false,
           notificationsEnabled: newChat.notificationsEnabled ?? true,
           peerCode: newChat.peerCode,
+          description: newChat.description,
+          username: newChat.username,
+          birthday: newChat.birthday,
         };
         set((state) => {
           if (chatEntry.type === 'group' && state.deletedChatIds?.includes(chatEntry.id) && !(newChat as any).isExplicitJoin) {
