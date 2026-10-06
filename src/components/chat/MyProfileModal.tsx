@@ -908,6 +908,28 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                 </p>
               </div>
 
+              {username && (
+                <div
+                  style={{
+                    backgroundColor: 'var(--md-surface, #211c2e)',
+                    width: '100%',
+                    padding: '12px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    userSelect: 'text',
+                    boxSizing: 'border-box',
+                    borderBottom: (bio || (numericId || myCode) || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--accent-color, #9b7dd4)', lineHeight: '1.35', fontWeight: 500 }}>
+                    @{username}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('profile.username_label', 'Имя пользователя')}
+                  </div>
+                </div>
+              )}
+
               {bio && (
                 <div
                   style={{
@@ -918,7 +940,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                     flexDirection: 'column',
                     userSelect: 'text',
                     boxSizing: 'border-box',
-                    borderBottom: '1px solid var(--border-color, rgba(255, 255, 255, 0.06))',
+                    borderBottom: ((numericId || myCode) || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
                   }}
                 >
                   <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word' }}>
@@ -930,70 +952,50 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                 </div>
               )}
 
-              <div
-                style={{
-                  backgroundColor: 'var(--md-surface, #211c2e)',
-                  width: '100%',
-                  padding: '12px 20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '14px',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  boxSizing: 'border-box',
-                  borderBottom: (username || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
-                }}
-                onClick={handleCopyLink}
-              >
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                  <span
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--accent-color, #9b7dd4)',
-                      wordBreak: 'break-all',
-                      lineHeight: 1.3,
-                      fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
-                    }}
-                  >
-                    {numericId || myCode || '------'}
-                  </span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    {t('profile.account_id', 'ID аккаунта')}
-                  </span>
-                </div>
-
-                <div
-                  style={{ flexShrink: 0, color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveSection('qrCode');
-                  }}
-                  aria-label={t('qrModal.title', 'Получить QR-код')}
-                >
-                  <QrCodeMiniIcon size={20} />
-                </div>
-              </div>
-
-              {username && (
+              {(numericId || myCode) && (
                 <div
                   style={{
                     backgroundColor: 'var(--md-surface, #211c2e)',
                     width: '100%',
                     padding: '12px 20px',
                     display: 'flex',
-                    flexDirection: 'column',
-                    userSelect: 'text',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                    cursor: 'pointer',
+                    userSelect: 'none',
                     boxSizing: 'border-box',
                     borderBottom: birthday ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
                   }}
+                  onClick={handleCopyLink}
                 >
-                  <div style={{ fontSize: '14px', color: 'var(--accent-color, #9b7dd4)', lineHeight: '1.35', fontWeight: 500 }}>
-                    @{username}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                    <span
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: 'var(--accent-color, #9b7dd4)',
+                        wordBreak: 'break-all',
+                        lineHeight: 1.3,
+                        fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                      }}
+                    >
+                      {numericId || myCode}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                      {t('profile.account_id', 'ID аккаунта')}
+                    </span>
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    {t('profile.username_label', 'Имя пользователя')}
+
+                  <div
+                    style={{ flexShrink: 0, color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveSection('qrCode');
+                    }}
+                    aria-label={t('qrModal.title', 'Получить QR-код')}
+                  >
+                    <QrCodeMiniIcon size={20} />
                   </div>
                 </div>
               )}

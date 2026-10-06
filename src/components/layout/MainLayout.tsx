@@ -5031,7 +5031,7 @@ export const MainLayout = () => {
   const isLightTheme = document.documentElement.getAttribute('data-theme-light') === 'true';
 
   const handleOpenSettings = () => {
-    setCurrentView('settings');
+    useChatStore.getState().openSettings('main');
   };
 
   const CHAT_BATCH_SIZE = 25;

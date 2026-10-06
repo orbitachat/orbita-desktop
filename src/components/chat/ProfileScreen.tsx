@@ -2609,24 +2609,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
             ) : null
           ) : (
             <>
-              {chat.description && (
-                <div
-                  style={{
-                    padding: '12px 20px',
-                    borderBottom: 'none',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
-                    {chat.description}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    {t('profile.bio', 'О себе')}
-                  </div>
-                </div>
-              )}
-
               {chat.username && (
                 <div
                   onClick={() => handleCopyChannelKey(`@${chat.username}`)}
@@ -2662,6 +2644,59 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                 </div>
               )}
 
+              {chat.description && (
+                <div
+                  style={{
+                    padding: '12px 20px',
+                    borderBottom: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word', userSelect: 'text' }}>
+                    {chat.description}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('profile.bio', 'О себе')}
+                  </div>
+                </div>
+              )}
+
+              {!isGroup && profileId ? (
+                <div
+                  onClick={() => handleCopyChannelKey(profileId)}
+                  style={{
+                    padding: '12px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <span
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: 'var(--accent-color, #9b7dd4)',
+                        wordBreak: 'break-all',
+                        lineHeight: 1.3,
+                        fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
+                      }}
+                    >
+                      {formattedProfileId}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                      ID
+                    </span>
+                  </div>
+                  <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
+                    {copiedKey ? <Check size={18} /> : <Copy size={18} />}
+                  </div>
+                </div>
+              ) : null}
+
               {chat.birthday && formatBirthday(chat.birthday, i18n.language) && (
                 <div
                   style={{
@@ -2681,41 +2716,6 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
               )}
             </>
           )}
-
-          {!isGroup && profileId ? (
-            <div
-              onClick={() => handleCopyChannelKey(profileId)}
-              style={{
-                padding: '12px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <span
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--accent-color, #9b7dd4)',
-                    wordBreak: 'break-all',
-                    lineHeight: 1.3,
-                    fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
-                  }}
-                >
-                  {formattedProfileId}
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                  ID
-                </span>
-              </div>
-              <div style={{ flexShrink: 0, color: copiedKey ? 'var(--accent-color, #9b7dd4)' : 'var(--text-dim, #8e8e93)', display: 'flex', alignItems: 'center' }}>
-                {copiedKey ? <Check size={18} /> : <Copy size={18} />}
-              </div>
-            </div>
-          ) : null}
         </div>
       )}
 

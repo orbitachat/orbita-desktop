@@ -2835,6 +2835,12 @@ export const SettingsScreen = () => {
   const [tabStack, setTabStack] = useState<TabId[]>(() => [initialSettingsTab || 'main']);
   const activeTab = tabStack[tabStack.length - 1];
 
+  useEffect(() => {
+    return () => {
+      useChatStore.setState({ initialSettingsTab: 'main' });
+    };
+  }, []);
+
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoInputDevices, setVideoInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
