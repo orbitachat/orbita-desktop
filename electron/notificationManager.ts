@@ -27,7 +27,7 @@ interface ShowNotificationPayload {
 }
 
 const CARD_WIDTH     = 348;
-const NOTIF_ITEM_H   = 68;
+const NOTIF_ITEM_H   = 83;
 const NOTIF_GAP      = 6;
 const SCREEN_MARGIN  = 10;
 

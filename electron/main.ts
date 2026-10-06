@@ -122,7 +122,7 @@ for (const candidate of candidatePaths) {
 // 1. Notification Manager
 // -----------------------------------------------------------------------------
 const NOTIF_WIDTH = 348;
-const NOTIF_HEIGHT = 68;
+const NOTIF_HEIGHT = 83;
 const NOTIF_GAP = 6;
 const NOTIF_MARGIN = 10;
 
