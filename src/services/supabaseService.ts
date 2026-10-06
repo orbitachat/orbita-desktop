@@ -349,6 +349,22 @@ class SupabaseService {
   async deleteChatData(chatId: string, recipientId?: string | string[], senderId?: string): Promise<void> {
     if (!chatId || chatId === 'notes') return;
 
+    const primaryRelay = relayRouter.getRelayForRecipient(chatId);
+    const allRelays = [
+      primaryRelay,
+      ...relayRouter.getNodes().filter((n) => n.url !== primaryRelay.url),
+    ];
+
+    for (const relay of allRelays) {
+      try {
+        await fetch(`${relay.url}/relay/delete-chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, recipientId, senderId }),
+        });
+      } catch {}
+    }
+
     if (this.client) {
       try {
         await this.client.from('messages').delete().eq('chat_id', chatId);
@@ -361,9 +377,6 @@ class SupabaseService {
       } catch {}
       try {
         await this.client.from('reactions').delete().eq('chat_id', chatId);
-      } catch {}
-      try {
-        await this.client.from('profile_updates').delete().eq('chat_id', chatId);
       } catch {}
 
       if (recipientId) {
@@ -393,6 +406,22 @@ class SupabaseService {
 
   async clearChatHistory(chatId: string, recipientId?: string | string[], senderId?: string): Promise<void> {
     if (!chatId || chatId === 'notes') return;
+
+    const primaryRelay = relayRouter.getRelayForRecipient(chatId);
+    const allRelays = [
+      primaryRelay,
+      ...relayRouter.getNodes().filter((n) => n.url !== primaryRelay.url),
+    ];
+
+    for (const relay of allRelays) {
+      try {
+        await fetch(`${relay.url}/relay/clear-history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId, recipientId, senderId }),
+        });
+      } catch {}
+    }
 
     if (this.client) {
       try {
@@ -1080,11 +1109,9 @@ class SupabaseService {
     }
   }
 
-  // --- Разработчики Orbita ---
   async getDeveloperCodes(): Promise<string[]> {
     const allCodes = new Set<string>();
 
-    // 1. Прямой Supabase клиент (если настроен)
     if (this.client) {
       try {
         const { data, error } = await this.client
@@ -1130,6 +1157,27 @@ class SupabaseService {
           }
         }
       } catch (e) {}
+    }
+
+    if (this.client && allCodes.size > 0) {
+      try {
+        const baseCodes = Array.from(allCodes);
+        const { data: profs } = await this.client
+          .from('profile_updates')
+          .select('sender_code, username, numeric_id, nickname')
+          .in('sender_code', baseCodes);
+
+        if (profs && Array.isArray(profs)) {
+          for (const p of profs) {
+            if (p.username) {
+              allCodes.add(p.username.trim());
+              allCodes.add(p.username.trim().toLowerCase());
+            }
+            if (p.numeric_id) allCodes.add(p.numeric_id.trim());
+            if (p.nickname) allCodes.add(p.nickname.trim());
+          }
+        }
+      } catch {}
     }
 
     return Array.from(allCodes);

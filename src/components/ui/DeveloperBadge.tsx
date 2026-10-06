@@ -126,8 +126,10 @@ export const OrbitaBadgeIcon: React.FC<{ size?: number | string; color?: string 
 );
 
 interface DeveloperBadgeProps {
-  userId?: string;
-  nickname?: string;
+  userId?: string | null;
+  nickname?: string | null;
+  username?: string | null;
+  numericId?: string | null;
   size?: number;
   className?: string;
   style?: React.CSSProperties;
@@ -137,6 +139,8 @@ interface DeveloperBadgeProps {
 export const DeveloperBadge: React.FC<DeveloperBadgeProps> = ({
   userId,
   nickname,
+  username,
+  numericId,
   size = 15,
   className = '',
   style = {},
@@ -152,7 +156,11 @@ export const DeveloperBadge: React.FC<DeveloperBadgeProps> = ({
     };
   }, []);
 
-  const isDev = isDeveloper(userId) || isDeveloper(nickname);
+  const isDev =
+    isDeveloper(userId) ||
+    isDeveloper(nickname) ||
+    isDeveloper(username) ||
+    isDeveloper(numericId);
   if (!isDev) return null;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -160,7 +168,7 @@ export const DeveloperBadge: React.FC<DeveloperBadgeProps> = ({
       onClick(e);
     } else {
       e.stopPropagation();
-      useToastStore.getState().showDevToast(nickname || userId);
+      useToastStore.getState().showDevToast(nickname || userId || undefined);
     }
   };
 

@@ -1067,6 +1067,68 @@ module.exports = async function handler(req, res) {
         } catch (err) {
           console.error('[relay/delete-message] error:', err);
         }
+    if (pathname === '/relay/delete-chat' && req.method === 'POST') {
+      const supabase = getSupabaseClient();
+      const { chatId, recipientId, senderId } = body;
+      if (supabase && chatId) {
+        try {
+          await supabase.from('messages').delete().eq('chat_id', chatId);
+          await supabase.from('offline_handshakes').delete().eq('chat_id', chatId);
+          await supabase.from('reactions').delete().eq('chat_id', chatId);
+          await supabase.from('non_messages').delete().eq('chat_id', chatId);
+          if (recipientId) {
+            const targets = Array.isArray(recipientId) ? recipientId : [recipientId];
+            for (const rId of targets) {
+              if (!rId) continue;
+              await supabase.from('non_messages').insert({
+                id: `sys_del_${chatId}_${rId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                chat_id: chatId,
+                sender_id: senderId || 'system',
+                recipient_id: rId,
+                ciphertext: JSON.stringify({
+                  type: 'system',
+                  action: 'delete-chat',
+                  chatId,
+                }),
+                delivered: false,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[relay/delete-chat] error:', err);
+        }
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
+    if (pathname === '/relay/clear-history' && req.method === 'POST') {
+      const supabase = getSupabaseClient();
+      const { chatId, recipientId, senderId } = body;
+      if (supabase && chatId) {
+        try {
+          await supabase.from('messages').delete().eq('chat_id', chatId);
+          await supabase.from('reactions').delete().eq('chat_id', chatId);
+          if (recipientId) {
+            const targets = Array.isArray(recipientId) ? recipientId : [recipientId];
+            for (const rId of targets) {
+              if (!rId) continue;
+              await supabase.from('non_messages').insert({
+                id: `sys_clear_${chatId}_${rId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                chat_id: chatId,
+                sender_id: senderId || 'system',
+                recipient_id: rId,
+                ciphertext: JSON.stringify({
+                  type: 'system',
+                  action: 'clear-history',
+                  chatId,
+                }),
+                delivered: false,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[relay/clear-history] error:', err);
+        }
       }
       return sendJson(res, { status: 'ok' });
     }

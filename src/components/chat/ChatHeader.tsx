@@ -120,8 +120,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <VerifiedBadge size={16} className="flex-shrink-0" />
                 )}
                 <DeveloperBadge
-                  userId={activeChat?.peerCode || (activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined) || (activeChat?.type === 'private' ? (activeChatId ?? undefined) : undefined)}
+                  userId={activeChat?.peerCode || activeChat?.originalPeerCode || (activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined) || (activeChat?.type === 'private' ? (activeChatId ?? undefined) : undefined)}
                   nickname={activeChat?.name}
+                  username={activeChat?.username}
+                  numericId={activeChat?.numericId}
                   size={20}
                 />
                 {activeChat?.type === 'channel' && activeChat.isOfficial && (

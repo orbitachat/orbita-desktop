@@ -555,8 +555,10 @@ const ChatListItem = React.memo(({
                 <VerifiedBadge size={16} className="flex-shrink-0" />
               )}
               <DeveloperBadge
-                userId={chat.peerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined)}
+                userId={chat.peerCode || chat.originalPeerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined) || (chat.type === 'private' ? chat.id : undefined)}
                 nickname={chat.name}
+                username={chat.username}
+                numericId={chat.numericId}
                 size={24}
                 style={{ pointerEvents: 'none' }}
               />
@@ -1148,11 +1150,15 @@ export const MainLayout = () => {
     if (!myCode && !nickname) return;
     const pusher = getPusher();
     const unsubscribes: (() => void)[] = [];
+    const currentNumericId = useAuthStore.getState().numericId;
+    const currentUserId = useAuthStore.getState().userId;
     const cleanUsername = username ? username.replace(/^@+/, '').trim() : null;
     const keysToListen = Array.from(new Set([
       myCode,
       myCode?.toUpperCase(),
       myCode?.toLowerCase(),
+      currentUserId,
+      currentNumericId,
       nickname,
       nickname?.toUpperCase(),
       nickname?.toLowerCase(),
@@ -1584,7 +1590,16 @@ export const MainLayout = () => {
 
   const loadPendingHandshakes = useCallback(async () => {
     if (!nickname && !myCode) return;
-    const keysToCheck = Array.from(new Set([myCode, useAuthStore.getState().userId].filter(Boolean))) as string[];
+    const currentNumericId = useAuthStore.getState().numericId;
+    const currentUsername = useAuthStore.getState().username;
+    const cleanUsername = currentUsername ? currentUsername.replace(/^@+/, '').trim().toLowerCase() : null;
+    const keysToCheck = Array.from(new Set([
+      myCode,
+      useAuthStore.getState().userId,
+      currentNumericId,
+      cleanUsername,
+      cleanUsername ? `@${cleanUsername}` : null,
+    ].filter(Boolean))) as string[];
     const processedIds = new Set<string>();
 
     try {
@@ -1758,7 +1773,16 @@ export const MainLayout = () => {
     }
     isLoadingPendingRef.current = true;
     try {
-      const keysToCheck = Array.from(new Set([myCode, useAuthStore.getState().userId].filter(Boolean))) as string[];
+      const currentNumericId = useAuthStore.getState().numericId;
+      const currentUsername = useAuthStore.getState().username;
+      const cleanUsername = currentUsername ? currentUsername.replace(/^@+/, '').trim().toLowerCase() : null;
+      const keysToCheck = Array.from(new Set([
+        myCode,
+        useAuthStore.getState().userId,
+        currentNumericId,
+        cleanUsername,
+        cleanUsername ? `@${cleanUsername}` : null,
+      ].filter(Boolean))) as string[];
 
       const processBatch = async (batch: OfflineMessageRecord[]) => {
         if (batch.length === 0) return;
@@ -2765,9 +2789,24 @@ export const MainLayout = () => {
       });
       setActiveChat(chatId);
 
-      supabaseService.lookupPublicProfile(friendCode).then((friendProfile) => {
+      (async () => {
+        let friendProfile = await supabaseService.lookupPublicProfile(friendCode);
+        if (!friendProfile) {
+          friendProfile = await supabaseService.lookupProfileByUsername(friendCode);
+        }
+        if (!friendProfile) {
+          const sMatches = await supabaseService.searchPublicProfiles(friendCode, 1);
+          if (sMatches && sMatches.length > 0) friendProfile = sMatches[0];
+        }
+
+        const targetsToSend = new Set<string>([friendCode]);
+
         if (friendProfile && !settled) {
           const friendNumericId = friendProfile.numeric_id || getInitialNumericId(friendCode);
+          if (friendProfile.user_code) targetsToSend.add(friendProfile.user_code);
+          if (friendProfile.numeric_id) targetsToSend.add(friendProfile.numeric_id);
+          if (friendProfile.username) targetsToSend.add(friendProfile.username);
+
           if (friendProfile.public_key) {
             const sharedSecret = deriveSharedSecret(myKeys.privateKey, friendProfile.public_key);
             const rootKey = deriveRootKey(sharedSecret);
@@ -2782,8 +2821,8 @@ export const MainLayout = () => {
               sharedSecret: sharedSecret,
               ratchetState: ratchet.getState(),
               lastMsg: 'E2EE_SECURE_CHANNEL_READY',
-              peerCode: friendCode,
-              originalPeerCode: friendCode,
+              peerCode: friendProfile.user_code || friendCode,
+              originalPeerCode: friendProfile.user_code || friendCode,
             });
           } else {
             updateChat(chatId, {
@@ -2793,38 +2832,33 @@ export const MainLayout = () => {
               description: friendProfile.bio ?? undefined,
               birthday: friendProfile.birthday ?? undefined,
               numericId: friendNumericId,
-              peerCode: friendCode,
-              originalPeerCode: friendCode,
+              peerCode: friendProfile.user_code || friendCode,
+              originalPeerCode: friendProfile.user_code || friendCode,
             });
           }
         }
-      }).catch((err) => {
-        console.warn('[Handshake] Profile lookup warning:', err);
-      });
 
-      supabaseService
-        .sendOfflineHandshake(
-          chatId,
-          friendCode,
-          nickname,
-          myKeys.publicKey,
-          avatarUrl,
-          myCode
-        )
-        .then(() => {
-          console.log('[Handshake] Offline handshake saved in Supabase for', friendCode);
-          if (!settled) {
-            cleanup();
-            callback(true);
-          }
-        })
-        .catch((err) => {
-          console.error('[Handshake] Failed to persist handshake:', err);
-          if (!settled) {
-            cleanup();
-            callback(false, err?.message || 'Не удалось отправить заявку');
-          }
-        });
+        for (const targetKey of targetsToSend) {
+          supabaseService.sendOfflineHandshake(
+            chatId,
+            targetKey,
+            nickname,
+            myKeys.publicKey,
+            avatarUrl,
+            myCode
+          ).catch(() => {});
+        }
+
+        if (!settled) {
+          cleanup();
+          callback(true);
+        }
+      })().catch((err) => {
+        if (!settled) {
+          cleanup();
+          callback(false, err?.message || 'Не удалось отправить заявку');
+        }
+      });
 
       if (friendChannel.subscribed) sendRequest();
       else friendChannel.bind('pusher:subscription_succeeded', sendRequest);
@@ -4643,7 +4677,25 @@ export const MainLayout = () => {
       try {
         ablyService.sendMessage(chatId, clearPayload).catch(() => {});
       } catch {}
-      const recipients = [chat.peerCode, chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined].filter(Boolean) as string[];
+
+      const recipients = Array.from(new Set([
+        chat.peerCode,
+        chat.originalPeerCode,
+        chat.name && chat.name.length === 36 ? chat.name : undefined,
+        chat.numericId,
+        chat.username,
+      ].filter((r): r is string => Boolean(r && r !== myCode && r !== useAuthStore.getState().userId))));
+
+      const pusher = getPusher();
+      for (const rId of recipients) {
+        try {
+          const rChan = pusher.subscribe(`private-handshake-${rId}`);
+          const sendDirect = () => { try { rChan.trigger('client-message', clearPayload); } catch {} };
+          if (rChan.subscribed) sendDirect(); else rChan.bind('pusher:subscription_succeeded', sendDirect);
+        } catch {}
+        try { ablyService.sendMessage(rId, clearPayload).catch(() => {}); } catch {}
+      }
+
       supabaseService.clearChatHistory(chatId, recipients.length > 0 ? recipients : undefined, myCode).catch(() => {});
     }
     useChatStore.setState((state) => ({
@@ -4720,7 +4772,25 @@ export const MainLayout = () => {
         try {
           ablyService.sendMessage(chatId, deletePayload).catch(() => {});
         } catch {}
-        const recipients = [chat.peerCode, chat.name && chat.name.length === 36 && !chat.name.includes('-') ? chat.name : undefined].filter(Boolean) as string[];
+
+        const recipients = Array.from(new Set([
+          chat.peerCode,
+          chat.originalPeerCode,
+          chat.name && chat.name.length === 36 ? chat.name : undefined,
+          chat.numericId,
+          chat.username,
+        ].filter((r): r is string => Boolean(r && r !== myCode && r !== useAuthStore.getState().userId))));
+
+        const pusher = getPusher();
+        for (const rId of recipients) {
+          try {
+            const rChan = pusher.subscribe(`private-handshake-${rId}`);
+            const sendDirect = () => { try { rChan.trigger('client-message', deletePayload); } catch {} };
+            if (rChan.subscribed) sendDirect(); else rChan.bind('pusher:subscription_succeeded', sendDirect);
+          } catch {}
+          try { ablyService.sendMessage(rId, deletePayload).catch(() => {}); } catch {}
+        }
+
         supabaseService.deleteChatData(chatId, recipients.length > 0 ? recipients : undefined, myCode).catch(() => {});
       }
       if (activeSubscriptions.current.has(chatId)) {

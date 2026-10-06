@@ -2894,8 +2894,14 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         if (!freshChat?.ratchetState) {
           const recipientTargets = Array.from(new Set([
             activeChat?.peerCode,
-            activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
             freshChat?.peerCode,
+            activeChat?.originalPeerCode,
+            freshChat?.originalPeerCode,
+            activeChat?.numericId,
+            freshChat?.numericId,
+            activeChat?.username,
+            freshChat?.username,
+            activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
             freshChat?.name && freshChat.name.length === 36 ? freshChat.name : undefined,
           ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
           if (activeChat?.type === 'private' || freshChat?.type === 'private') {
@@ -2991,7 +2997,14 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         };
 
         const recipientTargets = Array.from(new Set([
-          freshChat?.peerCode || activeChat?.peerCode,
+          freshChat?.peerCode,
+          activeChat?.peerCode,
+          freshChat?.originalPeerCode,
+          activeChat?.originalPeerCode,
+          freshChat?.numericId,
+          activeChat?.numericId,
+          freshChat?.username,
+          activeChat?.username,
           (freshChat?.name || activeChat?.name) && (freshChat?.name || activeChat?.name)!.length === 36 ? (freshChat?.name || activeChat?.name) : undefined,
         ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
 
@@ -5268,6 +5281,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           try {
             const recipientTargets = Array.from(new Set([
               activeChat?.peerCode,
+              activeChat?.originalPeerCode,
+              activeChat?.numericId,
+              activeChat?.username,
               activeChat?.name && activeChat.name.length === 36 ? activeChat.name : undefined,
             ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
             if (activeChat?.type === 'private') {
