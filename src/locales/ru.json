@@ -260,6 +260,7 @@
       "user_not_found": "Пользователь не найден",
       "found_community": "Найдено сообщество",
       "found_support": "Служба поддержки",
+      "found_bot": "Официальный бот",
       "found_users": "Глобальный поиск",
       "no_users_found": "Пользователи не найдены",
       "subscribers": "подписчиков"
@@ -1146,19 +1147,6 @@
       "settings": "Настройки",
       "night_mode": "Ночной режим"
     },
-    "createModal": {
-      "group_name": "Название группы",
-      "channel_name": "Название канала",
-      "friend_id": "ID аккаунта друга",
-      "specify_group_name": "Укажите название группы",
-      "specify_channel_name": "Укажите название канала",
-      "specify_friend_id": "Укажите ID вашего друга",
-      "invalid_content": "Неверное содержимое",
-      "found_community": "Найдено сообщество",
-      "found_support": "Служба поддержки",
-      "found_bot": "Официальный бот",
-      "subscribers": "подписчиков"
-    },
     "callsModal": {
       "title": "Звонки",
       "search_placeholder": "Поиск контактов...",
@@ -1368,18 +1356,6 @@
       "support_faq_desc": "Частые вопросы перед обращением",
       "support_admin_reply_desc": "Ответить на обращение: /reply #T-XXXXX <текст>",
       "support_admin_tickets_desc": "Показать список открытых обращений"
-    },
-    "createModal": {
-      "found_users": "Глобальный поиск",
-      "found_community": "Найдено сообщество",
-      "found_support": "Служба поддержки",
-      "friend_id": "ID аккаунта друга",
-      "channel_name": "Название канала",
-      "group_name": "Название группы",
-      "choose_photo": "Выбрать фото",
-      "user_not_found": "Пользователь не найден",
-      "invalid_content": "Неверное содержимое",
-      "subscribers": "подписчиков"
     },
     "search": {
       "no_results": "Ничего не найдено"
