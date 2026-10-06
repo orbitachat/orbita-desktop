@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download, RotateCcw } from 'lucide-react';
+import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download, RotateCcw, User } from 'lucide-react';
 import { securityService } from '../../services/securityService';
 import { useState, useRef, type ReactNode, useEffect, useCallback, memo } from 'react';
 import {
@@ -33,6 +33,10 @@ import { LinkCopiedToast } from '../common/LinkCopiedToast';
 import { QrCodeView } from './QrCodeView';
 import { getInviteLink } from '../../utils/inviteLink';
 import { CHAT_COLOR_PRESETS, DEFAULT_CHAT_COLOR, type ThemeId } from '../../theme';
+import { EmojiAvatarModal } from '../settings/EmojiAvatarModal';
+import { AvatarCropperModal } from '../settings/AvatarCropperModal';
+import { formatBirthday, parseBirthday, serializeBirthday, MONTH_FULL_RU, MONTH_FULL_EN } from '../../utils/birthday';
+import { mediaManager } from '../../services/mediaManager';
 
 const QrCodeMiniIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size}>
@@ -399,25 +403,223 @@ const MenuItem = ({
   </div>
 );
 
-interface NicknameEditModalProps {
+interface NameEditModalProps {
   open: boolean;
   onClose: () => void;
   currentNickname: string;
-  onSave: (newNickname: string) => void;
+  onSave: (newName: string) => void;
 }
 
-export const NicknameEditModal = ({ open, onClose, currentNickname, onSave }: NicknameEditModalProps) => {
+export const NameEditModal = ({ open, onClose, currentNickname, onSave }: NameEditModalProps) => {
   const { t } = useTranslation();
-  const [value, setValue] = useState(currentNickname);
+  const parts = (currentNickname || '').trim().split(/\s+/);
+  const [firstName, setFirstName] = useState(parts[0] || '');
+  const [lastName, setLastName] = useState(parts.slice(1).join(' ') || '');
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (open) {
+      const p = (currentNickname || '').trim().split(/\s+/);
+      setFirstName(p[0] || '');
+      setLastName(p.slice(1).join(' ') || '');
+      setError(null);
+    }
+  }, [open, currentNickname]);
+
   const handleSave = () => {
-    const trimmed = value.trim();
-    if (trimmed.length < 1 || trimmed.length > 24) {
+    const f = firstName.trim();
+    const l = lastName.trim();
+    const combined = [f, l].filter(Boolean).join(' ');
+    if (combined.length < 1 || combined.length > 32) {
       setError(t('settings.nickname_length_error'));
       return;
     }
-    onSave(trimmed);
+    onSave(combined);
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            border: 'none',
+          }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px', color: 'var(--text-main)' }}>
+              {t('profile.edit_name_title', 'Редактирование имени')}
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--accent-color, #9b7dd4)', fontWeight: 500, display: 'block', marginBottom: '4px' }}>
+                  {t('profile.first_name', 'Имя')}
+                </label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder={t('profile.first_name', 'Имя')}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '8px 4px',
+                    borderRadius: '0px',
+                    border: 'none',
+                    borderBottom: '1.5px solid var(--border-color, rgba(255,255,255,0.15))',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '15px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)')}
+                  onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))')}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-dim, #8e8e93)', fontWeight: 500, display: 'block', marginBottom: '4px' }}>
+                  {t('profile.last_name_optional', 'Фамилия (необязательно)')}
+                </label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder={t('profile.last_name', 'Фамилия')}
+                  style={{
+                    width: '100%',
+                    padding: '8px 4px',
+                    borderRadius: '0px',
+                    border: 'none',
+                    borderBottom: '1.5px solid var(--border-color, rgba(255,255,255,0.15))',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '15px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)')}
+                  onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))')}
+                />
+              </div>
+            </div>
+
+            {error && <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '12px', marginBottom: 0 }}>{error}</p>}
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t('common.cancel', 'Отмена')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: 'var(--accent-color, #9b7dd4)',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}
+              >
+                {t('common.cancel', 'Отмена')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                aria-label={t('common.save', 'Сохранить')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  backgroundColor: 'var(--accent-color, #7C3AED)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}
+              >
+                {t('common.save', 'Сохранить')}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export const NicknameEditModal = NameEditModal;
+
+interface UsernameEditModalProps {
+  open: boolean;
+  onClose: () => void;
+  currentUsername: string | null;
+  onSave: (newUsername: string | null) => void;
+}
+
+export const UsernameEditModal = ({ open, onClose, currentUsername, onSave }: UsernameEditModalProps) => {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(currentUsername || '');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setValue(currentUsername || '');
+      setError(null);
+    }
+  }, [open, currentUsername]);
+
+  const handleSave = () => {
+    const raw = value.trim().replace(/^@+/, '');
+    if (!raw) {
+      onSave(null);
+      onClose();
+      return;
+    }
+    if (raw.length < 5) {
+      setError(t('profile.username_error_min_length', 'Минимальная длина — 5 символов'));
+      return;
+    }
+    if (raw.length > 32) {
+      setError(t('profile.username_error_max_length', 'Максимальная длина — 32 символа'));
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(raw)) {
+      setError(t('profile.username_error_invalid_chars', 'Разрешены только буквы латиницы, цифры и знак подчеркивания'));
+      return;
+    }
+    onSave(raw.toLowerCase());
     onClose();
   };
 
@@ -456,66 +658,86 @@ export const NicknameEditModal = ({ open, onClose, currentNickname, onSave }: Ni
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)' }}>
-              {t('settings.edit_nickname_title')}
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-main)' }}>
+              {t('profile.username_title', 'Имя пользователя')}
             </h3>
-            <p style={{ fontSize: '14px', color: 'var(--text-dim)', marginBottom: '16px' }}>
-              {t('settings.edit_nickname_desc')}
-            </p>
 
-            <input
-              type="text"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={t('settings.nickname_placeholder')}
-              autoFocus
-              style={{
-                width: '100%',
-                padding: '8px 4px',
-                borderRadius: '0px',
-                border: 'none',
-                borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.15))',
-                backgroundColor: 'transparent',
-                color: 'var(--text-main, #ffffff)',
-                fontSize: '16px',
-                outline: 'none',
-                marginBottom: '12px',
-                transition: 'border-color 0.2s',
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)')}
-              onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))')}
-            />
-            {error && <p style={{ color: '#ef4444', fontSize: '12px', marginBottom: '8px' }}>{error}</p>}
+            <div>
+              <label style={{ fontSize: '12px', color: 'var(--accent-color, #9b7dd4)', fontWeight: 500, display: 'block', marginBottom: '4px' }}>
+                @username
+              </label>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value.replace(/^@+/, ''));
+                  if (error) setError(null);
+                }}
+                placeholder={t('profile.username_placeholder', 'username')}
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '8px 4px',
+                  borderRadius: '0px',
+                  border: 'none',
+                  borderBottom: '1.5px solid var(--border-color, rgba(255,255,255,0.15))',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-main, #ffffff)',
+                  fontSize: '15px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)')}
+                onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))')}
+              />
+            </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
+            {error && <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>{error}</p>}
+
+            <div style={{ fontSize: '13px', color: 'var(--text-dim, #8e8e93)', lineHeight: '1.45', marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ margin: 0 }}>
+                {t('profile.username_modal_desc', 'Вы можете выбрать публичное имя пользователя. Другие пользователи смогут найти Вас по такому имени и связаться, не зная вашего ID аккаунта.')}
+              </p>
+              <p style={{ margin: 0, whiteSpace: 'pre-line' }}>
+                {t('profile.username_modal_rules', 'Можно использовать символы a-z, 0-9 и _.\nМинимальная длина — 5 символов.')}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
               <button
+                type="button"
                 onClick={onClose}
+                aria-label={t('common.cancel', 'Отмена')}
                 style={{
                   padding: '8px 16px',
                   borderRadius: '20px',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: 'var(--text-dim)',
+                  color: 'var(--accent-color, #9b7dd4)',
                   cursor: 'pointer',
                   fontSize: '14px',
+                  fontWeight: 600,
                 }}
               >
-                {t('common.cancel')}
+                {t('common.cancel', 'Отмена')}
               </button>
               <button
+                type="button"
                 onClick={handleSave}
+                aria-label={t('common.save', 'Сохранить')}
                 style={{
                   padding: '8px 16px',
                   borderRadius: '20px',
                   border: 'none',
-                  backgroundColor: 'var(--accent-color)',
+                  backgroundColor: 'var(--accent-color, #7C3AED)',
                   color: '#fff',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: 600,
                 }}
               >
-                {t('common.save')}
+                {t('common.save', 'Сохранить')}
               </button>
             </div>
           </motion.div>
@@ -525,13 +747,256 @@ export const NicknameEditModal = ({ open, onClose, currentNickname, onSave }: Ni
   );
 };
 
-const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string }) => {
+interface BirthdayEditModalProps {
+  open: boolean;
+  onClose: () => void;
+  currentBirthday: string | null;
+  onSave: (newBirthday: string | null) => void;
+}
+
+export const BirthdayEditModal = ({ open, onClose, currentBirthday, onSave }: BirthdayEditModalProps) => {
+  const { t, i18n } = useTranslation();
+  const parsed = parseBirthday(currentBirthday);
+  const [day, setDay] = useState(parsed?.day || 1);
+  const [month, setMonth] = useState(parsed?.month || 1);
+  const [year, setYear] = useState<number | ''>(parsed?.year || '');
+
+  useEffect(() => {
+    if (open) {
+      const p = parseBirthday(currentBirthday);
+      setDay(p?.day || 1);
+      setMonth(p?.month || 1);
+      setYear(p?.year || '');
+    }
+  }, [open, currentBirthday]);
+
+  const isRu = i18n.language === 'ru' || i18n.language === 'uk' || i18n.language === 'be';
+  const monthNames = isRu ? MONTH_FULL_RU : MONTH_FULL_EN;
+
+  const handleSave = () => {
+    const y = typeof year === 'number' && year > 1900 && year <= new Date().getFullYear() ? year : null;
+    const serialized = serializeBirthday(day, month, y);
+    onSave(serialized);
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onSave(null);
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            border: 'none',
+          }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-main)' }}>
+              {t('profile.birthday_title', 'День рождения')}
+            </h3>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+              <div style={{ flex: '0 0 70px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-dim, #8e8e93)', fontWeight: 500, display: 'block', marginBottom: '4px' }}>
+                  {t('profile.day', 'День')}
+                </label>
+                <select
+                  value={day}
+                  onChange={(e) => setDay(parseInt(e.target.value, 10))}
+                  aria-label={t('profile.day', 'День')}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+                    backgroundColor: 'var(--surface-container, rgba(255,255,255,0.06))',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d} style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-main)' }}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-dim, #8e8e93)', fontWeight: 500, display: 'block', marginBottom: '4px' }}>
+                  {t('profile.month', 'Месяц')}
+                </label>
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(parseInt(e.target.value, 10))}
+                  aria-label={t('profile.month', 'Месяц')}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+                    backgroundColor: 'var(--surface-container, rgba(255,255,255,0.06))',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {monthNames.map((name, i) => (
+                    <option key={i + 1} value={i + 1} style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-main)' }}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ flex: '0 0 90px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-dim, #8e8e93)', fontWeight: 500, display: 'block', marginBottom: '4px' }}>
+                  {t('profile.year_optional', 'Год')}
+                </label>
+                <input
+                  type="number"
+                  value={year}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setYear(v === '' ? '' : parseInt(v, 10));
+                  }}
+                  placeholder="YYYY"
+                  min={1920}
+                  max={new Date().getFullYear()}
+                  aria-label={t('profile.year_optional', 'Год')}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+                    backgroundColor: 'var(--surface-container, rgba(255,255,255,0.06))',
+                    color: 'var(--text-main, #ffffff)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
+              <div>
+                {currentBirthday && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    aria-label={t('common.delete', 'Удалить')}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: 'var(--md-error, #ff595a)',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t('common.delete', 'Удалить')}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label={t('common.cancel', 'Отмена')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--accent-color, #9b7dd4)',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
+                >
+                  {t('common.cancel', 'Отмена')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  aria-label={t('common.save', 'Сохранить')}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    backgroundColor: 'var(--accent-color, #7C3AED)',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
+                >
+                  {t('common.save', 'Сохранить')}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+const broadcastProfileUpdate = (updates: {
+  avatarUrl?: string | null;
+  nickname?: string;
+  bio?: string | null;
+  username?: string | null;
+  birthday?: string | null;
+}) => {
   const currentNickname = useAuthStore.getState().nickname;
   const currentAvatar = useAuthStore.getState().avatarUrl;
   const currentUserId = useAuthStore.getState().userId;
+  const currentBio = useAuthStore.getState().bio;
+  const currentUsername = useAuthStore.getState().username;
+  const currentBirthday = useAuthStore.getState().birthday;
   const myCode = useChatStore.getState().myCode;
   const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
   const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
+  const finalBio = updates.bio !== undefined ? updates.bio : currentBio;
+  const finalUsername = updates.username !== undefined ? updates.username : currentUsername;
+  const finalBirthday = updates.birthday !== undefined ? updates.birthday : currentBirthday;
 
   const payload = {
     type: 'profile-update',
@@ -542,6 +1007,9 @@ const broadcastProfileUpdate = (updates: { avatarUrl?: string | null; nickname?:
     senderId: currentUserId || myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
+    bio: finalBio,
+    username: finalUsername,
+    birthday: finalBirthday,
   };
 
   if (myCode) {
@@ -2195,10 +2663,10 @@ const HotkeySwitch = ({
   );
 };
 
-type TabId = 'main' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode' | 'backup' | 'cloudBackup' | 'pcBackup';
+type TabId = 'main' | 'myAccount' | 'security' | 'connection' | 'chats' | 'calls' | 'font' | 'dataMemory' | 'energy' | 'notifications' | 'language' | 'preferences' | 'password' | 'qrCode' | 'backup' | 'cloudBackup' | 'pcBackup';
 
 export const SettingsScreen = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     setTheme, currentTheme,
     fontFamily, setFontFamily,
@@ -2265,11 +2733,19 @@ export const SettingsScreen = () => {
   const micVolume = useCallStore((state) => state.micVolume);
   const setPeerVolume = useCallStore((state) => state.setPeerVolume);
   const setMicVolume = useCallStore((state) => state.setMicVolume);
-  const { nickname, avatarUrl, setNickname } = useAuthStore(useShallow((s) => ({
+  const { nickname, avatarUrl, username, bio, birthday, setNickname, setAvatarUrl, setUsername, setBio, setBirthday } = useAuthStore(useShallow((s) => ({
     nickname: s.nickname,
     avatarUrl: s.avatarUrl,
+    username: s.username,
+    bio: s.bio,
+    birthday: s.birthday,
     setNickname: s.setNickname,
+    setAvatarUrl: s.setAvatarUrl,
+    setUsername: s.setUsername,
+    setBio: s.setBio,
+    setBirthday: s.setBirthday,
   })));
+  const prepareAddSecondAccount = useAccountStore((s) => s.prepareAddSecondAccount);
   const setCurrentView = useChatStore((state) => state.setCurrentView);
   const { appVersion } = useDeviceStore();
   const { proxyEnabled, activeProxyId, proxies } = useConnectionStore();
@@ -2472,6 +2948,202 @@ export const SettingsScreen = () => {
 
 
   const [nicknameEditOpen, setNicknameEditOpen] = useState(false);
+  const [nameEditOpen, setNameEditOpen] = useState(false);
+  const [usernameEditOpen, setUsernameEditOpen] = useState(false);
+  const [birthdayEditOpen, setBirthdayEditOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [cropperModalOpen, setCropperModalOpen] = useState(false);
+  const [cropperImageSrc, setCropperImageSrc] = useState<string | null>(null);
+  const [emojiModalOpen, setEmojiModalOpen] = useState(false);
+  const [localBio, setLocalBio] = useState(bio || '');
+  const cameraBtnRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    setLocalBio(bio || '');
+  }, [bio]);
+
+  useEffect(() => {
+    if (!avatarMenuOpen) return;
+    const handleClickOutside = () => setAvatarMenuOpen(false);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [avatarMenuOpen]);
+
+  const handleNameSave = (newName: string) => {
+    setNickname(newName);
+    broadcastProfileUpdate({ nickname: newName });
+  };
+  const handleNicknameSave = handleNameSave;
+
+  const handleUsernameSave = (newUsername: string | null) => {
+    setUsername(newUsername);
+    broadcastProfileUpdate({ username: newUsername });
+  };
+
+  const handleBirthdaySave = (newBirthday: string | null) => {
+    setBirthday(newBirthday);
+    broadcastProfileUpdate({ birthday: newBirthday });
+  };
+
+  const handleBioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value.slice(0, 140);
+    setLocalBio(val);
+  };
+
+  const handleBioBlur = () => {
+    const trimmed = localBio.trim();
+    const finalBio = trimmed.length > 0 ? trimmed : null;
+    if (finalBio !== bio) {
+      setBio(finalBio);
+      broadcastProfileUpdate({ bio: finalBio });
+    }
+  };
+
+  const handleToggleAvatarMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (cameraBtnRef.current) {
+      const rect = cameraBtnRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.top - 8,
+        left: rect.right - 6,
+      });
+    }
+    setAvatarMenuOpen((prev) => !prev);
+  };
+
+  const handleAvatarSave = async (dataUrl: string) => {
+    try {
+      setAvatarUrl(dataUrl);
+      let finalUrl = dataUrl;
+      const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      try {
+        const binaryStr = atob(base64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+        const avatarBlob = new Blob([bytes], { type: 'image/png' });
+        mediaManager.setDirectDecryptedMedia(dataUrl, '', avatarBlob, 'image/png');
+      } catch {}
+
+      if (typeof window !== 'undefined' && window.orbita?.writeTempFile && window.orbita?.uploadToCloudinary) {
+        const tempPath = await window.orbita.writeTempFile(base64, 'png');
+        if (tempPath) {
+          const publicId = `avatar_${Date.now()}`;
+          const result = await window.orbita.uploadToCloudinary(tempPath, publicId);
+          if (result.success && result.secure_url) {
+            finalUrl = result.secure_url;
+            try {
+              const binaryStr = atob(base64);
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+              const avatarBlob = new Blob([bytes], { type: 'image/png' });
+              mediaManager.setDirectDecryptedMedia(finalUrl, '', avatarBlob, 'image/png');
+            } catch {}
+            setAvatarUrl(finalUrl);
+          }
+          await window.orbita.deleteTempFile(tempPath);
+        }
+      }
+
+      broadcastProfileUpdate({ avatarUrl: finalUrl });
+    } catch (err) {
+      console.error('Avatar save error:', err);
+      setAvatarUrl(dataUrl);
+      broadcastProfileUpdate({ avatarUrl: dataUrl });
+    }
+  };
+
+  const handlePickFile = async () => {
+    setAvatarMenuOpen(false);
+    try {
+      if (window.orbita?.pickFile) {
+        const raw = await window.orbita.pickFile(['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm']);
+        if (!raw) return;
+        const filePath = Array.isArray(raw) ? raw[0] : raw;
+        if (!filePath) return;
+
+        const sizeBytes = await window.orbita.getFileSize(filePath);
+        const sizeMB = sizeBytes / (1024 * 1024);
+        if (sizeMB > 10) {
+          alert('Файл слишком большой. Максимальный размер: 10 МБ.');
+          return;
+        }
+
+        const dataUrl = await window.orbita.readFileAsDataURL(filePath);
+        if (dataUrl) {
+          setCropperImageSrc(dataUrl);
+          setCropperModalOpen(true);
+        }
+      } else {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e: any) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              setCropperImageSrc(reader.result as string);
+              setCropperModalOpen(true);
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+      }
+    } catch (err) {
+      console.error('Error picking avatar file:', err);
+    }
+  };
+
+  const handlePasteClipboard = async () => {
+    setAvatarMenuOpen(false);
+    try {
+      let dataUrl: string | null = null;
+      if (window.orbita?.readClipboardImage) {
+        dataUrl = await window.orbita.readClipboardImage();
+      }
+      if (!dataUrl && navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          for (const type of item.types) {
+            if (type.startsWith('image/')) {
+              const blob = await item.getType(type);
+              dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              break;
+            }
+          }
+          if (dataUrl) break;
+        }
+      }
+
+      if (dataUrl) {
+        setCropperImageSrc(dataUrl);
+        setCropperModalOpen(true);
+      } else {
+        alert('В буфере обмена нет изображения.');
+      }
+    } catch (err) {
+      console.error('Error pasting clipboard image:', err);
+      alert('Не удалось прочитать изображение из буфера обмена.');
+    }
+  };
+
+  const handleOpenEmojiAvatar = () => {
+    setAvatarMenuOpen(false);
+    setEmojiModalOpen(true);
+  };
+
+  const handleDeleteAvatar = () => {
+    setAvatarMenuOpen(false);
+    setAvatarUrl(null);
+    broadcastProfileUpdate({ avatarUrl: null });
+  };
+
   const [devToastOpen, setDevToastOpen] = useState(false);
 
   const triggerDevToast = useCallback(() => {
@@ -2515,6 +3187,7 @@ export const SettingsScreen = () => {
   };
 
   const tabTitles: Record<string, string> = {
+    myAccount:     t('settings.my_account', 'Мой аккаунт'),
     security:      t('settings.privacy'),
     password:      securityService.isPasswordSet() ? t('security.modal_title_change') : t('security.modal_title_set'),
     connection:    t('settings.connection'),
@@ -2585,17 +3258,6 @@ export const SettingsScreen = () => {
     { value: 'Caveat', label: 'Caveat', native: 'Handwriting' },
     { value: 'Pacifico', label: 'Pacifico', native: 'Handwriting' },
   ];
-
-  const sendProfileUpdate = useCallback((updates: { avatarUrl?: string | null; nickname?: string }) => {
-    broadcastProfileUpdate(updates);
-  }, []);
-
-
-  const handleNicknameSave = (newNickname: string) => {
-    setNickname(newNickname);
-    sendProfileUpdate({ nickname: newNickname });
-  };
-
 
   const renderDataMemory = () => {
     return (
@@ -2914,6 +3576,421 @@ export const SettingsScreen = () => {
     );
   };
 
+  const renderMyAccount = () => (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18 }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 24 }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px 20px 8px',
+          userSelect: 'none',
+        }}
+      >
+        <div style={{ position: 'relative', width: '84px', height: '84px', marginBottom: 12 }}>
+          <Avatar
+            src={avatarUrl}
+            alt={nickname || '?'}
+            className="w-[84px] h-[84px] rounded-full object-cover"
+            style={{ width: '84px', height: '84px', borderRadius: '50%' }}
+          />
+          <button
+            ref={cameraBtnRef}
+            type="button"
+            onClick={handleToggleAvatarMenu}
+            aria-label={t('common.edit', 'Изменить')}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--accent-color, #7C3AED)',
+              color: '#ffffff',
+              border: '2px solid var(--bg-secondary, #211d2f)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+              padding: 0,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </button>
+
+          <AnimatePresence>
+            {avatarMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.12 }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'fixed',
+                  top: menuPos.top,
+                  left: menuPos.left,
+                  backgroundColor: 'var(--bg-secondary, #2a253b)',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+                  padding: '6px',
+                  minWidth: '200px',
+                  zIndex: 350,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                  border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handlePickFile}
+                  aria-label={t('profile.choose_file', 'Выбрать файл')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-main, #ffffff)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  {t('profile.choose_file', 'Выбрать файл')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePasteClipboard}
+                  aria-label={t('profile.paste_clipboard', 'Вставить из буфера')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-main, #ffffff)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                  </svg>
+                  {t('profile.paste_clipboard', 'Вставить из буфера')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenEmojiAvatar}
+                  aria-label={t('profile.choose_emoji', 'Выбрать эмодзи-аватар')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-main, #ffffff)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                    <line x1="9" y1="9" x2="9.01" y2="9" />
+                    <line x1="15" y1="9" x2="15.01" y2="9" />
+                  </svg>
+                  {t('profile.choose_emoji', 'Выбрать эмодзи-аватар')}
+                </button>
+
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAvatar}
+                    aria-label={t('profile.delete_photo', 'Удалить фото')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: 'var(--md-error, #ff595a)',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      textAlign: 'left',
+                      width: '100%',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,89,90,0.12)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <Trash2 size={16} />
+                    {t('profile.delete_photo', 'Удалить фото')}
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 2 }}>
+          <span style={{ fontSize: '18px', fontWeight: 700, color: MD3.onSurface }}>
+            {nickname || 'User'}
+          </span>
+          <DeveloperBadge userId={myCode} size={24} onClick={triggerDevToast} />
+        </div>
+
+        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--accent-color, #9b7dd4)' }}>
+          {t('status.online', 'в сети')}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Block style={{ padding: '12px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-color, #9b7dd4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {t('profile.bio_label', 'О себе')}
+            </label>
+            <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>
+              {140 - localBio.length}
+            </span>
+          </div>
+          <textarea
+            value={localBio}
+            onChange={handleBioChange}
+            onBlur={handleBioBlur}
+            maxLength={140}
+            rows={2}
+            placeholder={t('profile.bio_placeholder', 'О себе')}
+            aria-label={t('profile.bio_label', 'О себе')}
+            style={{
+              width: '100%',
+              backgroundColor: 'transparent',
+              border: 'none',
+              borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.12))',
+              color: MD3.onSurface,
+              fontSize: '14px',
+              lineHeight: '1.4',
+              resize: 'none',
+              outline: 'none',
+              padding: '4px 0',
+              fontFamily: 'inherit',
+              boxSizing: 'border-box',
+            }}
+          />
+        </Block>
+        <div style={{ padding: '0 20px', fontSize: '12.5px', color: MD3.onSurfaceVar, lineHeight: '1.45' }}>
+          <p style={{ margin: '0 0 2px' }}>
+            {t('profile.bio_hint', 'Напишите о себе любые слова, например: род ваших занятий в свободное время.')}
+          </p>
+          <p style={{ margin: 0, opacity: 0.75 }}>
+            {t('profile.bio_example', 'Пример: На досуге я занимаюсь разработкой мессенджера и спортом.')}
+          </p>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Block>
+          <div
+            onClick={() => setNameEditOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 20px',
+              cursor: 'pointer',
+              transition: 'background 150ms',
+              backgroundColor: 'transparent',
+              width: '100%',
+              boxSizing: 'border-box',
+              userSelect: 'none',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.name_label', 'Имя')}</span>
+              <span style={{ fontSize: '14.5px', fontWeight: 500, color: MD3.onSurface }}>{nickname || 'User'}</span>
+            </div>
+            <ChevronRight size={18} color={MD3.onSurfaceVar} />
+          </div>
+
+          <div
+            onClick={handleCopyCode}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 20px',
+              cursor: 'pointer',
+              transition: 'background 150ms',
+              backgroundColor: 'transparent',
+              width: '100%',
+              boxSizing: 'border-box',
+              userSelect: 'none',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.account_id', 'ID аккаунта')}</span>
+              <span style={{ fontSize: '14.5px', fontWeight: 500, color: 'var(--accent-color, #9b7dd4)', fontFamily: '"JetBrains Mono", Consolas, monospace' }}>
+                {myCode || '------'}
+              </span>
+            </div>
+            <ChevronRight size={18} color={MD3.onSurfaceVar} />
+          </div>
+
+          <div
+            onClick={() => setUsernameEditOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 20px',
+              cursor: 'pointer',
+              transition: 'background 150ms',
+              backgroundColor: 'transparent',
+              width: '100%',
+              boxSizing: 'border-box',
+              userSelect: 'none',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.username_label', 'Имя пользователя')}</span>
+              <span style={{ fontSize: '14.5px', fontWeight: 500, color: username ? MD3.onSurface : MD3.onSurfaceVar }}>
+                {username ? `@${username}` : t('profile.username_not_set', 'Не установлено')}
+              </span>
+            </div>
+            <ChevronRight size={18} color={MD3.onSurfaceVar} />
+          </div>
+
+          <div
+            onClick={() => setBirthdayEditOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 20px',
+              cursor: 'pointer',
+              transition: 'background 150ms',
+              backgroundColor: 'transparent',
+              width: '100%',
+              boxSizing: 'border-box',
+              userSelect: 'none',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.birthday_label', 'День рождения')}</span>
+              <span style={{ fontSize: '14.5px', fontWeight: 500, color: birthday ? MD3.onSurface : MD3.onSurfaceVar }}>
+                {birthday ? formatBirthday(birthday, i18n.language) : t('profile.birthday_not_set', 'Не указан')}
+              </span>
+            </div>
+            <ChevronRight size={18} color={MD3.onSurfaceVar} />
+          </div>
+        </Block>
+
+        <div style={{ padding: '0 20px', fontSize: '12.5px', color: MD3.onSurfaceVar, lineHeight: '1.45', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <p style={{ margin: 0 }}>
+            {t('profile.username_hint', 'Люди смогут найти вас в поиске по имени пользователя и связаться с вами, даже не зная вашего ID аккаунта.')}
+          </p>
+          <p style={{ margin: 0 }}>
+            {t('profile.birthday_hint', 'Ваш день рождения будет отображаться в профиле, если вы его укажете.')}
+          </p>
+        </div>
+      </div>
+
+      <Block>
+        <div
+          onClick={async () => {
+            await prepareAddSecondAccount();
+            setCurrentView('chats');
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            padding: '12px 20px',
+            cursor: 'pointer',
+            transition: 'background 150ms',
+            backgroundColor: 'transparent',
+            width: '100%',
+            boxSizing: 'border-box',
+            userSelect: 'none',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              backgroundColor: 'var(--accent-color, #7c3aed)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-color, #9b7dd4)', margin: 0 }}>
+              {t('mainMenu.add_account', 'Добавить аккаунт')}
+            </p>
+          </div>
+        </div>
+      </Block>
+    </motion.div>
+  );
+
   const renderMain = () => (
     <motion.div
       initial={{ opacity: 0 }}
@@ -2922,13 +3999,19 @@ export const SettingsScreen = () => {
       style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
     >
       <div
+        onClick={() => pushTab('myAccount')}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '16px',
           padding: '12px 20px 16px',
           userSelect: 'none',
+          cursor: 'pointer',
+          borderRadius: 0,
+          transition: 'background 150ms',
         }}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
         <div style={{ position: 'relative', width: '66px', height: '66px', flexShrink: 0 }}>
           <Avatar
@@ -2952,11 +4035,11 @@ export const SettingsScreen = () => {
             >
               {nickname || 'User'}
             </span>
-            <DeveloperBadge userId={myCode} size={28} onClick={triggerDevToast} />
+            <DeveloperBadge userId={myCode} size={28} onClick={(e) => { e?.stopPropagation(); triggerDevToast(); }} />
           </div>
 
           <div
-            onClick={handleCopyCode}
+            onClick={(e) => { e.stopPropagation(); handleCopyCode(); }}
             style={{
               fontSize: '13.5px',
               fontWeight: 500,
@@ -2974,7 +4057,7 @@ export const SettingsScreen = () => {
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
           <button
             type="button"
-            onClick={() => pushTab('qrCode')}
+            onClick={(e) => { e.stopPropagation(); pushTab('qrCode'); }}
             aria-label={t('qrModal.title', 'Получить QR-код')}
             style={{
               background: 'transparent',
@@ -2993,6 +4076,12 @@ export const SettingsScreen = () => {
       </div>
 
       <Block>
+        <MenuItem
+          icon={<User size={20} color={MD3.onSurface} />}
+          label={t('settings.my_account', 'Мой аккаунт')}
+          onClick={() => pushTab('myAccount')}
+        />
+
         <MenuItem
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3130,6 +4219,8 @@ export const SettingsScreen = () => {
     switch (activeTab) {
       case 'main':
         return renderMain();
+      case 'myAccount':
+        return renderMyAccount();
       case 'security':
         return <PrivacySettingsScreen onOpenPassword={() => pushTab('password')} onOpenBackup={() => pushTab('backup')} />;
       case 'backup':
@@ -3815,6 +4906,26 @@ export const SettingsScreen = () => {
       </motion.div>
       </AnimatePresence>
 
+      <NameEditModal open={nameEditOpen} onClose={() => setNameEditOpen(false)} currentNickname={nickname || ''} onSave={handleNameSave} />
+      <UsernameEditModal open={usernameEditOpen} onClose={() => setUsernameEditOpen(false)} currentUsername={username || null} onSave={handleUsernameSave} />
+      <BirthdayEditModal open={birthdayEditOpen} onClose={() => setBirthdayEditOpen(false)} currentBirthday={birthday || null} onSave={handleBirthdaySave} />
+      <EmojiAvatarModal
+        isOpen={emojiModalOpen}
+        onClose={() => setEmojiModalOpen(false)}
+        onSave={(emojiUrl: string) => {
+          setAvatarUrl(emojiUrl);
+          broadcastProfileUpdate({ avatarUrl: emojiUrl });
+        }}
+      />
+      <AvatarCropperModal
+        isOpen={cropperModalOpen}
+        onClose={() => {
+          setCropperModalOpen(false);
+          setCropperImageSrc(null);
+        }}
+        imageSrc={cropperImageSrc}
+        onSave={handleAvatarSave}
+      />
       <NicknameEditModal open={nicknameEditOpen} onClose={() => setNicknameEditOpen(false)} currentNickname={nickname || ''} onSave={handleNicknameSave} />
       <DeleteAccountModal
         isOpen={deleteModalOpen}

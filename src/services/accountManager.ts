@@ -12,6 +12,9 @@ export interface AccountMeta {
   myCode: string | null;
   userId: string;
   isRegistered: boolean;
+  username?: string | null;
+  bio?: string | null;
+  birthday?: string | null;
 }
 
 interface AccountRegistryData {
@@ -230,6 +233,18 @@ export const useAccountStore = create<AccountStoreState>((set, get) => ({
     }
     if (auth.userId && currentAccount.userId !== auth.userId) {
       currentAccount.userId = auth.userId;
+      changed = true;
+    }
+    if (currentAccount.username !== auth.username) {
+      currentAccount.username = auth.username;
+      changed = true;
+    }
+    if (currentAccount.bio !== auth.bio) {
+      currentAccount.bio = auth.bio;
+      changed = true;
+    }
+    if (currentAccount.birthday !== auth.birthday) {
+      currentAccount.birthday = auth.birthday;
       changed = true;
     }
     if (auth.step === 'main' && !currentAccount.isRegistered) {

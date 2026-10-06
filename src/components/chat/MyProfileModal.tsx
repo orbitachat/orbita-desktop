@@ -19,14 +19,27 @@ import { getInviteLink } from '../../utils/inviteLink';
 import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 import { mediaManager } from '../../services/mediaManager';
 import { supabaseService } from '../../services/supabaseService';
+import { formatBirthday } from '../../utils/birthday';
 
-const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: string }) => {
+const sendProfileUpdate = (updates: {
+  avatarUrl?: string | null;
+  nickname?: string;
+  bio?: string | null;
+  username?: string | null;
+  birthday?: string | null;
+}) => {
   const currentNickname = useAuthStore.getState().nickname;
   const currentAvatar = useAuthStore.getState().avatarUrl;
   const currentUserId = useAuthStore.getState().userId;
+  const currentBio = useAuthStore.getState().bio;
+  const currentUsername = useAuthStore.getState().username;
+  const currentBirthday = useAuthStore.getState().birthday;
   const myCode = useChatStore.getState().myCode;
   const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
   const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
+  const finalBio = updates.bio !== undefined ? updates.bio : currentBio;
+  const finalUsername = updates.username !== undefined ? updates.username : currentUsername;
+  const finalBirthday = updates.birthday !== undefined ? updates.birthday : currentBirthday;
 
   const payload = {
     type: 'profile-update',
@@ -37,6 +50,9 @@ const sendProfileUpdate = (updates: { avatarUrl?: string | null; nickname?: stri
     senderId: currentUserId || myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
+    bio: finalBio,
+    username: finalUsername,
+    birthday: finalBirthday,
   };
 
   if (myCode) {
@@ -87,10 +103,13 @@ interface MyProfileModalProps {
 }
 
 export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onClose, isMobileView = false }) => {
-  const { t } = useTranslation();
-  const { nickname, avatarUrl, setNickname, setAvatarUrl } = useAuthStore(useShallow((s) => ({
+  const { t, i18n } = useTranslation();
+  const { nickname, avatarUrl, username, bio, birthday, setNickname, setAvatarUrl } = useAuthStore(useShallow((s) => ({
     nickname: s.nickname,
     avatarUrl: s.avatarUrl,
+    username: s.username,
+    bio: s.bio,
+    birthday: s.birthday,
     setNickname: s.setNickname,
     setAvatarUrl: s.setAvatarUrl,
   })));
@@ -491,7 +510,10 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
               >
                 <button
                   type="button"
-                  onClick={() => setNicknameEditOpen(true)}
+                  onClick={() => {
+                    onClose();
+                    useChatStore.getState().openSettings('myAccount');
+                  }}
                   aria-label={t('common.edit')}
                   style={{
                     background: 'none',
@@ -884,11 +906,33 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                 </p>
               </div>
 
+              {bio && (
+                <div
+                  style={{
+                    backgroundColor: 'var(--md-surface, #211c2e)',
+                    width: '100%',
+                    padding: '12px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    userSelect: 'text',
+                    boxSizing: 'border-box',
+                    borderBottom: '1px solid var(--border-color, rgba(255, 255, 255, 0.06))',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word' }}>
+                    {bio}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('profile.bio', 'О себе')}
+                  </div>
+                </div>
+              )}
+
               <div
                 style={{
                   backgroundColor: 'var(--md-surface, #211c2e)',
                   width: '100%',
-                  padding: '14px 20px',
+                  padding: '12px 20px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -896,6 +940,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                   cursor: 'pointer',
                   userSelect: 'none',
                   boxSizing: 'border-box',
+                  borderBottom: (username || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
                 }}
                 onClick={handleCopyLink}
               >
@@ -913,7 +958,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                     {myCode || '------'}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
-                    ID
+                    {t('profile.account_id', 'ID аккаунта')}
                   </span>
                 </div>
 
@@ -928,6 +973,49 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                   <QrCodeMiniIcon size={20} />
                 </div>
               </div>
+
+              {username && (
+                <div
+                  style={{
+                    backgroundColor: 'var(--md-surface, #211c2e)',
+                    width: '100%',
+                    padding: '12px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    userSelect: 'text',
+                    boxSizing: 'border-box',
+                    borderBottom: birthday ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--accent-color, #9b7dd4)', lineHeight: '1.35', fontWeight: 500 }}>
+                    @{username}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('profile.username_label', 'Имя пользователя')}
+                  </div>
+                </div>
+              )}
+
+              {birthday && (
+                <div
+                  style={{
+                    backgroundColor: 'var(--md-surface, #211c2e)',
+                    width: '100%',
+                    padding: '12px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    userSelect: 'text',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <div style={{ fontSize: '14px', color: 'var(--accent-color, #9b7dd4)', lineHeight: '1.35', fontWeight: 500 }}>
+                    {formatBirthday(birthday, i18n.language)}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
+                    {t('profile.birthday', 'День рождения')}
+                  </div>
+                </div>
+              )}
             </>
           )}
                 </div>

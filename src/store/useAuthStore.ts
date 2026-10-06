@@ -10,6 +10,9 @@ interface AuthState {
   userId: string;
   nickname: string;
   avatarUrl: string | null;
+  username: string | null;
+  bio: string | null;
+  birthday: string | null;
   step: AuthStep;
   recoveryKey: string | null;
   masterSeed: string | null;
@@ -23,6 +26,9 @@ interface AuthState {
   setStep: (step: AuthStep) => void;
   setNickname: (name: string) => void;
   setAvatarUrl: (url: string | null) => void;
+  setUsername: (username: string | null) => void;
+  setBio: (bio: string | null) => void;
+  setBirthday: (birthday: string | null) => void;
   setRecoveryKey: (key: string) => void;
   setMasterSeed: (seed: string | null) => void;
   setConfigVersion: (version: number) => void;
@@ -131,6 +137,9 @@ export const useAuthStore = create<AuthState>()(
       userId: '',
       nickname: '',
       avatarUrl: null,
+      username: null,
+      bio: null,
+      birthday: null,
       step: 'welcome',
       recoveryKey: null,
       masterSeed: null,
@@ -174,6 +183,36 @@ export const useAuthStore = create<AuthState>()(
           import('../services/accountManager').then((m) => m.useAccountStore.getState().syncCurrentAccountMeta()).catch(() => {});
         }
       },
+      setUsername: (username) => {
+        set({ username });
+        const uid = get().userId;
+        if (uid) {
+          useChatStore.getState().setUserProfile(uid, { username });
+        }
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => m.useAccountStore.getState().syncCurrentAccountMeta()).catch(() => {});
+        }
+      },
+      setBio: (bio) => {
+        set({ bio });
+        const uid = get().userId;
+        if (uid) {
+          useChatStore.getState().setUserProfile(uid, { bio });
+        }
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => m.useAccountStore.getState().syncCurrentAccountMeta()).catch(() => {});
+        }
+      },
+      setBirthday: (birthday) => {
+        set({ birthday });
+        const uid = get().userId;
+        if (uid) {
+          useChatStore.getState().setUserProfile(uid, { birthday });
+        }
+        if (typeof window !== 'undefined') {
+          import('../services/accountManager').then((m) => m.useAccountStore.getState().syncCurrentAccountMeta()).catch(() => {});
+        }
+      },
       setRecoveryKey: (recoveryKey) => set({ recoveryKey }),
       setMasterSeed: (masterSeed) => set({ masterSeed }),
       setConfigVersion: (configVersion) => set({ configVersion }),
@@ -201,6 +240,9 @@ export const useAuthStore = create<AuthState>()(
               userId: getInitialUserId(),
               nickname: '',
               avatarUrl: null,
+              username: null,
+              bio: null,
+              birthday: null,
               step: 'welcome',
               recoveryKey: null,
               masterSeed: null,
@@ -218,6 +260,9 @@ export const useAuthStore = create<AuthState>()(
         userId: get().userId,
         nickname: get().nickname,
         avatarUrl: get().avatarUrl,
+        username: get().username,
+        bio: get().bio,
+        birthday: get().birthday,
         step: get().step,
         recoveryKey: get().recoveryKey,
         masterSeed: get().masterSeed,
@@ -233,6 +278,9 @@ export const useAuthStore = create<AuthState>()(
           userId: data?.userId || getInitialUserId(),
           nickname: data?.nickname || '',
           avatarUrl: data?.avatarUrl || null,
+          username: data?.username || null,
+          bio: data?.bio || null,
+          birthday: data?.birthday || null,
           step: data?.step || 'welcome',
           recoveryKey: data?.recoveryKey || null,
           masterSeed: data?.masterSeed || null,
@@ -259,6 +307,9 @@ export const useAuthStore = create<AuthState>()(
         userId: state.userId,
         nickname: state.nickname,
         avatarUrl: state.avatarUrl,
+        username: state.username,
+        bio: state.bio,
+        birthday: state.birthday,
         step: state.step,
         recoveryKey: state.recoveryKey,
         masterSeed: state.masterSeed,

@@ -180,6 +180,9 @@ export interface UserProfile {
   id: string;
   nickname: string;
   avatarUrl?: string | null;
+  username?: string | null;
+  bio?: string | null;
+  birthday?: string | null;
   role?: string;
   updatedAt?: number;
 }
@@ -247,6 +250,8 @@ export interface Chat {
   muted?: boolean;
   notificationsEnabled?: boolean;
   description?: string;
+  username?: string | null;
+  birthday?: string | null;
   creatorId?: string;
   creatorCode?: string;
   creatorNickname?: string;

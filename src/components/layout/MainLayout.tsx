@@ -1963,6 +1963,9 @@ export const MainLayout = () => {
               const updates: Partial<Chat> = {};
               if (messageData.avatarUrl !== undefined) updates.avatarUrl = messageData.avatarUrl;
               if (messageData.nickname !== undefined) updates.name = messageData.nickname;
+              if (messageData.bio !== undefined) updates.description = messageData.bio;
+              if (messageData.username !== undefined) updates.username = messageData.username;
+              if (messageData.birthday !== undefined) updates.birthday = messageData.birthday;
               if (messageData.senderCode && (!currentMyCode || messageData.senderCode !== currentMyCode)) {
                 updates.peerCode = messageData.senderCode;
                 updates.originalPeerCode = messageData.senderCode;
@@ -3803,6 +3806,9 @@ export const MainLayout = () => {
         const updates: Partial<Chat> = {};
         if (data.avatarUrl !== undefined) updates.avatarUrl = data.avatarUrl;
         if (data.nickname !== undefined) updates.name = data.nickname;
+        if (data.bio !== undefined) updates.description = data.bio;
+        if (data.username !== undefined) updates.username = data.username;
+        if (data.birthday !== undefined) updates.birthday = data.birthday;
         if (data.senderCode && (!myCode || data.senderCode !== myCode)) {
           updates.peerCode = data.senderCode;
           updates.originalPeerCode = data.senderCode;
