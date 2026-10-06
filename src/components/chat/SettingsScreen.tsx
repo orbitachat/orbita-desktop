@@ -589,18 +589,60 @@ interface UsernameEditModalProps {
 
 export const UsernameEditModal = ({ open, onClose, currentUsername, onSave }: UsernameEditModalProps) => {
   const { t } = useTranslation();
+  const myCode = useChatStore((s) => s.myCode);
   const [value, setValue] = useState(currentUsername || '');
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
 
   useEffect(() => {
     if (open) {
       setValue(currentUsername || '');
       setError(null);
+      setStatus('idle');
     }
   }, [open, currentUsername]);
 
-  const handleSave = () => {
-    const raw = value.trim().replace(/^@+/, '');
+  useEffect(() => {
+    if (!open) return;
+    const raw = value.trim().replace(/^@+/, '').toLowerCase();
+    const cur = (currentUsername || '').replace(/^@+/, '').trim().toLowerCase();
+
+    if (!raw || raw === cur) {
+      setError(null);
+      setStatus('idle');
+      return;
+    }
+
+    if (raw.length < 5 || raw.length > 32 || !/^[a-zA-Z0-9_]+$/.test(raw)) {
+      setStatus('idle');
+      return;
+    }
+
+    setStatus('checking');
+    setError(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const available = await supabaseService.isUsernameAvailable(raw, myCode);
+        if (available) {
+          setStatus('available');
+          setError(null);
+        } else {
+          setStatus('taken');
+          setError(t('profile.username_taken', 'Это имя пользователя уже занято'));
+        }
+      } catch {
+        setStatus('idle');
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [value, open, currentUsername, myCode, t]);
+
+  const handleSave = async () => {
+    const raw = value.trim().replace(/^@+/, '').toLowerCase();
+    const cur = (currentUsername || '').replace(/^@+/, '').trim().toLowerCase();
+
     if (!raw) {
       onSave(null);
       onClose();
@@ -618,7 +660,23 @@ export const UsernameEditModal = ({ open, onClose, currentUsername, onSave }: Us
       setError(t('profile.username_error_invalid_chars', 'Разрешены только буквы латиницы, цифры и знак подчеркивания'));
       return;
     }
-    onSave(raw.toLowerCase());
+
+    if (raw !== cur) {
+      setStatus('checking');
+      try {
+        const available = await supabaseService.isUsernameAvailable(raw, myCode);
+        if (!available) {
+          setStatus('taken');
+          setError(t('profile.username_taken', 'Это имя пользователя уже занято'));
+          return;
+        }
+      } catch {
+        setError(t('profile.username_taken', 'Это имя пользователя уже занято'));
+        return;
+      }
+    }
+
+    onSave(raw);
     onClose();
   };
 
@@ -679,7 +737,7 @@ export const UsernameEditModal = ({ open, onClose, currentUsername, onSave }: Us
                   padding: '8px 4px',
                   borderRadius: '0px',
                   border: 'none',
-                  borderBottom: '1.5px solid var(--border-color, rgba(255,255,255,0.15))',
+                  borderBottom: `1.5px solid ${status === 'taken' || error ? '#ef4444' : status === 'available' ? '#22c55e' : 'var(--border-color, rgba(255,255,255,0.15))'}`,
                   backgroundColor: 'transparent',
                   color: 'var(--text-main, #ffffff)',
                   fontSize: '15px',
@@ -687,10 +745,30 @@ export const UsernameEditModal = ({ open, onClose, currentUsername, onSave }: Us
                   boxSizing: 'border-box',
                   transition: 'border-color 0.2s',
                 }}
-                onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)')}
-                onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))')}
+                onFocus={(e) => {
+                  if (!error && status !== 'taken' && status !== 'available') {
+                    e.currentTarget.style.borderBottomColor = 'var(--accent-color, #7C3AED)';
+                  }
+                }}
+                onBlur={(e) => {
+                  if (!error && status !== 'taken' && status !== 'available') {
+                    e.currentTarget.style.borderBottomColor = 'var(--border-color, rgba(255,255,255,0.15))';
+                  }
+                }}
               />
             </div>
+
+            {status === 'checking' && (
+              <p style={{ color: 'var(--text-dim, #8e8e93)', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>
+                {t('profile.username_checking', 'Проверка доступности...')}
+              </p>
+            )}
+
+            {status === 'available' && !error && (
+              <p style={{ color: '#22c55e', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>
+                {t('profile.username_available', 'Имя пользователя свободно')}
+              </p>
+            )}
 
             {error && <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>{error}</p>}
 
@@ -724,14 +802,15 @@ export const UsernameEditModal = ({ open, onClose, currentUsername, onSave }: Us
               <button
                 type="button"
                 onClick={handleSave}
+                disabled={status === 'checking' || status === 'taken'}
                 aria-label={t('common.save', 'Сохранить')}
                 style={{
                   padding: '8px 16px',
                   borderRadius: '20px',
                   border: 'none',
-                  backgroundColor: 'var(--accent-color, #7C3AED)',
+                  backgroundColor: status === 'checking' || status === 'taken' ? 'rgba(124, 58, 237, 0.4)' : 'var(--accent-color, #7C3AED)',
                   color: '#fff',
-                  cursor: 'pointer',
+                  cursor: status === 'checking' || status === 'taken' ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
                   fontWeight: 600,
                 }}

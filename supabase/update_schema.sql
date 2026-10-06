@@ -7,6 +7,14 @@ ALTER TABLE public.profile_updates ADD COLUMN IF NOT EXISTS birthday TEXT;
 CREATE INDEX IF NOT EXISTS idx_profile_updates_chat_id ON public.profile_updates(chat_id);
 CREATE INDEX IF NOT EXISTS idx_profile_updates_numeric_id ON public.profile_updates(numeric_id);
 CREATE INDEX IF NOT EXISTS idx_profile_updates_username ON public.profile_updates(username);
+CREATE INDEX IF NOT EXISTS idx_profile_updates_username_lower ON public.profile_updates(LOWER(username));
+
+DELETE FROM public.profile_updates a
+USING public.profile_updates b
+WHERE a.id < b.id
+  AND LOWER(a.username) = LOWER(b.username)
+  AND a.username IS NOT NULL
+  AND COALESCE(a.sender_code, a.chat_id) <> COALESCE(b.sender_code, b.chat_id);
 
 ALTER TABLE public.handshakes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all on handshakes" ON public.handshakes;

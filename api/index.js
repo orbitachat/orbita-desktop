@@ -861,12 +861,32 @@ module.exports = async function handler(req, res) {
       const supabase = getSupabaseClient();
       if (!supabase) return sendError(res, 'Database not configured', 500);
       if (!body.chatId) return sendError(res, 'Missing chatId parameter', 400);
+
+      const cleanUsername = body.username ? body.username.replace(/^@+/, '').trim().toLowerCase() : null;
+      if (cleanUsername) {
+        const { data: existingRows } = await supabase
+          .from('profile_updates')
+          .select('sender_code, chat_id')
+          .ilike('username', cleanUsername);
+
+        if (existingRows && existingRows.length > 0) {
+          const isTaken = existingRows.some((row) => {
+            const owner = row.sender_code || row.chat_id;
+            const current = body.senderCode || body.chatId;
+            return owner && current && owner !== current;
+          });
+          if (isTaken) {
+            return sendError(res, 'USERNAME_TAKEN', 409);
+          }
+        }
+      }
+
       try {
         if (body.senderCode) {
           await supabase.from('profile_updates').delete().eq('chat_id', body.chatId).eq('sender_code', body.senderCode);
         }
       } catch {}
-      const cleanUsername = body.username ? body.username.replace(/^@+/, '').trim().toLowerCase() : null;
+
       const { data, error } = await supabase.from('profile_updates').insert({
         chat_id: body.chatId,
         nickname: body.nickname || null,
@@ -880,6 +900,60 @@ module.exports = async function handler(req, res) {
       }).select();
       if (error) return sendError(res, error.message, 500);
       return sendJson(res, { status: 'ok', data });
+    }
+
+    if (pathname === '/relay/check-username' && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const username = (query.username || '').replace(/^@+/, '').trim().toLowerCase();
+      const excludeCode = query.excludeCode || null;
+      if (!username) return sendJson(res, { available: false });
+
+      const { data, error } = await supabase
+        .from('profile_updates')
+        .select('sender_code, chat_id')
+        .ilike('username', username);
+
+      if (error) return sendError(res, error.message, 500);
+      if (!data || data.length === 0) return sendJson(res, { available: true });
+
+      const isTaken = data.some((row) => {
+        const owner = row.sender_code || row.chat_id;
+        return owner && excludeCode && owner !== excludeCode;
+      });
+
+      return sendJson(res, { available: !isTaken });
+    }
+
+    if (pathname === '/relay/resolve-username' && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      if (!supabase) return sendError(res, 'Database not configured', 500);
+      const username = (query.username || '').replace(/^@+/, '').trim().toLowerCase();
+      if (!username) return sendJson(res, { user: null });
+
+      const { data, error } = await supabase
+        .from('profile_updates')
+        .select('*')
+        .ilike('username', username)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) return sendError(res, error.message, 500);
+      if (!data) return sendJson(res, { user: null });
+
+      return sendJson(res, {
+        user: {
+          user_code: data.sender_code || data.chat_id,
+          numeric_id: data.numeric_id || null,
+          nickname: data.nickname || 'User',
+          avatar_url: data.avatar_url,
+          username: data.username,
+          bio: data.bio,
+          birthday: data.birthday,
+          updated_at: data.updated_at,
+        }
+      });
     }
 
     if (pathname === '/relay/search-users' && req.method === 'GET') {

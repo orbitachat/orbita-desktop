@@ -282,13 +282,31 @@ Deno.serve(async (req: Request) => {
       const body = await req.json();
       if (!body.chatId) return jsonResponse({ error: 'Missing chatId parameter' }, 400);
 
+      const cleanUsername = body.username ? body.username.replace(/^@+/, '').trim().toLowerCase() : null;
+      if (cleanUsername) {
+        const { data: existingRows } = await supabase
+          .from('profile_updates')
+          .select('sender_code, chat_id')
+          .ilike('username', cleanUsername);
+
+        if (existingRows && existingRows.length > 0) {
+          const isTaken = existingRows.some((row: any) => {
+            const owner = row.sender_code || row.chat_id;
+            const current = body.senderCode || body.chatId;
+            return owner && current && owner !== current;
+          });
+          if (isTaken) {
+            return jsonResponse({ error: 'USERNAME_TAKEN' }, 409);
+          }
+        }
+      }
+
       try {
         if (body.senderCode) {
           await supabase.from('profile_updates').delete().eq('chat_id', body.chatId).eq('sender_code', body.senderCode);
         }
       } catch {}
 
-      const cleanUsername = body.username ? body.username.replace(/^@+/, '').trim().toLowerCase() : null;
       const { data, error } = await supabase
         .from('profile_updates')
         .insert({
@@ -306,6 +324,28 @@ Deno.serve(async (req: Request) => {
 
       if (error) return jsonResponse({ error: error.message }, 500);
       return jsonResponse({ status: 'ok', data });
+    }
+
+    if ((path === '/relay/check-username' || path.endsWith('/relay/check-username')) && req.method === 'GET') {
+      const supabase = getSupabaseClient();
+      const username = (url.searchParams.get('username') || '').replace(/^@+/, '').trim().toLowerCase();
+      const excludeCode = url.searchParams.get('excludeCode') || null;
+      if (!username) return jsonResponse({ available: false });
+
+      const { data, error } = await supabase
+        .from('profile_updates')
+        .select('sender_code, chat_id')
+        .ilike('username', username);
+
+      if (error) return jsonResponse({ error: error.message }, 500);
+      if (!data || data.length === 0) return jsonResponse({ available: true });
+
+      const isTaken = data.some((row: any) => {
+        const owner = row.sender_code || row.chat_id;
+        return owner && excludeCode && owner !== excludeCode;
+      });
+
+      return jsonResponse({ available: !isTaken });
     }
 
     if ((path === '/relay/search-users' || path.endsWith('/relay/search-users')) && req.method === 'GET') {

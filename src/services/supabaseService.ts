@@ -669,6 +669,13 @@ class SupabaseService {
 
     const cleanUsername = username ? username.replace(/^@+/, '').trim().toLowerCase() : null;
 
+    if (cleanUsername) {
+      const isAvailable = await this.isUsernameAvailable(cleanUsername, senderCode || chatId);
+      if (!isAvailable) {
+        throw new Error('USERNAME_TAKEN');
+      }
+    }
+
     const primaryRelay = relayRouter.getRelayForRecipient(chatId);
     const allRelays = [
       primaryRelay,
@@ -677,12 +684,18 @@ class SupabaseService {
 
     for (const relay of allRelays) {
       try {
-        await fetch(`${relay.url}/relay/profile`, {
+        const res = await fetch(`${relay.url}/relay/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, numericId, bio, username: cleanUsername, birthday }),
         });
-      } catch (err) {
+        if (res.status === 409) {
+          throw new Error('USERNAME_TAKEN');
+        }
+      } catch (err: any) {
+        if (err?.message === 'USERNAME_TAKEN') {
+          throw err;
+        }
         console.warn(`[Relay] Failed to save profile update on ${relay.url}:`, err);
       }
     }
@@ -802,6 +815,42 @@ class SupabaseService {
     }
 
     return null;
+  }
+
+  async isUsernameAvailable(username: string, excludeCode?: string | null): Promise<boolean> {
+    const cleanUsername = username ? username.replace(/^@+/, '').trim().toLowerCase() : '';
+    if (!cleanUsername) return false;
+
+    const nodes = relayRouter.getNodes();
+    for (const relay of nodes) {
+      try {
+        const param = excludeCode ? `&excludeCode=${encodeURIComponent(excludeCode)}` : '';
+        const res = await fetch(`${relay.url}/relay/check-username?username=${encodeURIComponent(cleanUsername)}${param}`);
+        if (res.ok) {
+          const data = (await res.json()) as { available?: boolean };
+          if (typeof data.available === 'boolean') return data.available;
+        }
+      } catch {}
+    }
+
+    if (this.client) {
+      try {
+        const { data, error } = await this.client
+          .from('profile_updates')
+          .select('sender_code, chat_id')
+          .ilike('username', cleanUsername);
+
+        if (!error && data) {
+          const isTaken = data.some((row) => {
+            const owner = row.sender_code || row.chat_id;
+            return owner && excludeCode && owner !== excludeCode;
+          });
+          return !isTaken;
+        }
+      } catch {}
+    }
+
+    return true;
   }
 
   async lookupProfileByUsername(username: string): Promise<UserDirectoryRecord | null> {
