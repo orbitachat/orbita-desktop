@@ -184,10 +184,8 @@ function getOrCreateNotificationWindow(settings: { position: string; maxCount: n
     maximizable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    focusable: false,
     hasShadow: false,
     roundedCorners: false,
-    type: 'notification',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,

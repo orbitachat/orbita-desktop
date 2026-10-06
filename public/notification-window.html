@@ -539,19 +539,31 @@
         });
       });
 
-      el.addEventListener('click', (e) => {
-        if (e.target && e.target.closest && e.target.closest('.notif-close')) return;
+      let isTriggered = false;
+      const onCardClick = (e) => {
+        if (isTriggered) return;
+        if (e && e.target && e.target.closest && e.target.closest('.notif-close')) return;
+        isTriggered = true;
         ipcRenderer.send('notif-window:clicked', { chatId });
         clearAllNotifications();
-      });
+      };
+      el.addEventListener('pointerup', onCardClick);
+      el.addEventListener('click', onCardClick);
 
       const closeBtn = el.querySelector('.notif-close');
       if (closeBtn) {
-        closeBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
+        let isClosed = false;
+        const onCloseClick = (e) => {
+          if (isClosed) return;
+          isClosed = true;
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
           removeNotifInstant(id, getExitAnimClass(position));
-        });
+        };
+        closeBtn.addEventListener('pointerup', onCloseClick);
+        closeBtn.addEventListener('click', onCloseClick);
       }
 
       const container = document.getElementById('notifs-container') || root;
@@ -578,11 +590,19 @@
 
     const hideAllBarEl = document.getElementById('hide-all-bar');
     if (hideAllBarEl) {
-      hideAllBarEl.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      let isHideAllTriggered = false;
+      const onHideAllClick = (e) => {
+        if (isHideAllTriggered) return;
+        isHideAllTriggered = true;
+        setTimeout(() => { isHideAllTriggered = false; }, 300);
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         clearAllNotifications();
-      });
+      };
+      hideAllBarEl.addEventListener('pointerup', onHideAllClick);
+      hideAllBarEl.addEventListener('click', onHideAllClick);
     }
 
     ipcRenderer.on('notif:show', (_event, payload) => {

@@ -93,10 +93,8 @@ function getOrCreateNotifWindow(settings: NotifSettings): BrowserWindow {
     maximizable:    false,
     skipTaskbar:    true,
     alwaysOnTop:    true,
-    focusable:      false,
     hasShadow:      false,
     roundedCorners: false,
-    type:           'notification' as any,
     webPreferences: {
       nodeIntegration:      true,
       contextIsolation:     false,
