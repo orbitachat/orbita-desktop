@@ -215,10 +215,6 @@
       transform: translateY(0);
     }
 
-    .hide-all-bar:hover {
-      color: var(--notif-text, #ffffff);
-    }
-
     #notifs-container {
       display: flex;
       flex-direction: column;
@@ -242,24 +238,17 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0.55;
-      transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease;
+      opacity: 0.6;
       z-index: 100;
       outline: none !important;
       box-shadow: none !important;
       pointer-events: auto !important;
     }
 
-    .notif-close:hover {
-      opacity: 1;
-      background: rgba(255, 255, 255, 0.12) !important;
-      color: var(--notif-text, #ffffff);
-    }
-
     .notif-close svg,
     .notif-close * {
-      width: 13px;
-      height: 13px;
+      width: 15px;
+      height: 15px;
       stroke: currentColor;
       pointer-events: none !important;
     }
