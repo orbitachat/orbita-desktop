@@ -1093,6 +1093,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (!chat) return '';
     if (isChannel) return chat.id;
     if (chatId === 'notes') return '';
+    if (chat.numericId) return chat.numericId;
     const rawCode = (chat.peerCode && !chat.peerCode.includes('-'))
       ? chat.peerCode
       : (chat.originalPeerCode && !chat.originalPeerCode.includes('-'))
@@ -1235,6 +1236,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
       try {
         let updateNick: string | undefined = undefined;
         let updateAvatar: string | undefined = undefined;
+        let pubNumericId: string | null | undefined = undefined;
 
         const update = await supabaseService.getLatestProfileUpdate(chat.id, myCode || undefined);
         const myUserId = useAuthStore.getState().userId;
@@ -1252,6 +1254,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
           const pub = await supabaseService.lookupPublicProfile(targetCode);
           if (pub?.nickname && !updateNick) updateNick = pub.nickname;
           if (pub?.avatar_url !== undefined && !updateAvatar) updateAvatar = pub.avatar_url || undefined;
+          if (pub?.numeric_id) pubNumericId = pub.numeric_id;
         }
 
         if (!isMounted) return;
@@ -1262,6 +1265,12 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         } else if (update?.sender_code && update.sender_code !== myCode) {
           chatUpdates.peerCode = update.sender_code;
           chatUpdates.originalPeerCode = update.sender_code;
+        }
+        if (update?.numeric_id && update.numeric_id !== chat.numericId) {
+          chatUpdates.numericId = update.numeric_id;
+        }
+        if (pubNumericId && pubNumericId !== chat.numericId) {
+          chatUpdates.numericId = pubNumericId;
         }
         if (updateNick && updateNick !== chat.name) {
           chatUpdates.name = updateNick;

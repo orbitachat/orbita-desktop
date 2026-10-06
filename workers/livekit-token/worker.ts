@@ -749,6 +749,8 @@ export default {
           bio?: string | null;
           username?: string | null;
           birthday?: string | null;
+          numericId?: string | null;
+          numeric_id?: string | null;
         };
 
         if (!body.chatId) return errorResponse('Missing chatId parameter', 400);
@@ -768,6 +770,7 @@ export default {
             avatar_url: body.avatarUrl || null,
             hide_profile_id: body.hideProfileId !== undefined ? body.hideProfileId : null,
             sender_code: body.senderCode || null,
+            numeric_id: body.numericId || body.numeric_id || null,
             bio: body.bio || null,
             username: cleanUsername,
             birthday: body.birthday || null,
@@ -786,10 +789,15 @@ export default {
         const limit = parseInt(url.searchParams.get('limit') || '20', 10);
         if (!q) return jsonResponse({ users: [] });
 
+        const isNumeric = /^\d+$/.test(q);
+        const filter = isNumeric
+          ? `numeric_id.eq.${q},sender_code.eq.${q}`
+          : `username.eq.${q},sender_code.eq.${q}`;
+
         const { data, error } = await supabase
           .from('profile_updates')
           .select('*')
-          .or(`username.ilike.%${q}%,nickname.ilike.%${q}%,sender_code.ilike.%${q}%`)
+          .or(filter)
           .order('updated_at', { ascending: false })
           .limit(limit);
 
@@ -803,6 +811,7 @@ export default {
             seen.add(userCode);
             users.push({
               user_code: userCode,
+              numeric_id: row.numeric_id || null,
               nickname: row.nickname || 'User',
               avatar_url: row.avatar_url,
               username: row.username,
@@ -836,6 +845,7 @@ export default {
         return jsonResponse({
           user: {
             user_code: data.sender_code || data.chat_id,
+            numeric_id: data.numeric_id || null,
             nickname: data.nickname || 'User',
             avatar_url: data.avatar_url,
             username: data.username,

@@ -31,7 +31,6 @@ import { useDevicePermissionStore } from '../../store/useDevicePermissionStore';
 import { DeveloperBadge, DeveloperToast } from '../ui/DeveloperBadge';
 import { LinkCopiedToast } from '../common/LinkCopiedToast';
 import { QrCodeView } from './QrCodeView';
-import { getInviteLink } from '../../utils/inviteLink';
 import { CHAT_COLOR_PRESETS, DEFAULT_CHAT_COLOR, type ThemeId } from '../../theme';
 import { EmojiAvatarModal } from '../settings/EmojiAvatarModal';
 import { AvatarCropperModal } from '../settings/AvatarCropperModal';
@@ -991,6 +990,7 @@ const broadcastProfileUpdate = (updates: {
   const currentBio = useAuthStore.getState().bio;
   const currentUsername = useAuthStore.getState().username;
   const currentBirthday = useAuthStore.getState().birthday;
+  const currentNumericId = useAuthStore.getState().numericId;
   const myCode = useChatStore.getState().myCode;
   const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
   const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
@@ -1004,6 +1004,7 @@ const broadcastProfileUpdate = (updates: {
     senderUserId: currentUserId,
     userId: currentUserId,
     senderCode: myCode,
+    numericId: currentNumericId,
     senderId: currentUserId || myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
@@ -1013,13 +1014,13 @@ const broadcastProfileUpdate = (updates: {
   };
 
   if (myCode) {
-    supabaseService.publishPublicProfile(myCode, finalNickname, finalAvatar, null, finalBio, finalUsername, finalBirthday).catch(() => {});
+    supabaseService.publishPublicProfile(myCode, finalNickname, finalAvatar, null, finalBio, finalUsername, finalBirthday, currentNumericId).catch(() => {});
   }
 
   const chats = useChatStore.getState().chats;
   chats.forEach((chat) => {
     if (chat.type === 'private' && chat.id !== 'notes') {
-      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalBio, finalUsername, finalBirthday).catch(() => {});
+      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalBio, finalUsername, finalBirthday, currentNumericId).catch(() => {});
       ablyService.sendMessage(chat.id, payload).catch(() => {});
       const pusher = getPusher();
       const channel = pusher.subscribe(`private-chat-${chat.id}`);
@@ -2733,12 +2734,13 @@ export const SettingsScreen = () => {
   const micVolume = useCallStore((state) => state.micVolume);
   const setPeerVolume = useCallStore((state) => state.setPeerVolume);
   const setMicVolume = useCallStore((state) => state.setMicVolume);
-  const { nickname, avatarUrl, username, bio, birthday, setNickname, setAvatarUrl, setUsername, setBio, setBirthday } = useAuthStore(useShallow((s) => ({
+  const { nickname, avatarUrl, username, bio, birthday, numericId, setNickname, setAvatarUrl, setUsername, setBio, setBirthday } = useAuthStore(useShallow((s) => ({
     nickname: s.nickname,
     avatarUrl: s.avatarUrl,
     username: s.username,
     bio: s.bio,
     birthday: s.birthday,
+    numericId: s.numericId,
     setNickname: s.setNickname,
     setAvatarUrl: s.setAvatarUrl,
     setUsername: s.setUsername,
@@ -3154,10 +3156,10 @@ export const SettingsScreen = () => {
   const [copyToastOpen, setCopyToastOpen] = useState(false);
 
   const handleCopyCode = async () => {
-    if (!myCode) return;
+    const textToCopy = numericId || myCode;
+    if (!textToCopy) return;
     try {
-      const link = getInviteLink(myCode);
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(textToCopy);
       setCopyToastOpen(true);
       setTimeout(() => setCopyToastOpen(false), 2000);
     } catch (err) {
@@ -3873,7 +3875,7 @@ export const SettingsScreen = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.account_id', 'ID аккаунта')}</span>
               <span style={{ fontSize: '14.5px', fontWeight: 500, color: 'var(--accent-color, #9b7dd4)', fontFamily: '"JetBrains Mono", Consolas, monospace' }}>
-                {myCode || '------'}
+                {numericId || myCode || '------'}
               </span>
             </div>
             <ChevronRight size={18} color={MD3.onSurfaceVar} />

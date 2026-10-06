@@ -873,6 +873,7 @@ module.exports = async function handler(req, res) {
         avatar_url: body.avatarUrl || null,
         hide_profile_id: body.hideProfileId !== undefined ? body.hideProfileId : null,
         sender_code: body.senderCode || null,
+        numeric_id: body.numericId || body.numeric_id || null,
         bio: body.bio || null,
         username: cleanUsername,
         birthday: body.birthday || null,
@@ -888,10 +889,15 @@ module.exports = async function handler(req, res) {
       const limit = parseInt(query.limit, 10) || 20;
       if (!q) return sendJson(res, { users: [] });
 
+      const isNumeric = /^\d+$/.test(q);
+      const filter = isNumeric
+        ? `numeric_id.eq.${q},sender_code.eq.${q}`
+        : `username.eq.${q},sender_code.eq.${q}`;
+
       const { data, error } = await supabase
         .from('profile_updates')
         .select('*')
-        .or(`username.ilike.%${q}%,nickname.ilike.%${q}%,sender_code.ilike.%${q}%`)
+        .or(filter)
         .order('updated_at', { ascending: false })
         .limit(limit);
 
@@ -905,6 +911,7 @@ module.exports = async function handler(req, res) {
           seen.add(userCode);
           users.push({
             user_code: userCode,
+            numeric_id: row.numeric_id || null,
             nickname: row.nickname || 'User',
             avatar_url: row.avatar_url,
             username: row.username,
@@ -937,6 +944,7 @@ module.exports = async function handler(req, res) {
       return sendJson(res, {
         user: {
           user_code: data.sender_code || data.chat_id,
+          numeric_id: data.numeric_id || null,
           nickname: data.nickname || 'User',
           avatar_url: data.avatar_url,
           username: data.username,

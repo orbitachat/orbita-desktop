@@ -850,7 +850,6 @@ export const MainLayout = () => {
     type: 'group' | 'channel' | 'friend';
   }>({ isOpen: false, type: 'friend' });
   const [searchChannelResult, setSearchChannelResult] = useState<ChannelInfo | null>(null);
-  const [isSearchingChannel, setIsSearchingChannel] = useState(false);
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
   const [isMyProfileOpen, setIsMyProfileOpen] = useState(false);
   const [showCallsModal, setShowCallsModal] = useState(false);
@@ -4751,22 +4750,18 @@ export const MainLayout = () => {
     const trimmed = extractCodeFromInput(searchQuery).trim();
     if (trimmed.length < 3) {
       setSearchChannelResult(null);
-      setIsSearchingChannel(false);
       return;
     }
 
     let cancelled = false;
     const timer = setTimeout(() => {
-      setIsSearchingChannel(true);
       channelService.getChannel(trimmed).then((channel) => {
         if (!cancelled) {
           setSearchChannelResult(channel);
-          setIsSearchingChannel(false);
         }
       }).catch(() => {
         if (!cancelled) {
           setSearchChannelResult(null);
-          setIsSearchingChannel(false);
         }
       });
     }, 250);
@@ -4944,13 +4939,27 @@ export const MainLayout = () => {
       setSearchQuery('');
       return;
     }
-    handleConnectRequest(user.user_code, (ok, err) => {
-      if (!ok && err) {
-        console.warn('[GlobalSearch] Connect error:', err);
-      }
-    });
+
+    const newChat: Partial<Chat> = {
+      id: user.user_code,
+      peerCode: user.user_code,
+      name: user.nickname || 'User',
+      avatarUrl: user.avatar_url || undefined,
+      username: user.username || undefined,
+      numericId: user.numeric_id || undefined,
+      description: user.bio || undefined,
+      birthday: user.birthday || undefined,
+      type: 'private',
+      lastMsg: '',
+      online: false,
+      unreadCount: 0,
+      createdAt: Date.now(),
+      notificationsEnabled: true,
+    };
+    useChatStore.getState().addChat(newChat);
+    handleSelectChat(user.user_code);
     setSearchQuery('');
-  }, [handleSelectChat, handleConnectRequest]);
+  }, [handleSelectChat]);
 
 
   const renderChat = useCallback((chat: Chat) => {
@@ -5420,20 +5429,6 @@ export const MainLayout = () => {
                           </div>
                         </div>
                       )}
-                      {isSearchingChannel && (
-                        <div className="flex items-center justify-center py-4">
-                          <div
-                            style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: '50%',
-                              border: '2px solid rgba(255,255,255,0.2)',
-                              borderTopColor: 'var(--accent-color, #7C3AED)',
-                              animation: 'spin 0.8s linear infinite',
-                            }}
-                          />
-                        </div>
-                      )}
                       {searchChannelResult && (
                         <div className="px-2 py-1">
                           <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
@@ -5535,7 +5530,6 @@ export const MainLayout = () => {
                             const myUid = useAuthStore.getState().userId;
                             const myC = useChatStore.getState().myCode;
                             const isMe = user.user_code === myC || user.user_code === myUid;
-                            const isExisting = isMe || chats.some(c => c.type === 'private' && (c.id === user.user_code || c.peerCode === user.user_code));
                             return (
                               <div
                                 key={user.user_code}
@@ -5563,29 +5557,23 @@ export const MainLayout = () => {
                                       @{user.username}
                                     </div>
                                   )}
-                                  {!user.username && user.bio && (
+                                  {!user.username && user.numeric_id && (
+                                    <div className="text-xs text-[var(--accent-color,#7C3AED)] truncate mt-0.5 font-mono">
+                                      ID: {user.numeric_id}
+                                    </div>
+                                  )}
+                                  {!user.username && !user.numeric_id && user.bio && (
                                     <div className="text-xs text-[var(--text-dim)] truncate mt-0.5">
                                       {user.bio}
                                     </div>
                                   )}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectFoundUser(user);
-                                  }}
-                                  aria-label={isExisting ? t('common.open', 'Открыть') : t('connectModal.connect', 'Подключиться')}
-                                  className="px-3 py-1.5 rounded-lg bg-[var(--accent-color)] text-white text-xs font-semibold hover:opacity-90 transition-opacity border-none outline-none cursor-pointer flex-shrink-0"
-                                >
-                                  {isExisting ? t('common.open', 'Открыть') : t('connectModal.connect', 'Подключиться')}
-                                </button>
                               </div>
                             );
                           })}
                         </div>
                       )}
-                      {searchQuery.trim().length >= 2 && visibleChats.length === 0 && !searchChannelResult && !isSupportFound && globalFoundUsers.length === 0 && !isSearchingChannel && (
+                      {searchQuery.trim().length >= 2 && visibleChats.length === 0 && !searchChannelResult && !isSupportFound && globalFoundUsers.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                           <span className="text-sm text-[var(--text-dim)]">
                             {t('search.no_results', 'Ничего не найдено')}

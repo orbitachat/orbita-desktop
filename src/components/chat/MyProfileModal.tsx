@@ -15,7 +15,6 @@ import { TelegramMediaViewer } from './TelegramMediaViewer';
 import { QrCodeView } from './QrCodeView';
 import { ablyService } from '../../services/ablyService';
 import { getPusher } from '../../utils/pusher';
-import { getInviteLink } from '../../utils/inviteLink';
 import { handleScrollbarThumbMouseDown, handleScrollbarTrackMouseDown } from '../../utils/scrollbarDrag';
 import { mediaManager } from '../../services/mediaManager';
 import { supabaseService } from '../../services/supabaseService';
@@ -34,6 +33,7 @@ const sendProfileUpdate = (updates: {
   const currentBio = useAuthStore.getState().bio;
   const currentUsername = useAuthStore.getState().username;
   const currentBirthday = useAuthStore.getState().birthday;
+  const currentNumericId = useAuthStore.getState().numericId;
   const myCode = useChatStore.getState().myCode;
   const finalNickname = updates.nickname !== undefined ? updates.nickname : currentNickname;
   const finalAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl : currentAvatar;
@@ -47,6 +47,7 @@ const sendProfileUpdate = (updates: {
     senderUserId: currentUserId,
     userId: currentUserId,
     senderCode: myCode,
+    numericId: currentNumericId,
     senderId: currentUserId || myCode,
     avatarUrl: finalAvatar,
     nickname: finalNickname,
@@ -56,13 +57,13 @@ const sendProfileUpdate = (updates: {
   };
 
   if (myCode) {
-    supabaseService.publishPublicProfile(myCode, finalNickname, finalAvatar, null, finalBio, finalUsername, finalBirthday).catch(() => {});
+    supabaseService.publishPublicProfile(myCode, finalNickname, finalAvatar, null, finalBio, finalUsername, finalBirthday, currentNumericId).catch(() => {});
   }
 
   const chats = useChatStore.getState().chats;
   chats.forEach((chat) => {
     if (chat.type === 'private' && chat.id !== 'notes') {
-      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalBio, finalUsername, finalBirthday).catch(() => {});
+      supabaseService.saveProfileUpdate(chat.id, finalNickname, finalAvatar, myCode, finalBio, finalUsername, finalBirthday, currentNumericId).catch(() => {});
       ablyService.sendMessage(chat.id, payload).catch(() => {});
       const pusher = getPusher();
       const channel = pusher.subscribe(`private-chat-${chat.id}`);
@@ -104,12 +105,13 @@ interface MyProfileModalProps {
 
 export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onClose, isMobileView = false }) => {
   const { t, i18n } = useTranslation();
-  const { nickname, avatarUrl, username, bio, birthday, setNickname, setAvatarUrl } = useAuthStore(useShallow((s) => ({
+  const { nickname, avatarUrl, username, bio, birthday, numericId, setNickname, setAvatarUrl } = useAuthStore(useShallow((s) => ({
     nickname: s.nickname,
     avatarUrl: s.avatarUrl,
     username: s.username,
     bio: s.bio,
     birthday: s.birthday,
+    numericId: s.numericId,
     setNickname: s.setNickname,
     setAvatarUrl: s.setAvatarUrl,
   })));
@@ -222,13 +224,13 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
   }, []);
 
   const handleCopyLink = useCallback(() => {
-    if (myCode) {
-      const link = getInviteLink(myCode);
-      navigator.clipboard.writeText(link);
+    const textToCopy = numericId || myCode;
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
     }
     setCopyToastOpen(true);
     setTimeout(() => setCopyToastOpen(false), 2000);
-  }, [myCode]);
+  }, [numericId, myCode]);
 
   const handleSaveNickname = useCallback((newNick: string) => {
     setNickname(newNick);
@@ -955,7 +957,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                       fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                     }}
                   >
-                    {myCode || '------'}
+                    {numericId || myCode || '------'}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
                     {t('profile.account_id', 'ID аккаунта')}

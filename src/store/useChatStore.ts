@@ -251,6 +251,7 @@ export interface Chat {
   notificationsEnabled?: boolean;
   description?: string;
   username?: string | null;
+  numericId?: string | null;
   birthday?: string | null;
   creatorId?: string;
   creatorCode?: string;
@@ -278,6 +279,7 @@ export interface IncomingFriendRequest {
   senderPublicKey: string;
   avatarUrl?: string | null;
   username?: string | null;
+  numericId?: string | null;
   bio?: string | null;
   birthday?: string | null;
   createdAt: number;
@@ -934,6 +936,7 @@ export const useChatStore = create<ChatState>()(
           peerCode: newChat.peerCode,
           description: newChat.description,
           username: newChat.username,
+          numericId: newChat.numericId,
           birthday: newChat.birthday,
         };
         set((state) => {

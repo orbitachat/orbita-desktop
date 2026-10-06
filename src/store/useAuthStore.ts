@@ -8,6 +8,7 @@ export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
 interface AuthState {
   userId: string;
+  numericId: string;
   nickname: string;
   avatarUrl: string | null;
   username: string | null;
@@ -23,6 +24,7 @@ interface AuthState {
   backupFolder: string | null;
   lastBackupTime: number | null;
   setUserId: (id: string) => void;
+  setNumericId: (numericId: string) => void;
   setStep: (step: AuthStep) => void;
   setNickname: (name: string) => void;
   setAvatarUrl: (url: string | null) => void;
@@ -38,6 +40,25 @@ interface AuthState {
   exportAuthState: () => any;
   importAuthState: (data: any) => void;
 }
+
+export const getInitialNumericId = (seed?: string): string => {
+  if (seed) {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    const positive = Math.abs(hash);
+    const id = 10000000000 + (positive % 90000000000);
+    return id.toString();
+  }
+  const first = Math.floor(Math.random() * 9) + 1;
+  let rest = '';
+  for (let i = 0; i < 10; i++) {
+    rest += Math.floor(Math.random() * 10).toString();
+  }
+  return `${first}${rest}`;
+};
 
 const getInitialUserId = (): string => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -135,6 +156,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       userId: '',
+      numericId: '',
       nickname: '',
       avatarUrl: null,
       username: null,
@@ -150,6 +172,7 @@ export const useAuthStore = create<AuthState>()(
       backupFolder: null,
       lastBackupTime: null,
       setUserId: (userId) => set({ userId }),
+      setNumericId: (numericId) => set({ numericId }),
       setStep: (step) => {
         set({ step });
         if (typeof window !== 'undefined') {
@@ -236,8 +259,10 @@ export const useAuthStore = create<AuthState>()(
             localStorage.removeItem('orbita-auth-storage');
             localStorage.removeItem('orbita-chat-storage');
             useChatStore.getState().resetChats();
+            const newUid = getInitialUserId();
             set({
-              userId: getInitialUserId(),
+              userId: newUid,
+              numericId: getInitialNumericId(newUid),
               nickname: '',
               avatarUrl: null,
               username: null,
@@ -258,6 +283,7 @@ export const useAuthStore = create<AuthState>()(
       },
       exportAuthState: () => ({
         userId: get().userId,
+        numericId: get().numericId || getInitialNumericId(get().userId),
         nickname: get().nickname,
         avatarUrl: get().avatarUrl,
         username: get().username,
@@ -274,8 +300,10 @@ export const useAuthStore = create<AuthState>()(
         lastBackupTime: get().lastBackupTime,
       }),
       importAuthState: (data: any) => {
+        const uid = data?.userId || getInitialUserId();
         set({
-          userId: data?.userId || getInitialUserId(),
+          userId: uid,
+          numericId: data?.numericId || getInitialNumericId(uid),
           nickname: data?.nickname || '',
           avatarUrl: data?.avatarUrl || null,
           username: data?.username || null,
@@ -300,11 +328,15 @@ export const useAuthStore = create<AuthState>()(
         if (persistedState && !persistedState.userId) {
           persistedState.userId = getInitialUserId();
         }
+        if (persistedState && !persistedState.numericId) {
+          persistedState.numericId = getInitialNumericId(persistedState.userId);
+        }
         return persistedState;
       },
       storage: createJSONStorage(() => ipcStorage),
       partialize: (state) => ({
         userId: state.userId,
+        numericId: state.numericId || getInitialNumericId(state.userId),
         nickname: state.nickname,
         avatarUrl: state.avatarUrl,
         username: state.username,

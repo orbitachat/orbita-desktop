@@ -36,6 +36,7 @@ export interface ProfileUpdateRecord {
   nickname: string | null;
   avatar_url: string | null;
   sender_code?: string | null;
+  numeric_id?: string | null;
   bio?: string | null;
   username?: string | null;
   birthday?: string | null;
@@ -44,6 +45,7 @@ export interface ProfileUpdateRecord {
 
 export interface UserDirectoryRecord {
   user_code: string;
+  numeric_id?: string | null;
   nickname: string;
   avatar_url: string | null;
   username?: string | null;
@@ -660,7 +662,8 @@ class SupabaseService {
     senderCode?: string | null,
     bio?: string | null,
     username?: string | null,
-    birthday?: string | null
+    birthday?: string | null,
+    numericId?: string | null
   ): Promise<void> {
     if (!chatId || chatId === 'notes') return;
 
@@ -677,7 +680,7 @@ class SupabaseService {
         await fetch(`${relay.url}/relay/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, bio, username: cleanUsername, birthday }),
+          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, numericId, bio, username: cleanUsername, birthday }),
         });
       } catch (err) {
         console.warn(`[Relay] Failed to save profile update on ${relay.url}:`, err);
@@ -697,6 +700,7 @@ class SupabaseService {
           nickname,
           avatar_url: avatarUrl,
           sender_code: senderCode || null,
+          numeric_id: numericId || null,
           bio: bio || null,
           username: cleanUsername,
           birthday: birthday || null,
@@ -765,11 +769,12 @@ class SupabaseService {
     _publicKey?: string | null,
     bio?: string | null,
     username?: string | null,
-    birthday?: string | null
+    birthday?: string | null,
+    numericId?: string | null
   ): Promise<void> {
     if (!userCode || !nickname) return;
     try {
-      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, bio, username, birthday);
+      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, bio, username, birthday, numericId);
     } catch (e) {
       console.warn('[Directory] Failed to publish profile update:', e);
     }
@@ -783,6 +788,7 @@ class SupabaseService {
       if (update && update.nickname) {
         return {
           user_code: userCode,
+          numeric_id: update.numeric_id || null,
           nickname: update.nickname,
           avatar_url: update.avatar_url,
           username: update.username,
@@ -827,6 +833,7 @@ class SupabaseService {
         if (!error && data && data.nickname) {
           return {
             user_code: data.sender_code || data.chat_id,
+            numeric_id: data.numeric_id || null,
             nickname: data.nickname,
             avatar_url: data.avatar_url,
             username: data.username,
@@ -872,10 +879,15 @@ class SupabaseService {
 
     if (this.client) {
       try {
+        const isNumeric = /^\d+$/.test(cleanQuery);
+        const filter = isNumeric
+          ? `numeric_id.eq.${cleanQuery},sender_code.eq.${cleanQuery}`
+          : `username.eq.${cleanQuery},sender_code.eq.${cleanQuery}`;
+
         const { data, error } = await this.client
           .from('profile_updates')
           .select('*')
-          .or(`username.ilike.%${cleanQuery}%,nickname.ilike.%${cleanQuery}%,sender_code.ilike.%${cleanQuery}%`)
+          .or(filter)
           .order('updated_at', { ascending: false })
           .limit(limit);
 
@@ -886,6 +898,7 @@ class SupabaseService {
               seen.add(userCode);
               results.push({
                 user_code: userCode,
+                numeric_id: row.numeric_id || null,
                 nickname: row.nickname || 'User',
                 avatar_url: row.avatar_url,
                 username: row.username,
