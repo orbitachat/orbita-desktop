@@ -2942,6 +2942,22 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
               if (channel.subscribed) doSendPusher(); else channel.bind('pusher:subscription_succeeded', doSendPusher);
             } catch {}
 
+            for (const recipientId of recipientTargets) {
+              try {
+                const recipientHsChannel = pusher.subscribe(`private-handshake-${recipientId}`);
+                const doSendDirect = () => {
+                  try {
+                    recipientHsChannel.trigger('client-message', preHandshakePayload);
+                  } catch {}
+                };
+                if (recipientHsChannel.subscribed) doSendDirect();
+                else recipientHsChannel.bind('pusher:subscription_succeeded', doSendDirect);
+              } catch {}
+              try {
+                ablyService.sendMessage(recipientId, preHandshakePayload).catch(() => {});
+              } catch {}
+            }
+
             useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
           }
           return;

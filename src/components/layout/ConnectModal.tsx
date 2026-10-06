@@ -488,9 +488,6 @@ export const ConnectModal: React.FC<ConnectModalProps> = ({
 
           {type === 'friend' && liveResults.length > 0 && (
             <div className="mt-3 flex flex-col gap-1 max-h-[160px] overflow-y-auto custom-scrollbar">
-              <div className="text-[11px] font-semibold text-[var(--text-dim)] px-1 uppercase tracking-wider mb-0.5">
-                {t('createModal.found_users', 'Глобальный поиск')}
-              </div>
               {liveResults.map((u) => (
                 <div
                   key={u.user_code}

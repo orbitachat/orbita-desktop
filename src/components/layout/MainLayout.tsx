@@ -1333,11 +1333,109 @@ export const MainLayout = () => {
       }));
     };
 
+    const handleDirectMessage = async (data: any) => {
+      if (!data || !data.chatId) return;
+      const myUserId = useAuthStore.getState().userId;
+      const isSelf = Boolean(
+        (myUserId && (data.senderUserId === myUserId || data.userId === myUserId || data.senderId === myUserId)) ||
+        (myCode && (data.senderCode === myCode || data.senderId === myCode)) ||
+        (nickname && (data.sender === nickname || data.senderNickname === nickname)) ||
+        data.sender === 'YOU' ||
+        (data.messageId && processedMessageIds.current.has(data.messageId))
+      );
+      if (isSelf) return;
+
+      let chat = useChatStore.getState().chats.find((c) => c.id === data.chatId);
+      if (!chat) {
+        let senderNick = data.sender || 'User';
+        let senderAvatar = data.avatarUrl;
+        let senderUsername: string | undefined = undefined;
+        let senderBio: string | undefined = undefined;
+        let senderBirthday: string | undefined = undefined;
+        let senderNumericId: string | undefined = undefined;
+
+        if (data.senderCode || data.senderId) {
+          const senderCode = data.senderCode || data.senderId;
+          try {
+            const pub = await supabaseService.lookupPublicProfile(senderCode);
+            if (pub) {
+              if (pub.nickname) senderNick = pub.nickname;
+              if (pub.avatar_url) senderAvatar = pub.avatar_url;
+              if (pub.username) senderUsername = pub.username;
+              if (pub.bio) senderBio = pub.bio;
+              if (pub.birthday) senderBirthday = pub.birthday;
+              if (pub.numeric_id) senderNumericId = pub.numeric_id;
+            }
+          } catch {}
+          if (!senderNumericId) senderNumericId = getInitialNumericId(senderCode);
+        }
+
+        const newChatObj: Partial<Chat> = {
+          id: data.chatId,
+          type: 'private',
+          name: senderNick,
+          peerCode: data.senderCode || data.senderId,
+          originalPeerCode: data.senderCode || data.senderId,
+          avatarUrl: senderAvatar,
+          username: senderUsername,
+          bio: senderBio,
+          birthday: senderBirthday,
+          numericId: senderNumericId,
+          lastMsg: '',
+          online: false,
+          unreadCount: 0,
+          createdAt: Date.now(),
+          notificationsEnabled: true,
+        };
+        addChat(newChatObj);
+        subscribeToChat(data.chatId, data.chatId);
+      }
+
+      if (data.messageId) {
+        processedMessageIds.current.add(data.messageId);
+      }
+
+      let textContent = data.ciphertext || data.text || '';
+      let mediaType = data.mediaType;
+      let mediaUrl = data.mediaUrl;
+      let mediaName = data.mediaName;
+      let mime = data.mime;
+      if (typeof textContent === 'string' && textContent.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(textContent);
+          if (parsed.text !== undefined) textContent = parsed.text;
+          if (parsed.mediaType) mediaType = parsed.mediaType;
+          if (parsed.mediaUrl) mediaUrl = parsed.mediaUrl;
+          if (parsed.mediaName) mediaName = parsed.mediaName;
+          if (parsed.mime) mime = parsed.mime;
+        } catch {}
+      }
+
+      const newMsg: Message = {
+        id: data.messageId || `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        senderId: data.senderCode || data.senderId || data.sender,
+        sender: data.sender || chat?.name || 'User',
+        isOutgoing: false,
+        text: textContent,
+        time: data.time || Date.now(),
+        read: useChatStore.getState().activeChatId === data.chatId,
+        mediaType: mediaType || null,
+        mediaUrl: mediaUrl || null,
+        mediaName: mediaName || null,
+        mime: mime || null,
+      };
+      addMessage(data.chatId, newMsg);
+      updateChat(data.chatId, {
+        lastMsg: textContent || (mediaType ? `[${mediaType}]` : ''),
+      });
+    };
+
     keysToListen.forEach((key) => {
       const channel = pusher.subscribe(`private-handshake-${key}`);
       channel.bind('client-request-identity', handleRequest);
       channel.bind('client-identity-confirmed', handleConfirm);
       channel.bind('client-group-added', handleGroupAdded);
+      channel.bind('client-message', handleDirectMessage);
       const unsubAbly = ablyService.subscribeToHandshake(key, handleRequest, handleConfirm);
 
       unsubscribes.push(() => {
@@ -1696,7 +1794,54 @@ export const MainLayout = () => {
           }
 
           if (!chat) {
-            continue;
+            let senderNick = record.sender_id;
+            let senderAvatar: string | undefined = undefined;
+            let senderUsername: string | undefined = undefined;
+            let senderBio: string | undefined = undefined;
+            let senderBirthday: string | undefined = undefined;
+            let senderNumericId: string | undefined = undefined;
+
+            if (record.dh_public_key === 'PRE_HANDSHAKE' || (!record.dh_public_key && record.ciphertext?.startsWith('{'))) {
+              try {
+                const parsed = JSON.parse(record.ciphertext);
+                if (parsed.sender) senderNick = parsed.sender;
+                if (parsed.avatarUrl) senderAvatar = parsed.avatarUrl;
+              } catch {}
+            }
+
+            try {
+              const pub = await supabaseService.lookupPublicProfile(record.sender_id);
+              if (pub) {
+                if (pub.nickname) senderNick = pub.nickname;
+                if (pub.avatar_url) senderAvatar = pub.avatar_url;
+                if (pub.username) senderUsername = pub.username;
+                if (pub.bio) senderBio = pub.bio;
+                if (pub.birthday) senderBirthday = pub.birthday;
+                if (pub.numeric_id) senderNumericId = pub.numeric_id;
+              }
+            } catch {}
+
+            const newChatObj: Partial<Chat> = {
+              id: record.chat_id,
+              type: 'private',
+              name: senderNick,
+              peerCode: record.sender_id,
+              originalPeerCode: record.sender_id,
+              avatarUrl: senderAvatar,
+              username: senderUsername,
+              bio: senderBio,
+              birthday: senderBirthday,
+              numericId: senderNumericId || getInitialNumericId(record.sender_id),
+              lastMsg: '',
+              online: false,
+              unreadCount: 0,
+              createdAt: new Date(record.created_at).getTime() || Date.now(),
+              notificationsEnabled: true,
+            };
+            addChat(newChatObj);
+            subscribeToChat(record.chat_id, record.chat_id);
+            subscribeToDeliveryUpdates(record.chat_id);
+            chat = useChatStore.getState().chats.find(c => c.id === record.chat_id) || (newChatObj as Chat);
           }
 
           let messageData: any = null;
@@ -5446,22 +5591,20 @@ export const MainLayout = () => {
                         </div>
                       )}
                       {searchChannelResult && (
-                        <div className="px-2 py-1">
-                          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
-                            {t('createModal.found_community', 'Найдено сообщество')}
-                          </div>
+                        <div className="w-full">
                           <div
                             onClick={() => handleSelectFoundChannel(searchChannelResult)}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer"
+                            className="flex items-center gap-3 px-3.5 py-2 hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer w-full"
+                            style={{ borderRadius: 0, width: '100%', boxSizing: 'border-box' }}
                           >
                             <Avatar
                               src={searchChannelResult.avatarUrl}
                               alt={searchChannelResult.name}
-                              className="w-11 h-11 rounded-full flex-shrink-0"
+                              className="w-12 h-12 rounded-full flex-shrink-0"
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="font-semibold text-sm text-[var(--text-main)] truncate">
+                                <span className="font-semibold text-[14px] text-[var(--text-main)] truncate">
                                   {searchChannelResult.name}
                                 </span>
                                 {searchChannelResult.isOfficial && (
@@ -5491,18 +5634,16 @@ export const MainLayout = () => {
                         </div>
                       )}
                       {isSupportFound && (
-                        <div className="px-2 py-1">
-                          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
-                            {t('createModal.found_support', 'Служба поддержки')}
-                          </div>
+                        <div className="w-full">
                           <div
                             onClick={handleSelectFoundSupport}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer"
+                            className="flex items-center gap-3 px-3.5 py-2 hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer w-full"
+                            style={{ borderRadius: 0, width: '100%', boxSizing: 'border-box' }}
                           >
-                            <BotAvatar className="w-11 h-11" />
+                            <BotAvatar className="w-12 h-12" />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="font-semibold text-sm text-[var(--text-main)] truncate">
+                                <span className="font-semibold text-[14px] text-[var(--text-main)] truncate">
                                   {t('support.name', 'Техническая поддержка')}
                                 </span>
                                 <VerifiedBadge size={15} className="flex-shrink-0" />
@@ -5538,10 +5679,7 @@ export const MainLayout = () => {
                       )}
                       {visibleChats.map((chat) => renderChat(chat))}
                       {searchQuery.trim().length >= 2 && globalFoundUsers.length > 0 && (
-                        <div className="px-2 py-1">
-                          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-dim)] px-3 py-1">
-                            {t('createModal.found_users', 'Глобальный поиск')}
-                          </div>
+                        <div className="w-full">
                           {globalFoundUsers.map((user) => {
                             const myUid = useAuthStore.getState().userId;
                             const myC = useChatStore.getState().myCode;
@@ -5550,16 +5688,17 @@ export const MainLayout = () => {
                               <div
                                 key={user.user_code}
                                 onClick={() => handleSelectFoundUser(user)}
-                                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer"
+                                className="flex items-center gap-3 px-3.5 py-2 hover:bg-[var(--surface-container-strong)] transition-colors cursor-pointer w-full"
+                                style={{ borderRadius: 0, width: '100%', boxSizing: 'border-box' }}
                               >
                                 <Avatar
                                   src={user.avatar_url}
                                   alt={user.nickname}
-                                  className="w-11 h-11 rounded-full flex-shrink-0"
+                                  className="w-12 h-12 rounded-full flex-shrink-0"
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="font-semibold text-sm text-[var(--text-main)] truncate">
+                                    <span className="font-semibold text-[14px] text-[var(--text-main)] truncate">
                                       {user.nickname}
                                     </span>
                                     {isMe && (

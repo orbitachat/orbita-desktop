@@ -8,14 +8,10 @@ CREATE INDEX IF NOT EXISTS idx_profile_updates_chat_id ON public.profile_updates
 CREATE INDEX IF NOT EXISTS idx_profile_updates_numeric_id ON public.profile_updates(numeric_id);
 CREATE INDEX IF NOT EXISTS idx_profile_updates_username ON public.profile_updates(username);
 
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+ALTER TABLE public.handshakes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all on handshakes" ON public.handshakes;
+CREATE POLICY "Allow all on handshakes" ON public.handshakes FOR ALL USING (true) WITH CHECK (true);
 
-SELECT cron.unschedule('orbita-cleanup-stale-profile-updates') WHERE EXISTS (
-  SELECT 1 FROM cron.job WHERE jobname = 'orbita-cleanup-stale-profile-updates'
-);
-
-SELECT cron.schedule(
-  'orbita-cleanup-stale-profile-updates',
-  '*/30 * * * *',
-  $$DELETE FROM profile_updates WHERE updated_at < NOW() - INTERVAL '7 days';$$
-);
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all on messages" ON public.messages;
+CREATE POLICY "Allow all on messages" ON public.messages FOR ALL USING (true) WITH CHECK (true);
