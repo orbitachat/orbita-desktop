@@ -36,6 +36,9 @@ export interface ProfileUpdateRecord {
   nickname: string | null;
   avatar_url: string | null;
   sender_code?: string | null;
+  bio?: string | null;
+  username?: string | null;
+  birthday?: string | null;
   updated_at: string;
 }
 
@@ -43,6 +46,9 @@ export interface UserDirectoryRecord {
   user_code: string;
   nickname: string;
   avatar_url: string | null;
+  username?: string | null;
+  bio?: string | null;
+  birthday?: string | null;
   public_key?: string | null;
   updated_at?: string;
 }
@@ -651,7 +657,10 @@ class SupabaseService {
     chatId: string,
     nickname: string | null,
     avatarUrl: string | null,
-    senderCode?: string | null
+    senderCode?: string | null,
+    bio?: string | null,
+    username?: string | null,
+    birthday?: string | null
   ): Promise<void> {
     if (!chatId || chatId === 'notes') return;
 
@@ -666,7 +675,7 @@ class SupabaseService {
         const res = await fetch(`${relay.url}/relay/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode }),
+          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, bio, username, birthday }),
         });
 
         if (res.ok) return;
@@ -688,6 +697,9 @@ class SupabaseService {
           nickname,
           avatar_url: avatarUrl,
           sender_code: senderCode || null,
+          bio: bio || null,
+          username: username || null,
+          birthday: birthday || null,
         });
 
       if (error) {
@@ -750,11 +762,14 @@ class SupabaseService {
     userCode: string,
     nickname: string,
     avatarUrl: string | null,
-    _publicKey?: string | null
+    _publicKey?: string | null,
+    bio?: string | null,
+    username?: string | null,
+    birthday?: string | null
   ): Promise<void> {
     if (!userCode || !nickname) return;
     try {
-      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode);
+      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, bio, username, birthday);
     } catch (e) {
       console.warn('[Directory] Failed to publish profile update:', e);
     }
@@ -770,11 +785,48 @@ class SupabaseService {
           user_code: userCode,
           nickname: update.nickname,
           avatar_url: update.avatar_url,
+          username: update.username,
+          bio: update.bio,
+          birthday: update.birthday,
           updated_at: update.updated_at,
         };
       }
     } catch (err) {
       console.warn('[Directory] Failed to lookup profile from relay:', err);
+    }
+
+    return null;
+  }
+
+  async lookupProfileByUsername(username: string): Promise<UserDirectoryRecord | null> {
+    if (!username) return null;
+    const cleanUsername = username.replace(/^@+/, '').trim().toLowerCase();
+    if (!cleanUsername) return null;
+
+    if (this.client) {
+      try {
+        const { data, error } = await this.client
+          .from('profile_updates')
+          .select('*')
+          .ilike('username', cleanUsername)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data && data.nickname) {
+          return {
+            user_code: data.sender_code || data.chat_id,
+            nickname: data.nickname,
+            avatar_url: data.avatar_url,
+            username: data.username,
+            bio: data.bio,
+            birthday: data.birthday,
+            updated_at: data.updated_at,
+          };
+        }
+      } catch (err) {
+        console.warn('[Directory] Failed to lookup profile by username from Supabase:', err);
+      }
     }
 
     return null;
