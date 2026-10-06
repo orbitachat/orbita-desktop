@@ -231,11 +231,10 @@
 
     .notif-close {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
+      top: 0px;
+      right: 0px;
+      width: 38px;
+      height: 38px;
       border: none !important;
       background: transparent !important;
       color: var(--notif-subtext, #8b83a8);
@@ -289,7 +288,7 @@
     let iconData = null;
     let isHovering = false;
 
-    const NOTIF_TIMEOUT_MS = 5500;
+    const NOTIF_TIMEOUT_MS = 8500;
 
     ipcRenderer.on('notif:icon-data', (_event, data) => {
       iconData = data;
@@ -536,36 +535,24 @@
         activeNotifs.forEach(n => {
           n.timer = setTimeout(() => {
             removeNotifInstant(n.id, getExitAnimClass(position));
-          }, 3500);
+          }, 5000);
         });
       });
 
-      let isClicked = false;
-      const handleClick = (e) => {
-        if (isClicked) return;
-        if (e && e.target && e.target.closest && e.target.closest('.notif-close')) return;
-        isClicked = true;
+      el.addEventListener('click', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.notif-close')) return;
         ipcRenderer.send('notif-window:clicked', { chatId });
-        removeNotifInstant(id, 'fade-out', true);
-      };
-
-      el.addEventListener('click', handleClick);
-      el.addEventListener('pointerup', (e) => {
-        if (e.button !== 0) return;
-        handleClick(e);
+        clearAllNotifications();
       });
 
       const closeBtn = el.querySelector('.notif-close');
-      const handleClose = (e) => {
-        if (e) {
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        }
-        removeNotifInstant(id, 'fade-out', true);
-      };
-      closeBtn.addEventListener('pointerdown', handleClose);
-      closeBtn.addEventListener('click', handleClose);
+          removeNotifInstant(id, getExitAnimClass(position));
+        });
+      }
 
       const container = document.getElementById('notifs-container') || root;
       container.appendChild(el);
@@ -591,44 +578,12 @@
 
     const hideAllBarEl = document.getElementById('hide-all-bar');
     if (hideAllBarEl) {
-      const handleHideAll = (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        }
+      hideAllBarEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         clearAllNotifications();
-      };
-      hideAllBarEl.addEventListener('click', handleHideAll);
-      hideAllBarEl.addEventListener('pointerdown', handleHideAll);
-      hideAllBarEl.addEventListener('mousedown', handleHideAll);
+      });
     }
-
-    document.addEventListener('pointerdown', (e) => {
-      const closeBtn = e.target && e.target.closest ? e.target.closest('.notif-close') : null;
-      if (closeBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        const notifEl = closeBtn.closest('.notif');
-        if (notifEl && notifEl.dataset.id !== undefined) {
-          removeNotifInstant(notifEl.dataset.id, 'fade-out', true);
-        }
-      }
-    }, true);
-
-    document.addEventListener('click', (e) => {
-      const closeBtn = e.target && e.target.closest ? e.target.closest('.notif-close') : null;
-      if (closeBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        const notifEl = closeBtn.closest('.notif');
-        if (notifEl && notifEl.dataset.id !== undefined) {
-          removeNotifInstant(notifEl.dataset.id, 'fade-out', true);
-        }
-      }
-    }, true);
 
     ipcRenderer.on('notif:show', (_event, payload) => {
       settings = {

@@ -4538,6 +4538,9 @@ export const MainLayout = () => {
           setIsViewingArchive(false);
         }
         setActiveChat(openChatId);
+        if (typeof window !== 'undefined' && (window as any).orbita?.clearNotifications) {
+          (window as any).orbita.clearNotifications();
+        }
       });
       return unsub;
     }

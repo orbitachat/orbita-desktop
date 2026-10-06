@@ -3676,6 +3676,10 @@ function createMainWindow() {
     const now = Date.now();
     if (now - lastNotifClickTime < 300) return;
     lastNotifClickTime = now;
+    if (notifWindow && !notifWindow.isDestroyed()) {
+      notifWindow.webContents.send('notif:clear-all');
+      notifWindow.hide();
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
