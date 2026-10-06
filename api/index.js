@@ -1067,6 +1067,10 @@ module.exports = async function handler(req, res) {
         } catch (err) {
           console.error('[relay/delete-message] error:', err);
         }
+      }
+      return sendJson(res, { status: 'ok' });
+    }
+
     if (pathname === '/relay/delete-chat' && req.method === 'POST') {
       const supabase = getSupabaseClient();
       const { chatId, recipientId, senderId } = body;
