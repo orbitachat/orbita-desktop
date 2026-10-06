@@ -323,7 +323,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'orbita-auth-storage',
-      version: 1,
+      version: 2,
       migrate: (persistedState: any) => {
         if (persistedState && !persistedState.userId) {
           persistedState.userId = getInitialUserId();
@@ -332,6 +332,13 @@ export const useAuthStore = create<AuthState>()(
           persistedState.numericId = getInitialNumericId(persistedState.userId);
         }
         return persistedState;
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state && !state.numericId && state.userId) {
+          const generated = getInitialNumericId(state.userId);
+          state.numericId = generated;
+          state.setNumericId(generated);
+        }
       },
       storage: createJSONStorage(() => ipcStorage),
       partialize: (state) => ({
