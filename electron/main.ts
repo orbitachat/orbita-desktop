@@ -1569,17 +1569,31 @@ function deleteMessageById(id: string): Promise<void> {
 async function migrateFromLocalStorage(): Promise<void> {
 }
 
+function appendDebugLog(msg: string) {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'orbita_debug.log');
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+  } catch {}
+  console.log(msg);
+}
+
 function registerStorageIpcHandlers() {
   ipcMain.handle('storage:is-locked', async () => isPinLocked());
   ipcMain.handle('storage:is-pin-set', async () => isPinSet());
   ipcMain.handle('storage:unlock', async (_event, pin: string) => unlockWithPin(pin));
   ipcMain.handle('storage:set-pin', async (_event, pin: string) => setupPin(pin));
   ipcMain.handle('storage:remove-pin', async () => removePin());
-  ipcMain.handle('storage:get', async (_event, key: string) => await getKvValue(key));
+  ipcMain.handle('storage:get', async (_event, key: string) => {
+    const val = await getKvValue(key);
+    appendDebugLog(`[Storage IPC] GET "${key}" -> ${val ? `len ${val.length}` : 'null'}`);
+    return val;
+  });
   ipcMain.handle('storage:set', async (_event, key: string, value: string) => {
+    appendDebugLog(`[Storage IPC] SET "${key}" -> len ${value ? value.length : 0} preview: ${value ? value.slice(0, 120) : ''}`);
     await setKvValue(key, value);
   });
   ipcMain.handle('storage:remove', async (_event, key: string) => {
+    appendDebugLog(`[Storage IPC] REMOVE "${key}"`);
     await deleteKvValue(key);
   });
   ipcMain.handle('storage:migrate', async () => {
@@ -3572,6 +3586,10 @@ function createMainWindow() {
   }
   mainWindow.setAutoHideMenuBar(hideMenuBarSetting);
   mainWindow.setMenuBarVisibility(!hideMenuBarSetting);
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    appendDebugLog(`[Renderer:${level}] ${message} (${sourceId}:${line})`);
+  });
 
   mainWindow.once('ready-to-show', () => {
     if (!splashWindow || splashWindow.isDestroyed()) {
