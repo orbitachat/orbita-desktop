@@ -14,7 +14,7 @@ import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher
 import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
-import { deriveChannelKey, decryptMessage, encryptMessage, generateKeyPair, generateChatId, deriveSharedSecret, deriveRootKey } from '../../lib/crypto';
+import { deriveChannelKey, decryptMessage, encryptMessage, generateKeyPair, generateChatId } from '../../lib/crypto';
 import { isValidGroupCode, deriveGroupKey, extractGroupCode } from '../../lib/groupCrypto';
 import { useTranslation } from 'react-i18next';
 import { useCallStore } from '../../store/useCallStore';
@@ -2910,38 +2910,17 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             birthday: myBirthday,
           };
 
-          const friendPubKey = freshChat.peerPublicKey;
-          if (friendPubKey) {
-            const sharedSecret = deriveSharedSecret(myKeys.privateKey, friendPubKey);
-            const rootKey = deriveRootKey(sharedSecret);
-            const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, friendPubKey);
-            updateChat(activeChatId, {
-              isDraft: false,
-              sharedSecret,
-              ratchetState: ratchet.getState(),
-              lastMsg: 'E2EE_SECURE_CHANNEL_READY',
-              isChatInitiator: true,
-            });
-            freshChat = {
-              ...freshChat,
-              isDraft: false,
-              sharedSecret,
-              ratchetState: ratchet.getState(),
-              isChatInitiator: true,
-            };
-          } else {
-            updateChat(activeChatId, {
-              isDraft: false,
-              sharedSecret: myKeys.privateKey,
-              isChatInitiator: true,
-            });
-            freshChat = {
-              ...freshChat,
-              isDraft: false,
-              sharedSecret: myKeys.privateKey,
-              isChatInitiator: true,
-            };
-          }
+          updateChat(activeChatId, {
+            isDraft: false,
+            sharedSecret: myKeys.privateKey,
+            isChatInitiator: true,
+          });
+          freshChat = {
+            ...freshChat,
+            isDraft: false,
+            sharedSecret: myKeys.privateKey,
+            isChatInitiator: true,
+          };
 
           if (friendCode) {
             const allHandshakeTargets = new Set<string>([friendCode]);
@@ -6955,9 +6934,6 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                     triggerMessage('👋');
                   }
                 }}
-                isInitiator={activeChat?.isChatInitiator}
-                isPeerOnline={activeChat?.online}
-                isRatchetReady={Boolean(activeChat?.ratchetState)}
                 chatId={activeChatId}
               />
             )

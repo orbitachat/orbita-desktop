@@ -6,22 +6,14 @@ import { GREETING_STICKERS, StickerItem } from '../../lib/stickers-and-gifs';
 
 interface EmptyChatGreetingProps {
   onSendGreeting: (sticker?: StickerItem) => void;
-  isInitiator?: boolean;
-  isPeerOnline?: boolean;
-  isRatchetReady?: boolean;
   chatId?: string | null;
 }
 
 export const EmptyChatGreeting: React.FC<EmptyChatGreetingProps> = ({
   onSendGreeting,
-  isInitiator,
-  isPeerOnline,
-  isRatchetReady,
   chatId,
 }) => {
   const { t } = useTranslation();
-
-  const isOfflineWaiting = Boolean(isInitiator && !isPeerOnline && !isRatchetReady);
 
   const greetingSticker = useMemo(() => {
     if (!chatId) return GREETING_STICKERS[0];
@@ -55,23 +47,12 @@ export const EmptyChatGreeting: React.FC<EmptyChatGreetingProps> = ({
           {t('chatWindow.empty_chat_title')}
         </h3>
 
-        {isOfflineWaiting ? (
-          <div
-            className="flex flex-col gap-1.5 text-[13px] leading-relaxed mb-3"
-            style={{ color: 'var(--text-dim, #8e8e93)' }}
-          >
-            <p>{t('chatWindow.empty_chat_offline_desc_1')}</p>
-            <p>{t('chatWindow.empty_chat_offline_desc_2')}</p>
-            <p className="text-[12px] opacity-80">{t('chatWindow.empty_chat_offline_desc_3')}</p>
-          </div>
-        ) : (
-          <p
-            className="text-[13px] leading-relaxed mb-3"
-            style={{ color: 'var(--text-dim, #8e8e93)' }}
-          >
-            {t('chatWindow.empty_chat_description')}
-          </p>
-        )}
+        <p
+          className="text-[13px] leading-relaxed mb-3"
+          style={{ color: 'var(--text-dim, #8e8e93)' }}
+        >
+          {t('chatWindow.empty_chat_description')}
+        </p>
 
         <button
           type="button"
