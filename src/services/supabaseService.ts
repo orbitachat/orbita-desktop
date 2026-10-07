@@ -976,6 +976,8 @@ class SupabaseService {
                 bio: row.bio,
                 birthday: row.birthday,
                 updated_at: row.updated_at,
+                numeric_id: row.numeric_id || null,
+                public_key: row.public_key || null,
               });
             }
           }

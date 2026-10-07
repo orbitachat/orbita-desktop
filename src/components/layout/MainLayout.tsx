@@ -2725,7 +2725,11 @@ export const MainLayout = () => {
   }, [step, nickname, myCode]);
 
   const handleConnectRequest = useCallback(
-    (friendCode: string, callback: (success: boolean, error?: string) => void) => {
+    (
+      friendCode: string,
+      callback: (success: boolean, error?: string) => void,
+      initialProfile?: Partial<UserDirectoryRecord>
+    ) => {
       if (handshakeGuard.current) {
         callback(false, t('connectModal.already_connecting'));
         return;
@@ -2739,13 +2743,18 @@ export const MainLayout = () => {
       const chatId = generateChatId();
       let settled = false;
 
+      const allTargets = new Set<string>([friendCode]);
+      if (initialProfile?.user_code) allTargets.add(initialProfile.user_code);
+      if (initialProfile?.numeric_id) allTargets.add(initialProfile.numeric_id);
+      if (initialProfile?.username) allTargets.add(initialProfile.username);
+
       const sendRequest = () => {
         revalidateDevelopersOnConnection(friendCode);
         const myUsername = useAuthStore.getState().username;
         const myBio = useAuthStore.getState().bio;
         const myBirthday = useAuthStore.getState().birthday;
         const myNumericId = useAuthStore.getState().numericId;
-        friendChannel.trigger('client-request-identity', {
+        const reqPayload = {
           senderNickname: nickname,
           senderCode: myCode,
           publicKey: myKeys.publicKey,
@@ -2755,18 +2764,23 @@ export const MainLayout = () => {
           username: myUsername,
           bio: myBio,
           birthday: myBirthday,
-        });
-        ablyService.sendHandshakeRequest(friendCode, {
-          senderNickname: nickname,
-          senderCode: myCode,
-          publicKey: myKeys.publicKey,
-          avatarUrl,
-          chatId,
-          numericId: myNumericId,
-          username: myUsername,
-          bio: myBio,
-          birthday: myBirthday,
-        }).catch((err) => console.warn('[Ably] Handshake request error:', err));
+        };
+        friendChannel.trigger('client-request-identity', reqPayload);
+        for (const target of allTargets) {
+          if (target !== friendCode) {
+            try {
+              const extraChan = pusher.subscribe(`private-handshake-${target}`);
+              const doExtra = () => {
+                try {
+                  extraChan.trigger('client-request-identity', reqPayload);
+                } catch {}
+              };
+              if (extraChan.subscribed) doExtra();
+              else extraChan.bind('pusher:subscription_succeeded', doExtra);
+            } catch {}
+          }
+          ablyService.sendHandshakeRequest(target, reqPayload).catch((err) => console.warn('[Ably] Handshake request error:', err));
+        }
       };
 
       const subscriptionErrorHandler = () => {
@@ -2829,6 +2843,13 @@ export const MainLayout = () => {
         settled = true;
         unsubAblyConfirm();
         pusher.unsubscribe(`private-handshake-${friendCode}`);
+        for (const target of allTargets) {
+          if (target !== friendCode) {
+            try {
+              pusher.unsubscribe(`private-handshake-${target}`);
+            } catch {}
+          }
+        }
         if (codeChannelRef.current) {
           codeChannelRef.current.unbind('client-identity-confirmed', confirmationHandler);
         }
@@ -2838,23 +2859,36 @@ export const MainLayout = () => {
         setIsHandshaking(false);
       };
 
+      const initialName = initialProfile?.nickname || friendCode;
+      const initialAvatar = initialProfile?.avatar_url || undefined;
+      const initialUsername = initialProfile?.username || undefined;
+      const initialBio = initialProfile?.bio || undefined;
+      const initialBirthday = initialProfile?.birthday || undefined;
+      const initialNumeric = initialProfile?.numeric_id || getInitialNumericId(friendCode);
+
       addChat({
         id: chatId,
         type: 'private',
-        name: friendCode,
+        name: initialName,
         lastMsg: 'Заявка отправлена',
         online: false,
         isChatInitiator: true,
         sharedSecret: myKeys.privateKey,
-        avatarUrl: undefined,
+        avatarUrl: initialAvatar,
         peerCode: friendCode,
         originalPeerCode: friendCode,
-        numericId: getInitialNumericId(friendCode),
+        numericId: initialNumeric,
+        username: initialUsername,
+        description: initialBio,
+        birthday: initialBirthday,
       });
       setActiveChat(chatId);
 
       (async () => {
-        let friendProfile = await supabaseService.lookupPublicProfile(friendCode);
+        let friendProfile = (initialProfile?.public_key ? initialProfile : null) as UserDirectoryRecord | null;
+        if (!friendProfile) {
+          friendProfile = await supabaseService.lookupPublicProfile(friendCode);
+        }
         if (!friendProfile) {
           friendProfile = await supabaseService.lookupProfileByUsername(friendCode);
         }
@@ -2863,10 +2897,10 @@ export const MainLayout = () => {
           if (sMatches && sMatches.length > 0) friendProfile = sMatches[0];
         }
 
-        const targetsToSend = new Set<string>([friendCode]);
+        const targetsToSend = new Set<string>(allTargets);
 
         if (friendProfile && !settled) {
-          const friendNumericId = friendProfile.numeric_id || getInitialNumericId(friendCode);
+          const friendNumericId = friendProfile.numeric_id || initialNumeric;
           if (friendProfile.user_code) targetsToSend.add(friendProfile.user_code);
           if (friendProfile.numeric_id) targetsToSend.add(friendProfile.numeric_id);
           if (friendProfile.username) targetsToSend.add(friendProfile.username);
@@ -2932,7 +2966,7 @@ export const MainLayout = () => {
         codeChannelRef.current.bind('client-identity-confirmed', confirmationHandler);
       }
     },
-    [myCode, nickname, avatarUrl, addChat, setIsHandshaking, t]
+    [myCode, nickname, avatarUrl, addChat, updateChat, setActiveChat, setIsHandshaking, t]
   );
 
   useEffect(() => {
@@ -5227,7 +5261,13 @@ export const MainLayout = () => {
     }
     const currentChats = useChatStore.getState().chats;
     const existingChat = currentChats.find(
-      (c) => c.type === 'private' && (c.id === user.user_code || c.peerCode === user.user_code)
+      (c) =>
+        c.type === 'private' &&
+        c.id !== user.user_code &&
+        (c.peerCode === user.user_code ||
+          c.originalPeerCode === user.user_code ||
+          (user.numeric_id && c.numericId === user.numeric_id) ||
+          (user.username && c.username && c.username.toLowerCase() === user.username.toLowerCase()))
     );
     if (existingChat) {
       handleSelectChat(existingChat.id);
@@ -5235,26 +5275,14 @@ export const MainLayout = () => {
       return;
     }
 
-    const newChat: Partial<Chat> = {
-      id: user.user_code,
-      peerCode: user.user_code,
-      name: user.nickname || 'User',
-      avatarUrl: user.avatar_url || undefined,
-      username: user.username || undefined,
-      numericId: user.numeric_id || undefined,
-      description: user.bio || undefined,
-      birthday: user.birthday || undefined,
-      type: 'private',
-      lastMsg: '',
-      online: false,
-      unreadCount: 0,
-      createdAt: Date.now(),
-      notificationsEnabled: true,
-    };
-    useChatStore.getState().addChat(newChat);
-    handleSelectChat(user.user_code);
+    const brokenChat = currentChats.find((c) => c.id === user.user_code);
+    if (brokenChat) {
+      useChatStore.getState().deleteChat(user.user_code);
+    }
+
+    handleConnectRequest(user.user_code, () => {}, user);
     setSearchQuery('');
-  }, [handleSelectChat]);
+  }, [handleSelectChat, handleConnectRequest]);
 
 
   const renderChat = useCallback((chat: Chat) => {
