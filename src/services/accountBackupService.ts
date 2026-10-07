@@ -63,6 +63,9 @@ export const createAccountBackup = async (mnemonic: string): Promise<Uint8Array>
       userId: authState.userId,
       nickname: authState.nickname,
       avatarUrl: authState.avatarUrl,
+      username: authState.username,
+      bio: authState.bio,
+      birthday: authState.birthday,
       recoveryKey: mnemonic.trim().toLowerCase(),
     },
     chatStore: {
@@ -292,6 +295,9 @@ export const restoreAccountBackup = async (
   const restoredUserId = payload.auth.userId || useAuthStore.getState().userId;
   const restoredNickname = payload.auth.nickname || '';
   const restoredAvatarUrl = payload.auth.avatarUrl || null;
+  const restoredUsername = payload.auth.username !== undefined ? payload.auth.username : null;
+  const restoredBio = payload.auth.bio !== undefined ? payload.auth.bio : null;
+  const restoredBirthday = payload.auth.birthday !== undefined ? payload.auth.birthday : null;
   const restoredChats = Array.isArray(payload.chatStore.chats)
     ? payload.chatStore.chats.map((c: any) => {
         const isOwner = c.isOwner !== undefined
@@ -321,6 +327,9 @@ export const restoreAccountBackup = async (
     userId: restoredUserId,
     nickname: restoredNickname,
     avatarUrl: restoredAvatarUrl,
+    username: restoredUsername,
+    bio: restoredBio,
+    birthday: restoredBirthday,
     recoveryKey: mnemonic.trim().toLowerCase(),
     step: 'main',
   });

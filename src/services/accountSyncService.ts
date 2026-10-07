@@ -17,6 +17,9 @@ export interface UserConfigPayload {
     userId: string;
     nickname: string;
     avatarUrl: string | null;
+    username?: string | null;
+    bio?: string | null;
+    birthday?: string | null;
   };
   chatStore: {
     myCode: string;
@@ -126,6 +129,9 @@ class AccountSyncService {
         userId: authState.userId,
         nickname: authState.nickname,
         avatarUrl: authState.avatarUrl,
+        username: authState.username,
+        bio: authState.bio,
+        birthday: authState.birthday,
       },
       chatStore: {
         myCode: chatState.myCode,
@@ -200,6 +206,9 @@ class AccountSyncService {
       userId: restoredUserId,
       nickname: payload.auth.nickname || authState.nickname,
       avatarUrl: payload.auth.avatarUrl || authState.avatarUrl,
+      username: payload.auth.username !== undefined ? payload.auth.username : authState.username,
+      bio: payload.auth.bio !== undefined ? payload.auth.bio : authState.bio,
+      birthday: payload.auth.birthday !== undefined ? payload.auth.birthday : authState.birthday,
     });
   }
 
