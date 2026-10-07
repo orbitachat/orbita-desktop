@@ -334,6 +334,12 @@ export const restoreAccountBackup = async (
     step: 'main',
   });
 
+  if (typeof window !== 'undefined') {
+    import('./accountManager').then((m) => {
+      m.useAccountStore.getState().syncCurrentAccountMeta();
+    }).catch(() => {});
+  }
+
   if (typeof window !== 'undefined' && (window as any).orbita) {
     const orb = (window as any).orbita;
     if (typeof payload.chatStore.screenProtectionEnabled === 'boolean' && orb.setScreenProtection) {

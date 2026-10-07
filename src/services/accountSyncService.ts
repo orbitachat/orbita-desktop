@@ -300,6 +300,12 @@ class AccountSyncService {
     this.unpackAccountState(parsed);
     useAuthStore.getState().setConfigVersion(Number(data.version) || 1);
     useAuthStore.getState().setSyncStatus('synced', Date.now());
+    
+    if (typeof window !== 'undefined') {
+      import('./accountManager').then((m) => {
+        m.useAccountStore.getState().syncCurrentAccountMeta();
+      }).catch(() => {});
+    }
   }
 
   public async restoreAccountFromCloud(masterSeedHex: string): Promise<{ restored: boolean; userId: string }> {
@@ -364,6 +370,12 @@ class AccountSyncService {
       lastSyncTime: Date.now(),
       step: 'main',
     });
+
+    if (typeof window !== 'undefined') {
+      import('./accountManager').then((m) => {
+        m.useAccountStore.getState().syncCurrentAccountMeta();
+      }).catch(() => {});
+    }
 
     return { restored: true, userId: keys.userId };
   }
