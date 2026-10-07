@@ -691,8 +691,7 @@ class SupabaseService {
     senderCode?: string | null,
     bio?: string | null,
     username?: string | null,
-    birthday?: string | null,
-    numericId?: string | null
+    birthday?: string | null
   ): Promise<void> {
     if (!chatId || chatId === 'notes') return;
 
@@ -716,7 +715,7 @@ class SupabaseService {
         const res = await fetch(`${relay.url}/relay/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, numericId, bio, username: cleanUsername, birthday }),
+          body: JSON.stringify({ chatId, nickname, avatarUrl, senderCode, bio, username: cleanUsername, birthday }),
         });
         if (res.status === 409) {
           throw new Error('USERNAME_TAKEN');
@@ -742,7 +741,6 @@ class SupabaseService {
           nickname,
           avatar_url: avatarUrl,
           sender_code: senderCode || null,
-          numeric_id: numericId || null,
           bio: bio || null,
           username: cleanUsername,
           birthday: birthday || null,
@@ -811,12 +809,11 @@ class SupabaseService {
     _publicKey?: string | null,
     bio?: string | null,
     username?: string | null,
-    birthday?: string | null,
-    numericId?: string | null
+    birthday?: string | null
   ): Promise<void> {
     if (!userCode || !nickname) return;
     try {
-      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, bio, username, birthday, numericId);
+      await this.saveProfileUpdate(userCode, nickname, avatarUrl, userCode, bio, username, birthday);
     } catch (e) {
       console.warn('[Directory] Failed to publish profile update:', e);
     }
@@ -957,10 +954,7 @@ class SupabaseService {
 
     if (this.client) {
       try {
-        const isNumeric = /^\d+$/.test(cleanQuery);
-        const filter = isNumeric
-          ? `numeric_id.eq.${cleanQuery},sender_code.eq.${cleanQuery}`
-          : `username.eq.${cleanQuery},sender_code.eq.${cleanQuery}`;
+        const filter = `username.eq.${cleanQuery},sender_code.eq.${cleanQuery}`;
 
         const { data, error } = await this.client
           .from('profile_updates')
@@ -976,7 +970,6 @@ class SupabaseService {
               seen.add(userCode);
               results.push({
                 user_code: userCode,
-                numeric_id: row.numeric_id || null,
                 nickname: row.nickname || 'User',
                 avatar_url: row.avatar_url,
                 username: row.username,
@@ -1164,7 +1157,7 @@ class SupabaseService {
         const baseCodes = Array.from(allCodes);
         const { data: profs } = await this.client
           .from('profile_updates')
-          .select('sender_code, username, numeric_id, nickname')
+          .select('sender_code, username, nickname')
           .in('sender_code', baseCodes);
 
         if (profs && Array.isArray(profs)) {
@@ -1173,7 +1166,6 @@ class SupabaseService {
               allCodes.add(p.username.trim());
               allCodes.add(p.username.trim().toLowerCase());
             }
-            if (p.numeric_id) allCodes.add(p.numeric_id.trim());
             if (p.nickname) allCodes.add(p.nickname.trim());
           }
         }

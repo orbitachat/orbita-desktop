@@ -315,7 +315,6 @@ Deno.serve(async (req: Request) => {
           avatar_url: body.avatarUrl || null,
           hide_profile_id: body.hideProfileId !== undefined ? body.hideProfileId : null,
           sender_code: body.senderCode || null,
-          numeric_id: body.numericId || body.numeric_id || null,
           bio: body.bio || null,
           username: cleanUsername,
           birthday: body.birthday || null,
@@ -354,10 +353,7 @@ Deno.serve(async (req: Request) => {
       const limit = parseInt(url.searchParams.get('limit') || '20', 10);
       if (!q) return jsonResponse({ users: [] });
 
-      const isNumeric = /^\d+$/.test(q);
-      const filter = isNumeric
-        ? `numeric_id.eq.${q},sender_code.eq.${q}`
-        : `username.eq.${q},sender_code.eq.${q}`;
+      const filter = `username.eq.${q},sender_code.eq.${q}`;
 
       const { data, error } = await supabase
         .from('profile_updates')
@@ -376,7 +372,6 @@ Deno.serve(async (req: Request) => {
           seen.add(userCode);
           users.push({
             user_code: userCode,
-            numeric_id: row.numeric_id || null,
             nickname: row.nickname || 'User',
             avatar_url: row.avatar_url,
             username: row.username,
@@ -408,7 +403,6 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({
         user: {
           user_code: data.sender_code || data.chat_id,
-          numeric_id: data.numeric_id || null,
           nickname: data.nickname || 'User',
           avatar_url: data.avatar_url,
           username: data.username,
