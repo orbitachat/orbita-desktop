@@ -5846,12 +5846,12 @@ export const MainLayout = () => {
                                       @{user.username}
                                     </div>
                                   )}
-                                  {!user.username && user.numeric_id && (
+                                  {!user.username && user.user_code && (
                                     <div className="text-xs text-[var(--accent-color,#7C3AED)] truncate mt-0.5 font-mono">
-                                      ID: {user.numeric_id}
+                                      ID: {user.user_code}
                                     </div>
                                   )}
-                                  {!user.username && !user.numeric_id && user.bio && (
+                                  {!user.username && !user.user_code && user.bio && (
                                     <div className="text-xs text-[var(--text-dim)] truncate mt-0.5">
                                       {user.bio}
                                     </div>

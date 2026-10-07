@@ -63,7 +63,7 @@ const GravityGifBadgeIcon = ({ width = 16, height = 16, style, className, ...pro
 );
 import { useChatStore, type Message, type Chat } from '../../store/useChatStore';
 import { useCallStore } from '../../store/useCallStore';
-import { useAuthStore, getInitialNumericId } from '../../store/useAuthStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useAudioStore } from '../../store/useAudioStore';
 import { MD3CircularSpinner } from '../common/MD3CircularSpinner';
 import { Avatar } from '../common/Avatar';
@@ -1093,9 +1093,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     if (!chat) return '';
     if (isChannel) return chat.id;
     if (chatId === 'notes') return '';
-    if (chat.numericId) return chat.numericId;
     const targetCode = chat.peerCode || chat.originalPeerCode || (chat.name && chat.name.length === 36 ? chat.name : undefined);
-    if (targetCode) return getInitialNumericId(targetCode);
+    if (targetCode) return targetCode;
     return '';
   }, [isChannel, chat, chatId]);
 

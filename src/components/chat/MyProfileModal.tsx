@@ -105,13 +105,13 @@ interface MyProfileModalProps {
 
 export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onClose, isMobileView = false }) => {
   const { t, i18n } = useTranslation();
-  const { nickname, avatarUrl, username, bio, birthday, numericId, setNickname, setAvatarUrl } = useAuthStore(useShallow((s) => ({
+  const { nickname, avatarUrl, username, bio, birthday, userId, setNickname, setAvatarUrl } = useAuthStore(useShallow((s) => ({
     nickname: s.nickname,
     avatarUrl: s.avatarUrl,
     username: s.username,
     bio: s.bio,
     birthday: s.birthday,
-    numericId: s.numericId,
+    userId: s.userId,
     setNickname: s.setNickname,
     setAvatarUrl: s.setAvatarUrl,
   })));
@@ -224,13 +224,13 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
   }, []);
 
   const handleCopyLink = useCallback(() => {
-    const textToCopy = numericId || myCode;
+    const textToCopy = myCode || userId;
     if (textToCopy) {
       navigator.clipboard.writeText(textToCopy);
     }
     setCopyToastOpen(true);
     setTimeout(() => setCopyToastOpen(false), 2000);
-  }, [numericId, myCode]);
+  }, [myCode, userId]);
 
   const handleSaveNickname = useCallback((newNick: string) => {
     setNickname(newNick);
@@ -918,7 +918,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                     flexDirection: 'column',
                     userSelect: 'text',
                     boxSizing: 'border-box',
-                    borderBottom: (bio || (numericId || myCode) || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
+                    borderBottom: (bio || (myCode || userId) || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
                   }}
                 >
                   <div style={{ fontSize: '14px', color: 'var(--accent-color, #9b7dd4)', lineHeight: '1.35', fontWeight: 500 }}>
@@ -940,7 +940,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                     flexDirection: 'column',
                     userSelect: 'text',
                     boxSizing: 'border-box',
-                    borderBottom: ((numericId || myCode) || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
+                    borderBottom: ((myCode || userId) || birthday) ? '1px solid var(--border-color, rgba(255, 255, 255, 0.06))' : 'none',
                   }}
                 >
                   <div style={{ fontSize: '14px', color: 'var(--text-main, #ffffff)', lineHeight: '1.35', wordBreak: 'break-word' }}>
@@ -952,7 +952,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                 </div>
               )}
 
-              {(numericId || myCode) && (
+              {(myCode || userId) && (
                 <div
                   style={{
                     backgroundColor: 'var(--md-surface, #211c2e)',
@@ -972,7 +972,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <span
                       style={{
-                        fontSize: '14px',
+                        fontSize: '13px',
                         fontWeight: 500,
                         color: 'var(--accent-color, #9b7dd4)',
                         wordBreak: 'break-all',
@@ -980,7 +980,7 @@ export const MyProfileModal: React.FC<MyProfileModalProps> = memo(({ isOpen, onC
                         fontFamily: '"JetBrains Mono", Consolas, Menlo, monospace',
                       }}
                     >
-                      {numericId || myCode}
+                      {myCode || userId}
                     </span>
                     <span style={{ fontSize: '11px', color: 'var(--text-dim, #8e8e93)', marginTop: '3px' }}>
                       {t('profile.account_id', 'ID аккаунта')}
