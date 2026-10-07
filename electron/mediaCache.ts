@@ -79,11 +79,12 @@ async function initDB(): Promise<Database> {
                 runNext();
               }
             });
-          });
-        }
-      });
+          }
+        });
+      }
     });
   });
+});
 }
 
 async function getTotalCacheSize(): Promise<number> {
