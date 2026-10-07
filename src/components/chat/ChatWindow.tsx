@@ -14,7 +14,7 @@ import { getPusher, getGroupPusher, CLIENT_SESSION_ID } from '../../utils/pusher
 import { ablyService } from '../../services/ablyService';
 import { MessageStatus } from '../MessageStatus';
 import { DoubleRatchet } from '../../lib/double-ratchet';
-import { deriveChannelKey, decryptMessage, encryptMessage, generateKeyPair, generateChatId } from '../../lib/crypto';
+import { deriveChannelKey, decryptMessage, encryptMessage, generateKeyPair, generateChatId, deriveSharedSecret, deriveRootKey } from '../../lib/crypto';
 import { isValidGroupCode, deriveGroupKey, extractGroupCode } from '../../lib/groupCrypto';
 import { useTranslation } from 'react-i18next';
 import { useCallStore } from '../../store/useCallStore';
@@ -2827,7 +2827,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           linkPreview: linkPreviewPayload || null,
         };
 
-        const freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
+        let freshChat = useChatStore.getState().chats.find(c => c.id === activeChatId);
 
         if (freshChat?.type === 'group') {
 
@@ -2889,6 +2889,87 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
           }
           return;
+        }
+
+        if (freshChat?.isDraft) {
+          const myKeys = generateKeyPair();
+          const friendCode = freshChat.peerCode || activeChat?.peerCode;
+          const myUsername = useAuthStore.getState().username;
+          const myBio = useAuthStore.getState().bio;
+          const myBirthday = useAuthStore.getState().birthday;
+          const myNumericId = useAuthStore.getState().numericId;
+          const reqPayload = {
+            senderNickname: myNickname,
+            senderCode: myCode,
+            publicKey: myKeys.publicKey,
+            avatarUrl: myAvatarUrl,
+            chatId: activeChatId,
+            numericId: myNumericId,
+            username: myUsername,
+            bio: myBio,
+            birthday: myBirthday,
+          };
+
+          const friendPubKey = freshChat.peerPublicKey;
+          if (friendPubKey) {
+            const sharedSecret = deriveSharedSecret(myKeys.privateKey, friendPubKey);
+            const rootKey = deriveRootKey(sharedSecret);
+            const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, friendPubKey);
+            updateChat(activeChatId, {
+              isDraft: false,
+              sharedSecret,
+              ratchetState: ratchet.getState(),
+              lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+              isChatInitiator: true,
+            });
+            freshChat = {
+              ...freshChat,
+              isDraft: false,
+              sharedSecret,
+              ratchetState: ratchet.getState(),
+              isChatInitiator: true,
+            };
+          } else {
+            updateChat(activeChatId, {
+              isDraft: false,
+              sharedSecret: myKeys.privateKey,
+              isChatInitiator: true,
+            });
+            freshChat = {
+              ...freshChat,
+              isDraft: false,
+              sharedSecret: myKeys.privateKey,
+              isChatInitiator: true,
+            };
+          }
+
+          if (friendCode) {
+            const allHandshakeTargets = new Set<string>([friendCode]);
+            if (freshChat.numericId) allHandshakeTargets.add(freshChat.numericId);
+            if (freshChat.username) allHandshakeTargets.add(freshChat.username);
+
+            for (const target of allHandshakeTargets) {
+              try {
+                const chan = pusher.subscribe(`private-handshake-${target}`);
+                const doSend = () => {
+                  try {
+                    chan.trigger('client-request-identity', reqPayload);
+                  } catch {}
+                };
+                if (chan.subscribed) doSend();
+                else chan.bind('pusher:subscription_succeeded', doSend);
+              } catch {}
+              ablyService.sendHandshakeRequest(target, reqPayload).catch(() => {});
+              supabaseService.sendOfflineHandshake(
+                activeChatId,
+                target,
+                myNickname,
+                myKeys.publicKey,
+                myAvatarUrl,
+                myCode
+              ).catch(() => {});
+            }
+          }
         }
 
         if (!freshChat?.ratchetState) {

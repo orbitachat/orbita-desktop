@@ -270,6 +270,8 @@ export interface Chat {
   peerCode?: string;
   originalPeerCode?: string;
   isBlocked?: boolean;
+  isDraft?: boolean;
+  peerPublicKey?: string | null;
   updatedAt?: number;
   activeCallRoom?: string | null;
   membersCount?: number;
@@ -897,6 +899,13 @@ export const useChatStore = create<ChatState>()(
             nextChats = nextChats.filter(c => c.id !== previousActiveId);
             chatsChanged = true;
           }
+          if (prevChat && prevChat.isDraft) {
+            const msgs = state.messagesByChatId[previousActiveId] || [];
+            if (msgs.length === 0) {
+              nextChats = nextChats.filter(c => c.id !== previousActiveId);
+              chatsChanged = true;
+            }
+          }
         }
 
         if (id) {
@@ -944,6 +953,8 @@ export const useChatStore = create<ChatState>()(
           username: newChat.username,
           numericId: newChat.numericId,
           birthday: newChat.birthday,
+          isDraft: newChat.isDraft ?? false,
+          peerPublicKey: newChat.peerPublicKey || null,
         };
         set((state) => {
           if (chatEntry.type === 'group' && state.deletedChatIds?.includes(chatEntry.id) && !(newChat as any).isExplicitJoin) {

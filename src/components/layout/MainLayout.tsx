@@ -4962,6 +4962,9 @@ export const MainLayout = () => {
       if (chat.id === 'notes') {
         return hasNotesMessages;
       }
+      if (chat.isDraft) {
+        return false;
+      }
       return true;
     });
   }, [chats, hasNotesMessages]);
@@ -5280,9 +5283,31 @@ export const MainLayout = () => {
       useChatStore.getState().deleteChat(user.user_code);
     }
 
-    handleConnectRequest(user.user_code, () => {}, user);
+    const chatId = generateChatId();
+    const draftChat: Partial<Chat> = {
+      id: chatId,
+      type: 'private',
+      name: user.nickname || 'User',
+      avatarUrl: user.avatar_url || undefined,
+      username: user.username || undefined,
+      numericId: user.numeric_id || getInitialNumericId(user.user_code),
+      description: user.bio || undefined,
+      birthday: user.birthday || undefined,
+      peerCode: user.user_code,
+      originalPeerCode: user.user_code,
+      lastMsg: '',
+      online: false,
+      unreadCount: 0,
+      createdAt: Date.now(),
+      notificationsEnabled: true,
+      isDraft: true,
+      isChatInitiator: true,
+      peerPublicKey: user.public_key || null,
+    };
+    useChatStore.getState().addChat(draftChat as any);
+    handleSelectChat(chatId);
     setSearchQuery('');
-  }, [handleSelectChat, handleConnectRequest]);
+  }, [handleSelectChat]);
 
 
   const renderChat = useCallback((chat: Chat) => {
