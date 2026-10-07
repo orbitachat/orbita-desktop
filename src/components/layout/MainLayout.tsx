@@ -2023,7 +2023,7 @@ export const MainLayout = () => {
               sender: messageData?.sender || chat.name || record.sender_id,
               isOutgoing: false,
               text: messageData.text || '',
-              time: new Date(record.created_at).getTime(),
+              time: (typeof messageData?.time === 'number' && messageData.time > 0) ? messageData.time : new Date(record.created_at).getTime(),
               read: isActiveChat,
               mediaType: messageData.mediaType || null,
               mediaUrl: messageData.mediaUrl || null,
@@ -2077,6 +2077,12 @@ export const MainLayout = () => {
         }
 
         if (batchMessages.length > 0) {
+          batchMessages.sort((a, b) => {
+            const tA = Number(a.message.time) || 0;
+            const tB = Number(b.message.time) || 0;
+            if (tA !== tB) return tA - tB;
+            return (a.message.index ?? 0) - (b.message.index ?? 0);
+          });
           addMessagesBatch(batchMessages);
         }
 
@@ -2114,7 +2120,12 @@ export const MainLayout = () => {
           }
         }
       }
-      const records = Array.from(recordsMap.values());
+      const records = Array.from(recordsMap.values()).sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return (a.message_index ?? 0) - (b.message_index ?? 0);
+      });
 
       if (records.length > 0) {
         const activeId = useChatStore.getState().activeChatId;

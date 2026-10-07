@@ -1109,7 +1109,9 @@ export const useChatStore = create<ChatState>()(
         };
 
         const currentMessages = state.messagesByChatId[chatId] || [];
-        const updatedMessages = [...currentMessages, enrichedMessage];
+        const updatedMessages = [...currentMessages, enrichedMessage].sort(
+          (a, b) => (Number(a.time) || 0) - (Number(b.time) || 0)
+        );
 
         let trimmedMessages = updatedMessages;
         if (updatedMessages.length > MAX_MESSAGES_PER_CHAT) {
@@ -1181,7 +1183,9 @@ export const useChatStore = create<ChatState>()(
             reactions: message.reactions,
           };
 
-          const updatedList = [...currentList, enrichedMessage];
+          const updatedList = [...currentList, enrichedMessage].sort(
+            (a, b) => (Number(a.time) || 0) - (Number(b.time) || 0)
+          );
           newMessagesByChatId[chatId] = updatedList.length > MAX_MESSAGES_PER_CHAT
             ? updatedList.slice(-MAX_MESSAGES_PER_CHAT)
             : updatedList;

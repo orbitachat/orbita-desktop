@@ -485,7 +485,12 @@ class SupabaseService {
     }
 
     if (allMessages.length > 0 || !this.client) {
-      return allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return allMessages.sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return (a.message_index ?? 0) - (b.message_index ?? 0);
+      });
     }
 
     if (this.client) {
@@ -494,7 +499,8 @@ class SupabaseService {
         .select('*')
         .eq('recipient_id', recipientId)
         .eq('delivered', false)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .order('message_index', { ascending: true });
 
       if (error) {
         console.error('[Supabase] Failed to fetch pending messages:', error);

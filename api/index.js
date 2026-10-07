@@ -724,7 +724,8 @@ module.exports = async function handler(req, res) {
         .select('*')
         .eq('recipient_id', recipientId)
         .eq('delivered', false)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .order('message_index', { ascending: true });
       if (error) return sendError(res, error.message, 500);
       return sendJson(res, { messages: data || [] });
     }

@@ -376,7 +376,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         break;
       }
     }
-    if (!hasAnyLargeMediaGroup) return rawMessages;
+    if (!hasAnyLargeMediaGroup) return rawMessages.slice().sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
 
     const result: Message[] = [];
     for (let i = 0; i < rawMessages.length; i++) {
@@ -397,7 +397,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         result.push(msg);
       }
     }
-    return result;
+    return result.sort((a, b) => (Number(a.time) || 0) - (Number(b.time) || 0));
   }, [rawMessages]);
 
   const [renderedCount, setRenderedCount] = useState<number>(getOptimalMessageBatchSize);
@@ -2816,6 +2816,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           sender: myNickname,
           avatarUrl: myAvatarUrl || null,
           text,
+          time: localMessage.time || Date.now(),
           mediaType: mediaPayload?.type || null,
           mediaUrl: mediaPayload?.url || null,
           mediaName: mediaPayload?.name || null,
@@ -2969,17 +2970,19 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             const targetIdx = currentMsgs.findIndex((m) => m.id === messageId);
             const preHandshakeIndex = targetIdx >= 0 ? targetIdx : currentMsgs.length;
             const plaintext = JSON.stringify(messageData);
-            for (const recipientId of recipientTargets) {
-              supabaseService.sendOfflineMessage(
-                activeChatId,
-                myUserId || myCode || myNickname,
-                recipientId,
-                plaintext,
-                preHandshakeIndex,
-                'PRE_HANDSHAKE',
-                messageId,
-              ).catch(() => {});
-            }
+            await Promise.allSettled(
+              recipientTargets.map((recipientId) =>
+                supabaseService.sendOfflineMessage(
+                  activeChatId,
+                  myUserId || myCode || myNickname,
+                  recipientId,
+                  plaintext,
+                  preHandshakeIndex,
+                  'PRE_HANDSHAKE',
+                  messageId,
+                )
+              )
+            );
 
             const preHandshakePayload = {
               ...(mediaPayload ? { mediaType: mediaPayload.type, mediaUrl: mediaPayload.url, mediaName: mediaPayload.name, mime: mediaPayload.mime } : {}),
@@ -3084,18 +3087,20 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           } catch {}
 
           if (freshChat?.type === 'private' || activeChat?.type === 'private') {
-            for (const recipientId of recipientTargets) {
-              supabaseService.sendOfflineMessage(
-                activeChatId,
-                myUserId || myCode || myNickname,
-                recipientId,
-                ciphertext,
-                index,
-                dhPublicKey,
-                messageId,
-                prevChainCount
-              ).catch(() => {});
-            }
+            await Promise.allSettled(
+              recipientTargets.map((recipientId) =>
+                supabaseService.sendOfflineMessage(
+                  activeChatId,
+                  myUserId || myCode || myNickname,
+                  recipientId,
+                  ciphertext,
+                  index,
+                  dhPublicKey,
+                  messageId,
+                  prevChainCount
+                )
+              )
+            );
           }
 
           useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
