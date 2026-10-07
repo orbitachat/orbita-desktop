@@ -4318,7 +4318,7 @@ export const MainLayout = () => {
 
             try {
               if (data.messageId) {
-                await supabaseService.markMessageDelivered(data.messageId);
+                supabaseService.markMessageDelivered(data.messageId).catch(() => {});
               }
             } catch {}
             return;
@@ -4379,7 +4379,9 @@ export const MainLayout = () => {
 
           try {
             if (data.messageId) {
-              await supabaseService.markMessageDelivered(data.messageId);
+              supabaseService.markMessageDelivered(data.messageId).catch(err => {
+                console.error('[MainLayout] Failed to mark message as delivered in Supabase:', err);
+              });
               console.log('[MainLayout] Message marked as delivered in Supabase:', data.messageId);
             }
           } catch (err) {

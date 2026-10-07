@@ -3015,7 +3015,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
             const targetIdx = currentMsgs.findIndex((m) => m.id === messageId);
             const preHandshakeIndex = targetIdx >= 0 ? targetIdx : currentMsgs.length;
             const plaintext = JSON.stringify(messageData);
-            await Promise.allSettled(
+            Promise.allSettled(
               recipientTargets.map((recipientId) =>
                 supabaseService.sendOfflineMessage(
                   activeChatId,
@@ -3027,7 +3027,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                   messageId,
                 )
               )
-            );
+            ).catch(() => {});
 
             const preHandshakePayload = {
               ...(mediaPayload ? { mediaType: mediaPayload.type, mediaUrl: mediaPayload.url, mediaName: mediaPayload.name, mime: mediaPayload.mime } : {}),
