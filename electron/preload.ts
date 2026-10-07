@@ -341,6 +341,11 @@ contextBridge.exposeInMainWorld('orbita', {
   mediaSetLimit: (type: 'total' | 'media', size: number) =>
     ipcRenderer.invoke('media:set-limit', { type, size }),
 
+  isStorageLocked: () => ipcRenderer.invoke('storage:is-locked'),
+  isPinSet: () => ipcRenderer.invoke('storage:is-pin-set'),
+  unlockStorage: (pin: string) => ipcRenderer.invoke('storage:unlock', pin),
+  setStoragePin: (pin: string) => ipcRenderer.invoke('storage:set-pin', pin),
+  removeStoragePin: () => ipcRenderer.invoke('storage:remove-pin'),
   storageGet: (key: string) => ipcRenderer.invoke('storage:get', key),
   storageSet: (key: string, value: string) => ipcRenderer.invoke('storage:set', key, value),
   storageRemove: (key: string) => ipcRenderer.invoke('storage:remove', key),

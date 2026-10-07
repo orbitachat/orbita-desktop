@@ -200,6 +200,27 @@ function App() {
 
   const [isAppLocked, setIsAppLocked] = useState(() => securityService.isPasswordSet());
 
+  const handleUnlockApp = () => {
+    setIsAppLocked(false);
+    useAuthStore.persist.rehydrate();
+    useChatStore.persist.rehydrate();
+  };
+
+  useEffect(() => {
+    securityService.isStorageLocked().then((locked) => {
+      if (locked) {
+        setIsAppLocked(true);
+      } else {
+        setIsAppLocked(false);
+        useAuthStore.persist.rehydrate();
+        useChatStore.persist.rehydrate();
+      }
+    }).catch(() => {
+      useAuthStore.persist.rehydrate();
+      useChatStore.persist.rehydrate();
+    });
+  }, []);
+
   useEffect(() => {
     console.log('[App] Requesting notification permission...');
     requestNotificationPermission()
@@ -405,6 +426,9 @@ function App() {
               <TitleBar />
             </div>
           )}
+          {isAppLocked && (
+            <AppLockScreen onUnlocked={handleUnlockApp} />
+          )}
         </div>
       </ThemeProvider>
     );
@@ -422,7 +446,7 @@ function App() {
         <CenterToast />
 
         {isAppLocked && (
-          <AppLockScreen onUnlocked={() => setIsAppLocked(false)} />
+          <AppLockScreen onUnlocked={handleUnlockApp} />
         )}
 
         <ErrorBoundary fallback={

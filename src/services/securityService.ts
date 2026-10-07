@@ -1,5 +1,3 @@
-// src/services/securityService.ts
-
 const LOCK_ENABLED_KEY = 'orbita_lock_enabled';
 const LOCK_SALT_KEY = 'orbita_lock_salt';
 const LOCK_HASH_KEY = 'orbita_lock_hash';
@@ -11,9 +9,6 @@ export interface PasswordStrength {
   color: string;
 }
 
-/**
- * Evaluates password strength locally using length, character variety, and entropy rules.
- */
 export function evaluatePasswordStrength(password: string): PasswordStrength {
   if (!password || password.length < 6) {
     return {
@@ -26,11 +21,9 @@ export function evaluatePasswordStrength(password: string): PasswordStrength {
 
   let score = 0;
 
-  // Length checks
   if (password.length >= 8) score += 1;
   if (password.length >= 12) score += 1;
 
-  // Character variety checks
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
   if (/[0-9]/.test(password)) score += 1;
   if (/[^a-zA-Z0-9]/.test(password)) score += 1;
@@ -46,9 +39,6 @@ export function evaluatePasswordStrength(password: string): PasswordStrength {
   }
 }
 
-/**
- * Derives a PBKDF2 hash using Web Crypto API (SHA-256, 100,000 iterations).
- */
 async function deriveHash(password: string, salt: Uint8Array): Promise<string> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -91,8 +81,25 @@ export const securityService = {
     return localStorage.getItem(LOCK_ENABLED_KEY) === 'true';
   },
 
+  async isStorageLocked(): Promise<boolean> {
+    if (typeof window !== 'undefined' && (window as any).orbita?.isStorageLocked) {
+      try {
+        const locked = await (window as any).orbita.isStorageLocked();
+        if (typeof locked === 'boolean') {
+          return locked;
+        }
+      } catch {}
+    }
+    return this.isPasswordSet();
+  },
+
   async setPassword(password: string): Promise<boolean> {
     try {
+      if (typeof window !== 'undefined' && (window as any).orbita?.setStoragePin) {
+        const ok = await (window as any).orbita.setStoragePin(password);
+        if (!ok) return false;
+      }
+
       const salt = new Uint8Array(16);
       crypto.getRandomValues(salt);
       const saltHex = bufferToHex(salt);
@@ -102,14 +109,19 @@ export const securityService = {
       localStorage.setItem(LOCK_SALT_KEY, saltHex);
       localStorage.setItem(LOCK_HASH_KEY, hashHex);
       return true;
-    } catch (err) {
-      console.error('[Security] Failed to set password:', err);
+    } catch {
       return false;
     }
   },
 
   async verifyPassword(password: string): Promise<boolean> {
     try {
+      if (typeof window !== 'undefined' && (window as any).orbita?.unlockStorage) {
+        const unlocked = await (window as any).orbita.unlockStorage(password);
+        if (!unlocked) return false;
+        return true;
+      }
+
       const saltHex = localStorage.getItem(LOCK_SALT_KEY);
       const expectedHash = localStorage.getItem(LOCK_HASH_KEY);
 
@@ -119,15 +131,22 @@ export const securityService = {
       const computedHash = await deriveHash(password, salt);
 
       return computedHash === expectedHash;
-    } catch (err) {
-      console.error('[Security] Failed to verify password:', err);
+    } catch {
       return false;
     }
   },
 
-  removePassword(): void {
-    localStorage.removeItem(LOCK_ENABLED_KEY);
-    localStorage.removeItem(LOCK_SALT_KEY);
-    localStorage.removeItem(LOCK_HASH_KEY);
+  async removePassword(): Promise<boolean> {
+    try {
+      if (typeof window !== 'undefined' && (window as any).orbita?.removeStoragePin) {
+        await (window as any).orbita.removeStoragePin();
+      }
+      localStorage.removeItem(LOCK_ENABLED_KEY);
+      localStorage.removeItem(LOCK_SALT_KEY);
+      localStorage.removeItem(LOCK_HASH_KEY);
+      return true;
+    } catch {
+      return false;
+    }
   },
 };

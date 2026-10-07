@@ -139,13 +139,18 @@ const ipcStorage: StateStorage = {
     }
 
     lastSavedAuthValues[name] = value;
-    try {
-      localStorage.setItem(name, value);
-    } catch {}
+    if (!(window as any).orbita?.storageSet) {
+      try {
+        localStorage.setItem(name, value);
+      } catch {}
+    }
 
     if ((window as any).orbita?.storageSet) {
       try {
         await (window as any).orbita.storageSet(name, value);
+        try {
+          localStorage.removeItem(name);
+        } catch {}
       } catch {}
     }
   },
@@ -356,6 +361,7 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'orbita-auth-storage',
       version: 2,
+      skipHydration: true,
       migrate: (persistedState: any) => {
         if (persistedState && !persistedState.userId) {
           persistedState.userId = getInitialUserId();
@@ -390,6 +396,10 @@ export const useAuthStore = create<AuthState>()(
         backupEnabled: state.backupEnabled,
         backupFolder: state.backupFolder,
         lastBackupTime: state.lastBackupTime,
+        identityKeyPair: state.identityKeyPair,
+        signedPreKeyPair: state.signedPreKeyPair,
+        identitySigningKeyPair: state.identitySigningKeyPair,
+        oneTimePreKeys: state.oneTimePreKeys,
       }),
     }
   )

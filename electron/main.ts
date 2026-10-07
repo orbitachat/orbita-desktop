@@ -27,6 +27,7 @@ import * as crypto from 'crypto';
 import * as sqlite3 from 'sqlite3';
 import { autoUpdater } from 'electron-updater';
 import { spawn } from 'child_process';
+import { getLocalKey, isPinLocked, isPinSet, unlockWithPin, setupPin, removePin } from './localKey';
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
@@ -290,62 +291,13 @@ function initNotifManager(win: BrowserWindow) {
   console.log('[NotifManager] Initialized');
 }
 
-// -----------------------------------------------------------------------------
-// 2. Master Key Storage Encryption
-// -----------------------------------------------------------------------------
-const KEY_FILE_NAME = 'local_key.enc';
-const KEY_BACKUP_NAME = 'local_key.bak';
-let masterKeyCache: Buffer | null = null;
-
-function getMasterKey(): Buffer {
-  if (masterKeyCache) return masterKeyCache;
-
-  const userDataDir = app.getPath('userData');
-  const keyFilePath = path.join(userDataDir, KEY_FILE_NAME);
-  const keyBackupPath = path.join(userDataDir, KEY_BACKUP_NAME);
-
-  if (fs.existsSync(keyFilePath)) {
-    try {
-      const encKey = fs.readFileSync(keyFilePath);
-      if (safeStorage.isEncryptionAvailable()) {
-        const hex = safeStorage.decryptString(encKey);
-        masterKeyCache = Buffer.from(hex, 'hex');
-        if (!fs.existsSync(keyBackupPath)) {
-          try { fs.writeFileSync(keyBackupPath, encKey); } catch {}
-        }
-        return masterKeyCache;
-      }
-    } catch {}
-  }
-
-  if (fs.existsSync(keyBackupPath)) {
-    try {
-      const encKey = fs.readFileSync(keyBackupPath);
-      if (safeStorage.isEncryptionAvailable()) {
-        const hex = safeStorage.decryptString(encKey);
-        masterKeyCache = Buffer.from(hex, 'hex');
-        return masterKeyCache;
-      }
-    } catch {}
-  }
-
-  const rawKey = crypto.randomBytes(32);
-  try {
-    if (safeStorage.isEncryptionAvailable()) {
-      const encKey = safeStorage.encryptString(rawKey.toString('hex'));
-      fs.writeFileSync(keyFilePath, encKey);
-      fs.writeFileSync(keyBackupPath, encKey);
-    } else {
-      fs.writeFileSync(keyFilePath, rawKey);
-      fs.writeFileSync(keyBackupPath, rawKey);
-    }
-  } catch {}
-  masterKeyCache = rawKey;
-  return masterKeyCache;
+function getMasterKey(): Buffer | null {
+  return getLocalKey();
 }
 
 function encryptData(data: Buffer): Buffer {
   const key = getMasterKey();
+  if (!key) throw new Error('Storage is locked');
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   const ciphertext = Buffer.concat([cipher.update(data), cipher.final()]);
@@ -355,7 +307,7 @@ function encryptData(data: Buffer): Buffer {
 
 function decryptData(data: Buffer): Buffer | null {
   const key = getMasterKey();
-  if (data.length < 28) return null; // 12 iv + 16 tag min
+  if (!key || data.length < 28) return null;
   const iv = data.subarray(0, 12);
   const authTag = data.subarray(data.length - 16);
   const ciphertext = data.subarray(12, data.length - 16);
@@ -1618,6 +1570,11 @@ async function migrateFromLocalStorage(): Promise<void> {
 }
 
 function registerStorageIpcHandlers() {
+  ipcMain.handle('storage:is-locked', async () => isPinLocked());
+  ipcMain.handle('storage:is-pin-set', async () => isPinSet());
+  ipcMain.handle('storage:unlock', async (_event, pin: string) => unlockWithPin(pin));
+  ipcMain.handle('storage:set-pin', async (_event, pin: string) => setupPin(pin));
+  ipcMain.handle('storage:remove-pin', async () => removePin());
   ipcMain.handle('storage:get', async (_event, key: string) => await getKvValue(key));
   ipcMain.handle('storage:set', async (_event, key: string, value: string) => {
     await setKvValue(key, value);

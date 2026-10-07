@@ -126,6 +126,7 @@ function generateLocalFilename(): string {
 
 export function encryptLocal(data: Buffer): Buffer {
   const key = getLocalKey();
+  if (!key) return data;
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
   const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
@@ -135,6 +136,7 @@ export function encryptLocal(data: Buffer): Buffer {
 
 export function decryptLocal(encryptedData: Buffer): Buffer | null {
   const key = getLocalKey();
+  if (!key) return null;
   if (encryptedData.length < 12 + 16) return null;
   const iv = encryptedData.subarray(0, 12);
   const tag = encryptedData.subarray(encryptedData.length - 16);

@@ -374,9 +374,15 @@ const ipcStorage: StateStorage = {
     }
     lastSavedValues[name] = value;
 
-    try {
-      localStorage.setItem(name, value);
-    } catch {}
+    if (!(window as any).orbita?.storageSet) {
+      try {
+        localStorage.setItem(name, value);
+      } catch {}
+    } else {
+      try {
+        localStorage.removeItem(name);
+      } catch {}
+    }
 
     pendingStorageMap.set(name, value);
     if (setItemTimer) clearTimeout(setItemTimer);
@@ -2021,6 +2027,7 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: 'orbita-chat-storage',
+      skipHydration: true,
       storage: createJSONStorage(() => ipcStorage),
       partialize: (state) => ({
         usersById: state.usersById,
