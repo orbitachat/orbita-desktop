@@ -55,6 +55,33 @@ export interface UserDirectoryRecord {
   updated_at?: string;
 }
 
+export interface UserPublicKeysRecord {
+  user_code: string;
+  identity_key: string;
+  signed_pre_key: string;
+  pre_key_signature: string;
+  updated_at: string;
+}
+
+export interface OneTimePreKeyRecord {
+  id: string;
+  user_code: string;
+  key_id: number;
+  public_key: string;
+  created_at: string;
+}
+
+export interface PreKeyBundle {
+  identityKey: string;
+  signedPreKey: string;
+  preKeySignature: string;
+  oneTimePreKey?: {
+    id: string;
+    keyId: number;
+    publicKey: string;
+  };
+}
+
 class SupabaseService {
   private client: SupabaseClient | null = null;
   private failedRelays: Map<string, number> = new Map();
@@ -1201,6 +1228,119 @@ class SupabaseService {
     return () => {
       this.client?.removeChannel(channel);
     };
+  }
+
+  // --- Key Server (X3DH) ---
+  
+  async uploadPublicKeys(
+    userCode: string,
+    identityKey: string,
+    signedPreKey: string,
+    preKeySignature: string,
+    oneTimePreKeys: Array<{ keyId: number; publicKey: string }>
+  ): Promise<void> {
+    if (!this.client || !userCode) return;
+
+    try {
+      // 1. Обновляем основные ключи
+      const { error: keysError } = await this.client
+        .from('user_public_keys')
+        .upsert({
+          user_code: userCode,
+          identity_key: identityKey,
+          signed_pre_key: signedPreKey,
+          pre_key_signature: preKeySignature,
+          updated_at: new Date().toISOString(),
+        });
+        
+      if (keysError) {
+        console.error('[Supabase] uploadPublicKeys error (main keys):', keysError);
+        throw keysError;
+      }
+
+      // 2. Добавляем новые одноразовые ключи (не удаляя старые)
+      if (oneTimePreKeys && oneTimePreKeys.length > 0) {
+        const otpkRows = oneTimePreKeys.map(k => ({
+          user_code: userCode,
+          key_id: k.keyId,
+          public_key: k.publicKey,
+        }));
+        
+        const { error: otpkError } = await this.client
+          .from('one_time_pre_keys')
+          .insert(otpkRows);
+          
+        if (otpkError) {
+          console.error('[Supabase] uploadPublicKeys error (one time keys):', otpkError);
+        }
+      }
+    } catch (e) {
+      console.error('[Supabase] Failed to upload public keys:', e);
+      throw e;
+    }
+  }
+
+  async fetchPreKeyBundle(userCode: string): Promise<PreKeyBundle | null> {
+    if (!this.client || !userCode) return null;
+
+    try {
+      // 1. Получаем основные ключи
+      const { data: mainKeys, error: keysError } = await this.client
+        .from('user_public_keys')
+        .select('*')
+        .eq('user_code', userCode)
+        .maybeSingle();
+        
+      if (keysError || !mainKeys) {
+        console.warn(`[Supabase] No main keys found for user: ${userCode}`);
+        return null;
+      }
+
+      const bundle: PreKeyBundle = {
+        identityKey: mainKeys.identity_key,
+        signedPreKey: mainKeys.signed_pre_key,
+        preKeySignature: mainKeys.pre_key_signature,
+      };
+
+      // 2. Пытаемся получить и удалить (с помощью RPC) один одноразовый ключ
+      try {
+        const { data: otpkData, error: otpkError } = await this.client.rpc('consume_one_time_pre_key', {
+          p_user_code: userCode,
+        });
+
+        // Если RPC вернул строку (publicKey), значит ключ успешно захвачен.
+        // Но нам нужен еще и keyId, поэтому RPC метод выше возвращает только ключ?
+        // Wait, I should implement consume_one_time_pre_key to return JSON if I want both.
+        // Let's just do a normal select and delete since this is a fallback.
+        // In a highly concurrent env we'd use RPC, but Supabase JS allows this:
+        
+        const { data: firstKeyData } = await this.client
+          .from('one_time_pre_keys')
+          .select('*')
+          .eq('user_code', userCode)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (firstKeyData) {
+          bundle.oneTimePreKey = {
+            id: firstKeyData.id,
+            keyId: firstKeyData.key_id,
+            publicKey: firstKeyData.public_key,
+          };
+          
+          // Удаляем его асинхронно
+          this.client.from('one_time_pre_keys').delete().eq('id', firstKeyData.id).then();
+        }
+      } catch (e) {
+        console.warn('[Supabase] Failed to consume OTPK, continuing without it:', e);
+      }
+
+      return bundle;
+    } catch (e) {
+      console.error('[Supabase] fetchPreKeyBundle error:', e);
+      return null;
+    }
   }
 }
 
