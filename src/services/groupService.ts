@@ -150,8 +150,9 @@ class GroupService {
 
   async getGroup(groupIdOrCode: string): Promise<GroupInfo | null> {
     const raw = groupIdOrCode.trim();
-    const secret = extractGroupCode(raw) || raw;
-    const groupId = deriveGroupId(secret);
+    const isIdOnly = raw.length === 36 && /^[0-9A-F]{36}$/i.test(raw);
+    const secret = isIdOnly ? '' : (extractGroupCode(raw) || raw);
+    const groupId = isIdOnly ? raw : deriveGroupId(secret);
 
     try {
       let query = this.supabase.from('groups').select('*').eq('id', groupId);
@@ -180,7 +181,7 @@ class GroupService {
 
         return {
           id: g.id,
-          code: g.code,
+          code: secret || '', // If we don't have the secret, return empty
           name: g.name,
           description: g.description || '',
           avatarUrl: g.avatar_url || null,
@@ -190,7 +191,7 @@ class GroupService {
           maxMembers: g.max_members || 10,
           members,
           createdAt: new Date(g.created_at).getTime(),
-          sharedSecret: deriveGroupKey(g.id),
+          sharedSecret: secret ? deriveGroupKey(secret) : undefined, // Only derive if we know the secret
           inviteActive,
           inviteExpiresAt: expiresAt,
         };
@@ -202,7 +203,11 @@ class GroupService {
       if (res.ok) {
         const data = (await res.json()) as { group: GroupInfo };
         if (data.group) {
-          return { ...data.group, sharedSecret: deriveGroupKey(secret) };
+          return { 
+            ...data.group, 
+            code: secret || '', 
+            sharedSecret: secret ? deriveGroupKey(secret) : undefined 
+          };
         }
       }
     } catch {}
@@ -291,39 +296,41 @@ class GroupService {
       return false;
     });
 
-    if (!isAlreadyMember && currentMembers.length >= 10) {
-      throw new Error('GROUP_FULL');
-    }
+    if (!isAlreadyMember) {
+      if (currentMembers.length >= 10) {
+        throw new Error('GROUP_FULL');
+      }
 
-    try {
-      await this.supabase.from('group_members').upsert({
-        group_id: groupId,
-        user_code: memberCode,
-        user_id: meta?.userId || candidateId || memberCode,
-        nickname,
-        role: 'member',
-        joined_at: nowIso,
-        last_seen: nowIso,
-        avatar_url: meta?.avatarUrl || null,
-      });
-    } catch {}
-
-    try {
-      fetch(`${this.getWorkerUrl()}/groups/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: groupId,
-          code: secret,
+      try {
+        await this.supabase.from('group_members').upsert({
+          group_id: groupId,
+          user_code: memberCode,
+          user_id: meta?.userId || candidateId || memberCode,
           nickname,
-          userCode: memberCode,
-          userId: meta?.userId || candidateId || memberCode,
-          name: groupRow.name,
-          creatorNickname: groupRow.creator_nickname,
-          avatarUrl: meta?.avatarUrl || groupRow.avatar_url || null,
-        }),
-      }).catch(() => {});
-    } catch {}
+          role: 'member',
+          joined_at: nowIso,
+          last_seen: nowIso,
+          avatar_url: meta?.avatarUrl || null,
+        });
+      } catch {}
+
+      try {
+        fetch(`${this.getWorkerUrl()}/groups/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: groupId,
+            code: secret,
+            nickname,
+            userCode: memberCode,
+            userId: meta?.userId || candidateId || memberCode,
+            name: groupRow.name,
+            creatorNickname: groupRow.creator_nickname,
+            avatarUrl: meta?.avatarUrl || groupRow.avatar_url || null,
+          }),
+        }).catch(() => {});
+      } catch {}
+    }
 
     if (!isAlreadyMember) {
       if (inviterNickname) {
@@ -497,7 +504,7 @@ class GroupService {
     }
   }
 
-  async leaveGroup(groupId: string, nickname: string, userCode?: string, userId?: string): Promise<void> {
+  async leaveGroup(groupId: string, sharedSecret: string, nickname: string, userCode?: string, userId?: string): Promise<void> {
     try {
       const filters = [`nickname.eq.${nickname}`];
       if (userCode) {
@@ -542,11 +549,10 @@ class GroupService {
       else channel.bind('pusher:subscription_succeeded', sendLeave);
     } catch {}
 
-    const secret = deriveGroupKey(groupId);
-    this.sendSystemMessage(groupId, secret, 'leave', nickname);
+    this.sendSystemMessage(groupId, sharedSecret, 'leave', nickname);
   }
 
-  async kickMember(groupId: string, targetNickname: string, adminNickname: string, targetUserCode?: string, targetUserId?: string): Promise<void> {
+  async kickMember(groupId: string, sharedSecret: string, targetNickname: string, adminNickname: string, targetUserCode?: string, targetUserId?: string): Promise<void> {
     try {
       const filters = [`nickname.eq.${targetNickname}`];
       if (targetUserCode) {
@@ -593,22 +599,21 @@ class GroupService {
       else channel.bind('pusher:subscription_succeeded', sendKick);
     } catch {}
 
-    const secret = deriveGroupKey(groupId);
-    this.sendSystemMessage(groupId, secret, 'kick', adminNickname, targetNickname);
+    this.sendSystemMessage(groupId, sharedSecret, 'kick', adminNickname, targetNickname);
   }
 
   async updateGroup(
     groupId: string,
+    sharedSecret: string,
     data: { name?: string; description?: string; avatarUrl?: string | null },
     actorNickname?: string
   ): Promise<boolean> {
     const actor = actorNickname || useAuthStore.getState().nickname || '';
-    const secret = deriveGroupKey(groupId);
     if (data.name !== undefined) {
-      this.sendSystemMessage(groupId, secret, 'title', actor, undefined);
+      this.sendSystemMessage(groupId, sharedSecret, 'title', actor, undefined);
     }
     if (data.avatarUrl !== undefined) {
-      this.sendSystemMessage(groupId, secret, 'avatar', actor, undefined);
+      this.sendSystemMessage(groupId, sharedSecret, 'avatar', actor, undefined);
     }
 
     const updatePayload: any = { updated_at: new Date().toISOString() };

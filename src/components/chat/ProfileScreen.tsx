@@ -1364,8 +1364,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
         if (nameChanged) groupUpdate.name = newName;
         if (descChanged) groupUpdate.description = newDesc;
         if (avatarChanged) groupUpdate.avatarUrl = finalAvatarUrl;
-        if (Object.keys(groupUpdate).length > 0) {
-          await groupService.updateGroup(chat.id, groupUpdate, myNickname);
+        if (Object.keys(groupUpdate).length > 0 && chat.sharedSecret) {
+          await groupService.updateGroup(chat.id, chat.sharedSecret, groupUpdate, myNickname);
         }
       } else {
         await channelService.updateChannel(chat.id, {
@@ -1390,8 +1390,8 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
     const myCode = useChatStore.getState().myCode;
     if (currentMode === 'delete') {
       await groupService.deleteGroup(targetChatId);
-    } else {
-      await groupService.leaveGroup(targetChatId, myNickname, myCode, myUserId);
+    } else if (chat.sharedSecret) {
+      await groupService.leaveGroup(targetChatId, chat.sharedSecret, myNickname, myCode, myUserId);
     }
     useChatStore.getState().deleteChat(targetChatId);
   }, [chat, groupModalMode, onClose, myNickname, myUserId]);
@@ -2949,7 +2949,7 @@ export const ProfileScreen = memo(({ chatId, onClose, isMobileView = false, onLi
                         onClick={async (e) => {
                           e.stopPropagation();
                           if (window.confirm(`${t('groupSettings.kick', 'Исключить')} ${member.nickname}?`)) {
-                            await groupService.kickMember(chat.id, member.nickname, myNickname, memberCode, member.userId);
+                            await groupService.kickMember(chat.id, chat.sharedSecret!, member.nickname, myNickname, memberCode, member.userId);
                             const updatedMembers = (chat.members || []).filter((m: any) => {
                               const mCode = m.userId || m.userCode;
                               if (memberCode && mCode) return mCode !== memberCode;

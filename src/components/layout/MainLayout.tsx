@@ -4903,7 +4903,7 @@ export const MainLayout = () => {
       if (isOwner) {
         groupService.deleteGroup(chatId).catch(() => {});
       } else {
-        groupService.leaveGroup(chatId, nickname, myCode, myUid).catch(() => {});
+        groupService.leaveGroup(chatId, chat.sharedSecret!, nickname, myCode, myUid).catch(() => {});
       }
       if (activeSubscriptions.current.has(chatId)) {
         const sub = activeSubscriptions.current.get(chatId)!;
