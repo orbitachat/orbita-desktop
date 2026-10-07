@@ -21,7 +21,7 @@ export const signData = async (privateKeyHex: string, data: string): Promise<str
   const privBuffer = hexDecode(privateKeyHex);
   const key = await crypto.subtle.importKey(
     'pkcs8',
-    privBuffer,
+    privBuffer as any,
     { name: 'ECDSA', namedCurve: 'P-256' },
     false,
     ['sign']
@@ -45,7 +45,7 @@ export const verifySignature = async (publicKeyHex: string, signatureHex: string
     
     const key = await crypto.subtle.importKey(
       'raw',
-      pubBuffer,
+      pubBuffer as any,
       { name: 'ECDSA', namedCurve: 'P-256' },
       false,
       ['verify']
@@ -54,8 +54,8 @@ export const verifySignature = async (publicKeyHex: string, signatureHex: string
     return await crypto.subtle.verify(
       { name: 'ECDSA', hash: { name: 'SHA-256' } },
       key,
-      sigBuffer,
-      dataBytes
+      sigBuffer as any,
+      dataBytes as any
     );
   } catch {
     return false;

@@ -2,9 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { getVercelBaseUrl } from './gatewayManager';
 import { getPusher, getGroupPusher } from '../utils/pusher';
 import { supabaseService } from './supabaseService';
-import { generateGroupId, generateGroupInviteCode } from '../lib/codes';
+import { generateGroupInviteCode } from '../lib/codes';
 import {
   deriveGroupKey,
+  deriveGroupId,
   extractGroupCode,
   isValidGroupCode,
 } from '../lib/groupCrypto';
@@ -60,9 +61,10 @@ class GroupService {
     creatorUserId?: string,
     creatorAvatarUrl?: string | null
   ): Promise<{ group: GroupInfo; sharedSecret: string } | null> {
-    const id = generateGroupId();
-    const code = generateGroupInviteCode();
-    const sharedSecret = deriveGroupKey(id);
+    const secretCode = generateGroupInviteCode(); // The secret never sent to server
+    const id = deriveGroupId(secretCode);
+    const code = id; // Store the hash as code too to satisfy DB if needed
+    const sharedSecret = deriveGroupKey(secretCode);
 
     const initialMember: GroupMemberInfo = {
       nickname: creatorNickname,
@@ -127,7 +129,7 @@ class GroupService {
 
     const group: GroupInfo = {
       id,
-      code,
+      code: secretCode,
       name: name.trim(),
       description: description.trim(),
       avatarUrl: avatarUrl || null,
@@ -148,15 +150,11 @@ class GroupService {
 
   async getGroup(groupIdOrCode: string): Promise<GroupInfo | null> {
     const raw = groupIdOrCode.trim();
-    const code = extractGroupCode(raw) || raw;
+    const secret = extractGroupCode(raw) || raw;
+    const groupId = deriveGroupId(secret);
 
     try {
-      let query = this.supabase.from('groups').select('*');
-      if (code.length === 36 && /^[0-9A-Z]{36}$/i.test(code)) {
-        query = query.eq('id', code.toUpperCase());
-      } else {
-        query = query.eq('code', code);
-      }
+      let query = this.supabase.from('groups').select('*').eq('id', groupId);
       const { data: g } = await query.maybeSingle();
       if (g) {
         const { data: membersRows } = await this.supabase.from('group_members').select('*').eq('group_id', g.id);
@@ -200,11 +198,11 @@ class GroupService {
     } catch {}
 
     try {
-      const res = await fetch(`${this.getWorkerUrl()}/groups/get?code=${encodeURIComponent(code)}`);
+      const res = await fetch(`${this.getWorkerUrl()}/groups/get?code=${encodeURIComponent(groupId)}`);
       if (res.ok) {
         const data = (await res.json()) as { group: GroupInfo };
         if (data.group) {
-          return { ...data.group, sharedSecret: deriveGroupKey(data.group.id) };
+          return { ...data.group, sharedSecret: deriveGroupKey(secret) };
         }
       }
     } catch {}
@@ -220,9 +218,9 @@ class GroupService {
     inviterNickname?: string
   ): Promise<{ group: GroupInfo; sharedSecret: string }> {
     const raw = codeOrLink.trim();
-    const code = extractGroupCode(raw) || raw;
+    const secret = extractGroupCode(raw) || raw;
 
-    if (!code || !isValidGroupCode(code)) {
+    if (!secret || !isValidGroupCode(secret)) {
       throw new Error('INVALID_CODE');
     }
 
@@ -230,10 +228,11 @@ class GroupService {
       throw new Error('LINK_REQUIRED');
     }
 
+    const groupId = deriveGroupId(secret);
     let groupRow: any = null;
 
     try {
-      const { data } = await this.supabase.from('groups').select('*').eq('code', code).maybeSingle();
+      const { data } = await this.supabase.from('groups').select('*').eq('id', groupId).maybeSingle();
       if (data) {
         groupRow = data;
       }
@@ -241,7 +240,7 @@ class GroupService {
 
     if (!groupRow) {
       try {
-        const res = await fetch(`${this.getWorkerUrl()}/groups/get?code=${encodeURIComponent(code)}`);
+        const res = await fetch(`${this.getWorkerUrl()}/groups/get?code=${encodeURIComponent(groupId)}`);
         if (res.ok) {
           const data = await res.json();
           if (data.group) groupRow = data.group;
@@ -273,8 +272,8 @@ class GroupService {
       throw new Error('INVITE_EXPIRED');
     }
 
-    const groupId = groupRow.id;
-    const sharedSecret = deriveGroupKey(groupId);
+    // groupId is already declared
+    const sharedSecret = deriveGroupKey(secret);
     const candidateId = meta?.userId || userCode;
     const memberCode = userCode || candidateId || nickname;
     const nowIso = new Date().toISOString();
@@ -315,7 +314,7 @@ class GroupService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: groupId,
-          code,
+          code: secret,
           nickname,
           userCode: memberCode,
           userId: meta?.userId || candidateId || memberCode,
@@ -360,7 +359,7 @@ class GroupService {
 
     const resultGroup: GroupInfo = {
       id: groupId,
-      code: groupRow.code,
+      code: secret,
       name: groupRow.name,
       description: groupRow.description || '',
       avatarUrl: groupRow.avatar_url || null,
@@ -422,31 +421,11 @@ class GroupService {
     return null;
   }
 
-  async resetInviteLink(groupId: string): Promise<string | null> {
-    const newCode = generateGroupInviteCode();
-    const nowIso = new Date().toISOString();
-    try {
-      const { data: existing } = await this.supabase.from('groups').select('creator_id').eq('id', groupId).maybeSingle();
-      let meta: any = { active: true, expiresAt: null };
-      if (existing?.creator_id && typeof existing.creator_id === 'string' && existing.creator_id.startsWith('{')) {
-        try { meta = { ...JSON.parse(existing.creator_id), active: true }; } catch {}
-      }
-      await this.supabase.from('groups').update({
-        code: newCode,
-        creator_id: JSON.stringify(meta),
-        updated_at: nowIso,
-      }).eq('id', groupId);
-
-      fetch(`${this.getWorkerUrl()}/groups/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, code: newCode }),
-      }).catch(() => {});
-
-      return newCode;
-    } catch {
-      return null;
-    }
+  async resetInviteLink(_groupId: string): Promise<string | null> {
+    // In Zero-Knowledge groups, the invite code is the master key. 
+    // Resetting it would lose access to all old messages. 
+    // We only allow revoking (closing the invite link).
+    return null;
   }
 
   async revokeInviteLink(groupId: string): Promise<boolean> {

@@ -468,9 +468,9 @@ async function aesGcmEncrypt(
   );
 
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce as BufferSource, tagLength: 128, additionalData: associatedData },
+    { name: 'AES-GCM', iv: nonce as any, tagLength: 128, additionalData: associatedData as any },
     cryptoKey,
-    plaintextBytes as BufferSource,
+    plaintextBytes as any,
   );
 
   const encBytes = new Uint8Array(encrypted);
@@ -509,9 +509,9 @@ async function aesGcmDecrypt(
   );
 
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: nonce as BufferSource, tagLength: 128, additionalData: associatedData },
+    { name: 'AES-GCM', iv: nonce as any, tagLength: 128, additionalData: associatedData as any },
     cryptoKey,
-    combined as BufferSource,
+    combined as any,
   );
 
   return new Uint8Array(decrypted);
