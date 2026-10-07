@@ -2813,13 +2813,13 @@ export const SettingsScreen = () => {
   const micVolume = useCallStore((state) => state.micVolume);
   const setPeerVolume = useCallStore((state) => state.setPeerVolume);
   const setMicVolume = useCallStore((state) => state.setMicVolume);
-  const { nickname, avatarUrl, username, bio, birthday, numericId, setNickname, setAvatarUrl, setUsername, setBio, setBirthday } = useAuthStore(useShallow((s) => ({
+  const { nickname, avatarUrl, username, bio, birthday, userId, setNickname, setAvatarUrl, setUsername, setBio, setBirthday } = useAuthStore(useShallow((s) => ({
     nickname: s.nickname,
     avatarUrl: s.avatarUrl,
     username: s.username,
     bio: s.bio,
     birthday: s.birthday,
-    numericId: s.numericId,
+    userId: s.userId,
     setNickname: s.setNickname,
     setAvatarUrl: s.setAvatarUrl,
     setUsername: s.setUsername,
@@ -3241,7 +3241,7 @@ export const SettingsScreen = () => {
   const [copyToastOpen, setCopyToastOpen] = useState(false);
 
   const handleCopyCode = async () => {
-    const textToCopy = numericId || myCode;
+    const textToCopy = myCode || userId;
     if (!textToCopy) return;
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -3959,8 +3959,8 @@ export const SettingsScreen = () => {
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.account_id', 'ID аккаунта')}</span>
-              <span style={{ fontSize: '14.5px', fontWeight: 500, color: 'var(--accent-color, #9b7dd4)', fontFamily: '"JetBrains Mono", Consolas, monospace' }}>
-                {numericId || myCode || '------'}
+              <span style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--accent-color, #9b7dd4)', fontFamily: '"JetBrains Mono", Consolas, monospace', wordBreak: 'break-all' }}>
+                {myCode || userId || '------'}
               </span>
             </div>
             <ChevronRight size={18} color={MD3.onSurfaceVar} />
