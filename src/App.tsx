@@ -128,6 +128,12 @@ function App() {
     checkHydration();
     const unsubAuth = useAuthStore.persist.onFinishHydration(checkHydration);
     const unsubChat = useChatStore.persist.onFinishHydration(checkHydration);
+
+    if (!securityService.isPasswordSet()) {
+      useAuthStore.persist.rehydrate();
+      useChatStore.persist.rehydrate();
+    }
+
     return () => {
       unsubAuth();
       unsubChat();
@@ -334,6 +340,7 @@ function App() {
   }, [language, i18n]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     if (language !== null) {
       console.log('[App] Язык уже выбран:', language);
       return;
@@ -348,7 +355,7 @@ function App() {
     console.log('[App] Системный язык определен как:', lang);
     setLanguage(lang);
     i18n.changeLanguage(lang);
-  }, [setLanguage, i18n, language]);
+  }, [setLanguage, i18n, language, isHydrated]);
 
   useEffect(() => {
     applyThemeToRoot(currentTheme, chatColor);

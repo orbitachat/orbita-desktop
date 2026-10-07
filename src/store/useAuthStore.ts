@@ -131,6 +131,11 @@ const ipcStorage: StateStorage = {
   },
   setItem: async (name: string, value: string): Promise<void> => {
     if (typeof window === 'undefined') return;
+
+    if (useAuthStore?.persist && !useAuthStore.persist.hasHydrated()) {
+      return;
+    }
+
     if (lastSavedAuthValues[name] === value) return;
 
     const previousSaved = lastSavedAuthValues[name] || localStorage.getItem(name);

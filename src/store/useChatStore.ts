@@ -345,12 +345,20 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', flushStorageSet);
 }
 
+const isBlankChatState = (jsonStr: string): boolean => {
+  try {
+    const data = JSON.parse(jsonStr);
+    const s = data?.state || data;
+    const chats = s?.chats || [];
+    return !s?.myCode && chats.length <= 1;
+  } catch {
+    return false;
+  }
+};
+
 const ipcStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
-    if (pendingStorageMap.has(name)) {
-      return pendingStorageMap.get(name)!;
-    }
     let val = null;
     if ((window as any).orbita?.storageGet) {
       val = await (window as any).orbita.storageGet(name);
@@ -368,10 +376,20 @@ const ipcStorage: StateStorage = {
   },
   setItem: (name: string, value: string): Promise<void> => {
     if (typeof window === 'undefined') return Promise.resolve();
-    
+
+    if (useChatStore?.persist && !useChatStore.persist.hasHydrated()) {
+      return Promise.resolve();
+    }
+
     if (lastSavedValues[name] === value) {
       return Promise.resolve();
     }
+
+    const previousSaved = lastSavedValues[name];
+    if (previousSaved && isBlankChatState(value) && !isBlankChatState(previousSaved)) {
+      return Promise.resolve();
+    }
+
     lastSavedValues[name] = value;
 
     if (!(window as any).orbita?.storageSet) {
