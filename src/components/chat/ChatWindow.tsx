@@ -3072,6 +3072,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         ].filter((t): t is string => Boolean(t && t !== myCode && t !== myUserId))));
 
         (async () => {
+          useChatStore.getState().updateMessageStatus(activeChatId, messageId, 'sent');
           try {
             await ablyService.sendMessage(activeChatId, payload);
           } catch {}
@@ -3997,7 +3998,7 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         const currentMsgs = useChatStore.getState().messagesByChatId[activeChatId] || [];
         const updated = currentMsgs.map((msg) =>
           (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myCode, myNickname, activeChat, myUserId)))
-            ? (msg.status === 'read' ? msg : { ...msg, status: 'delivered' as const })
+            ? (msg.status === 'read' || msg.read ? msg : { ...msg, status: 'delivered' as const })
             : msg
         );
         useChatStore.setState((state) => ({
@@ -5670,9 +5671,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
           <CustomPinIcon size={12} style={{ color: isOwn ? 'rgba(255, 255, 255, 0.95)' : 'var(--accent-color, #7C3AED)', userSelect: 'none' }} className="flex-shrink-0 select-none" />
         )}
         <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{formatTime(msg.time)}</span>
-        {isOwn && msg.status && (
+        {isOwn && (msg.status || msg.read) && (
           <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end', userSelect: 'none', WebkitUserSelect: 'none' }}>
-            <MessageStatus status={msg.status} isOwn={isOwn} />
+            <MessageStatus status={(msg.status === 'read' || msg.read) ? 'read' : (msg.status || 'sent')} isOwn={isOwn} />
           </span>
         )}
       </span>
@@ -6577,9 +6578,9 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
                     }}
                   >
                     <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{formatTimeOfDay(msg.time)}</span>
-                    {isOwn && msg.status && (
+                    {isOwn && (msg.status || msg.read) && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0, userSelect: 'none', WebkitUserSelect: 'none' }}>
-                        <MessageStatus status={msg.status} isOwn={isOwn} />
+                        <MessageStatus status={(msg.status === 'read' || msg.read) ? 'read' : (msg.status || 'sent')} isOwn={isOwn} />
                       </span>
                     )}
                   </div>

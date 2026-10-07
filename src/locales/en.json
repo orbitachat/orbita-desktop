@@ -956,7 +956,7 @@
     "userStatus": {
       "online": "online",
       "offline": "last seen recently",
-      "just_now": "just now",
+      "just_now": "last seen a second ago",
       "today_at": "last seen today at {{time}}",
       "yesterday_at": "last seen yesterday at {{time}}",
       "date_at": "last seen on {{date}} at {{time}}",

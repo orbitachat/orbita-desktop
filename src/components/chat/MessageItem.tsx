@@ -150,9 +150,9 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
         }}
       >
         <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{timeStr}</span>
-        {isOwn && msg.status && (
+        {isOwn && (msg.status || msg.read) && (
           <span style={{ display: 'inline-flex', width: '26px', minWidth: '26px', flexShrink: 0, justifyContent: 'flex-end', userSelect: 'none', WebkitUserSelect: 'none' }}>
-            <MessageStatus status={msg.status} isOwn={isOwn} />
+            <MessageStatus status={(msg.status === 'read' || msg.read) ? 'read' : (msg.status || 'sent')} isOwn={isOwn} />
           </span>
         )}
       </span>
@@ -211,9 +211,9 @@ export const MessageItem: React.FC<MessageItemProps> = React.memo(
               }}
             >
               <span style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>{timeStr}</span>
-              {isOwn && msg.status && (
+              {isOwn && (msg.status || msg.read) && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '5px', transform: 'translateY(-1.5px)', flexShrink: 0, userSelect: 'none', WebkitUserSelect: 'none' }}>
-                  <MessageStatus status={msg.status} isOwn={isOwn} />
+                  <MessageStatus status={(msg.status === 'read' || msg.read) ? 'read' : (msg.status || 'sent')} isOwn={isOwn} />
                 </span>
               )}
             </div>

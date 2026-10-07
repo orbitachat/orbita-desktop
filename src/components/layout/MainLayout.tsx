@@ -435,7 +435,7 @@ const ChatListItem = React.memo(({
     ? `${lastMsgTime.getHours().toString().padStart(2, '0')}:${lastMsgTime.getMinutes().toString().padStart(2, '0')}`
     : '';
   const isOwn = isMessageOutgoing(lastMsg, myCode, nickname, chat);
-  const status = isOwn && lastMsg?.status ? lastMsg.status : undefined;
+  const status = isOwn && (lastMsg?.status || lastMsg?.read) ? ((lastMsg?.status === 'read' || lastMsg?.read) ? 'read' : lastMsg?.status) : undefined;
 
   const rawDraft = useChatStore(
     useCallback((s) => s.draftsByChatId[chat.id], [chat.id])
@@ -3345,7 +3345,7 @@ export const MainLayout = () => {
         if (isSelf) return;
         const updatedMessages = messages.map((msg) =>
           (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && (msg.isOutgoing || isMessageOutgoing(msg, myC, nickname, chat, myUid)))
-            ? (msg.status === 'read' ? msg : { ...msg, status: 'delivered' as const })
+            ? (msg.status === 'read' || msg.read ? msg : { ...msg, status: 'delivered' as const })
             : msg
         );
         useChatStore.setState((state) => ({
@@ -4083,7 +4083,7 @@ export const MainLayout = () => {
         const updatedMessages = currentMessages.map((msg) => {
           const isTarget = (data.messageId && msg.id === data.messageId) || (data.time && msg.time <= data.time && msg.isOutgoing);
           if (isTarget) {
-            if (msg.status === 'read') return msg;
+            if (msg.status === 'read' || msg.read) return msg;
             return { ...msg, status: 'delivered' as const, deliveredAt: data.timestamp || Date.now() };
           }
           return msg;
@@ -4661,7 +4661,7 @@ export const MainLayout = () => {
         const messages = useChatStore.getState().messagesByChatId[chatId] || [];
         const updatedMessages = messages.map((msg) => {
           if (msg.id === messageId) {
-            if (msg.status === 'read' && status === 'delivered') return msg;
+            if ((msg.status === 'read' || msg.read) && status === 'delivered') return msg;
             return { ...msg, status, deliveredAt: timestamp };
           }
           return msg;

@@ -1252,7 +1252,21 @@ export const useChatStore = create<ChatState>()(
       updateMessageStatus: (chatId, messageId, status) => {
         const state = get();
         const messages = state.messagesByChatId[chatId] || [];
-        const updated = messages.map(m => m.id === messageId ? { ...m, status, read: status === 'read' ? true : m.read } : m);
+        const STATUS_RANK: Record<string, number> = {
+          sending: 1,
+          pending: 1,
+          sent: 2,
+          delivered: 3,
+          read: 4,
+        };
+        const updated = messages.map(m => {
+          if (m.id !== messageId) return m;
+          const currentStatus = (m.status === 'read' || m.read) ? 'read' : (m.status || 'sent');
+          const currentRank = STATUS_RANK[currentStatus] || 1;
+          const newRank = (status ? STATUS_RANK[status] : undefined) || 1;
+          if (currentRank > newRank) return m;
+          return { ...m, status, read: status === 'read' ? true : m.read };
+        });
         set({
           messagesByChatId: {
             ...state.messagesByChatId,

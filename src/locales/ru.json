@@ -956,7 +956,7 @@
     "userStatus": {
       "online": "в сети",
       "offline": "был(а) недавно",
-      "just_now": "только что",
+      "just_now": "был(а) секунду назад",
       "today_at": "был(а) сегодня в {{time}}",
       "yesterday_at": "был(а) вчера в {{time}}",
       "date_at": "был(а) {{date}} в {{time}}",
