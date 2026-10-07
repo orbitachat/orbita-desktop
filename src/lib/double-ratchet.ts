@@ -174,30 +174,7 @@ export class DoubleRatchet {
     });
   }
 
-  static initSymmetric(
-    rootKey: string,
-    ourDHPrivate: string,
-    ourDHPublic: string,
-    theirDHPublic: string,
-  ): DoubleRatchet {
-    const rootBytes = hexDecode(rootKey);
-    const { masterRootKey, chainAtoB, chainBtoA } = kdfSymmetricInit(rootBytes);
-
-    const isFirstRole = ourDHPublic.toLowerCase() < theirDHPublic.toLowerCase();
-
-    return new DoubleRatchet({
-      rootKey: hexEncode(masterRootKey),
-      sendChainKey: hexEncode(isFirstRole ? chainAtoB : chainBtoA),
-      recvChainKey: hexEncode(isFirstRole ? chainBtoA : chainAtoB),
-      sendIndex: 0,
-      recvIndex: 0,
-      prevSendCount: 0,
-      skippedKeys: {},
-      ourDHPrivate,
-      ourDHPublic,
-      theirDHPublic,
-    });
-  }
+  // Removed initSymmetric because it breaks the DH Ratchet and Post-Compromise Security.
 
   static fromState(state: RatchetState): DoubleRatchet {
     return new DoubleRatchet({
@@ -231,7 +208,7 @@ export class DoubleRatchet {
     return this.state.ourDHPublic;
   }
 
-  async encrypt(plaintext: string): Promise<{
+  async encrypt(plaintext: string, associatedData: Uint8Array = new Uint8Array(0)): Promise<{
     ciphertext: string;
     index: number;
     dhPublicKey: string;
@@ -252,7 +229,7 @@ export class DoubleRatchet {
 
     const plaintextBytes = new TextEncoder().encode(plaintext);
     const paddedBytes = padMessage(plaintextBytes);
-    const { ciphertext, nonce, tag } = await aesGcmEncrypt(msgKey, paddedBytes);
+    const { ciphertext, nonce, tag } = await aesGcmEncrypt(msgKey, paddedBytes, associatedData);
     zeroize(msgKey);
     zeroize(paddedBytes);
 
@@ -274,6 +251,7 @@ export class DoubleRatchet {
     index: number,
     dhPublicKeyHex: string,
     prevChainCount?: number,
+    associatedData: Uint8Array = new Uint8Array(0)
   ): Promise<string | null> {
     try {
       const combined = hexDecode(combinedHex);
@@ -288,7 +266,7 @@ export class DoubleRatchet {
       if (skippedEntry) {
         delete this.state.skippedKeys[`${dhPublicKeyHex}:${index}`];
         const msgKey = getSkippedKeyBytes(skippedEntry);
-        const decryptedBytes = await aesGcmDecrypt(msgKey, nonce, ciphertext, tag);
+        const decryptedBytes = await aesGcmDecrypt(msgKey, nonce, ciphertext, tag, associatedData);
         zeroize(msgKey);
         const unpadded = unpadMessage(decryptedBytes);
         return new TextDecoder().decode(unpadded);
@@ -313,7 +291,7 @@ export class DoubleRatchet {
       this.state.recvChainKey = hexEncode(nextChainKey);
       this.state.recvIndex = index + 1;
 
-      const decryptedBytes = await aesGcmDecrypt(msgKey, nonce, ciphertext, tag);
+      const decryptedBytes = await aesGcmDecrypt(msgKey, nonce, ciphertext, tag, associatedData);
       zeroize(msgKey);
       const unpadded = unpadMessage(decryptedBytes);
       return new TextDecoder().decode(unpadded);
@@ -433,8 +411,9 @@ function kdfChainKey(chainKey: Uint8Array): { msgKey: Uint8Array; nextChainKey: 
 async function aesGcmEncrypt(
   keyBytes: Uint8Array,
   plaintextBytes: Uint8Array,
+  associatedData: Uint8Array = new Uint8Array(0)
 ): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array; tag: Uint8Array }> {
-  if (window.orbita?.rustEncryptMessage) {
+  if (window.orbita?.rustEncryptMessage && associatedData.length === 0) {
     try {
       const res = await window.orbita.rustEncryptMessage(keyBytes, plaintextBytes);
       if (res && res.ciphertext && res.nonce && res.tag) {
@@ -461,7 +440,7 @@ async function aesGcmEncrypt(
   );
 
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce as BufferSource, tagLength: 128 },
+    { name: 'AES-GCM', iv: nonce as BufferSource, tagLength: 128, additionalData: associatedData },
     cryptoKey,
     plaintextBytes as BufferSource,
   );
@@ -478,8 +457,9 @@ async function aesGcmDecrypt(
   nonce: Uint8Array,
   ciphertext: Uint8Array,
   tag: Uint8Array,
+  associatedData: Uint8Array = new Uint8Array(0)
 ): Promise<Uint8Array> {
-  if (window.orbita?.rustDecryptMessage) {
+  if (window.orbita?.rustDecryptMessage && associatedData.length === 0) {
     try {
       const decrypted = await window.orbita.rustDecryptMessage(keyBytes, ciphertext, nonce, tag);
       if (decrypted) return new Uint8Array(decrypted);
@@ -501,7 +481,7 @@ async function aesGcmDecrypt(
   );
 
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: nonce as BufferSource, tagLength: 128 },
+    { name: 'AES-GCM', iv: nonce as BufferSource, tagLength: 128, additionalData: associatedData },
     cryptoKey,
     combined as BufferSource,
   );
