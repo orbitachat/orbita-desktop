@@ -137,25 +137,65 @@ export function getLocalKey(): Buffer | null {
 
   if (fs.existsSync(keyPath)) {
     try {
-      const encrypted = fs.readFileSync(keyPath);
+      const fileData = fs.readFileSync(keyPath);
       if (safeStorage.isEncryptionAvailable()) {
-        const decrypted = safeStorage.decryptString(encrypted);
-        localKey = Buffer.from(decrypted, 'hex');
-        if (!fs.existsSync(backupPath)) {
-          try { fs.writeFileSync(backupPath, encrypted); } catch {}
+        try {
+          const decrypted = safeStorage.decryptString(fileData);
+          localKey = Buffer.from(decrypted, 'hex');
+          if (!fs.existsSync(backupPath)) {
+            try { fs.writeFileSync(backupPath, fileData); } catch {}
+          }
+          return localKey;
+        } catch {
+          // Fallback if the key was saved raw before safeStorage was introduced
+          if (fileData.length === 32) {
+            localKey = fileData;
+            // Upgrade to safeStorage
+            try {
+              const encrypted = safeStorage.encryptString(localKey.toString('hex'));
+              fs.writeFileSync(keyPath, encrypted);
+              fs.writeFileSync(backupPath, encrypted);
+            } catch {}
+            return localKey;
+          }
         }
-        return localKey;
+      } else {
+        if (fileData.length === 32) {
+          localKey = fileData;
+          return localKey;
+        }
       }
     } catch {}
   }
 
   if (fs.existsSync(backupPath)) {
     try {
-      const encrypted = fs.readFileSync(backupPath);
+      const fileData = fs.readFileSync(backupPath);
       if (safeStorage.isEncryptionAvailable()) {
-        const decrypted = safeStorage.decryptString(encrypted);
-        localKey = Buffer.from(decrypted, 'hex');
-        return localKey;
+        try {
+          const decrypted = safeStorage.decryptString(fileData);
+          localKey = Buffer.from(decrypted, 'hex');
+          // Restore main key file
+          try { fs.writeFileSync(keyPath, fileData); } catch {}
+          return localKey;
+        } catch {
+          if (fileData.length === 32) {
+            localKey = fileData;
+            // Upgrade
+            try {
+              const encrypted = safeStorage.encryptString(localKey.toString('hex'));
+              fs.writeFileSync(keyPath, encrypted);
+              fs.writeFileSync(backupPath, encrypted);
+            } catch {}
+            return localKey;
+          }
+        }
+      } else {
+        if (fileData.length === 32) {
+          localKey = fileData;
+          try { fs.writeFileSync(keyPath, fileData); } catch {}
+          return localKey;
+        }
       }
     } catch {}
   }
