@@ -174,7 +174,35 @@ export class DoubleRatchet {
     });
   }
 
-  // Removed initSymmetric because it breaks the DH Ratchet and Post-Compromise Security.
+  /**
+   * @deprecated Legacy symmetric initialization. Does not provide Post-Compromise Security. Use initAsInitiator/initAsResponder with X3DH instead.
+   */
+  static initSymmetric(
+    rootKeyStr: string,
+    ourDHPrivate: string,
+    ourDHPublic: string,
+    theirDHPublic: string,
+  ): DoubleRatchet {
+    const rootKeyBytes = hexDecode(rootKeyStr);
+    const { masterRootKey, chainAtoB, chainBtoA } = kdfSymmetricInit(rootKeyBytes);
+
+    const isInitiator = ourDHPublic > theirDHPublic;
+    const sendChainKey = isInitiator ? chainAtoB : chainBtoA;
+    const recvChainKey = isInitiator ? chainBtoA : chainAtoB;
+
+    return new DoubleRatchet({
+      rootKey: hexEncode(masterRootKey),
+      sendChainKey: hexEncode(sendChainKey),
+      recvChainKey: hexEncode(recvChainKey),
+      sendIndex: 0,
+      recvIndex: 0,
+      prevSendCount: 0,
+      skippedKeys: {},
+      ourDHPrivate,
+      ourDHPublic,
+      theirDHPublic,
+    });
+  }
 
   static fromState(state: RatchetState): DoubleRatchet {
     return new DoubleRatchet({

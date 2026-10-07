@@ -23,6 +23,10 @@ interface AuthState {
   backupEnabled: boolean;
   backupFolder: string | null;
   lastBackupTime: number | null;
+  identityKeyPair: { publicKey: string; privateKey: string } | null;
+  signedPreKeyPair: { publicKey: string; privateKey: string } | null;
+  identitySigningKeyPair: { publicKey: string; privateKey: string } | null;
+  oneTimePreKeys: Array<{ id: string; keyId: number; publicKey: string; privateKey: string }>;
   setUserId: (id: string) => void;
   setNumericId: (numericId: string) => void;
   setStep: (step: AuthStep) => void;
@@ -36,6 +40,13 @@ interface AuthState {
   setConfigVersion: (version: number) => void;
   setSyncStatus: (status: CloudSyncStatus, lastSyncTime?: number | null) => void;
   setBackupConfig: (config: { enabled?: boolean; folder?: string | null; lastBackupTime?: number | null }) => void;
+  setIdentityKeys: (keys: {
+    identityKeyPair: { publicKey: string; privateKey: string };
+    signedPreKeyPair: { publicKey: string; privateKey: string };
+    identitySigningKeyPair: { publicKey: string; privateKey: string };
+    oneTimePreKeys: Array<{ id: string; keyId: number; publicKey: string; privateKey: string }>;
+  }) => void;
+  consumeOneTimePreKey: (id: string) => void;
   deleteAccount: () => void;
   exportAuthState: () => any;
   importAuthState: (data: any) => void;
@@ -171,6 +182,10 @@ export const useAuthStore = create<AuthState>()(
       backupEnabled: false,
       backupFolder: null,
       lastBackupTime: null,
+      identityKeyPair: null,
+      signedPreKeyPair: null,
+      identitySigningKeyPair: null,
+      oneTimePreKeys: [],
       setUserId: (userId) => set({ userId }),
       setNumericId: (numericId) => set({ numericId }),
       setStep: (step) => {
@@ -250,6 +265,11 @@ export const useAuthStore = create<AuthState>()(
           backupFolder: config.folder !== undefined ? config.folder : prev.backupFolder,
           lastBackupTime: config.lastBackupTime !== undefined ? config.lastBackupTime : prev.lastBackupTime,
         })),
+      setIdentityKeys: (keys) => set({ ...keys }),
+      consumeOneTimePreKey: (id) =>
+        set((prev) => ({
+          oneTimePreKeys: prev.oneTimePreKeys.filter((k) => k.id !== id),
+        })),
       deleteAccount: () => {
         if (typeof window !== 'undefined') {
           import('../services/accountManager').then((m) => {
@@ -277,6 +297,10 @@ export const useAuthStore = create<AuthState>()(
               backupEnabled: false,
               backupFolder: null,
               lastBackupTime: null,
+              identityKeyPair: null,
+              signedPreKeyPair: null,
+              identitySigningKeyPair: null,
+              oneTimePreKeys: [],
             });
           });
         }
@@ -298,6 +322,10 @@ export const useAuthStore = create<AuthState>()(
         backupEnabled: get().backupEnabled,
         backupFolder: get().backupFolder,
         lastBackupTime: get().lastBackupTime,
+        identityKeyPair: get().identityKeyPair,
+        signedPreKeyPair: get().signedPreKeyPair,
+        identitySigningKeyPair: get().identitySigningKeyPair,
+        oneTimePreKeys: get().oneTimePreKeys,
       }),
       importAuthState: (data: any) => {
         const uid = data?.userId || getInitialUserId();
@@ -318,6 +346,10 @@ export const useAuthStore = create<AuthState>()(
           backupEnabled: data?.backupEnabled || false,
           backupFolder: data?.backupFolder || null,
           lastBackupTime: data?.lastBackupTime || null,
+          identityKeyPair: data?.identityKeyPair || null,
+          signedPreKeyPair: data?.signedPreKeyPair || null,
+          identitySigningKeyPair: data?.identitySigningKeyPair || null,
+          oneTimePreKeys: data?.oneTimePreKeys || [],
         });
       },
     }),

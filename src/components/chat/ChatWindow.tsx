@@ -2893,33 +2893,78 @@ export const ChatWindow = memo(({ isMobileView = false, onBack }: ChatWindowProp
         }
 
         if (freshChat?.isDraft) {
-          const myKeys = generateKeyPair();
           const friendCode = freshChat.peerCode || activeChat?.peerCode;
+          
+          let myKeys = generateKeyPair();
+          let sharedSecret = myKeys.privateKey;
+          let ratchetState = undefined;
+          let x3dhData: any = undefined;
+
+          // Try X3DH if friend code exists
+          if (friendCode) {
+            const bundle = await supabaseService.fetchPreKeyBundle(friendCode);
+            const myAuth = useAuthStore.getState();
+            if (bundle && myAuth.identityKeyPair) {
+              const { x3dhInitiator } = await import('../../lib/x3dh');
+              try {
+                const sk = await x3dhInitiator(
+                  myAuth.identityKeyPair,
+                  myKeys, // Ephemeral key
+                  bundle.identityKey,
+                  bundle.signedPreKey,
+                  bundle.identitySigningKey || '',
+                  bundle.preKeySignature,
+                  bundle.oneTimePreKey?.publicKey
+                );
+                const { deriveRootKey } = await import('../../lib/crypto');
+                const rootKey = deriveRootKey(sk);
+                const { DoubleRatchet } = await import('../../lib/double-ratchet');
+                // Initiate Double Ratchet as Alice
+                const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, bundle.signedPreKey);
+                
+                sharedSecret = sk;
+                ratchetState = ratchet.getState();
+                x3dhData = {
+                  isX3DH: true,
+                  identityKey: myAuth.identityKeyPair.publicKey,
+                  usedPreKey: bundle.signedPreKey,
+                  usedOneTimePreKey: bundle.oneTimePreKey?.publicKey,
+                };
+              } catch (err) {
+                console.error('[X3DH] Fallback to legacy handshake:', err);
+              }
+            }
+          }
+
           const myUsername = useAuthStore.getState().username;
           const myBio = useAuthStore.getState().bio;
           const myBirthday = useAuthStore.getState().birthday;
           const myNumericId = useAuthStore.getState().numericId;
-          const reqPayload = {
+          const reqPayload: any = {
             senderNickname: myNickname,
             senderCode: myCode,
-            publicKey: myKeys.publicKey,
+            publicKey: myKeys.publicKey, // This is Ephemeral Key in X3DH, or DH key in legacy
             avatarUrl: myAvatarUrl,
             chatId: activeChatId,
             numericId: myNumericId,
             username: myUsername,
             bio: myBio,
             birthday: myBirthday,
+            ...x3dhData,
           };
 
           updateChat(activeChatId, {
             isDraft: false,
-            sharedSecret: myKeys.privateKey,
+            sharedSecret: sharedSecret,
+            ratchetState: ratchetState,
             isChatInitiator: true,
+            lastMsg: x3dhData ? 'E2EE_SECURE_CHANNEL_READY' : '',
           });
           freshChat = {
             ...freshChat,
             isDraft: false,
-            sharedSecret: myKeys.privateKey,
+            sharedSecret: sharedSecret,
+            ratchetState: ratchetState,
             isChatInitiator: true,
           };
 

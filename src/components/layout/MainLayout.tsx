@@ -1167,7 +1167,7 @@ export const MainLayout = () => {
       cleanUsername ? cleanUsername.toLowerCase() : null,
     ].filter(Boolean))) as string[];
 
-    const handleRequest = (data: any) => {
+    const handleRequest = async (data: any) => {
       console.log('[Handshake] Real-time request received:', data);
       const chatId = data.chatId;
 
@@ -1183,11 +1183,51 @@ export const MainLayout = () => {
         return;
       }
 
-      const myKeys = generateKeyPair();
-      const sharedSecret = deriveSharedSecret(myKeys.privateKey, data.publicKey);
-      const rootKey = deriveRootKey(sharedSecret);
+      let sharedSecret: string;
+      let ratchet: DoubleRatchet;
+      let myKeys: { publicKey: string; privateKey: string } | undefined;
 
-      const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, data.publicKey);
+      if (data.isX3DH) {
+        // X3DH Responder Logic
+        const myAuth = useAuthStore.getState();
+        if (!myAuth.identityKeyPair || !myAuth.signedPreKeyPair) {
+          console.warn('[X3DH] Cannot respond to X3DH: missing local identity keys. Falling back to legacy.');
+          myKeys = generateKeyPair();
+          sharedSecret = deriveSharedSecret(myKeys.privateKey, data.publicKey);
+          const rootKey = deriveRootKey(sharedSecret);
+          ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, data.publicKey);
+        } else {
+          const { x3dhResponder } = await import('../../lib/x3dh');
+          try {
+            const usedOneTimePreKey = data.usedOneTimePreKey
+              ? myAuth.oneTimePreKeys?.find(k => k.publicKey === data.usedOneTimePreKey)
+              : undefined;
+
+            sharedSecret = await x3dhResponder(
+              myAuth.identityKeyPair,
+              myAuth.signedPreKeyPair,
+              data.identityKey,
+              data.publicKey, // Alice's ephemeral key
+              usedOneTimePreKey
+            );
+            const rootKey = deriveRootKey(sharedSecret);
+            // Initiate Double Ratchet as Bob (responder)
+            ratchet = DoubleRatchet.initSymmetric(rootKey, myAuth.signedPreKeyPair.privateKey, myAuth.signedPreKeyPair.publicKey, data.publicKey);
+          } catch (err) {
+            console.error('[X3DH] Responder failed, falling back to legacy:', err);
+            myKeys = generateKeyPair();
+            sharedSecret = deriveSharedSecret(myKeys.privateKey, data.publicKey);
+            const rootKey = deriveRootKey(sharedSecret);
+            ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, data.publicKey);
+          }
+        }
+      } else {
+        // Legacy Handshake
+        myKeys = generateKeyPair();
+        sharedSecret = deriveSharedSecret(myKeys.privateKey, data.publicKey);
+        const rootKey = deriveRootKey(sharedSecret);
+        ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, data.publicKey);
+      }
 
       const senderNumericId = data.numericId || data.numeric_id || (data.senderCode ? getInitialNumericId(data.senderCode) : undefined);
       addChat({
@@ -1208,29 +1248,15 @@ export const MainLayout = () => {
         birthday: data.birthday || undefined,
       });
 
-      const myCurrentUsername = useAuthStore.getState().username;
-      const myCurrentBio = useAuthStore.getState().bio;
-      const myCurrentBirthday = useAuthStore.getState().birthday;
-      const myCurrentNumericId = useAuthStore.getState().numericId;
+      if (!data.isX3DH) {
+        const myCurrentUsername = useAuthStore.getState().username;
+        const myCurrentBio = useAuthStore.getState().bio;
+        const myCurrentBirthday = useAuthStore.getState().birthday;
+        const myCurrentNumericId = useAuthStore.getState().numericId;
 
-      ablyService.sendHandshakeConfirm(data.senderCode, {
-        nickname,
-        publicKey: myKeys.publicKey,
-        chatId,
-        avatarUrl,
-        senderCode: myCode,
-        numericId: myCurrentNumericId,
-        username: myCurrentUsername,
-        bio: myCurrentBio,
-        birthday: myCurrentBirthday,
-      }).catch((err) => console.warn('[Ably] Handshake confirm send error:', err));
-
-      const pusher = getPusher();
-      const senderChannel = pusher.subscribe(`private-handshake-${data.senderCode}`);
-      const sendConfirm = () =>
-        senderChannel.trigger('client-identity-confirmed', {
+        ablyService.sendHandshakeConfirm(data.senderCode, {
           nickname,
-          publicKey: myKeys.publicKey,
+          publicKey: myKeys?.publicKey,
           chatId,
           avatarUrl,
           senderCode: myCode,
@@ -1238,29 +1264,45 @@ export const MainLayout = () => {
           username: myCurrentUsername,
           bio: myCurrentBio,
           birthday: myCurrentBirthday,
-        });
+        }).catch((err) => console.warn('[Ably] Handshake confirm send error:', err));
 
-      if (senderChannel.subscribed) sendConfirm();
-      else senderChannel.bind('pusher:subscription_succeeded', sendConfirm);
+        const pusher = getPusher();
+        const senderChannel = pusher.subscribe(`private-handshake-${data.senderCode}`);
+        const sendConfirm = () =>
+          senderChannel.trigger('client-identity-confirmed', {
+            nickname,
+            publicKey: myKeys?.publicKey,
+            chatId,
+            avatarUrl,
+            senderCode: myCode,
+            numericId: myCurrentNumericId,
+            username: myCurrentUsername,
+            bio: myCurrentBio,
+            birthday: myCurrentBirthday,
+          });
 
-      supabaseService.sendOfflineHandshake(
-        chatId,
-        `CONFIRM:${data.senderCode}`,
-        nickname,
-        myKeys.publicKey,
-        avatarUrl,
-        myCode
-      ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by code:', err));
+        if (senderChannel.subscribed) sendConfirm();
+        else senderChannel.bind('pusher:subscription_succeeded', sendConfirm);
 
-      if (data.senderNickname && data.senderNickname !== data.senderCode) {
         supabaseService.sendOfflineHandshake(
           chatId,
-          `CONFIRM:${data.senderNickname}`,
+          `CONFIRM:${data.senderCode}`,
           nickname,
-          myKeys.publicKey,
+          myKeys?.publicKey || '',
           avatarUrl,
           myCode
-        ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by nick:', err));
+        ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by code:', err));
+
+        if (data.senderNickname && data.senderNickname !== data.senderCode) {
+          supabaseService.sendOfflineHandshake(
+            chatId,
+            `CONFIRM:${data.senderNickname}`,
+            nickname,
+            myKeys?.publicKey || '',
+            avatarUrl,
+            myCode
+          ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by nick:', err));
+        }
       }
 
       if (data.senderCode) {

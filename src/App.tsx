@@ -23,6 +23,7 @@ import { initAutoBackupListener } from './services/accountBackupService';
 import { accountSyncService } from './services/accountSyncService';
 import { useAccountStore } from './services/accountManager';
 import { appVisibility } from './utils/appVisibility';
+import { initializeIdentityKeys } from './lib/identityKeys';
 
 appVisibility.init();
 
@@ -173,6 +174,11 @@ function App() {
   useEffect(() => {
     if (isHydrated && step === 'main') {
       accountSyncService.init();
+      
+      const activeId = useAuthStore.getState().userId;
+      if (activeId) {
+        initializeIdentityKeys(activeId).catch(console.error);
+      }
     }
   }, [isHydrated, step]);
 

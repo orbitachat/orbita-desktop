@@ -60,6 +60,7 @@ export interface UserPublicKeysRecord {
   identity_key: string;
   signed_pre_key: string;
   pre_key_signature: string;
+  identity_signing_key?: string | null;
   updated_at: string;
 }
 
@@ -75,6 +76,7 @@ export interface PreKeyBundle {
   identityKey: string;
   signedPreKey: string;
   preKeySignature: string;
+  identitySigningKey?: string;
   oneTimePreKey?: {
     id: string;
     keyId: number;
@@ -1237,7 +1239,8 @@ class SupabaseService {
     identityKey: string,
     signedPreKey: string,
     preKeySignature: string,
-    oneTimePreKeys: Array<{ keyId: number; publicKey: string }>
+    oneTimePreKeys: Array<{ keyId: number; publicKey: string }>,
+    identitySigningKey?: string
   ): Promise<void> {
     if (!this.client || !userCode) return;
 
@@ -1250,6 +1253,7 @@ class SupabaseService {
           identity_key: identityKey,
           signed_pre_key: signedPreKey,
           pre_key_signature: preKeySignature,
+          identity_signing_key: identitySigningKey,
           updated_at: new Date().toISOString(),
         });
         
@@ -1300,11 +1304,12 @@ class SupabaseService {
         identityKey: mainKeys.identity_key,
         signedPreKey: mainKeys.signed_pre_key,
         preKeySignature: mainKeys.pre_key_signature,
+        identitySigningKey: mainKeys.identity_signing_key,
       };
 
       // 2. Пытаемся получить и удалить (с помощью RPC) один одноразовый ключ
       try {
-        const { data: otpkData, error: otpkError } = await this.client.rpc('consume_one_time_pre_key', {
+        await this.client.rpc('consume_one_time_pre_key', {
           p_user_code: userCode,
         });
 
