@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download, RotateCcw, User } from 'lucide-react';
+import { Volume2, Trash2, Database, ChevronRight, ChevronDown, Check, Eye, EyeOff, CheckCircle2, XCircle, Bell, RefreshCw, Download, RotateCcw, User, Key, AtSign, Gift, Plus } from 'lucide-react';
 import { securityService } from '../../services/securityService';
 import { useState, useRef, type ReactNode, useEffect, useCallback, memo } from 'react';
 import {
@@ -3870,175 +3870,74 @@ export const SettingsScreen = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Block style={{ padding: '12px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-color, #9b7dd4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {t('profile.bio_label', 'О себе')}
-            </label>
-            <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>
-              {140 - localBio.length}
-            </span>
-          </div>
-          <textarea
-            value={localBio}
-            onChange={handleBioChange}
-            onBlur={handleBioBlur}
-            maxLength={140}
-            rows={2}
-            placeholder={t('profile.bio_placeholder', 'О себе')}
-            aria-label={t('profile.bio_label', 'О себе')}
-            style={{
-              width: '100%',
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.12))',
-              color: MD3.onSurface,
-              fontSize: '14px',
-              lineHeight: '1.4',
-              resize: 'none',
-              outline: 'none',
-              padding: '4px 0',
-              fontFamily: 'inherit',
-              boxSizing: 'border-box',
-            }}
-          />
-        </Block>
-        <div style={{ padding: '0 20px', fontSize: '12.5px', color: MD3.onSurfaceVar, lineHeight: '1.45' }}>
-          <p style={{ margin: '0 0 2px' }}>
-            {t('profile.bio_hint', 'Напишите о себе любые слова, например: род ваших занятий в свободное время.')}
-          </p>
-          <p style={{ margin: 0, opacity: 0.75 }}>
-            {t('profile.bio_example', 'Пример: На досуге я занимаюсь разработкой мессенджера и спортом.')}
-          </p>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Block>
-          <div
-            onClick={() => setNameEditOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 20px',
-              cursor: 'pointer',
-              transition: 'background 150ms',
-              backgroundColor: 'transparent',
-              width: '100%',
-              boxSizing: 'border-box',
-              userSelect: 'none',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.name_label', 'Имя')}</span>
-              <span style={{ fontSize: '14.5px', fontWeight: 500, color: MD3.onSurface }}>{nickname || 'User'}</span>
-            </div>
-            <ChevronRight size={18} color={MD3.onSurfaceVar} />
-          </div>
-
-          <div
-            onClick={handleCopyCode}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 20px',
-              cursor: 'pointer',
-              transition: 'background 150ms',
-              backgroundColor: 'transparent',
-              width: '100%',
-              boxSizing: 'border-box',
-              userSelect: 'none',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.account_id', 'ID аккаунта')}</span>
-              <span style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--accent-color, #9b7dd4)', fontFamily: '"JetBrains Mono", Consolas, monospace', wordBreak: 'break-all' }}>
-                {myCode || userId || '------'}
-              </span>
-            </div>
-            <ChevronRight size={18} color={MD3.onSurfaceVar} />
-          </div>
-
-          <div
-            onClick={() => setUsernameEditOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 20px',
-              cursor: 'pointer',
-              transition: 'background 150ms',
-              backgroundColor: 'transparent',
-              width: '100%',
-              boxSizing: 'border-box',
-              userSelect: 'none',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.username_label', 'Имя пользователя')}</span>
-              <span style={{ fontSize: '14.5px', fontWeight: 500, color: username ? MD3.onSurface : MD3.onSurfaceVar }}>
-                {username ? `@${username}` : t('profile.username_not_set', 'Не установлено')}
-              </span>
-            </div>
-            <ChevronRight size={18} color={MD3.onSurfaceVar} />
-          </div>
-
-          <div
-            onClick={() => setBirthdayEditOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 20px',
-              cursor: 'pointer',
-              transition: 'background 150ms',
-              backgroundColor: 'transparent',
-              width: '100%',
-              boxSizing: 'border-box',
-              userSelect: 'none',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: '12px', color: MD3.onSurfaceVar }}>{t('profile.birthday_label', 'День рождения')}</span>
-              <span style={{ fontSize: '14.5px', fontWeight: 500, color: birthday ? MD3.onSurface : MD3.onSurfaceVar }}>
-                {birthday ? formatBirthday(birthday, i18n.language) : t('profile.birthday_not_set', 'Не указан')}
-              </span>
-            </div>
-            <ChevronRight size={18} color={MD3.onSurfaceVar} />
-          </div>
-        </Block>
-
-        <div style={{ padding: '0 20px', fontSize: '12.5px', color: MD3.onSurfaceVar, lineHeight: '1.45', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <p style={{ margin: 0 }}>
-            {t('profile.username_hint', 'Люди смогут найти вас в поиске по имени пользователя и связаться с вами, даже не зная вашего ID аккаунта.')}
-          </p>
-          <p style={{ margin: 0 }}>
-            {t('profile.birthday_hint', 'Ваш день рождения будет отображаться в профиле, если вы его укажете.')}
-          </p>
-        </div>
-      </div>
-
-      <Block>
-        <div
-          onClick={async () => {
-            await prepareAddSecondAccount();
-            setCurrentView('chats');
+      <div
+        style={{
+          padding: '12px 20px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 12,
+          boxSizing: 'border-box',
+          width: '100%',
+        }}
+      >
+        <textarea
+          value={localBio}
+          onChange={handleBioChange}
+          onBlur={handleBioBlur}
+          maxLength={140}
+          rows={localBio ? 2 : 1}
+          placeholder={t('profile.bio_placeholder', 'О себе')}
+          aria-label={t('profile.bio_placeholder', 'О себе')}
+          className="placeholder:text-[var(--md-on-surface-var,#9f96b3)] placeholder:opacity-60"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: MD3.onSurface,
+            fontSize: '14.5px',
+            lineHeight: '1.4',
+            resize: 'none',
+            outline: 'none',
+            padding: 0,
+            margin: 0,
+            fontFamily: 'inherit',
+            boxSizing: 'border-box',
           }}
+        />
+        <span style={{ fontSize: '13px', color: MD3.onSurfaceVar, flexShrink: 0, userSelect: 'none', paddingTop: 1 }}>
+          {140 - localBio.length}
+        </span>
+      </div>
+
+      <div
+        style={{
+          backgroundColor: MD3.surface,
+          padding: '10px 20px',
+          fontSize: '13px',
+          color: MD3.onSurfaceVar,
+          lineHeight: '1.45',
+          userSelect: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div style={{ margin: '0 0 2px' }}>
+          {t('profile.bio_hint', 'Любые подробности, например: возраст, род занятий или город.')}
+        </div>
+        <div style={{ margin: 0, opacity: 0.8 }}>
+          {t('profile.bio_example', 'Пример: 23 года, дизайнер из Санкт-Петербурга.')}
+        </div>
+      </div>
+
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div
+          onClick={() => setNameEditOpen(true)}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 16,
+            justifyContent: 'space-between',
             padding: '12px 20px',
             cursor: 'pointer',
             transition: 'background 150ms',
@@ -4047,34 +3946,182 @@ export const SettingsScreen = () => {
             boxSizing: 'border-box',
             userSelect: 'none',
           }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(202,196,208,0.08)')}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)')}
           onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              backgroundColor: 'var(--accent-color, #7c3aed)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <User size={18} color={MD3.onSurfaceVar} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '14.5px', fontWeight: 500, color: MD3.onSurface }}>
+              {t('profile.name', 'Имя')}
+            </span>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-color, #9b7dd4)', margin: 0 }}>
-              {t('mainMenu.add_account', 'Добавить аккаунт')}
-            </p>
-          </div>
+          <span style={{ fontSize: '14.5px', fontWeight: 500, color: MD3.onSurface, maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {nickname || 'User'}
+          </span>
         </div>
-      </Block>
+
+        <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginLeft: 52 }} />
+
+        <div
+          onClick={handleCopyCode}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 20px',
+            cursor: 'pointer',
+            transition: 'background 150ms',
+            backgroundColor: 'transparent',
+            width: '100%',
+            boxSizing: 'border-box',
+            userSelect: 'none',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Key size={18} color={MD3.onSurfaceVar} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '14.5px', fontWeight: 500, color: MD3.onSurface }}>
+              {t('profile.account_id', 'ID аккаунта')}
+            </span>
+          </div>
+          <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--accent-color, #9b7dd4)', fontFamily: '"JetBrains Mono", Consolas, monospace', maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {myCode || userId || '------'}
+          </span>
+        </div>
+
+        <div style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginLeft: 52 }} />
+
+        <div
+          onClick={() => setUsernameEditOpen(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 20px',
+            cursor: 'pointer',
+            transition: 'background 150ms',
+            backgroundColor: 'transparent',
+            width: '100%',
+            boxSizing: 'border-box',
+            userSelect: 'none',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <AtSign size={18} color={MD3.onSurfaceVar} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '14.5px', fontWeight: 500, color: MD3.onSurface }}>
+              {t('profile.username_label', 'Имя пользователя')}
+            </span>
+          </div>
+          <span style={{ fontSize: '14.5px', fontWeight: 500, color: username ? 'var(--accent-color, #9b7dd4)' : MD3.onSurfaceVar, maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {username ? `@${username}` : t('profile.username_not_set', 'Не установлено')}
+          </span>
+        </div>
+      </div>
+
+      <div
+        style={{
+          backgroundColor: MD3.surface,
+          padding: '10px 20px',
+          fontSize: '13px',
+          color: MD3.onSurfaceVar,
+          lineHeight: '1.45',
+          userSelect: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
+        {t('profile.username_hint', 'С помощью имени пользователя другие люди смогут связаться с вами, не зная вашего ID аккаунта.')}
+      </div>
+
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div
+          onClick={() => setBirthdayEditOpen(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 20px',
+            cursor: 'pointer',
+            transition: 'background 150ms',
+            backgroundColor: 'transparent',
+            width: '100%',
+            boxSizing: 'border-box',
+            userSelect: 'none',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Gift size={18} color={MD3.onSurfaceVar} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '14.5px', fontWeight: 500, color: MD3.onSurface }}>
+              {t('profile.birthday_label', 'День рождения')}
+            </span>
+          </div>
+          <span style={{ fontSize: '14.5px', fontWeight: 500, color: birthday ? 'var(--accent-color, #9b7dd4)' : MD3.onSurfaceVar }}>
+            {birthday ? formatBirthday(birthday, i18n.language) : t('profile.birthday_not_set', 'Не указан')}
+          </span>
+        </div>
+      </div>
+
+      <div
+        style={{
+          backgroundColor: MD3.surface,
+          padding: '10px 20px',
+          fontSize: '13px',
+          color: MD3.onSurfaceVar,
+          lineHeight: '1.45',
+          userSelect: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
+        {t('profile.birthday_hint', 'В настройках можно выбрать, кто будет видеть Ваш день рождения.')}
+      </div>
+
+      <div
+        onClick={async () => {
+          await prepareAddSecondAccount();
+          setCurrentView('chats');
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          padding: '14px 20px',
+          cursor: 'pointer',
+          transition: 'background 150ms',
+          backgroundColor: 'transparent',
+          width: '100%',
+          boxSizing: 'border-box',
+          userSelect: 'none',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)')}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            backgroundColor: 'var(--accent-color, #7c3aed)',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Plus size={16} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-color, #9b7dd4)', margin: 0 }}>
+            {t('mainMenu.add_account', 'Добавить аккаунт')}
+          </p>
+        </div>
+      </div>
     </motion.div>
   );
 
