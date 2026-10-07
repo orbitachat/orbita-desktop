@@ -1667,82 +1667,88 @@ export const MainLayout = () => {
     const processedIds = new Set<string>();
 
     try {
-      // 1. Incoming handshake requests (checking both myCode and nickname)
-      for (const key of keysToCheck) {
-        const records = await supabaseService.getPendingHandshakes(key);
-        for (const hs of records) {
-          if (processedIds.has(hs.id)) continue;
-          processedIds.add(hs.id);
+      const nestedRecords = await Promise.all(
+        keysToCheck.map(key => supabaseService.getPendingHandshakes(key).catch(() => []))
+      );
+      const records = nestedRecords.flat();
 
-          const currentChats = useChatStore.getState().chats;
-          if (currentChats.some(c => c.id === hs.chat_id) || useChatStore.getState().deletedChatIds?.includes(hs.chat_id)) {
-            await supabaseService.markHandshakeConsumed(hs.id);
-            continue;
-          }
+      for (const hs of records) {
+        if (processedIds.has(hs.id)) continue;
+        processedIds.add(hs.id);
 
-          const myKeys = generateKeyPair();
-          const sharedSecret = deriveSharedSecret(myKeys.privateKey, hs.sender_public_key);
-          const rootKey = deriveRootKey(sharedSecret);
-
-          const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, hs.sender_public_key);
-          const peerCodeForOffline = hs.sender_code || hs.recipient_code;
-
-          addChat({
-            id: hs.chat_id,
-            type: 'private',
-            name: hs.sender_nickname,
-            lastMsg: 'E2EE_SECURE_CHANNEL_READY',
-            online: false,
-            sharedSecret: sharedSecret,
-            isChatInitiator: false,
-            ratchetState: ratchet.getState(),
-            avatarUrl: hs.sender_avatar_url ?? undefined,
-            peerCode: peerCodeForOffline,
-          });
-
-          if (peerCodeForOffline) {
-            supabaseService.sendOfflineHandshake(
-              hs.chat_id,
-              `CONFIRM:${peerCodeForOffline}`,
-              nickname,
-              myKeys.publicKey,
-              avatarUrl,
-              myCode
-            ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by code:', err));
-          }
-
-          if (hs.sender_nickname && hs.sender_nickname !== peerCodeForOffline) {
-            supabaseService.sendOfflineHandshake(
-              hs.chat_id,
-              `CONFIRM:${hs.sender_nickname}`,
-              nickname,
-              myKeys.publicKey,
-              avatarUrl,
-              myCode
-            ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by nick:', err));
-          }
-
+        const currentChats = useChatStore.getState().chats;
+        if (currentChats.some(c => c.id === hs.chat_id) || useChatStore.getState().deletedChatIds?.includes(hs.chat_id)) {
           await supabaseService.markHandshakeConsumed(hs.id);
+          continue;
+        }
 
-          if (hs.sender_code) {
-            revalidateDevelopersOnConnection(hs.sender_code);
-          }
+        const myKeys = generateKeyPair();
+        const sharedSecret = deriveSharedSecret(myKeys.privateKey, hs.sender_public_key);
+        const rootKey = deriveRootKey(sharedSecret);
+
+        const ratchet = DoubleRatchet.initSymmetric(rootKey, myKeys.privateKey, myKeys.publicKey, hs.sender_public_key);
+        const peerCodeForOffline = hs.sender_code || hs.recipient_code;
+
+        addChat({
+          id: hs.chat_id,
+          type: 'private',
+          name: hs.sender_nickname,
+          lastMsg: 'E2EE_SECURE_CHANNEL_READY',
+          online: false,
+          sharedSecret: sharedSecret,
+          isChatInitiator: false,
+          ratchetState: ratchet.getState(),
+          avatarUrl: hs.sender_avatar_url ?? undefined,
+          peerCode: peerCodeForOffline,
+        });
+
+        subscribeToChat(hs.chat_id, sharedSecret);
+        subscribeToDeliveryUpdates(hs.chat_id);
+
+        if (peerCodeForOffline) {
+          supabaseService.sendOfflineHandshake(
+            hs.chat_id,
+            `CONFIRM:${peerCodeForOffline}`,
+            nickname,
+            myKeys.publicKey,
+            avatarUrl,
+            myCode
+          ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by code:', err));
+        }
+
+        if (hs.sender_nickname && hs.sender_nickname !== peerCodeForOffline) {
+          supabaseService.sendOfflineHandshake(
+            hs.chat_id,
+            `CONFIRM:${hs.sender_nickname}`,
+            nickname,
+            myKeys.publicKey,
+            avatarUrl,
+            myCode
+          ).catch((err) => console.warn('[Handshake] Failed to save offline confirmation by nick:', err));
+        }
+
+        await supabaseService.markHandshakeConsumed(hs.id);
+
+        if (hs.sender_code) {
+          revalidateDevelopersOnConnection(hs.sender_code);
         }
       }
 
       const confirmKeys = keysToCheck.map(k => `CONFIRM:${k}`);
+      const nestedConfirmations = await Promise.all(
+        confirmKeys.map(key => supabaseService.getPendingHandshakes(key).catch(() => []))
+      );
+      const confirmations = nestedConfirmations.flat();
 
-      for (const key of confirmKeys) {
-        const confirmations = await supabaseService.getPendingHandshakes(key);
-        for (const conf of confirmations) {
-          const currentChats = useChatStore.getState().chats;
-          const existing = currentChats.find(c => c.id === conf.chat_id);
+      for (const conf of confirmations) {
+        const currentChats = useChatStore.getState().chats;
+        const existing = currentChats.find(c => c.id === conf.chat_id);
 
-          if (!existing || useChatStore.getState().deletedChatIds?.includes(conf.chat_id)) {
-            console.warn('[Handshake] Confirmation received but chat not found or deleted, consuming:', conf.chat_id);
-            await supabaseService.markHandshakeConsumed(conf.id).catch(() => {});
-            continue;
-          }
+        if (!existing || useChatStore.getState().deletedChatIds?.includes(conf.chat_id)) {
+          console.warn('[Handshake] Confirmation received but chat not found or deleted, consuming:', conf.chat_id);
+          await supabaseService.markHandshakeConsumed(conf.id).catch(() => {});
+          continue;
+        }
 
           if (existing.sharedSecret && !existing.ratchetState) {
             const initiatorPrivateKey = existing.sharedSecret;
@@ -1773,8 +1779,7 @@ export const MainLayout = () => {
             await supabaseService.markHandshakeConsumed(conf.id);
           }
         }
-      }
-    } catch (err) {
+      } catch (err) {
       console.error('[MainLayout] Failed to load pending handshakes:', err);
     }
   }, [nickname, myCode, addIncomingFriendRequest, updateChat]);
@@ -1856,6 +1861,7 @@ export const MainLayout = () => {
         const ratchetStateUpdates = new Map<string, any>();
         const receiptUpdates = new Map<string, { targetIds: Set<string>; targetTime?: number; readAt: number }>();
         const deleteActions: Array<{ chatId: string; messageId: string }> = [];
+        const profileCache = new Map<string, any>();
 
         for (const record of batch) {
           if (processedMessageIds.current.has(record.id)) {
@@ -1898,7 +1904,11 @@ export const MainLayout = () => {
             }
 
             try {
-              const pub = await supabaseService.lookupPublicProfile(record.sender_id);
+              let pub = profileCache.get(record.sender_id);
+              if (pub === undefined) {
+                pub = await supabaseService.lookupPublicProfile(record.sender_id);
+                profileCache.set(record.sender_id, pub || null);
+              }
               if (pub) {
                 if (pub.nickname) senderNick = pub.nickname;
                 if (pub.avatar_url) senderAvatar = pub.avatar_url;
@@ -2093,13 +2103,23 @@ export const MainLayout = () => {
         }
       };
 
-      for (const key of keysToCheck) {
-        const records = await supabaseService.getPendingMessages(key);
-        if (records.length === 0) continue;
+      const allRecordsArrays = await Promise.all(
+        keysToCheck.map((key) => supabaseService.getPendingMessages(key).catch(() => []))
+      );
+      const recordsMap = new Map<string, OfflineMessageRecord>();
+      for (const recArr of allRecordsArrays) {
+        for (const record of recArr) {
+          if (!recordsMap.has(record.id)) {
+            recordsMap.set(record.id, record);
+          }
+        }
+      }
+      const records = Array.from(recordsMap.values());
 
+      if (records.length > 0) {
         const activeId = useChatStore.getState().activeChatId;
         const visibleChats = useChatStore.getState().chats.slice(0, 10);
-        const priorityChatIds = new Set([activeId, ...visibleChats.map(c => c.id)].filter(Boolean) as string[]);
+        const priorityChatIds = new Set([activeId, ...visibleChats.map((c) => c.id)].filter(Boolean) as string[]);
 
         const priorityBatch: OfflineMessageRecord[] = [];
         const remainingBatch: OfflineMessageRecord[] = [];
@@ -2118,11 +2138,21 @@ export const MainLayout = () => {
         }
       }
 
-      for (const key of keysToCheck) {
-        try {
-          const nonRecords = await supabaseService.getPendingNonMessages(key);
-          const nonDeliveredIds: string[] = [];
-          const nonBatchMessages: Array<{ chatId: string; message: any }> = [];
+      try {
+        const allNonRecordsArrays = await Promise.all(
+          keysToCheck.map((key) => supabaseService.getPendingNonMessages(key).catch(() => []))
+        );
+        const nonRecordsMap = new Map<string, OfflineMessageRecord>();
+        for (const recArr of allNonRecordsArrays) {
+          for (const record of recArr) {
+            if (!nonRecordsMap.has(record.id)) {
+              nonRecordsMap.set(record.id, record);
+            }
+          }
+        }
+        const nonRecords = Array.from(nonRecordsMap.values());
+        const nonDeliveredIds: string[] = [];
+        const nonBatchMessages: Array<{ chatId: string; message: any }> = [];
 
           for (const record of nonRecords) {
             if (processedMessageIds.current.has(record.id)) continue;
@@ -2320,9 +2350,8 @@ export const MainLayout = () => {
               nonDeliveredIds.map((id) => supabaseService.markNonMessageDelivered(id))
             ).catch(() => {});
           }
-        } catch (err) {
-          console.warn('[MainLayout] Failed to load non_messages for', key, err);
-        }
+      } catch (err) {
+        console.warn('[MainLayout] Failed to load non_messages:', err);
       }
     } catch (err) {
       console.error('[MainLayout] Failed to load pending messages:', err);
@@ -2616,7 +2645,7 @@ export const MainLayout = () => {
     const syncAll = async (force = false) => {
       if (isDestroyed || isSyncingRef.current) return;
       const now = Date.now();
-      const minInterval = force ? 15000 : 60000;
+      const minInterval = force ? 2000 : 60000;
       if (now - lastSyncTimeRef.current < minInterval) return;
       lastSyncTimeRef.current = now;
       isSyncingRef.current = true;
@@ -2672,9 +2701,8 @@ export const MainLayout = () => {
       }
     };
 
-    recoverProfilesRef.current().finally(() => {
-      syncAll(true);
-    });
+    recoverProfilesRef.current().catch(() => {});
+    syncAll(true);
 
     const handleOnline = () => {
       setIsNetworkOnline(true);
