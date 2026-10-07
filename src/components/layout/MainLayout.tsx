@@ -4655,23 +4655,10 @@ export const MainLayout = () => {
     }
     const unsubscribe = ablyService.subscribeToDeliveryUpdates(
       chatId,
-      (messageId, _userId, status, timestamp) => {
+      (messageId, _userId, status) => {
         const chat = useChatStore.getState().chats.find(c => c.id === chatId);
         if (!chat) return;
-        const messages = useChatStore.getState().messagesByChatId[chatId] || [];
-        const updatedMessages = messages.map((msg) => {
-          if (msg.id === messageId) {
-            if ((msg.status === 'read' || msg.read) && status === 'delivered') return msg;
-            return { ...msg, status, deliveredAt: timestamp };
-          }
-          return msg;
-        });
-        useChatStore.setState((state) => ({
-          messagesByChatId: {
-            ...state.messagesByChatId,
-            [chatId]: updatedMessages,
-          }
-        }));
+        useChatStore.getState().updateMessageStatus(chatId, messageId, status);
       }
     );
     deliveryUnsubscribes.current.set(chatId, unsubscribe);
